@@ -1,0 +1,2 @@
+"use client";
+export default function Login(){ return <div className="min-h-screen flex items-center justify-center"><div className="bg-white rounded-2xl p-8 shadow-lg max-w-md w-full"><h1 className="text-2xl font-extrabold text-brand mb-6 text-center">Sign In</h1><p className="text-gray-500 text-center text-sm">TODO: Wire next-auth signIn()</p></div></div>; }

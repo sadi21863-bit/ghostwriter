@@ -1,0 +1,2 @@
+export const metadata = { title:"GhostWriter AI", description:"AI-powered writing studio" };
+export default function RootLayout({children}){ return <html lang="en"><body className="bg-surface-bg text-gray-900 antialiased">{children}</body></html>; }
