@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
+import { buildContext } from "@/lib/ai/context-builder";
 
 const FORMATS = ["Novel", "Screenplay", "Web Series"];
 const GENRES = ["Fantasy","Sci-Fi","Horror","Thriller","Romance","Drama","Comedy","Mystery","Literary Fiction","Action","Historical","Dystopian","Noir","Satire"];
@@ -90,11 +91,20 @@ export default function GhostWriterApp({ projectId }) {
     return res.json();
   };
 
+  const buildFullContext = (p = project) => {
+    const base = buildContext(p);
+    const summaries = p.chapters
+      .filter(c => c.summary && c.id !== p.activeChapter)
+      .map(c => "[" + c.title + "]: " + c.summary)
+      .join("\n");
+    return summaries ? base + "\n\nPREVIOUS CHAPTERS:\n" + summaries : base;
+  };
+
   const generate = async () => {
     if (!prompt.trim()) return;
     setGenerating(true); setGenTarget("main"); setStreamText("");
     try {
-      const r = await callAI("generate", { mode, prompt, context: "", format: project.format, projectId: project.id, chapterId: activeChap.id });
+      const r = await callAI("generate", { mode, prompt, context: buildFullContext(), format: project.format, projectId: project.id, chapterId: activeChap.id });
       if (mode === "write") { setUndoStack(s=>[...s.slice(-9),activeChap.content]); updateChapter("content", activeChap.content+(activeChap.content?"\n\n":"")+r.text); }
       else setStreamText(r.text);
     } catch(e) { setStreamText("Error: "+e.message); }
@@ -135,6 +145,93 @@ export default function GhostWriterApp({ projectId }) {
   const openPlotEdit=(i)=>{setEditPlotIdx(i);setNewPlot({...DEFAULT_PLOT,...project.plotThreads[i]});setPlotGenPrompt("");setShowPlotModal(true);};
   const openPlotNew=()=>{setEditPlotIdx(null);setNewPlot({...DEFAULT_PLOT});setPlotGenPrompt("");setShowPlotModal(true);};
   const savePlot=()=>{if(!newPlot.name)return; updateProject(p=>editPlotIdx!==null?{...p,plotThreads:p.plotThreads.map((t,i)=>i===editPlotIdx?newPlot:t)}:{...p,plotThreads:[...p.plotThreads,newPlot]}); setShowPlotModal(false);};
+
+  const generateWorldBible = async () => {
+    if (!bibleGenPrompt.trim() || generating) return;
+    setGenerating(true); setGenTarget("bible");
+    try {
+      const r = await callAI("generate", { mode: "brainstorm", prompt: bibleGenPrompt, context: buildFullContext(), format: project.format, projectId: project.id, chapterId: null });
+      setStreamText(r.text); setMode("brainstorm");
+    } catch(e) {}
+    setGenerating(false); setGenTarget("");
+  };
+
+  const generateChar = async () => {
+    if (!charGenPrompt.trim() || generating) return;
+    setGenerating(true); setGenTarget("char");
+    try {
+      const r = await callAI("entity", { type: "character", prompt: charGenPrompt, projectContext: buildContext(project) });
+      setNewChar(c => ({ ...c, ...r }));
+    } catch(e) {}
+    setGenerating(false); setGenTarget("");
+  };
+  const improveChar = async () => {
+    if (!newChar.name || generating) return;
+    setGenerating(true); setGenTarget("char");
+    try {
+      const r = await callAI("entity", { type: "character", prompt: "", projectContext: buildContext(project), existing: newChar });
+      setNewChar(c => ({ ...c, ...r }));
+    } catch(e) {}
+    setGenerating(false); setGenTarget("");
+  };
+
+  const generateLoc = async () => {
+    if (!locGenPrompt.trim() || generating) return;
+    setGenerating(true); setGenTarget("loc");
+    try {
+      const r = await callAI("entity", { type: "location", prompt: locGenPrompt, projectContext: buildContext(project) });
+      setNewLoc(l => ({ ...l, ...r }));
+    } catch(e) {}
+    setGenerating(false); setGenTarget("");
+  };
+  const improveLoc = async () => {
+    if (!newLoc.name || generating) return;
+    setGenerating(true); setGenTarget("loc");
+    try {
+      const r = await callAI("entity", { type: "location", prompt: "", projectContext: buildContext(project), existing: newLoc });
+      setNewLoc(l => ({ ...l, ...r }));
+    } catch(e) {}
+    setGenerating(false); setGenTarget("");
+  };
+
+  const generatePlot = async () => {
+    if (!plotGenPrompt.trim() || generating) return;
+    setGenerating(true); setGenTarget("plot");
+    try {
+      const r = await callAI("entity", { type: "plotThread", prompt: plotGenPrompt, projectContext: buildContext(project) });
+      setNewPlot(t => ({ ...t, ...r }));
+    } catch(e) {}
+    setGenerating(false); setGenTarget("");
+  };
+  const improvePlot = async () => {
+    if (!newPlot.name || generating) return;
+    setGenerating(true); setGenTarget("plot");
+    try {
+      const r = await callAI("entity", { type: "plotThread", prompt: "", projectContext: buildContext(project), existing: newPlot });
+      setNewPlot(t => ({ ...t, ...r }));
+    } catch(e) {}
+    setGenerating(false); setGenTarget("");
+  };
+
+  const analyzeRefWork = async () => {
+    if (!newRef.title.trim() || generating) return;
+    setGenerating(true); setGenTarget("ref");
+    try {
+      const r = await callAI("analyze-work", { title: newRef.title });
+      setNewRef(ref => ({ ...ref, attributes: r }));
+    } catch(e) {}
+    setGenerating(false); setGenTarget("");
+  };
+
+  const suggestRefWorks = async () => {
+    if (generating) return;
+    setGenerating(true); setGenTarget("ref-suggest");
+    try {
+      const r = await callAI("generate", { mode: "brainstorm", prompt: "Suggest 3-5 published reference works that would make great style models for this project. For each, give a brief note on what stylistic elements to borrow.", context: buildContext(project), format: project.format, projectId: project.id, chapterId: null });
+      setStreamText(r.text); setMode("brainstorm"); setLeftTab("notes");
+    } catch(e) {}
+    setGenerating(false); setGenTarget("");
+  };
 
   const co={bg:"#f8f7f4",surface:"#ffffff",surfaceAlt:"#f0efe9",border:"#e2e0d8",text:"#1a1a1a",muted:"#777",accent:"#5b4ccc",accentBg:"#5b4ccc12",danger:"#d94545",green:"#2d9e5e",orange:"#c9860a"};
   const sInput={background:co.surfaceAlt,border:"1px solid "+co.border,borderRadius:8,color:co.text,padding:"8px 10px",fontSize:13,width:"100%",outline:"none",boxSizing:"border-box"};
@@ -180,7 +277,7 @@ export default function GhostWriterApp({ projectId }) {
               </div>
               <div style={{background:co.accentBg,borderRadius:10,padding:12,marginBottom:12}}>
                 <div style={{fontSize:10,fontWeight:700,color:co.accent,marginBottom:6}}>AI WORLD BUILDER</div>
-                <div style={{display:"flex",gap:6}}><input style={sInput} placeholder="A heist in a floating city..." value={bibleGenPrompt} onChange={e=>setBibleGenPrompt(e.target.value)} /><button style={{...sBtn,opacity:generating?0.5:1}} disabled={generating}>Build</button></div>
+                <div style={{display:"flex",gap:6}}><input style={sInput} placeholder="A heist in a floating city..." value={bibleGenPrompt} onChange={e=>setBibleGenPrompt(e.target.value)} onKeyDown={e=>e.key==="Enter"&&generateWorldBible()} /><button style={{...sBtn,opacity:generating?0.5:1}} disabled={generating} onClick={generateWorldBible}>{genTarget==="bible"?"...":"Build"}</button></div>
               </div>
               {[["Characters",project.characters,openCharNew,openCharEdit,"characters"],["Locations",project.locations,openLocNew,openLocEdit,"locations"],["Plot Threads",project.plotThreads,openPlotNew,openPlotEdit,"plotThreads"]].map(([title,items,onNew,onEdit,key])=>(
                 <div key={key} style={{marginBottom:12}}>
@@ -199,7 +296,7 @@ export default function GhostWriterApp({ projectId }) {
                 </div>
               ))}
             </> : <>
-              <button style={{...sBtn,width:"100%",marginBottom:12,opacity:generating?0.5:1}} disabled={generating}>Suggest Reference Works</button>
+              <button style={{...sBtn,width:"100%",marginBottom:12,opacity:generating?0.5:1}} disabled={generating} onClick={suggestRefWorks}>{genTarget==="ref-suggest"?"...":"Suggest Reference Works"}</button>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
                 <span style={{fontSize:10,fontWeight:700,color:co.accent,textTransform:"uppercase"}}>Reference Works</span>
                 <button style={sBtnSm} onClick={()=>{setNewRef({title:"",attributes:{}});setShowRefModal(true);}}>+ Add</button>
@@ -283,20 +380,20 @@ export default function GhostWriterApp({ projectId }) {
 
       {/* MODALS - Entity modals for char/loc/plot */}
       {[
-        [showCharModal,setShowCharModal,editCharIdx!==null?"Edit Character":"Create Character",CharFields,newChar,setNewChar,charGenPrompt,setCharGenPrompt,saveChar,"char"],
-        [showLocModal,setShowLocModal,editLocIdx!==null?"Edit Location":"Add Location",LocFields,newLoc,setNewLoc,locGenPrompt,setLocGenPrompt,saveLoc,"loc"],
-        [showPlotModal,setShowPlotModal,editPlotIdx!==null?"Edit Plot Thread":"Add Plot Thread",PlotFields,newPlot,setNewPlot,plotGenPrompt,setPlotGenPrompt,savePlot,"plot"],
-      ].map(([show,setShow,title,fields,data,setData,gp,setGp,onSave,tKey],mi)=> show && (
+        [showCharModal,setShowCharModal,editCharIdx!==null?"Edit Character":"Create Character",CharFields,newChar,setNewChar,charGenPrompt,setCharGenPrompt,saveChar,"char",generateChar,improveChar],
+        [showLocModal,setShowLocModal,editLocIdx!==null?"Edit Location":"Add Location",LocFields,newLoc,setNewLoc,locGenPrompt,setLocGenPrompt,saveLoc,"loc",generateLoc,improveLoc],
+        [showPlotModal,setShowPlotModal,editPlotIdx!==null?"Edit Plot Thread":"Add Plot Thread",PlotFields,newPlot,setNewPlot,plotGenPrompt,setPlotGenPrompt,savePlot,"plot",generatePlot,improvePlot],
+      ].map(([show,setShow,title,fields,data,setData,gp,setGp,onSave,tKey,genFn,improveFn],mi)=> show && (
         <div key={mi} style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.3)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:999}} onClick={()=>setShow(false)}>
           <div style={{background:co.surface,borderRadius:16,padding:24,width:540,maxHeight:"85vh",overflow:"auto",boxShadow:"0 20px 60px rgba(0,0,0,0.15)",border:"1px solid "+co.border}} onClick={e=>e.stopPropagation()}>
             <h3 style={{margin:"0 0 16px",fontSize:18,fontWeight:800}}>{title}</h3>
             <div style={{background:co.accentBg,borderRadius:10,padding:12,marginBottom:12}}>
               <div style={{fontSize:11,fontWeight:700,color:co.accent,marginBottom:6}}>AI GENERATE</div>
               <div style={{display:"flex",gap:6}}>
-                <input style={sInput} placeholder="Describe..." value={gp} onChange={e=>setGp(e.target.value)} />
-                <button style={{...sBtn,opacity:generating?0.5:1}} disabled={generating}>{genTarget===tKey?"...":"New"}</button>
+                <input style={sInput} placeholder="Describe..." value={gp} onChange={e=>setGp(e.target.value)} onKeyDown={e=>e.key==="Enter"&&genFn()} />
+                <button style={{...sBtn,opacity:generating?0.5:1}} disabled={generating} onClick={genFn}>{genTarget===tKey?"...":"New"}</button>
               </div>
-              {data.name&&<button style={{padding:"5px 12px",border:"none",borderRadius:8,cursor:"pointer",fontSize:11,fontWeight:700,background:"#f0e6ff",color:"#7c3aed",width:"100%",marginTop:8,opacity:generating?0.5:1}} disabled={generating}>{genTarget===tKey?"Improving...":"AI Improve"}</button>}
+              {data.name&&<button style={{padding:"5px 12px",border:"none",borderRadius:8,cursor:"pointer",fontSize:11,fontWeight:700,background:"#f0e6ff",color:"#7c3aed",width:"100%",marginTop:8,opacity:generating?0.5:1}} disabled={generating} onClick={improveFn}>{genTarget===tKey?"Improving...":"AI Improve"}</button>}
             </div>
             {fields.map(([key,label,type])=><div key={key} style={{marginBottom:8}}><span style={{fontSize:11,color:co.muted,marginBottom:2,display:"block",fontWeight:600}}>{label}</span>{type==="input"?<input style={sInput} value={data[key]||""} onChange={e=>setData(d=>({...d,[key]:e.target.value}))} />:<textarea style={sTextarea} rows={2} value={data[key]||""} onChange={e=>setData(d=>({...d,[key]:e.target.value}))} />}</div>)}
             {tKey==="plot"&&<div style={{marginBottom:8}}><span style={{fontSize:11,color:co.muted,marginBottom:2,display:"block",fontWeight:600}}>Status</span><select style={sInput} value={newPlot.status} onChange={e=>setNewPlot(t=>({...t,status:e.target.value}))}><option>Active</option><option>Simmering</option><option>Resolved</option></select></div>}
@@ -315,7 +412,7 @@ export default function GhostWriterApp({ projectId }) {
             <h3 style={{margin:"0 0 16px",fontSize:18,fontWeight:800}}>Add Reference Work</h3>
             <div style={{display:"flex",gap:8,marginBottom:16}}>
               <input style={{...sInput,flex:1}} placeholder='"The Shining"' value={newRef.title} onChange={e=>setNewRef(r=>({...r,title:e.target.value}))} />
-              <button style={{...sBtn,opacity:generating?0.5:1}} disabled={generating}>{genTarget==="ref"?"...":"Analyze"}</button>
+              <button style={{...sBtn,opacity:generating?0.5:1}} disabled={generating} onClick={analyzeRefWork}>{genTarget==="ref"?"...":"Analyze"}</button>
             </div>
             {Object.keys(newRef.attributes).length>0&&STYLE_ATTRS.map(a=><div key={a} style={{marginBottom:8}}><span style={{fontSize:11,color:co.muted,marginBottom:2,display:"block",fontWeight:600}}>{a}</span><input style={sInput} value={newRef.attributes[a]||""} onChange={e=>setNewRef(r=>({...r,attributes:{...r.attributes,[a]:e.target.value}}))} /></div>)}
             <div style={{display:"flex",gap:8,justifyContent:"flex-end",marginTop:12}}>
