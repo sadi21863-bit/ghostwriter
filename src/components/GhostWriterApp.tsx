@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { buildContext } from "@/lib/ai/context-builder";
 
 const FORMATS = ["Novel", "Screenplay", "Web Series"];
@@ -50,6 +50,8 @@ export default function GhostWriterApp({ projectId }) {
   const [plotGenPrompt, setPlotGenPrompt] = useState("");
   const [bibleGenPrompt, setBibleGenPrompt] = useState("");
 
+  const chapterSaveTimer = useRef(null);
+
   // Load project from API
   useEffect(() => {
     fetch("/api/projects/" + projectId).then(r => r.json()).then(data => {
@@ -62,18 +64,31 @@ export default function GhostWriterApp({ projectId }) {
   const activeChap = project.chapters?.find(c => c.id === project.activeChapter) || project.chapters?.[0] || { id:"", title:"Chapter 1", content:"", summary:"" };
 
   const updateProject = (fn) => setProject(p => typeof fn === "function" ? fn(p) : fn);
-  const updateChapter = (f, v) => updateProject(p => ({...p, chapters: p.chapters.map(c => c.id === p.activeChapter ? {...c,[f]:v} : c)}));
+  const updateChapter = (f, v) => {
+    updateProject(p => ({...p, chapters: p.chapters.map(c => c.id === p.activeChapter ? {...c, [f]: v} : c)}));
+    const chapId = project.activeChapter;
+    const projId = project.id;
+    clearTimeout(chapterSaveTimer.current);
+    chapterSaveTimer.current = setTimeout(() => {
+      fetch(`/api/projects/${projId}/chapters/${chapId}`, { method: "PATCH", headers: {"Content-Type":"application/json"}, body: JSON.stringify({ [f]: v }) }).catch(() => {});
+    }, 1500);
+  };
 
-  const addChapter = () => {
-    const id = "temp-" + Date.now();
+  const addChapter = async () => {
     const label = project.format === "Screenplay" ? "Scene" : project.format === "Web Series" ? "Episode" : "Chapter";
-    updateProject(p => ({...p, chapters:[...p.chapters,{id,title:label+" "+(p.chapters.length+1),content:"",summary:"",sortOrder:p.chapters.length}], activeChapter:id}));
-    // TODO: POST to /api/projects/[id]/chapters
+    const title = label + " " + (project.chapters.length + 1);
+    const res = await fetch(`/api/projects/${project.id}/chapters`, { method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify({ title, sortOrder: project.chapters.length }) });
+    const newChap = await res.json();
+    updateProject(p => ({...p, chapters: [...p.chapters, newChap], activeChapter: newChap.id}));
   };
 
   const deleteChapter = (id) => {
     if (project.chapters.length <= 1) return;
-    setConfirmModal({ msg:"Delete this chapter?", action:()=>{ updateProject(p=>{const f=p.chapters.filter(c=>c.id!==id); return {...p,chapters:f,activeChapter:f[0].id};}); setConfirmModal(null); }});
+    setConfirmModal({ msg: "Delete this chapter?", action: async () => {
+      await fetch(`/api/projects/${project.id}/chapters/${id}`, { method: "DELETE" });
+      updateProject(p => { const f = p.chapters.filter(c => c.id !== id); return {...p, chapters: f, activeChapter: f[0].id}; });
+      setConfirmModal(null);
+    }});
   };
 
   const moveChapter = (i, dir) => {
@@ -138,13 +153,52 @@ export default function GhostWriterApp({ projectId }) {
 
   const openCharEdit=(i)=>{setEditCharIdx(i);setNewChar({...DEFAULT_CHAR,...project.characters[i]});setCharGenPrompt("");setShowCharModal(true);};
   const openCharNew=()=>{setEditCharIdx(null);setNewChar({...DEFAULT_CHAR});setCharGenPrompt("");setShowCharModal(true);};
-  const saveChar=()=>{if(!newChar.name)return; updateProject(p=>editCharIdx!==null?{...p,characters:p.characters.map((c,i)=>i===editCharIdx?newChar:c)}:{...p,characters:[...p.characters,newChar]}); setShowCharModal(false);};
+  const saveChar = async () => {
+    if (!newChar.name) return;
+    if (editCharIdx !== null) {
+      const id = project.characters[editCharIdx].id;
+      const res = await fetch(`/api/projects/${project.id}/characters/${id}`, { method: "PATCH", headers: {"Content-Type":"application/json"}, body: JSON.stringify(newChar) });
+      const updated = await res.json();
+      updateProject(p => ({...p, characters: p.characters.map((c, i) => i === editCharIdx ? updated : c)}));
+    } else {
+      const res = await fetch(`/api/projects/${project.id}/characters`, { method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify(newChar) });
+      const created = await res.json();
+      updateProject(p => ({...p, characters: [...p.characters, created]}));
+    }
+    setShowCharModal(false);
+  };
   const openLocEdit=(i)=>{setEditLocIdx(i);setNewLoc({...DEFAULT_LOC,...project.locations[i]});setLocGenPrompt("");setShowLocModal(true);};
   const openLocNew=()=>{setEditLocIdx(null);setNewLoc({...DEFAULT_LOC});setLocGenPrompt("");setShowLocModal(true);};
-  const saveLoc=()=>{if(!newLoc.name)return; updateProject(p=>editLocIdx!==null?{...p,locations:p.locations.map((l,i)=>i===editLocIdx?newLoc:l)}:{...p,locations:[...p.locations,newLoc]}); setShowLocModal(false);};
+  const saveLoc = async () => {
+    if (!newLoc.name) return;
+    if (editLocIdx !== null) {
+      const id = project.locations[editLocIdx].id;
+      const res = await fetch(`/api/projects/${project.id}/locations/${id}`, { method: "PATCH", headers: {"Content-Type":"application/json"}, body: JSON.stringify(newLoc) });
+      const updated = await res.json();
+      updateProject(p => ({...p, locations: p.locations.map((l, i) => i === editLocIdx ? updated : l)}));
+    } else {
+      const res = await fetch(`/api/projects/${project.id}/locations`, { method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify(newLoc) });
+      const created = await res.json();
+      updateProject(p => ({...p, locations: [...p.locations, created]}));
+    }
+    setShowLocModal(false);
+  };
   const openPlotEdit=(i)=>{setEditPlotIdx(i);setNewPlot({...DEFAULT_PLOT,...project.plotThreads[i]});setPlotGenPrompt("");setShowPlotModal(true);};
   const openPlotNew=()=>{setEditPlotIdx(null);setNewPlot({...DEFAULT_PLOT});setPlotGenPrompt("");setShowPlotModal(true);};
-  const savePlot=()=>{if(!newPlot.name)return; updateProject(p=>editPlotIdx!==null?{...p,plotThreads:p.plotThreads.map((t,i)=>i===editPlotIdx?newPlot:t)}:{...p,plotThreads:[...p.plotThreads,newPlot]}); setShowPlotModal(false);};
+  const savePlot = async () => {
+    if (!newPlot.name) return;
+    if (editPlotIdx !== null) {
+      const id = project.plotThreads[editPlotIdx].id;
+      const res = await fetch(`/api/projects/${project.id}/plot-threads/${id}`, { method: "PATCH", headers: {"Content-Type":"application/json"}, body: JSON.stringify(newPlot) });
+      const updated = await res.json();
+      updateProject(p => ({...p, plotThreads: p.plotThreads.map((t, i) => i === editPlotIdx ? updated : t)}));
+    } else {
+      const res = await fetch(`/api/projects/${project.id}/plot-threads`, { method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify(newPlot) });
+      const created = await res.json();
+      updateProject(p => ({...p, plotThreads: [...p.plotThreads, created]}));
+    }
+    setShowPlotModal(false);
+  };
 
   const generateWorldBible = async () => {
     if (!bibleGenPrompt.trim() || generating) return;
@@ -233,6 +287,7 @@ export default function GhostWriterApp({ projectId }) {
     setGenerating(false); setGenTarget("");
   };
 
+  const entityApiPath = { characters: "characters", locations: "locations", plotThreads: "plot-threads" };
   const co={bg:"#f8f7f4",surface:"#ffffff",surfaceAlt:"#f0efe9",border:"#e2e0d8",text:"#1a1a1a",muted:"#777",accent:"#5b4ccc",accentBg:"#5b4ccc12",danger:"#d94545",green:"#2d9e5e",orange:"#c9860a"};
   const sInput={background:co.surfaceAlt,border:"1px solid "+co.border,borderRadius:8,color:co.text,padding:"8px 10px",fontSize:13,width:"100%",outline:"none",boxSizing:"border-box"};
   const sTextarea={...sInput,resize:"vertical",fontFamily:"inherit"};
@@ -290,7 +345,7 @@ export default function GhostWriterApp({ projectId }) {
                       {item.status && <span style={{width:7,height:7,borderRadius:"50%",background:item.status==="Active"?co.green:item.status==="Resolved"?co.muted:co.orange,flexShrink:0}} />}
                       <span style={{flex:1}}><strong>{item.name}</strong>{item.role && <span style={{color:co.muted,fontSize:11}}> · {item.role}</span>}</span>
                       <span style={{fontSize:10,color:co.accent}}>edit</span>
-                      <button style={{background:"none",border:"none",color:co.danger,cursor:"pointer",fontSize:13,padding:0}} onClick={e=>{e.stopPropagation();setConfirmModal({msg:"Delete "+item.name+"?",action:()=>{updateProject(p=>({...p,[key]:p[key].filter((_,j)=>j!==i)}));setConfirmModal(null);}});}}>x</button>
+                      <button style={{background:"none",border:"none",color:co.danger,cursor:"pointer",fontSize:13,padding:0}} onClick={e=>{e.stopPropagation();setConfirmModal({msg:"Delete "+item.name+"?",action:async()=>{await fetch(`/api/projects/${project.id}/${entityApiPath[key]}/${item.id}`,{method:"DELETE"});updateProject(p=>({...p,[key]:p[key].filter((_,j)=>j!==i)}));setConfirmModal(null);}});}}>x</button>
                     </div>
                   ))}
                 </div>
@@ -303,7 +358,7 @@ export default function GhostWriterApp({ projectId }) {
               </div>
               {project.referenceWorks.map((r,i)=>(
                 <div key={i} style={{background:co.surfaceAlt,borderRadius:10,padding:12,marginBottom:8,border:"1px solid "+co.border}}>
-                  <div style={{display:"flex",justifyContent:"space-between",marginBottom:6}}><strong style={{fontSize:13}}>"{r.title}"</strong><button style={{...sBtnSm,background:"#fdeaea",color:co.danger}} onClick={()=>updateProject(p=>({...p,referenceWorks:p.referenceWorks.filter((_,j)=>j!==i)}))}>Remove</button></div>
+                  <div style={{display:"flex",justifyContent:"space-between",marginBottom:6}}><strong style={{fontSize:13}}>"{r.title}"</strong><button style={{...sBtnSm,background:"#fdeaea",color:co.danger}} onClick={async()=>{await fetch(`/api/projects/${project.id}/reference-works/${r.id}`,{method:"DELETE"});updateProject(p=>({...p,referenceWorks:p.referenceWorks.filter((_,j)=>j!==i)}));}}>Remove</button></div>
                   {Object.entries(r.attributes||{}).map(([k,v])=><div key={k} style={{fontSize:11,color:co.muted}}><span style={{color:co.accent,fontWeight:600}}>{k}:</span> {v}</div>)}
                 </div>
               ))}
@@ -417,7 +472,7 @@ export default function GhostWriterApp({ projectId }) {
             {Object.keys(newRef.attributes).length>0&&STYLE_ATTRS.map(a=><div key={a} style={{marginBottom:8}}><span style={{fontSize:11,color:co.muted,marginBottom:2,display:"block",fontWeight:600}}>{a}</span><input style={sInput} value={newRef.attributes[a]||""} onChange={e=>setNewRef(r=>({...r,attributes:{...r.attributes,[a]:e.target.value}}))} /></div>)}
             <div style={{display:"flex",gap:8,justifyContent:"flex-end",marginTop:12}}>
               <button style={sBtnSm} onClick={()=>setShowRefModal(false)}>Cancel</button>
-              <button style={sBtn} disabled={!newRef.title||!Object.keys(newRef.attributes).length} onClick={()=>{updateProject(p=>({...p,referenceWorks:[...p.referenceWorks,newRef]}));setShowRefModal(false);}}>Add</button>
+              <button style={sBtn} disabled={!newRef.title||!Object.keys(newRef.attributes).length} onClick={async()=>{const res=await fetch(`/api/projects/${project.id}/reference-works`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(newRef)});const created=await res.json();updateProject(p=>({...p,referenceWorks:[...p.referenceWorks,created]}));setShowRefModal(false);}}>Add</button>
             </div>
           </div>
         </div>
