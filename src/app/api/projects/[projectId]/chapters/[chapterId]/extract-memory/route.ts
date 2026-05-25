@@ -29,7 +29,7 @@ export async function POST(_: Request, { params }: { params: { projectId: string
   if (!chapter?.content?.trim()) return NextResponse.json({ memories: [] });
 
   const msg = await client.messages.create({
-    model: "claude-haiku-4-5",
+    model: "claude-haiku-4-5-20251001",
     max_tokens: 800,
     system: `Extract established facts from this chapter. Return ONLY a JSON array:
 [{ "fact": string, "category": "character_decision|world_rule|relationship|event|general" }]

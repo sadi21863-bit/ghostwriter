@@ -15,6 +15,7 @@ export function useProjectState(projectId: string) {
   const [dialogueCharB, setDialogueCharB] = useState("");
 
   const chapterSaveTimer = useRef<any>(null);
+  const summarizeTimer = useRef<any>(null);
   const bibleSaveTimer = useRef<any>(null);
 
   useEffect(() => {
@@ -54,25 +55,30 @@ export function useProjectState(projectId: string) {
       fetch(`/api/projects/${projId}/chapters/${chapId}`, {
         method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ [f]: v }),
       }).then(() => {
-        if (f === "content" && v && v.trim().split(/\s+/).length > 200) {
-          fetch(`/api/ai/summarize`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ content: v }) })
-            .then(r => r.json())
-            .then(data => {
-              if (data.summary) {
-                fetch(`/api/projects/${projId}/chapters/${chapId}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ summary: data.summary }) });
-                updateProject((p: any) => ({ ...p, chapters: p.chapters.map((c: any) => c.id === chapId ? { ...c, summary: data.summary } : c) }));
+        if (f === "content" && v && v.trim().split(/\s+/).length > 300) {
+          fetch(`/api/projects/${projId}/chapters/${chapId}/extract-memory`, { method: "POST" })
+            .then(r => r.json()).then(data => {
+              if (data.memories?.length) {
+                setStoryMemories(prev => [
+                  ...prev.filter((m: any) => !(m.chapterId === chapId && m.autoExtracted)),
+                  ...data.memories,
+                ]);
               }
             }).catch(() => {});
         }
-        fetch(`/api/projects/${projId}/chapters/${chapId}/extract-memory`, { method: "POST" })
-          .then(r => r.json()).then(data => {
-            if (data.memories?.length) {
-              setStoryMemories(prev => [
-                ...prev.filter((m: any) => !(m.chapterId === chapId && m.autoExtracted)),
-                ...data.memories,
-              ]);
-            }
-          }).catch(() => {});
+        clearTimeout(summarizeTimer.current);
+        if (f === "content" && v && v.trim().split(/\s+/).length > 500) {
+          summarizeTimer.current = setTimeout(() => {
+            fetch(`/api/ai/summarize`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ content: v }) })
+              .then(r => r.json())
+              .then(data => {
+                if (data.summary) {
+                  fetch(`/api/projects/${projId}/chapters/${chapId}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ summary: data.summary }) });
+                  updateProject((p: any) => ({ ...p, chapters: p.chapters.map((c: any) => c.id === chapId ? { ...c, summary: data.summary } : c) }));
+                }
+              }).catch(() => {});
+          }, 8000);
+        }
       }).catch(() => { setErrorMsg("Auto-save failed. Your changes may not be saved."); });
     }, 1500);
   };
@@ -109,8 +115,14 @@ export function useProjectState(projectId: string) {
       txt += `# ${project.name}\n${project.format} | ${project.genres.join(", ")}\n\n`;
       project.chapters.forEach((c: any) => { txt += `## ${c.title}\n\n${c.content || "(empty)"}\n\n`; });
     }
-    navigator.clipboard.writeText(txt);
-    setSavedMsg("Copied"); setTimeout(() => setSavedMsg(""), 1500);
+    const blob = new Blob([txt], { type: "text/plain;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${project.name.replace(/[^a-z0-9]/gi, "_")}.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
+    setSavedMsg("Downloaded"); setTimeout(() => setSavedMsg(""), 1500);
   };
 
   const addChapter = async () => {

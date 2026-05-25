@@ -63,7 +63,7 @@ export async function POST(req: Request, { params }: { params: { projectId: stri
   const pageNumber = existingPages.length + 1;
 
   // Call Claude to break scene into panel specs
-  const breakdownPrompt = buildBreakdownPrompt(chapter.content, project.characters);
+  const { prompt: breakdownPrompt, wasTruncated } = buildBreakdownPrompt(chapter.content, project.characters);
   const msg = await client.messages.create({
     model: "claude-haiku-4-5-20251001",
     max_tokens: 1200,
@@ -137,5 +137,6 @@ export async function POST(req: Request, { params }: { params: { projectId: stri
   return NextResponse.json({
     page: { ...page, panels: panels.sort((a, b) => a.panelIndex - b.panelIndex) },
     errors: failedCount > 0 ? `${failedCount} panel(s) failed to generate.` : null,
+    truncationWarning: wasTruncated ? "Scene was long — panels cover the opening section only. Break the scene into shorter parts for full coverage." : null,
   });
 }

@@ -17,9 +17,13 @@ export type PanelSpec = {
   mood: string;
 };
 
-export function buildBreakdownPrompt(sceneContent: string, characters: any[]): string {
+export function buildBreakdownPrompt(sceneContent: string, characters: any[]): { prompt: string; wasTruncated: boolean } {
+  const MAX_CHARS = 3000;
+  const wasTruncated = sceneContent.length > MAX_CHARS;
+  const content = sceneContent.substring(0, MAX_CHARS);
   const charList = characters.map((c: any) => c.name).join(", ");
-  return `Break this story scene into exactly 6 comic panel visual descriptions.
+  return {
+    prompt: `Break this story scene into exactly 6 comic panel visual descriptions.
 
 Characters in this story: ${charList || "none specified"}
 
@@ -30,7 +34,9 @@ Rules:
 [{"beatIndex":0,"action":"...","characters":["Name"],"location":"...","shotType":"...","mood":"..."}]
 
 Scene:
-${sceneContent.substring(0, 3000)}`;
+${content}`,
+    wasTruncated,
+  };
 }
 
 export function buildPanelPrompt(

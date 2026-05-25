@@ -4,6 +4,10 @@ const CATEGORY_WEIGHTS: Record<string, number> = {
   world_rule: 2,
   event: 2,
   general: 1,
+  previous_position: 3,
+  recurring_segment: 2,
+  running_joke: 2,
+  established_reference: 2,
 };
 
 function scoredMemories(memories: any[], chapters: any[], activeChapterId: string): any[] {
@@ -26,6 +30,13 @@ export function buildContext(p) {
       r.push('- "' + w.title + '"');
       Object.entries(w.attributes || {}).filter(([, v]) => v).forEach(([k, v]) => r.push("  " + k + ": " + v));
     });
+    const attrs = p.referenceWorks.flatMap((w: any) =>
+      Object.entries(w.attributes || {}).filter(([, v]) => v).map(([k, v]) => `${k}: ${v}`)
+    );
+    if (attrs.length > 0) {
+      r.push("\nSTYLE DIRECTIVE — FOLLOW THESE IN EVERY SENTENCE:");
+      attrs.forEach((a: string) => r.push("• " + a));
+    }
   }
 
   if (p.characters?.length) {
@@ -120,6 +131,13 @@ export function buildCreatorContext(p: any): string {
       Object.entries(w.attributes || {}).filter(([, v]) => v)
         .forEach(([k, v]) => r.push(`  ${k}: ${v}`));
     });
+    const attrs = p.referenceWorks.flatMap((w: any) =>
+      Object.entries(w.attributes || {}).filter(([, v]) => v).map(([k, v]) => `${k}: ${v}`)
+    );
+    if (attrs.length > 0) {
+      r.push("\nSTYLE DIRECTIVE — FOLLOW THESE IN EVERY SENTENCE:");
+      attrs.forEach((a: string) => r.push("• " + a));
+    }
   }
 
   if (p.storyMemories?.length) {
@@ -141,6 +159,7 @@ export function buildBeginnerContext(p) {
       const parts = [c.name + (c.role ? " (" + c.role + ")" : "")];
       if (c.appearance) parts.push(c.appearance);
       if (c.personality) parts.push(c.personality);
+      if (c.arc) parts.push("Arc: " + c.arc);
       r.push("- " + parts.join(" · "));
     });
   }
@@ -157,6 +176,11 @@ export function buildBeginnerContext(p) {
     p.plotThreads.slice(0, 2).forEach(t => {
       r.push("- " + t.name + (t.description ? ": " + t.description : ""));
     });
+  }
+
+  if (p.storyMemories?.length) {
+    r.push("\nESTABLISHED FACTS (do not contradict):");
+    p.storyMemories.slice(0, 8).forEach((m: any) => r.push("- " + m.fact));
   }
 
   return r.join("\n");

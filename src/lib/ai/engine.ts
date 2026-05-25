@@ -6,7 +6,32 @@ function safeParseJson(raw: string) {
   try { return JSON.parse(clean); } catch { return {}; }
 }
 export type GenerationMode = "brainstorm" | "outline" | "write";
-const MI = { brainstorm: () => "Creative brainstorming. Wild specific ideas.", outline: (f) => "Story architect. Detailed " + f + " outlines.", write: (f) => "Ghostwriter. " + f + " format. Continuity." };
+
+const MI = {
+  brainstorm: (_f: string) => `You are a creative brainstorming partner for writers. Generate specific, surprising, and vivid ideas. Avoid clichés. Every idea must be concrete and actionable — not "a mysterious stranger" but "a tax auditor who moonlights as a forger." Push beyond the obvious. Match the genre, tone, and style established in the project context — brainstorm ideas that fit this specific world, not generic ones.`,
+  outline: (f: string) => `You are a structural editor for ${f} writing. Create tight, purposeful outlines where every scene advances character, plot, or both. Identify turning points explicitly. Show the cause-and-effect chain between events. Label each beat with its structural function (inciting incident, midpoint shift, dark night, climax). Match the established tone and genre from the project context. Be specific — no vague placeholders.`,
+  write: (f: string) => `You are a ghostwriter producing ${f} content. Match the established voice and style exactly. Every scene must open with orientation (who, where, when) within the first two sentences. Show character emotion through physical action and specific detail — never name emotions directly. Maintain continuity with all established facts. End scenes on tension, decision, or revelation — never neutral ground.`,
+};
+
+const STORY_FORMAT_RULES: Record<string, string> = {
+  "Novel": `NOVEL FORMAT RULES:
+- Prose paragraphs, no screenplay formatting
+- Vary sentence length deliberately — long for reflection, short for action
+- Use consistent POV throughout each chapter
+- Scene transitions must orient the reader: new time or new place
+- Dialogue reveals character through what is NOT said as much as what is`,
+  "Screenplay": `SCREENPLAY FORMAT RULES:
+- INT./EXT. LOCATION — TIME for every new scene heading
+- Action lines: present tense, visual only — no inner thoughts
+- Character name centered ALL CAPS before each speech
+- Parentheticals sparingly — only when delivery radically changes meaning
+- Target 1 minute per page`,
+  "Web Series": `WEB SERIES FORMAT RULES:
+- Each episode needs a cold open hook in the first 90 seconds
+- Act structure: 3 acts minimum, cliffhanger at each act break
+- Episode-level problem that resolves + season-level arc that advances
+- Dialogue punchy — streaming audiences have less patience than film`,
+};
 
 const FORMAT_RULES: Record<string, string> = {
   "YouTube Long-form": `FORMAT: YouTube Long-form
@@ -40,10 +65,23 @@ Structure: Cold open → Intro → Main content (3-5 segments) → Recap → CTA
 Short sentences. Write for ears, not eyes.
 Mark [AD BREAK] for sponsor placement
 Mark [HOST NOTE: improvise here] for riff sections`,
+
+  "Podcast Episode (Co-host)": `FORMAT: Podcast Co-host Simulation
+OUTPUT FORMAT — CRITICAL:
+- [CO-HOST]: one-sentence question or challenge
+- [HOST TALKING POINTS]: 3-5 bullet points (NOT scripted prose — the host speaks naturally from these)
+Co-host voice options:
+  curious_generalist — asks "why" and "how", represents the audience
+  skeptical_expert — challenges assumptions, asks for evidence
+  enthusiastic_newcomer — expresses surprise, asks for clarification`,
 };
 
 export async function generate({ mode, prompt, context, format, maxTokens = 4000 }) {
-  const formatRules = FORMAT_RULES[format] ? "\n\n" + FORMAT_RULES[format] : "";
+  const formatRules = FORMAT_RULES[format]
+    ? "\n\n" + FORMAT_RULES[format]
+    : STORY_FORMAT_RULES[format]
+    ? "\n\n" + STORY_FORMAT_RULES[format]
+    : "";
   const system = MI[mode](format) + formatRules + "\n---\n" + context;
   const msg = await client.messages.create({ model: "claude-sonnet-4-20250514", max_tokens: maxTokens, system, messages: [{ role: "user", content: prompt }] });
   const text = msg.content.filter(b => b.type === "text").map(b => (b as any).text).join("");

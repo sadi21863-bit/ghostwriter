@@ -44,14 +44,35 @@ export default function ChapterEditor({ project, updateProject, updateChapter, a
             const isActive = ch.id === project.activeChapter;
             return (
               <div key={ch.id}>
-                <div style={{ padding: "7px 10px", borderRadius: isActive ? "8px 8px 0 0" : 8, cursor: "pointer", fontSize: 12, background: isActive ? co.accentBg : "transparent", color: isActive ? co.accent : co.muted, display: "flex", justifyContent: "space-between", alignItems: "center", fontWeight: isActive ? 600 : 400 }} onClick={() => updateProject((p: any) => ({ ...p, activeChapter: ch.id }))}>
-                  <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1 }}>{ch.title}</span>
-                  <div style={{ display: "flex", gap: 2, alignItems: "center", flexShrink: 0 }}>
-                    {ch.summary && <span style={{ width: 7, height: 7, borderRadius: "50%", background: co.green }} />}
-                    <button style={{ background: "none", border: "none", color: i === 0 ? co.border : co.muted, cursor: i === 0 ? "default" : "pointer", fontSize: 9, padding: 0 }} disabled={i === 0} onClick={e => { e.stopPropagation(); moveChapter(i, -1); }}>▲</button>
-                    <button style={{ background: "none", border: "none", color: i === project.chapters.length - 1 ? co.border : co.muted, cursor: i === project.chapters.length - 1 ? "default" : "pointer", fontSize: 9, padding: 0 }} disabled={i === project.chapters.length - 1} onClick={e => { e.stopPropagation(); moveChapter(i, 1); }}>▼</button>
-                    {project.chapters.length > 1 && <button style={{ background: "none", border: "none", color: co.danger + "66", cursor: "pointer", fontSize: 11 }} onClick={e => { e.stopPropagation(); deleteChapter(ch.id); }}>x</button>}
+                <div style={{ padding: "7px 10px", borderRadius: isActive ? "8px 8px 0 0" : 8, cursor: "pointer", fontSize: 12, background: isActive ? co.accentBg : "transparent", color: isActive ? co.accent : co.muted, fontWeight: isActive ? 600 : 400 }} onClick={() => updateProject((p: any) => ({ ...p, activeChapter: ch.id }))}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1 }}>{ch.title}</span>
+                    <div style={{ display: "flex", gap: 2, alignItems: "center", flexShrink: 0 }}>
+                      {ch.summary && <span style={{ width: 7, height: 7, borderRadius: "50%", background: co.green }} />}
+                      <button style={{ background: "none", border: "none", color: i === 0 ? co.border : co.muted, cursor: i === 0 ? "default" : "pointer", fontSize: 9, padding: 0 }} disabled={i === 0} onClick={e => { e.stopPropagation(); moveChapter(i, -1); }}>▲</button>
+                      <button style={{ background: "none", border: "none", color: i === project.chapters.length - 1 ? co.border : co.muted, cursor: i === project.chapters.length - 1 ? "default" : "pointer", fontSize: 9, padding: 0 }} disabled={i === project.chapters.length - 1} onClick={e => { e.stopPropagation(); moveChapter(i, 1); }}>▼</button>
+                      {project.chapters.length > 1 && <button style={{ background: "none", border: "none", color: co.danger + "66", cursor: "pointer", fontSize: 11 }} onClick={e => { e.stopPropagation(); deleteChapter(ch.id); }}>x</button>}
+                    </div>
                   </div>
+                  {(ch.wordCount > 0 || (ch.chapterType && ch.chapterType !== "chapter") || ch.tags?.length > 0) && (
+                    <div style={{ display: "flex", gap: 4, alignItems: "center", marginTop: 2, flexWrap: "wrap" }}>
+                      {ch.wordCount > 0 && (
+                        <span style={{ fontSize: 9, color: co.muted, background: co.surfaceAlt, padding: "1px 5px", borderRadius: 3 }}>
+                          {ch.wordCount.toLocaleString()}w
+                        </span>
+                      )}
+                      {ch.chapterType && ch.chapterType !== "chapter" && (
+                        <span style={{ fontSize: 9, color: co.accent, background: co.accentBg, padding: "1px 5px", borderRadius: 3 }}>
+                          {ch.chapterType}
+                        </span>
+                      )}
+                      {ch.tags?.slice(0, 2).map((tag: string) => (
+                        <span key={tag} style={{ fontSize: 9, color: co.muted, border: "1px solid " + co.border, padding: "1px 5px", borderRadius: 3 }}>
+                          {tag}
+                        </span>
+                      ))}
+                    </div>
+                  )}
                 </div>
                 {isActive && (
                   <div style={{ background: co.accentBg, borderRadius: "0 0 8px 8px", padding: "4px 10px 8px", marginBottom: 4 }} onClick={e => e.stopPropagation()}>

@@ -54,6 +54,7 @@ export default function ComicStudio({ project, higgsfieldKey, onOpenStudio }: { 
       });
       const data = await res.json();
       if (data.error) { setGenError(data.error); return; }
+      if (data.truncationWarning) setGenError(data.truncationWarning);
       setGenerationMsg("Saving artwork...");
       const newPages = [data.page, ...pages];
       setPages(newPages);

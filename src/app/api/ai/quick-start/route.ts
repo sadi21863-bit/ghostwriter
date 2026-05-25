@@ -3,6 +3,7 @@ import { getRequiredSession } from "@/lib/auth-helpers";
 import { generateQuickStory, generateBeginnerCharacters, generateEntity } from "@/lib/ai/engine";
 import { db } from "@/db";
 import { projects, characters, locations, plotThreads } from "@/db/schema";
+import { eq } from "drizzle-orm";
 
 export async function POST(req: NextRequest) {
     await getRequiredSession();
@@ -69,7 +70,7 @@ export async function POST(req: NextRequest) {
         if (skeleton.outline) {
             await db.update(projects)
                 .set({ notes: "AUTO-GENERATED OUTLINE:\n\n" + skeleton.outline })
-                .where({ id: projectId });
+                .where(eq(projects.id, projectId));
         }
 
         return NextResponse.json({

@@ -12,6 +12,7 @@ export const getChapterLabel = (format: string): string =>
 
 export const GENRES = ["Fantasy", "Sci-Fi", "Horror", "Thriller", "Romance", "Drama", "Comedy", "Mystery", "Literary Fiction", "Action", "Historical", "Dystopian", "Noir", "Satire"];
 export const MODES = ["brainstorm", "outline", "write", "dialogue"];
+export const PODCAST_MODES = ["brainstorm", "outline", "write", "cohost"];
 export const STYLE_ATTRS = ["Pacing", "Tone", "POV Style", "Dialogue Style", "Sentence Structure", "Atmosphere"];
 
 export const DEFAULT_CHAR = { name: "", role: "", age: "", appearance: "", personality: "", thinkingStyle: "", behavior: "", habits: "", fears: "", desires: "", speechPattern: "", backstory: "", arc: "" };

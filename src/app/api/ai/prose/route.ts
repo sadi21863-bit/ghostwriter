@@ -18,6 +18,9 @@ const PROSE_PROMPTS: Record<string, (ctx: string) => string> = {
 
   "show-dont-tell": (ctx) =>
     `You are a "show don't tell" specialist. Rewrite the given text to eliminate telling statements and replace them with specific sensory details, physical actions, and concrete images. If a character feels afraid, show their hands. If a location is gloomy, show the peeling paint. Never state an emotion directly. Return ONLY the rewritten text. No explanation.\nCharacter and location context:\n${ctx}`,
+
+  tighten: (ctx) =>
+    `You are a line editor specialising in concision. Cut the given text to its essential meaning. Remove redundancy, weak modifiers, and throat-clearing. Every word must earn its place. Do not change the events, tone, or voice — only eliminate what is unnecessary. Target 40-60% of the original length. Return ONLY the tightened text.\nContext:\n${ctx}`,
 };
 
 export async function POST(req: Request) {
@@ -31,19 +34,26 @@ export async function POST(req: Request) {
   if (!systemFn)
     return NextResponse.json({ error: "invalid mode" }, { status: 400 });
 
-  const msg = await client.messages.create({
-    model: "claude-sonnet-4-20250514",
-    max_tokens: 2000,
-    system: systemFn(projectContext || ""),
-    messages: [{ role: "user", content: text }],
-  });
+  try {
+    const msg = await client.messages.create({
+      model: "claude-sonnet-4-20250514",
+      max_tokens: 2000,
+      system: systemFn(projectContext || ""),
+      messages: [{ role: "user", content: text }],
+    });
 
-  const raw = msg.content.filter(b => b.type === "text").map(b => (b as any).text).join("");
+    const raw = msg.content.filter(b => b.type === "text").map(b => (b as any).text).join("");
 
-  if (mode === "rewrite") {
-    const variants = safeParseJson(raw);
-    return NextResponse.json({ variants: Array.isArray(variants) ? variants : [raw] });
+    if (mode === "rewrite") {
+      const variants = safeParseJson(raw);
+      return NextResponse.json({ variants: Array.isArray(variants) ? variants : [raw] });
+    }
+
+    return NextResponse.json({ result: raw });
+  } catch (e: any) {
+    const msg = e?.message || "";
+    if (msg.includes("rate_limit") || msg.includes("529"))
+      return NextResponse.json({ error: "Anthropic rate limit hit. Wait a moment and try again." }, { status: 429 });
+    return NextResponse.json({ error: "Prose tool failed. Please try again." }, { status: 500 });
   }
-
-  return NextResponse.json({ result: raw });
 }

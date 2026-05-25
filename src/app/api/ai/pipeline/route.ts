@@ -4,6 +4,15 @@ import Anthropic from "@anthropic-ai/sdk";
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! });
 
+const AGENT_MODELS: Record<string, string> = {
+  story_architect:   "claude-haiku-4-5-20251001",
+  scene_writer:      "claude-sonnet-4-20250514",
+  character_voice:   "claude-sonnet-4-20250514",
+  continuity_editor: "claude-sonnet-4-20250514",
+  hook_writer:       "claude-sonnet-4-20250514",
+  seo_optimizer:     "claude-haiku-4-5-20251001",
+};
+
 const AGENT_SYSTEM: Record<string, (ctx: string, fmt: string) => string> = {
   story_architect: (ctx, fmt) =>
     `You are a Story Architect. Output a numbered structural outline only — acts, beats, turning points. No prose. Format: ${fmt}.\nContext:\n${ctx}`,
@@ -31,31 +40,36 @@ export async function POST(req: Request) {
   if (!agents?.length || !prompt)
     return NextResponse.json({ error: "agents and prompt required" }, { status: 400 });
 
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 90000);
   const results: { agent: string; output: string }[] = [];
   let currentInput = prompt;
+  let accumulatedContext = context || "";
 
-  for (const agentKey of agents as string[]) {
-    const systemFn = AGENT_SYSTEM[agentKey];
-    if (!systemFn) continue;
+  try {
+    for (const agentKey of agents as string[]) {
+      const systemFn = AGENT_SYSTEM[agentKey];
+      if (!systemFn) continue;
 
-    const msg = await client.messages.create({
-      model: "claude-sonnet-4-20250514",
-      max_tokens: 2000,
-      system: systemFn(context || "", format || ""),
-      messages: [{ role: "user", content: currentInput }],
-    });
+      const msg = await client.messages.create({
+        model: AGENT_MODELS[agentKey] || "claude-sonnet-4-20250514",
+        max_tokens: 2000,
+        system: systemFn(accumulatedContext, format || ""),
+        messages: [{ role: "user", content: currentInput }],
+      });
 
-    const output = msg.content
-      .filter(b => b.type === "text")
-      .map(b => (b as any).text)
-      .join("");
-
-    results.push({ agent: agentKey, output });
-    currentInput = output;
+      const output = msg.content.filter(b => b.type === "text").map(b => (b as any).text).join("");
+      results.push({ agent: agentKey, output });
+      accumulatedContext = accumulatedContext + "\n\nPREVIOUS AGENT OUTPUT (" + agentKey + "):\n" + output;
+      currentInput = output;
+    }
+  } catch (e: any) {
+    if (controller.signal.aborted)
+      return NextResponse.json({ error: "Pipeline timed out. Try a shorter prompt or fewer agents." }, { status: 504 });
+    return NextResponse.json({ error: "Pipeline failed. Please try again." }, { status: 500 });
+  } finally {
+    clearTimeout(timeout);
   }
 
-  return NextResponse.json({
-    results,
-    finalOutput: results[results.length - 1]?.output ?? "",
-  });
+  return NextResponse.json({ results, finalOutput: results[results.length - 1]?.output ?? "" });
 }

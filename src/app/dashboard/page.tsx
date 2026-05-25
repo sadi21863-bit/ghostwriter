@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { useSession, signOut } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Onboarding from "@/components/Onboarding";
+import { FORMATS } from "@/lib/formats";
 
 type Project = {
   id: string;
@@ -12,8 +13,6 @@ type Project = {
   updatedAt: string;
   chapters: { id: string }[];
 };
-
-const FORMATS = ["Novel", "Screenplay", "Web Series"];
 
 export default function Dashboard() {
   const { data: session, status } = useSession();
@@ -33,8 +32,14 @@ export default function Dashboard() {
   const [higgsfieldKeySet, setHiggsfieldKeySet] = useState(false);
   const [higgsfieldKeyLast4, setHiggsfieldKeyLast4] = useState("");
   const [higgsfieldInput, setHiggsfieldInput] = useState("");
+  const [openaiKeySet, setOpenaiKeySet] = useState(false);
+  const [openaiKeyLast4, setOpenaiKeyLast4] = useState("");
+  const [openaiInput, setOpenaiInput] = useState("");
+  const [imageProviderId, setImageProviderId] = useState("segmind_soul");
   const [settingsSaving, setSettingsSaving] = useState(false);
   const [settingsMsg, setSettingsMsg] = useState("");
+  const [search, setSearch] = useState("");
+  const [filterFormat, setFilterFormat] = useState("All");
 
   useEffect(() => {
     if (status === "unauthenticated") router.push("/login");
@@ -53,6 +58,9 @@ export default function Dashboard() {
     fetch("/api/user/settings").then(r => r.json()).then(data => {
       setHiggsfieldKeySet(data.higgsfieldKeySet ?? false);
       setHiggsfieldKeyLast4(data.higgsfieldKeyLast4 ?? "");
+      setOpenaiKeySet(data.openaiKeySet ?? false);
+      setOpenaiKeyLast4(data.openaiKeyLast4 ?? "");
+      setImageProviderId(data.imageProviderId ?? "segmind_soul");
     }).catch(() => {});
   }, [status]);
 
@@ -89,19 +97,20 @@ export default function Dashboard() {
   };
 
   const saveSettings = async () => {
-    if (!higgsfieldInput.trim()) return;
     setSettingsSaving(true);
     setSettingsMsg("");
     try {
+      const body: Record<string, any> = { imageProviderId };
+      if (higgsfieldInput.trim()) body.higgsfieldApiKey = higgsfieldInput.trim();
+      if (openaiInput.trim()) body.openaiApiKey = openaiInput.trim();
       const res = await fetch("/api/user/settings", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ higgsfieldApiKey: higgsfieldInput.trim() }),
+        body: JSON.stringify(body),
       });
       if (res.ok) {
-        setHiggsfieldKeySet(true);
-        setHiggsfieldKeyLast4(higgsfieldInput.trim().slice(-4));
-        setHiggsfieldInput("");
+        if (higgsfieldInput.trim()) { setHiggsfieldKeySet(true); setHiggsfieldKeyLast4(higgsfieldInput.trim().slice(-4)); setHiggsfieldInput(""); }
+        if (openaiInput.trim()) { setOpenaiKeySet(true); setOpenaiKeyLast4(openaiInput.trim().slice(-4)); setOpenaiInput(""); }
         setSettingsMsg("Saved!");
         setTimeout(() => setSettingsMsg(""), 2000);
       } else {
@@ -177,7 +186,25 @@ export default function Dashboard() {
           </p>
         )}
 
-        {projects.length === 0 ? (
+        {projects.length > 0 && (
+          <div className="flex gap-3 mb-6">
+            <input type="text" placeholder="Search projects..." value={search}
+              onChange={e => setSearch(e.target.value)}
+              className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand/30" />
+            <select value={filterFormat} onChange={e => setFilterFormat(e.target.value)}
+              className="border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none">
+              <option value="All">All formats</option>
+              {FORMATS.map(f => <option key={f}>{f}</option>)}
+            </select>
+          </div>
+        )}
+
+        {(() => {
+          const filteredProjects = projects.filter(p =>
+            p.name.toLowerCase().includes(search.toLowerCase()) &&
+            (filterFormat === "All" || p.format === filterFormat)
+          );
+          return projects.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-24 text-center">
             <p className="text-gray-300 text-5xl mb-4">✦</p>
             <p className="text-gray-500 text-base font-medium mb-2">No projects yet</p>
@@ -191,7 +218,7 @@ export default function Dashboard() {
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {projects.map(p => (
+            {filteredProjects.map(p => (
               <div
                 key={p.id}
                 className="bg-white rounded-xl border border-gray-100 p-5 shadow-sm hover:shadow-md transition-shadow cursor-pointer group"
@@ -221,7 +248,8 @@ export default function Dashboard() {
               </div>
             ))}
           </div>
-        )}
+        );
+        })()}
       </main>
 
       {/* Onboarding Modal */}
@@ -361,6 +389,25 @@ export default function Dashboard() {
                 </p>
               )}
             </div>
+            <div className="mb-5">
+              <div className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-3 pb-2 border-b border-gray-100">
+                Image Generation
+              </div>
+              <label className="block text-xs font-bold text-gray-400 uppercase tracking-wide mb-1">Provider</label>
+              <select value={imageProviderId} onChange={e => setImageProviderId(e.target.value)} className={inputCls}>
+                <option value="segmind_soul">Higgsfield Soul 2.0 — Recommended (best for character-consistent comic panels)</option>
+                <option value="openai_gpt_image">GPT Image 2 — OpenAI (superior general image quality, uses OpenAI key)</option>
+              </select>
+              {imageProviderId === "openai_gpt_image" && (
+                <div className="mt-3">
+                  <label className="block text-xs font-bold text-gray-400 uppercase tracking-wide mb-1">OpenAI API Key</label>
+                  {openaiKeySet && <p className="text-xs text-green-600 font-semibold mb-2">Connected — last 4: {openaiKeyLast4}</p>}
+                  <input type="password" value={openaiInput} onChange={e => setOpenaiInput(e.target.value)}
+                    placeholder={openaiKeySet ? "Enter new key to update" : "sk-..."} className={inputCls} />
+                  <p className="text-xs text-gray-400 mt-1">Your credits pay for GPT Image 2 generation directly.</p>
+                </div>
+              )}
+            </div>
             {settingsMsg && (
               <p className="text-sm text-green-600 font-semibold mb-3">{settingsMsg}</p>
             )}
@@ -373,7 +420,7 @@ export default function Dashboard() {
               </button>
               <button
                 onClick={saveSettings}
-                disabled={settingsSaving || !higgsfieldInput.trim()}
+                disabled={settingsSaving}
                 className="flex-1 bg-brand text-white font-bold py-2 rounded-lg text-sm hover:bg-brand-light disabled:opacity-50"
               >
                 {settingsSaving ? "Saving…" : "Save"}

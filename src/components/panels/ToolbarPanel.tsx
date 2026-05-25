@@ -1,8 +1,9 @@
 "use client";
+import { useState } from "react";
 import ComicStudio from "@/components/ComicStudio";
 import ProductionStudio from "@/components/ProductionStudio";
 import { getPipelines, AGENT_LABELS, type Pipeline } from "@/lib/ai/pipelines";
-import { MODES, isStoryFormat } from "@/lib/formats";
+import { MODES, PODCAST_MODES, isStoryFormat, isCreatorFormat } from "@/lib/formats";
 import { co, sInput, sTextarea, sBtn, sBtnSm } from "@/lib/styles";
 
 interface Props {
@@ -56,9 +57,11 @@ interface Props {
   setDialogueCharA: (id: string) => void;
   dialogueCharB: string;
   setDialogueCharB: (id: string) => void;
+  cohostVoice: string;
+  setCohostVoice: (v: string) => void;
 }
 
-const modeLabel = (m: string) => ({ brainstorm: "Brainstorm", outline: "Outline", write: "Write", dialogue: "Dialogue" }[m] ?? m);
+const modeLabel = (m: string) => ({ brainstorm: "Brainstorm", outline: "Outline", write: "Write", dialogue: "Dialogue", cohost: "Co-host" }[m] ?? m);
 
 export default function ToolbarPanel(props: Props) {
   const {
@@ -71,11 +74,112 @@ export default function ToolbarPanel(props: Props) {
     selectedText, setSelectedText, setSelectedRange, proseLoading, proseResult, setProseResult, runProse, replaceSelection,
     hookScore, hookScoring, scoreHook, generate, generateDialogue, updateProject, handleTextareaSelect, setSavedMsg,
     dialogueCharA, setDialogueCharA, dialogueCharB, setDialogueCharB,
+    cohostVoice, setCohostVoice,
   } = props;
+
+  const [retentionEdit, setRetentionEdit] = useState<any>(null);
+  const [retentionLoading, setRetentionLoading] = useState(false);
+  const [titleIdeas, setTitleIdeas] = useState<any>(null);
+  const [titleLoading, setTitleLoading] = useState(false);
+  const [repurposeResult, setRepurposeResult] = useState<any>(null);
+  const [repurposeLoading, setRepurposeLoading] = useState(false);
+  const [repurposeTarget, setRepurposeTarget] = useState("YouTube Short");
+
+  const REPURPOSE_TARGETS: Record<string, string[]> = {
+    "YouTube Long-form": ["YouTube Short", "TikTok Script", "Instagram Reel", "Twitter/X Thread"],
+    "Podcast Episode": ["YouTube Short", "TikTok Script", "Instagram Reel", "Twitter/X Thread"],
+    "YouTube Short": ["TikTok Script", "Instagram Reel", "Twitter/X Thread"],
+    "TikTok Script": ["YouTube Short", "Instagram Reel", "Twitter/X Thread"],
+    "Instagram Reel": ["YouTube Short", "TikTok Script", "Twitter/X Thread"],
+  };
+
+  // D6 — Research scaffold
+  const [researchScaffold, setResearchScaffold] = useState<any>(null);
+  const [researchLoading, setResearchLoading] = useState(false);
+  const runResearchScaffold = async () => {
+    if (!prompt.trim() || researchLoading) return;
+    setResearchLoading(true); setResearchScaffold(null);
+    try {
+      const res = await fetch("/api/ai/research-scaffold", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ topic: activeChap.title || prompt, angle: prompt }) });
+      const data = await res.json();
+      if (data.scaffold) setResearchScaffold(data.scaffold);
+      else if (data.error) setResearchScaffold({ error: data.error });
+    } catch { /* silent */ }
+    setResearchLoading(false);
+  };
+
+  // D7 — Guest intel
+  const [guestIntel, setGuestIntel] = useState<any>(null);
+  const [guestLoading, setGuestLoading] = useState(false);
+  const runGuestIntel = async () => {
+    if (!prompt.trim() || guestLoading) return;
+    setGuestLoading(true); setGuestIntel(null);
+    try {
+      const res = await fetch("/api/ai/guest-intel", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ guestName: prompt, topic: activeChap.title }) });
+      const data = await res.json();
+      if (data.intel) setGuestIntel(data.intel);
+      else if (data.error) setGuestIntel({ error: data.error });
+    } catch { /* silent */ }
+    setGuestLoading(false);
+  };
+
+  // D9 — Trend angles
+  const [trendAngles, setTrendAngles] = useState<any>(null);
+  const [trendLoading, setTrendLoading] = useState(false);
+  const runTrendAngles = async () => {
+    if (!prompt.trim() || trendLoading) return;
+    setTrendLoading(true); setTrendAngles(null);
+    try {
+      const res = await fetch("/api/ai/trend-angles", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ topic: prompt, format: project.format }) });
+      const data = await res.json();
+      if (data.trends) setTrendAngles(data.trends);
+      else if (data.error) setTrendAngles({ error: data.error });
+    } catch { /* silent */ }
+    setTrendLoading(false);
+  };
+
+  const runRepurpose = async (target: string) => {
+    const script = activeChap.content;
+    if (!script?.trim() || repurposeLoading) return;
+    setRepurposeLoading(true); setRepurposeResult(null);
+    try {
+      const res = await fetch("/api/ai/repurpose", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ content: script, sourceFormat: project.format, targetFormat: target }) });
+      const data = await res.json();
+      if (data.repurposed) setRepurposeResult(data);
+    } catch { /* silent */ }
+    setRepurposeLoading(false);
+  };
+
+  const runTitleHook = async () => {
+    if (!prompt.trim() || titleLoading) return;
+    setTitleLoading(true); setTitleIdeas(null);
+    try {
+      const res = await fetch("/api/ai/title-hook", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ hook: prompt, format: project.format, topic: activeChap.title }) });
+      const data = await res.json();
+      if (data.titles) setTitleIdeas(data.titles);
+    } catch { /* silent */ }
+    setTitleLoading(false);
+  };
+
+  const runRetentionEdit = async () => {
+    const script = activeChap.content;
+    if (!script?.trim() || retentionLoading) return;
+    setRetentionLoading(true); setRetentionEdit(null);
+    try {
+      const res = await fetch("/api/ai/retention-edit", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ script, format: project.format }) });
+      const data = await res.json();
+      if (data.edit) setRetentionEdit(data.edit);
+    } catch { /* silent */ }
+    setRetentionLoading(false);
+  };
 
   const wordCount = (activeChap.content || "").trim().split(/\s+/).filter(Boolean).length;
   const totalWords = project.chapters.reduce((a: number, c: any) => a + (c.content || "").trim().split(/\s+/).filter(Boolean).length, 0);
-  const visibleModes = isStoryFormat(project.format) ? MODES : MODES.filter(m => m !== "dialogue");
+  const visibleModes = project.format === "Podcast Episode"
+    ? PODCAST_MODES
+    : isStoryFormat(project.format)
+    ? MODES
+    : MODES.filter(m => m !== "dialogue");
 
   return (
     <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0, position: "relative" }}>
@@ -94,11 +198,45 @@ export default function ToolbarPanel(props: Props) {
         <div style={{ flex: 1 }} />
         {mode === "write" && <span style={{ fontSize: 11, color: co.muted, background: co.surfaceAlt, padding: "4px 10px", borderRadius: 6 }}>{wordCount} words | {totalWords} total</span>}
         {mode === "write" && undoStack.length > 0 && <button style={{ ...sBtnSm, background: "#fff3e0", color: "#e65100" }} onClick={undoGeneration}>Undo AI</button>}
+        {mode === "write" && isCreatorFormat(project.format) && activeChap.content?.trim() && (
+          <>
+            <button style={{ ...sBtnSm, background: "#fef3c7", color: "#d97706", fontWeight: 600, opacity: retentionLoading ? 0.5 : 1 }} disabled={retentionLoading} onClick={runRetentionEdit}>
+              {retentionLoading ? "Analyzing..." : "📊 Retention Edit"}
+            </button>
+            {REPURPOSE_TARGETS[project.format]?.length > 0 && (
+              <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                <select style={{ ...sBtnSm, border: "1px solid " + co.border, background: co.surfaceAlt, color: co.text, padding: "4px 6px", fontSize: 11, cursor: "pointer" } as any} value={repurposeTarget} onChange={e => setRepurposeTarget(e.target.value)}>
+                  {(REPURPOSE_TARGETS[project.format] || []).map(t => <option key={t}>{t}</option>)}
+                </select>
+                <button style={{ ...sBtnSm, background: "#ede9fe", color: "#7c3aed", fontWeight: 600, opacity: repurposeLoading ? 0.5 : 1 }} disabled={repurposeLoading} onClick={() => runRepurpose(repurposeTarget)}>
+                  {repurposeLoading ? "..." : "♻️ Repurpose"}
+                </button>
+              </div>
+            )}
+          </>
+        )}
+        {project.format === "YouTube Long-form" && (mode === "brainstorm" || mode === "outline") && prompt.trim() && (
+          <button style={{ ...sBtnSm, background: "#f0fdf4", color: "#15803d", fontWeight: 600, opacity: researchLoading ? 0.5 : 1 }} disabled={researchLoading} onClick={runResearchScaffold}>{researchLoading ? "Researching..." : "🔬 Research"}</button>
+        )}
+        {project.format === "Podcast Episode" && (mode === "brainstorm" || mode === "cohost") && prompt.trim() && (
+          <button style={{ ...sBtnSm, background: "#fdf4ff", color: "#7e22ce", fontWeight: 600, opacity: guestLoading ? 0.5 : 1 }} disabled={guestLoading} onClick={runGuestIntel}>{guestLoading ? "Researching..." : "🎙 Guest Intel"}</button>
+        )}
+        {["TikTok Script", "YouTube Short", "Instagram Reel"].includes(project.format) && prompt.trim() && (
+          <button style={{ ...sBtnSm, background: "#fef9c3", color: "#854d0e", fontWeight: 600, opacity: trendLoading ? 0.5 : 1 }} disabled={trendLoading} onClick={runTrendAngles}>{trendLoading ? "Searching..." : "📈 Trends"}</button>
+        )}
         {(mode === "brainstorm" || mode === "outline") && streamText && (
-          <button style={{ ...sBtnSm, background: co.accentBg, color: co.accent, fontWeight: 600 }} onClick={() => {
-            updateProject((p: any) => ({ ...p, notes: p.notes + (p.notes ? "\n\n---\n\n" : "") + "[" + mode.toUpperCase() + "]\n" + streamText }));
-            setSavedMsg("Saved to notes"); setTimeout(() => setSavedMsg(""), 1500);
-          }}>Save to Notes</button>
+          <>
+            <button style={{ ...sBtnSm, background: co.accentBg, color: co.accent, fontWeight: 600 }} onClick={() => {
+              updateProject((p: any) => ({ ...p, notes: p.notes + (p.notes ? "\n\n---\n\n" : "") + "[" + mode.toUpperCase() + "]\n" + streamText }));
+              setSavedMsg("Saved to notes"); setTimeout(() => setSavedMsg(""), 1500);
+            }}>Save to Notes</button>
+            <button style={{ ...sBtnSm, background: "#f0e6ff", color: "#7c3aed", fontWeight: 600 }} onClick={() => {
+              const firstIdea = streamText.split("\n").find((l: string) => l.trim().length > 20) || streamText.substring(0, 150);
+              setPrompt(firstIdea.replace(/^[-*•]\s*/, "").trim());
+              setMode("write");
+              setStreamText("");
+            }}>✍️ Write This</button>
+          </>
         )}
       </div>
 
@@ -260,6 +398,7 @@ export default function ToolbarPanel(props: Props) {
                   <button style={{ ...sBtnSm, background: co.accentBg, color: co.accent, fontWeight: 700 }} onClick={() => runProse("expand")}>✨ Expand</button>
                   <button style={{ ...sBtnSm, background: co.accentBg, color: co.accent, fontWeight: 700 }} onClick={() => runProse("rewrite")}>🔄 Rewrite</button>
                   <button style={{ ...sBtnSm, background: co.accentBg, color: co.accent, fontWeight: 700 }} onClick={() => runProse("show-dont-tell")}>👁 Show Don't Tell</button>
+                  <button style={{ ...sBtnSm, background: co.accentBg, color: co.accent, fontWeight: 700 }} onClick={() => runProse("tighten")}>✂️ Tighten</button>
                   <button style={{ background: "none", border: "none", color: co.muted, cursor: "pointer", fontSize: 14, padding: "0 4px" }} onClick={() => { setSelectedText(""); setSelectedRange(null); }}>×</button>
                 </>}
             </div>
@@ -273,17 +412,53 @@ export default function ToolbarPanel(props: Props) {
               {activeChap.summary && <div style={{ margin: "6px 24px", padding: "8px 12px", background: co.accentBg, borderRadius: 8, fontSize: 12, color: co.muted, borderLeft: "3px solid " + co.accent }}><strong style={{ color: co.accent }}>Continuity:</strong> {activeChap.summary}</div>}
               <textarea style={{ flex: 1, background: co.bg, padding: 24, overflow: "auto", fontSize: 15, lineHeight: 1.8, color: co.text, whiteSpace: "pre-wrap", outline: "none", fontFamily: "Georgia,serif", border: "none", resize: "none", boxSizing: "border-box" }} value={activeChap.content} onChange={e => updateChapter("content", e.target.value)} onSelect={handleTextareaSelect} onMouseUp={handleTextareaSelect} placeholder="Start writing..." />
             </div>
+          ) : mode === "cohost" ? (
+            <div style={{ flex: 1, overflow: "auto", padding: 24 }}>
+              {streamText ? (
+                <div>
+                  {streamText.split("\n").map((line: string, i: number) => (
+                    <div key={i} style={{ marginBottom: line.startsWith("[CO-HOST]") || line.startsWith("[HOST TALKING POINTS]") ? 8 : 2, fontWeight: line.startsWith("[CO-HOST]") || line.startsWith("[HOST TALKING POINTS]") ? 700 : 400, color: line.startsWith("[CO-HOST]") ? co.accent : co.text, fontSize: 14, lineHeight: 1.7, fontFamily: "system-ui" }}>{line}</div>
+                  ))}
+                </div>
+              ) : (
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%", flexDirection: "column", gap: 8, color: co.muted }}>
+                  <div style={{ fontSize: 15 }}>Co-host Simulator</div>
+                  <div style={{ fontSize: 12 }}>Output shows [CO-HOST] questions + [HOST TALKING POINTS] bullets — your recording guide.</div>
+                </div>
+              )}
+            </div>
           ) : (
             <div style={{ flex: 1, overflow: "auto", padding: 24 }}>
               {streamText ? <div style={{ whiteSpace: "pre-wrap", fontSize: 15, lineHeight: 1.8, fontFamily: "Georgia,serif" }}>{streamText}</div> : <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%", color: co.muted, fontSize: 15 }}>{mode === "brainstorm" ? "Ask a what-if or describe what you need" : "Describe what to outline"}</div>}
             </div>
           )}
 
+          {/* Co-host insert bar */}
+          {mode === "cohost" && streamText && !generating && (
+            <div style={{ padding: "8px 16px", borderTop: "1px solid " + co.border, display: "flex", gap: 8, justifyContent: "flex-end", background: co.surfaceAlt, flexShrink: 0 }}>
+              <button style={sBtnSm} onClick={() => setStreamText("")}>Discard</button>
+              <button style={sBtn} onClick={() => {
+                updateChapter("content", (activeChap?.content || "") + (activeChap?.content ? "\n\n" : "") + streamText);
+                setStreamText("");
+              }}>Insert into Chapter</button>
+            </div>
+          )}
+
           {/* Prompt bar */}
           <div style={{ padding: "12px 16px", borderTop: "1px solid " + co.border, display: "flex", gap: 8, background: co.surface }}>
+            {mode === "cohost" && (
+              <select style={{ ...sInput, width: 180, flexShrink: 0 }} value={cohostVoice} onChange={e => setCohostVoice(e.target.value)}>
+                <option value="curious_generalist">Curious Generalist</option>
+                <option value="skeptical_expert">Skeptical Expert</option>
+                <option value="enthusiastic_newcomer">Enthusiastic Newcomer</option>
+              </select>
+            )}
             {expandedPrompt
               ? <textarea style={{ ...sTextarea, flex: 1, minHeight: 80 }} value={prompt} onChange={e => setPrompt(e.target.value)} placeholder="Describe in detail..." />
-              : <input style={{ ...sInput, flex: 1 }} value={prompt} onChange={e => setPrompt(e.target.value)} placeholder={mode === "brainstorm" ? "What if..." : mode === "outline" ? "Outline..." : "Write the next scene..."} onKeyDown={e => e.key === "Enter" && !generating && generate()} />}
+              : <input style={{ ...sInput, flex: 1 }} value={prompt} onChange={e => setPrompt(e.target.value)} placeholder={mode === "cohost" ? "Episode topic or segment to simulate..." : mode === "brainstorm" ? "What if..." : mode === "outline" ? "Outline..." : "Write the next scene..."} onKeyDown={e => e.key === "Enter" && !generating && generate()} />}
+            {isCreatorFormat(project.format) && prompt.trim() && mode !== "cohost" && (
+              <button style={{ ...sBtnSm, background: "#e0f2fe", color: "#0369a1", opacity: titleLoading ? 0.5 : 1 }} disabled={titleLoading} onClick={runTitleHook}>{titleLoading ? "..." : "💡 Title Ideas"}</button>
+            )}
             {["TikTok Script", "YouTube Short", "Instagram Reel"].includes(project.format) && (
               <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
                 <button style={{ ...sBtnSm, opacity: hookScoring || !prompt.trim() ? 0.5 : 1 }} disabled={hookScoring || !prompt.trim()} onClick={scoreHook}>{hookScoring ? "Scoring..." : "Score Hook"}</button>
@@ -309,7 +484,7 @@ export default function ToolbarPanel(props: Props) {
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000 }} onClick={() => setProseResult(null)}>
           <div style={{ background: co.surface, borderRadius: 16, padding: 24, width: 600, maxHeight: "80vh", overflow: "auto", boxShadow: "0 20px 60px rgba(0,0,0,0.2)", border: "1px solid " + co.border }} onClick={e => e.stopPropagation()}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-              <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800 }}>{proseResult.mode === "expand" ? "✨ Expanded" : proseResult.mode === "rewrite" ? "🔄 Rewrites" : "👁 Show Don't Tell"}</h3>
+              <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800 }}>{proseResult.mode === "expand" ? "✨ Expanded" : proseResult.mode === "rewrite" ? "🔄 Rewrites" : proseResult.mode === "tighten" ? "✂️ Tightened" : "👁 Show Don't Tell"}</h3>
               <button style={{ background: "none", border: "none", color: co.muted, cursor: "pointer", fontSize: 18 }} onClick={() => setProseResult(null)}>×</button>
             </div>
             {proseResult.mode === "rewrite" && proseResult.variants ? (
@@ -323,6 +498,7 @@ export default function ToolbarPanel(props: Props) {
                 ))}
                 <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 12 }}>
                   <button style={sBtnSm} onClick={() => setProseResult(null)}>Discard</button>
+                  <button style={{ ...sBtnSm, opacity: proseLoading ? 0.5 : 1 }} disabled={proseLoading} onClick={() => runProse("rewrite")}>{proseLoading ? "Regenerating..." : "↺ Regenerate"}</button>
                   <button style={sBtn} onClick={() => proseResult.variants && replaceSelection(proseResult.variants[proseResult.chosen ?? 0])}>Use This</button>
                 </div>
               </>
@@ -335,6 +511,174 @@ export default function ToolbarPanel(props: Props) {
                 </div>
               </>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Title Ideas Modal */}
+      {titleIdeas && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000 }} onClick={() => setTitleIdeas(null)}>
+          <div style={{ background: co.surface, borderRadius: 16, padding: 24, width: 540, maxHeight: "70vh", overflow: "auto", boxShadow: "0 20px 60px rgba(0,0,0,0.2)", border: "1px solid " + co.border }} onClick={e => e.stopPropagation()}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+              <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800 }}>💡 Title Ideas</h3>
+              <button style={{ background: "none", border: "none", color: co.muted, cursor: "pointer", fontSize: 18 }} onClick={() => setTitleIdeas(null)}>×</button>
+            </div>
+            {titleIdeas.map((t: any, i: number) => (
+              <div key={i} style={{ background: co.surfaceAlt, borderRadius: 8, padding: 12, marginBottom: 8 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 4 }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: co.text, flex: 1 }}>{t.title}</div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0, marginLeft: 8 }}>
+                    <span style={{ fontSize: 11, fontWeight: 700, color: t.ctrScore >= 8 ? "#16a34a" : t.ctrScore >= 5 ? "#d97706" : "#dc2626" }}>{t.ctrScore}/10</span>
+                    <button style={{ ...sBtnSm, fontSize: 10 }} onClick={() => { navigator.clipboard.writeText(t.title); }}>Copy</button>
+                  </div>
+                </div>
+                <div style={{ fontSize: 11, color: co.muted, lineHeight: 1.5 }}>{t.alignment}</div>
+              </div>
+            ))}
+            <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 8 }}>
+              <button style={sBtnSm} onClick={() => setTitleIdeas(null)}>Close</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Research Scaffold Modal (D6) */}
+      {researchScaffold && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000 }} onClick={() => setResearchScaffold(null)}>
+          <div style={{ background: co.surface, borderRadius: 16, padding: 24, width: 640, maxHeight: "80vh", overflow: "auto", boxShadow: "0 20px 60px rgba(0,0,0,0.2)", border: "1px solid " + co.border }} onClick={e => e.stopPropagation()}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+              <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800 }}>🔬 Research Brief</h3>
+              <button style={{ background: "none", border: "none", color: co.muted, cursor: "pointer", fontSize: 18 }} onClick={() => setResearchScaffold(null)}>×</button>
+            </div>
+            {researchScaffold.error ? <div style={{ color: co.danger, fontSize: 13 }}>{researchScaffold.error}</div> : <>
+              {researchScaffold.claims?.length > 0 && <div style={{ marginBottom: 14 }}><div style={{ fontSize: 10, fontWeight: 700, color: "#15803d", textTransform: "uppercase", marginBottom: 6 }}>Supporting Claims</div>{researchScaffold.claims.map((c: any, i: number) => <div key={i} style={{ background: "#f0fdf4", borderRadius: 6, padding: "8px 10px", marginBottom: 4, fontSize: 12 }}><div style={{ fontWeight: 600, marginBottom: 2 }}>{c.claim}</div><div style={{ color: co.muted, fontSize: 10 }}>{c.source}</div></div>)}</div>}
+              {researchScaffold.counterArguments?.length > 0 && <div style={{ marginBottom: 14 }}><div style={{ fontSize: 10, fontWeight: 700, color: co.danger, textTransform: "uppercase", marginBottom: 6 }}>Counter-Arguments to Address</div>{researchScaffold.counterArguments.map((a: string, i: number) => <div key={i} style={{ background: "#fef2f2", borderRadius: 6, padding: "6px 10px", marginBottom: 3, fontSize: 12 }}>⚡ {a}</div>)}</div>}
+              {researchScaffold.quotes?.length > 0 && <div style={{ marginBottom: 14 }}><div style={{ fontSize: 10, fontWeight: 700, color: co.accent, textTransform: "uppercase", marginBottom: 6 }}>Quotes & Expert Views</div>{researchScaffold.quotes.map((q: string, i: number) => <div key={i} style={{ background: co.accentBg, borderRadius: 6, padding: "6px 10px", marginBottom: 3, fontSize: 12, fontStyle: "italic" }}>"{q}"</div>)}</div>}
+              {researchScaffold.angles?.length > 0 && <div style={{ marginBottom: 14 }}><div style={{ fontSize: 10, fontWeight: 700, color: "#d97706", textTransform: "uppercase", marginBottom: 6 }}>Fresh Angles</div>{researchScaffold.angles.map((a: string, i: number) => <div key={i} style={{ background: "#fffbeb", borderRadius: 6, padding: "6px 10px", marginBottom: 3, fontSize: 12 }}>→ {a}</div>)}</div>}
+            </>}
+            <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 8 }}>
+              <button style={sBtnSm} onClick={() => setResearchScaffold(null)}>Close</button>
+              {!researchScaffold.error && <button style={sBtn} onClick={() => { const text = [researchScaffold.claims?.map((c: any) => `• ${c.claim} (${c.source})`).join("\n"), researchScaffold.counterArguments?.map((a: string) => `Counter: ${a}`).join("\n")].filter(Boolean).join("\n\n"); updateProject((p: any) => ({ ...p, notes: (p.notes || "") + (p.notes ? "\n---\n" : "") + "[RESEARCH]\n" + text })); setSavedMsg("Saved to Notes"); setTimeout(() => setSavedMsg(""), 1500); setResearchScaffold(null); }}>Save to Notes</button>}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Guest Intel Modal (D7) */}
+      {guestIntel && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000 }} onClick={() => setGuestIntel(null)}>
+          <div style={{ background: co.surface, borderRadius: 16, padding: 24, width: 620, maxHeight: "80vh", overflow: "auto", boxShadow: "0 20px 60px rgba(0,0,0,0.2)", border: "1px solid " + co.border }} onClick={e => e.stopPropagation()}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+              <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800 }}>🎙 Guest Intel: {prompt}</h3>
+              <button style={{ background: "none", border: "none", color: co.muted, cursor: "pointer", fontSize: 18 }} onClick={() => setGuestIntel(null)}>×</button>
+            </div>
+            {guestIntel.error ? <div style={{ color: co.danger, fontSize: 13 }}>{guestIntel.error}</div> : <>
+              {guestIntel.background && <div style={{ marginBottom: 12 }}><div style={{ fontSize: 10, fontWeight: 700, color: co.accent, textTransform: "uppercase", marginBottom: 4 }}>Background</div><div style={{ fontSize: 12, lineHeight: 1.6, color: co.text }}>{guestIntel.background}</div></div>}
+              {guestIntel.recentWork?.length > 0 && <div style={{ marginBottom: 12 }}><div style={{ fontSize: 10, fontWeight: 700, color: "#15803d", textTransform: "uppercase", marginBottom: 4 }}>Recent Work</div>{guestIntel.recentWork.map((w: string, i: number) => <div key={i} style={{ fontSize: 12, background: "#f0fdf4", borderRadius: 4, padding: "4px 8px", marginBottom: 2 }}>• {w}</div>)}</div>}
+              {guestIntel.strongOpinions?.length > 0 && <div style={{ marginBottom: 12 }}><div style={{ fontSize: 10, fontWeight: 700, color: "#d97706", textTransform: "uppercase", marginBottom: 4 }}>Strong Opinions</div>{guestIntel.strongOpinions.map((o: string, i: number) => <div key={i} style={{ fontSize: 12, background: "#fffbeb", borderRadius: 4, padding: "4px 8px", marginBottom: 2 }}>⚡ {o}</div>)}</div>}
+              {guestIntel.questions?.length > 0 && <div style={{ marginBottom: 12 }}><div style={{ fontSize: 10, fontWeight: 700, color: co.accent, textTransform: "uppercase", marginBottom: 4 }}>Questions to Ask</div>{guestIntel.questions.map((q: string, i: number) => <div key={i} style={{ background: co.accentBg, borderRadius: 6, padding: "8px 10px", marginBottom: 4, fontSize: 13, fontWeight: 500 }}>Q{i+1}: {q}</div>)}</div>}
+              {guestIntel.topicsToAvoid?.length > 0 && <div style={{ marginBottom: 12 }}><div style={{ fontSize: 10, fontWeight: 700, color: co.danger, textTransform: "uppercase", marginBottom: 4 }}>Avoid</div>{guestIntel.topicsToAvoid.map((t: string, i: number) => <div key={i} style={{ fontSize: 12, background: "#fef2f2", borderRadius: 4, padding: "4px 8px", marginBottom: 2 }}>✕ {t}</div>)}</div>}
+            </>}
+            <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 8 }}>
+              <button style={sBtnSm} onClick={() => setGuestIntel(null)}>Close</button>
+              {!guestIntel.error && <button style={sBtn} onClick={() => { const text = `Guest: ${prompt}\n\nQuestions:\n${guestIntel.questions?.map((q: string, i: number) => `${i+1}. ${q}`).join("\n") || ""}${guestIntel.topicsToAvoid?.length ? "\n\nAvoid: " + guestIntel.topicsToAvoid.join(", ") : ""}`; updateProject((p: any) => ({ ...p, notes: (p.notes || "") + (p.notes ? "\n---\n" : "") + "[GUEST INTEL]\n" + text })); setSavedMsg("Saved to Notes"); setTimeout(() => setSavedMsg(""), 1500); setGuestIntel(null); }}>Save to Notes</button>}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Trend Angles Modal (D9) */}
+      {trendAngles && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000 }} onClick={() => setTrendAngles(null)}>
+          <div style={{ background: co.surface, borderRadius: 16, padding: 24, width: 560, maxHeight: "75vh", overflow: "auto", boxShadow: "0 20px 60px rgba(0,0,0,0.2)", border: "1px solid " + co.border }} onClick={e => e.stopPropagation()}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+              <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800 }}>📈 Trend Angles</h3>
+              <button style={{ background: "none", border: "none", color: co.muted, cursor: "pointer", fontSize: 18 }} onClick={() => setTrendAngles(null)}>×</button>
+            </div>
+            {trendAngles.error ? <div style={{ color: co.danger, fontSize: 13 }}>{trendAngles.error}</div> : <>
+              {trendAngles.angles?.map((a: any, i: number) => (
+                <div key={i} style={{ background: co.surfaceAlt, borderRadius: 10, padding: 12, marginBottom: 8, border: "1px solid " + co.border }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 6 }}>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: co.text, flex: 1 }}>{a.angle}</div>
+                    <span style={{ fontSize: 11, fontWeight: 700, color: a.trendScore >= 8 ? "#16a34a" : a.trendScore >= 5 ? "#d97706" : "#dc2626", marginLeft: 8 }}>🔥 {a.trendScore}/10</span>
+                  </div>
+                  <div style={{ fontSize: 12, color: co.accent, fontStyle: "italic", marginBottom: 4 }}>Hook: "{a.hook}"</div>
+                  <div style={{ fontSize: 11, color: co.muted }}>{a.why}</div>
+                  <button style={{ ...sBtnSm, marginTop: 8, fontSize: 10 }} onClick={() => { setPrompt(a.hook); setTrendAngles(null); }}>Use Hook</button>
+                </div>
+              ))}
+            </>}
+            <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 8 }}>
+              <button style={sBtnSm} onClick={() => setTrendAngles(null)}>Close</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Repurpose Modal */}
+      {repurposeResult && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000 }} onClick={() => setRepurposeResult(null)}>
+          <div style={{ background: co.surface, borderRadius: 16, padding: 24, width: 620, maxHeight: "80vh", overflow: "auto", boxShadow: "0 20px 60px rgba(0,0,0,0.2)", border: "1px solid " + co.border }} onClick={e => e.stopPropagation()}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+              <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800 }}>♻️ Repurposed for {repurposeResult.targetFormat}</h3>
+              <button style={{ background: "none", border: "none", color: co.muted, cursor: "pointer", fontSize: 18 }} onClick={() => setRepurposeResult(null)}>×</button>
+            </div>
+            <div style={{ marginBottom: 12 }}>
+              <div style={{ fontSize: 10, fontWeight: 700, color: co.muted, textTransform: "uppercase", marginBottom: 6 }}>Best Moment Extracted</div>
+              <div style={{ padding: 12, background: co.accentBg, borderRadius: 8, fontSize: 12, color: co.muted, lineHeight: 1.6, fontStyle: "italic", borderLeft: "3px solid " + co.accent }}>{repurposeResult.bestMoment}</div>
+            </div>
+            <div style={{ marginBottom: 16 }}>
+              <div style={{ fontSize: 10, fontWeight: 700, color: co.accent, textTransform: "uppercase", marginBottom: 6 }}>Repurposed Script</div>
+              <div style={{ padding: 16, background: co.surfaceAlt, borderRadius: 10, fontSize: 14, lineHeight: 1.8, whiteSpace: "pre-wrap", border: "1px solid " + co.border }}>{repurposeResult.repurposed}</div>
+            </div>
+            <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+              <button style={sBtnSm} onClick={() => setRepurposeResult(null)}>Discard</button>
+              <button style={{ ...sBtnSm, background: co.accentBg, color: co.accent }} onClick={() => { navigator.clipboard.writeText(repurposeResult.repurposed); setSavedMsg("Copied!"); setTimeout(() => setSavedMsg(""), 1500); }}>Copy</button>
+              <button style={sBtn} onClick={() => {
+                updateProject((p: any) => ({ ...p, notes: (p.notes || "") + (p.notes ? "\n---\n" : "") + "[REPURPOSE:" + repurposeResult.targetFormat.toUpperCase() + "]\n" + repurposeResult.repurposed }));
+                setSavedMsg("Saved to Notes"); setTimeout(() => setSavedMsg(""), 1500);
+                setRepurposeResult(null);
+              }}>Save to Notes</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Retention Edit Modal */}
+      {retentionEdit && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000 }} onClick={() => setRetentionEdit(null)}>
+          <div style={{ background: co.surface, borderRadius: 16, padding: 24, width: 620, maxHeight: "80vh", overflow: "auto", boxShadow: "0 20px 60px rgba(0,0,0,0.2)", border: "1px solid " + co.border }} onClick={e => e.stopPropagation()}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+              <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800 }}>📊 Retention Edit</h3>
+              <button style={{ background: "none", border: "none", color: co.muted, cursor: "pointer", fontSize: 18 }} onClick={() => setRetentionEdit(null)}>×</button>
+            </div>
+            {retentionEdit.strongPoints?.length > 0 && (
+              <div style={{ marginBottom: 14 }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: "#16a34a", textTransform: "uppercase", marginBottom: 6 }}>What's Working</div>
+                {retentionEdit.strongPoints.map((p: string, i: number) => <div key={i} style={{ fontSize: 12, color: co.text, background: "#f0fdf4", borderRadius: 6, padding: "6px 10px", marginBottom: 4 }}>✓ {p}</div>)}
+              </div>
+            )}
+            {retentionEdit.missingElements?.length > 0 && (
+              <div style={{ marginBottom: 14 }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: "#d97706", textTransform: "uppercase", marginBottom: 6 }}>Missing Elements</div>
+                {retentionEdit.missingElements.map((p: string, i: number) => <div key={i} style={{ fontSize: 12, color: co.text, background: "#fffbeb", borderRadius: 6, padding: "6px 10px", marginBottom: 4 }}>⚠ {p}</div>)}
+              </div>
+            )}
+            {retentionEdit.issues?.length > 0 && (
+              <div style={{ marginBottom: 14 }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: co.danger, textTransform: "uppercase", marginBottom: 6 }}>Line-Level Issues</div>
+                {retentionEdit.issues.map((issue: any, i: number) => (
+                  <div key={i} style={{ background: co.surfaceAlt, borderRadius: 8, padding: 12, marginBottom: 8, borderLeft: "3px solid " + co.danger }}>
+                    <div style={{ fontSize: 11, color: co.muted, marginBottom: 4 }}>📍 "{issue.location}"</div>
+                    <div style={{ fontSize: 12, color: co.text, marginBottom: 4 }}><strong>Problem:</strong> {issue.problem}</div>
+                    <div style={{ fontSize: 12, color: co.accent }}><strong>Fix:</strong> {issue.fix}</div>
+                  </div>
+                ))}
+              </div>
+            )}
+            <div style={{ display: "flex", justifyContent: "flex-end" }}>
+              <button style={sBtnSm} onClick={() => setRetentionEdit(null)}>Close</button>
+            </div>
           </div>
         </div>
       )}

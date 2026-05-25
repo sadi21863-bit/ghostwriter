@@ -62,6 +62,8 @@ export default function WorldBiblePanel(props: Props) {
   const [pillarInput, setPillarInput] = useState("");
   const [bibleGenPrompt, setBibleGenPrompt] = useState("");
   const [showRelMap, setShowRelMap] = useState(false);
+  const [seriesPlan, setSeriesPlan] = useState<any>(null);
+  const [seriesPlanLoading, setSeriesPlanLoading] = useState(false);
   const [relMapData, setRelMapData] = useState<{ nodes: any[]; edges: any[]; isolated: any[] } | null>(null);
   const [relMapLoading, setRelMapLoading] = useState(false);
   const [selectedMapEdge, setSelectedMapEdge] = useState<any | null>(null);
@@ -256,9 +258,38 @@ export default function WorldBiblePanel(props: Props) {
                 <div style={{ fontSize: 11, color: co.muted, marginBottom: 16, lineHeight: 1.5 }}>I'll create characters, locations, and a plot outline for you.</div>
                 <button style={{ ...sBtn, width: "100%" }} disabled={quickStartLoading} onClick={handleQuickStart}>{quickStartLoading ? "Generating..." : "Generate Story"}</button>
               </div>
-            ) : leftTab === "notes" ? (
-              <textarea style={{ ...sTextarea, minHeight: 200 }} value={project.notes || ""} onChange={e => updateProject((p: any) => ({ ...p, notes: e.target.value }))} placeholder="Saved brainstorm/outline output..." />
-            ) : leftTab === "memory" ? (
+            ) : leftTab === "notes" ? (() => {
+              const raw = project.notes || "";
+              const sections: { label: string; content: string }[] = [];
+              raw.split(/\n---\n/).forEach((part: string) => {
+                const match = part.match(/^\[([A-Z]+)\]\n([\s\S]*)/);
+                if (match) sections.push({ label: match[1], content: match[2].trim() });
+                else if (part.trim()) sections.push({ label: "NOTE", content: part.trim() });
+              });
+              return (
+                <div>
+                  {!sections.length && <div style={{ fontSize: 11, color: co.muted, textAlign: "center", padding: "20px 0" }}>Brainstorm and Outline output saves here automatically.</div>}
+                  {sections.map((s, i) => (
+                    <details key={i} style={{ marginBottom: 8, background: co.surfaceAlt, borderRadius: 8, overflow: "hidden" }}>
+                      <summary style={{ padding: "8px 12px", cursor: "pointer", fontSize: 11, fontWeight: 700, color: co.accent, userSelect: "none" }}>
+                        {s.label} {i === 0 ? "(latest)" : ""}
+                      </summary>
+                      <div style={{ padding: "8px 12px", fontSize: 12, lineHeight: 1.6, whiteSpace: "pre-wrap", borderTop: "1px solid " + co.border }}>
+                        {s.content}
+                      </div>
+                    </details>
+                  ))}
+                  <textarea style={{ ...sTextarea, minHeight: 80, marginTop: 8 }} placeholder="Add a note manually..."
+                    onBlur={(e: React.FocusEvent<HTMLTextAreaElement>) => {
+                      if (e.target.value.trim()) {
+                        updateProject((p: any) => ({ ...p, notes: (p.notes || "") + (p.notes ? "\n---\n" : "") + "[NOTE]\n" + e.target.value.trim() }));
+                        e.target.value = "";
+                      }
+                    }} />
+                </div>
+              );
+            })()
+            : leftTab === "memory" ? (
               <div style={{ marginBottom: 10 }}>
                 <div style={{ display: "flex", gap: 6, marginBottom: 10 }}>
                   <input style={{ ...sInput, flex: 1 }} placeholder="Add a fact manually..." value={newMemoryInput} onChange={e => setNewMemoryInput(e.target.value)} onKeyDown={e => {
@@ -274,10 +305,18 @@ export default function WorldBiblePanel(props: Props) {
                   }}>Add</button>
                 </div>
                 {!storyMemories.length && <div style={{ fontSize: 11, color: co.muted, textAlign: "center", padding: "20px 0" }}>Facts are auto-extracted as you write chapters.</div>}
-                {(["character_decision", "world_rule", "relationship", "event", "general"] as const).map(cat => {
+                {(isCreatorFormat(project.format)
+                  ? ["previous_position", "recurring_segment", "running_joke", "established_reference", "general"]
+                  : ["character_decision", "world_rule", "relationship", "event", "general"]
+                ).map(cat => {
                   const items = storyMemories.filter((m: any) => m.category === cat);
                   if (!items.length) return null;
-                  const labels: Record<string, string> = { character_decision: "Character Decisions", world_rule: "World Rules", relationship: "Relationships", event: "Events", general: "General" };
+                  const labels: Record<string, string> = {
+                    character_decision: "Character Decisions", world_rule: "World Rules",
+                    relationship: "Relationships", event: "Events", general: "General",
+                    previous_position: "Previous Positions", recurring_segment: "Recurring Segments",
+                    running_joke: "Running Jokes", established_reference: "Established References",
+                  };
                   return (
                     <div key={cat} style={{ marginBottom: 10 }}>
                       <div style={{ fontSize: 9, fontWeight: 700, color: co.accent, textTransform: "uppercase", marginBottom: 4 }}>{labels[cat]}</div>
@@ -346,6 +385,38 @@ export default function WorldBiblePanel(props: Props) {
                         }
                       }} />
                     </div>
+                    <button style={{ ...sBtn, width: "100%", marginTop: 8, opacity: seriesPlanLoading ? 0.5 : 1 }} disabled={seriesPlanLoading} onClick={async () => {
+                      setSeriesPlanLoading(true); setSeriesPlan(null);
+                      try {
+                        const res = await fetch("/api/ai/series-plan", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ creatorBible, format: project.format, currentProjectId: project.id }) });
+                        const data = await res.json();
+                        if (data.plan) setSeriesPlan(data.plan);
+                      } catch { setErrorMsg("Series plan failed."); }
+                      setSeriesPlanLoading(false);
+                    }}>
+                      {seriesPlanLoading ? "Planning..." : "📅 Series Plan"}
+                    </button>
+                    {seriesPlan && (
+                      <div style={{ marginTop: 10 }}>
+                        {seriesPlan.gaps?.length > 0 && (
+                          <div style={{ marginBottom: 8 }}>
+                            <div style={{ fontSize: 9, fontWeight: 700, color: co.accent, textTransform: "uppercase", marginBottom: 4 }}>Content Gaps</div>
+                            {seriesPlan.gaps.map((g: string, i: number) => <div key={i} style={{ fontSize: 11, color: co.muted, background: co.accentBg, borderRadius: 4, padding: "4px 8px", marginBottom: 3 }}>{g}</div>)}
+                          </div>
+                        )}
+                        {seriesPlan.weeks?.map((week: any) => (
+                          <div key={week.week} style={{ marginBottom: 8 }}>
+                            <div style={{ fontSize: 9, fontWeight: 700, color: co.muted, textTransform: "uppercase", marginBottom: 4 }}>Week {week.week}</div>
+                            {week.videos?.map((v: any, i: number) => (
+                              <div key={i} style={{ background: co.surfaceAlt, borderRadius: 6, padding: "6px 8px", marginBottom: 4, fontSize: 11 }}>
+                                <div style={{ fontWeight: 600, color: co.text, marginBottom: 2 }}>{v.title}</div>
+                                <div style={{ color: co.muted, fontSize: 10 }}>{v.hook}</div>
+                              </div>
+                            ))}
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </>
                 ) : (
                   <>

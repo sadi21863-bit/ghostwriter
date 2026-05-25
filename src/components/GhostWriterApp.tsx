@@ -17,6 +17,7 @@ export default function GhostWriterApp({ projectId }: { projectId: string }) {
   const [showProductionStudio, setShowProductionStudio] = useState(false);
   const [leftCollapsed, setLeftCollapsed] = useState(false);
   const [rightCollapsed, setRightCollapsed] = useState(false);
+  const [cohostVoice, setCohostVoice] = useState("curious_generalist");
 
   const projectState = useProjectState(projectId);
   const {
@@ -41,6 +42,7 @@ export default function GhostWriterApp({ projectId }: { projectId: string }) {
     setErrorMsg,
     setSavedMsg,
     creatorBible: projectState.creatorBible,
+    cohostVoice,
   });
 
   const worldBible = useWorldBible({
@@ -157,6 +159,8 @@ export default function GhostWriterApp({ projectId }: { projectId: string }) {
         setDialogueCharA={setDialogueCharA}
         dialogueCharB={dialogueCharB}
         setDialogueCharB={setDialogueCharB}
+        cohostVoice={cohostVoice}
+        setCohostVoice={setCohostVoice}
       />
 
       <ChapterEditor

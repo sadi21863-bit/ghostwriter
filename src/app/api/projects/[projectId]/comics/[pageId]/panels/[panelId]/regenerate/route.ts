@@ -3,7 +3,7 @@ import { getRequiredSession } from "@/lib/auth-helpers";
 import { db } from "@/db";
 import { comicPages, comicPanels, projects, users } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
-import { generateSoulImage } from "@/lib/higgsfield/client";
+import { getImageProvider } from "@/lib/media/registry";
 import { put } from "@vercel/blob";
 
 async function verifyOwnership(projectId: string, userId: string) {
@@ -18,8 +18,7 @@ export async function POST(_: Request, { params }: { params: { projectId: string
     return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const user = await db.query.users.findFirst({ where: eq(users.id, s.user.id) });
-  if (!user?.higgsfieldApiKey)
-    return NextResponse.json({ error: "Add your Higgsfield API key in Settings to regenerate panels." }, { status: 400 });
+  if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
 
   const panel = await db.query.comicPanels.findFirst({ where: eq(comicPanels.id, params.panelId) });
   if (!panel) return NextResponse.json({ error: "Panel not found" }, { status: 404 });
@@ -27,16 +26,24 @@ export async function POST(_: Request, { params }: { params: { projectId: string
   const page = await db.query.comicPages.findFirst({ where: eq(comicPages.id, params.pageId) });
   if (!page) return NextResponse.json({ error: "Page not found" }, { status: 404 });
 
-  const soulUrl = await generateSoulImage({
-    apiKey: user.higgsfieldApiKey,
+  const imageProviderId = user.imageProviderId || "segmind_soul";
+  const provider = getImageProvider(imageProviderId);
+  const apiKey = imageProviderId === "openai_gpt_image" ? user.openaiApiKey : user.higgsfieldApiKey;
+
+  if (!apiKey) {
+    return NextResponse.json({ error: `Add your ${provider.name} API key in Settings to generate panels.` }, { status: 400 });
+  }
+
+  const result = await provider.generate({
     prompt: panel.panelPrompt,
     stylePreset: panel.artStylePreset || undefined,
     referenceImageUrl: panel.referenceImageUrl || undefined,
-  });
+  }, apiKey);
 
-  let imageUrl = soulUrl;
+  const rawUrl = result.url!;
+  let imageUrl = rawUrl;
   if (process.env.BLOB_READ_WRITE_TOKEN) {
-    const imgRes = await fetch(soulUrl);
+    const imgRes = await fetch(rawUrl);
     const imgBuffer = await imgRes.arrayBuffer();
     const blob = await put(
       `comics/${params.projectId}/${params.pageId}/panel-${panel.panelIndex}-regen-${Date.now()}.png`,

@@ -7,13 +7,14 @@ import { isCreatorFormat } from "@/lib/formats";
 export function useAIActions({
   project, mode, prompt, activeChap,
   updateChapter, setErrorMsg, setSavedMsg,
-  creatorBible,
+  creatorBible, cohostVoice,
 }: {
   project: any; mode: string; prompt: string; activeChap: any;
   updateChapter: (f: string, v: any) => void;
   setErrorMsg: (msg: string | null) => void;
   setSavedMsg: (msg: string) => void;
   creatorBible: any;
+  cohostVoice?: string;
 }) {
   const [generating, setGenerating] = useState(false);
   const [genTarget, setGenTarget] = useState("");
@@ -66,7 +67,13 @@ export function useAIActions({
     if (!prompt.trim()) return;
     setGenerating(true); setGenTarget("main"); setStreamText("");
     try {
-      const r = await callAI("generate", { mode, prompt, context: buildFullContext(), format: project.format, projectId: project.id, chapterId: activeChap.id });
+      const isCohost = mode === "cohost";
+      const effectiveMode = isCohost ? "write" : mode;
+      const effectiveFormat = isCohost ? "Podcast Episode (Co-host)" : project.format;
+      const effectivePrompt = isCohost && cohostVoice
+        ? `${prompt}\n\nCo-host voice persona: ${cohostVoice}`
+        : prompt;
+      const r = await callAI("generate", { mode: effectiveMode, prompt: effectivePrompt, context: buildFullContext(), format: effectiveFormat, projectId: project.id, chapterId: activeChap.id });
       if (mode === "write") { setUndoStack(s => [...s.slice(-9), activeChap.content]); updateChapter("content", activeChap.content + (activeChap.content ? "\n\n" : "") + r.text); }
       else setStreamText(r.text);
     } catch (e) { setErrorMsg("Generation failed. Please try again."); }
