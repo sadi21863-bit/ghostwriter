@@ -39,7 +39,14 @@ export function useAIActions({
     const activeIdx = p.chapters.findIndex((c: any) => c.id === p.activeChapter);
     const parts: string[] = [];
     const recent = p.chapters.slice(Math.max(0, activeIdx - 2), activeIdx).filter((c: any) => c.summary);
-    if (recent.length) { parts.push("RECENT CHAPTERS:"); recent.forEach((c: any) => parts.push(`[${c.title}]: ${c.summary}`)); }
+    if (recent.length) {
+      parts.push("RECENT CHAPTERS:");
+      recent.forEach((c: any) => {
+        const typeLabel = c.chapterType && c.chapterType !== "chapter" ? ` [${c.chapterType}]` : "";
+        const tagLabel = c.tags?.length ? ` (${c.tags.join(", ")})` : "";
+        parts.push(`[${c.title}${typeLabel}${tagLabel}]: ${c.summary}`);
+      });
+    }
     const next = p.chapters[activeIdx + 1];
     if (next) parts.push(`NEXT CHAPTER: "${next.title}" (not yet written — maintain narrative momentum toward this)`);
     const distant = p.chapters.filter((c: any, i: number) => c.id !== p.activeChapter && i < activeIdx - 2);

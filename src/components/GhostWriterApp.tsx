@@ -154,6 +154,7 @@ export default function GhostWriterApp({ projectId }: { projectId: string }) {
       <ChapterEditor
         project={project}
         updateProject={projectState.updateProject}
+        updateChapter={projectState.updateChapter}
         addChapter={projectState.addChapter}
         deleteChapter={projectState.deleteChapter}
         moveChapter={projectState.moveChapter}
