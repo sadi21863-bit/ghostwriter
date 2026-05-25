@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { useSession, signOut } from "next-auth/react";
 import { useRouter } from "next/navigation";
+import Onboarding from "@/components/Onboarding";
 
 type Project = {
   id: string;
@@ -23,13 +24,37 @@ export default function Dashboard() {
   const [showCreate, setShowCreate] = useState(false);
   const [newName, setNewName] = useState("");
   const [newFormat, setNewFormat] = useState("Novel");
+  const [newSkillLevel, setNewSkillLevel] = useState<"beginner" | "expert">("beginner");
   const [creating, setCreating] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<Project | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
+  const [higgsfieldKeySet, setHiggsfieldKeySet] = useState(false);
+  const [higgsfieldKeyLast4, setHiggsfieldKeyLast4] = useState("");
+  const [higgsfieldInput, setHiggsfieldInput] = useState("");
+  const [settingsSaving, setSettingsSaving] = useState(false);
+  const [settingsMsg, setSettingsMsg] = useState("");
 
   useEffect(() => {
     if (status === "unauthenticated") router.push("/login");
   }, [status, router]);
+
+  useEffect(() => {
+    if (status !== "authenticated") return;
+    const hasSeenOnboarding = localStorage.getItem("ghostwriter_onboarding_seen");
+    if (!hasSeenOnboarding) {
+      setShowOnboarding(true);
+    }
+  }, [status]);
+
+  useEffect(() => {
+    if (status !== "authenticated") return;
+    fetch("/api/user/settings").then(r => r.json()).then(data => {
+      setHiggsfieldKeySet(data.higgsfieldKeySet ?? false);
+      setHiggsfieldKeyLast4(data.higgsfieldKeyLast4 ?? "");
+    }).catch(() => {});
+  }, [status]);
 
   useEffect(() => {
     if (status !== "authenticated") return;
@@ -49,17 +74,43 @@ export default function Dashboard() {
       const res = await fetch("/api/projects", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: newName.trim(), format: newFormat }),
+        body: JSON.stringify({ name: newName.trim(), format: newFormat, skillLevel: newSkillLevel }),
       });
       const p = await res.json();
       setShowCreate(false);
       setNewName("");
       setNewFormat("Novel");
+      setNewSkillLevel("beginner");
       router.push("/project/" + p.id);
     } catch {
       setError("Failed to create project");
       setCreating(false);
     }
+  };
+
+  const saveSettings = async () => {
+    if (!higgsfieldInput.trim()) return;
+    setSettingsSaving(true);
+    setSettingsMsg("");
+    try {
+      const res = await fetch("/api/user/settings", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ higgsfieldApiKey: higgsfieldInput.trim() }),
+      });
+      if (res.ok) {
+        setHiggsfieldKeySet(true);
+        setHiggsfieldKeyLast4(higgsfieldInput.trim().slice(-4));
+        setHiggsfieldInput("");
+        setSettingsMsg("Saved!");
+        setTimeout(() => setSettingsMsg(""), 2000);
+      } else {
+        setSettingsMsg("Failed to save.");
+      }
+    } catch {
+      setSettingsMsg("Network error.");
+    }
+    setSettingsSaving(false);
   };
 
   const confirmDelete = async () => {
@@ -94,6 +145,12 @@ export default function Dashboard() {
           <span className="text-sm text-gray-400 hidden sm:block">
             {session?.user?.name || session?.user?.email}
           </span>
+          <button
+            onClick={() => setShowSettings(true)}
+            className="text-sm text-gray-500 hover:text-gray-700 border border-gray-200 rounded-lg px-3 py-1.5 transition-colors"
+          >
+            ⚙️ Settings
+          </button>
           <button
             onClick={() => signOut({ callbackUrl: "/login" })}
             className="text-sm text-gray-500 hover:text-gray-700 border border-gray-200 rounded-lg px-3 py-1.5 transition-colors"
@@ -167,6 +224,9 @@ export default function Dashboard() {
         )}
       </main>
 
+      {/* Onboarding Modal */}
+      {showOnboarding && <Onboarding onDismiss={() => setShowOnboarding(false)} />}
+
       {/* Create project modal */}
       {showCreate && (
         <div
@@ -201,6 +261,36 @@ export default function Dashboard() {
                   {FORMATS.map(f => <option key={f}>{f}</option>)}
                 </select>
               </div>
+              <div>
+                <label className="block text-xs font-bold text-gray-400 uppercase tracking-wide mb-2">Experience Level</label>
+                <div className="flex gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setNewSkillLevel("beginner")}
+                    className={`flex-1 py-2 px-3 rounded-lg border text-sm font-semibold transition-all ${newSkillLevel === "beginner"
+                      ? "bg-brand text-white border-brand"
+                      : "bg-white text-gray-600 border-gray-200 hover:border-gray-300"
+                      }`}
+                  >
+                    🎯 Beginner
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setNewSkillLevel("expert")}
+                    className={`flex-1 py-2 px-3 rounded-lg border text-sm font-semibold transition-all ${newSkillLevel === "expert"
+                      ? "bg-brand text-white border-brand"
+                      : "bg-white text-gray-600 border-gray-200 hover:border-gray-300"
+                      }`}
+                  >
+                    ⭐ Expert
+                  </button>
+                </div>
+                <p className="text-xs text-gray-400 mt-2">
+                  {newSkillLevel === "beginner"
+                    ? "Quick start: AI generates story from minimal input"
+                    : "Full control: Build detailed world with AI as assistant"}
+                </p>
+              </div>
               <div className="flex gap-3 pt-1">
                 <button
                   type="button"
@@ -218,6 +308,77 @@ export default function Dashboard() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Settings modal */}
+      {showSettings && (
+        <div
+          className="fixed inset-0 bg-black/30 flex items-center justify-center z-50 px-4"
+          onClick={() => setShowSettings(false)}
+        >
+          <div
+            className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-xl"
+            onClick={e => e.stopPropagation()}
+          >
+            <h2 className="text-lg font-extrabold mb-5">⚙️ Settings</h2>
+            <div className="mb-5">
+              <div className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-3 pb-2 border-b border-gray-100">
+                Higgsfield Integration
+              </div>
+              <label className="block text-xs font-bold text-gray-400 uppercase tracking-wide mb-1">
+                Higgsfield API Key
+              </label>
+              {higgsfieldKeySet ? (
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-sm text-gray-600 font-mono bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 flex-1">
+                    ••••••••••••••••  last4: {higgsfieldKeyLast4}
+                  </span>
+                  <button
+                    onClick={() => setHiggsfieldInput("")}
+                    className="text-sm text-brand font-semibold hover:underline"
+                  >
+                    Update
+                  </button>
+                </div>
+              ) : null}
+              <input
+                type="password"
+                value={higgsfieldInput}
+                onChange={e => setHiggsfieldInput(e.target.value)}
+                placeholder={higgsfieldKeySet ? "Enter new key to update" : "hf-xxxxxxxxxxxxxxxx"}
+                className={inputCls}
+              />
+              {higgsfieldKeySet ? (
+                <p className="text-xs text-green-600 font-semibold mt-2">
+                  ✅ Connected — Comics and Production Studio are enabled.
+                </p>
+              ) : (
+                <p className="text-xs text-amber-600 mt-2">
+                  ⚠️ Not connected. Get your key at higgsfield.ai → Account → API Keys.
+                  Your credits pay for image and video generation directly.
+                </p>
+              )}
+            </div>
+            {settingsMsg && (
+              <p className="text-sm text-green-600 font-semibold mb-3">{settingsMsg}</p>
+            )}
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowSettings(false)}
+                className="flex-1 border border-gray-200 text-gray-600 font-semibold py-2 rounded-lg text-sm hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={saveSettings}
+                disabled={settingsSaving || !higgsfieldInput.trim()}
+                className="flex-1 bg-brand text-white font-bold py-2 rounded-lg text-sm hover:bg-brand-light disabled:opacity-50"
+              >
+                {settingsSaving ? "Saving…" : "Save"}
+              </button>
+            </div>
           </div>
         </div>
       )}

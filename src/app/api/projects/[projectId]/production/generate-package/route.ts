@@ -1,0 +1,171 @@
+import { NextResponse } from "next/server";
+import { getRequiredSession } from "@/lib/auth-helpers";
+import { db } from "@/db";
+import { projects, productionShots } from "@/db/schema";
+import { eq, and } from "drizzle-orm";
+import Anthropic from "@anthropic-ai/sdk";
+
+const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! });
+
+function safeParseJson(raw: string) {
+  const clean = raw.replace(/```json\n?|```/g, "").trim();
+  try { return JSON.parse(clean); } catch { return null; }
+}
+
+async function verifyOwnership(projectId: string, userId: string) {
+  return db.query.projects.findFirst({
+    where: and(eq(projects.id, projectId), eq(projects.userId, userId)),
+  });
+}
+
+export async function POST(_: Request, { params }: { params: { projectId: string } }) {
+  const s = await getRequiredSession();
+  if (!await verifyOwnership(params.projectId, s.user.id))
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+
+  const project = await db.query.projects.findFirst({
+    where: eq(projects.id, params.projectId),
+    with: {
+      characters: true,
+      locations: true,
+      plotThreads: true,
+      chapters: { orderBy: (c, { asc }) => [asc(c.sortOrder)] },
+      referenceWorks: true,
+      storyMemories: true,
+    },
+  });
+  if (!project) return NextResponse.json({ error: "Not found" }, { status: 404 });
+
+  const chaptersText = project.chapters
+    .map((c: any) => `CHAPTER: ${c.title}\n${c.content || "(empty)"}`)
+    .join("\n\n---\n\n");
+  const charsText = project.characters
+    .map((c: any) => `${c.name} (${c.role || "character"}): ${c.appearance || ""} ${c.personality || ""}`.trim())
+    .join("\n");
+  const locsText = project.locations
+    .map((l: any) => `${l.name}: ${l.description || ""}`)
+    .join("\n");
+
+  const systemPrompt = `You are a professional cinematographer and director. Analyze the story and generate a complete production package. Return ONLY valid JSON with no markdown fences.`;
+
+  const userPrompt = `Project: "${project.name}" | Format: ${project.format} | Genres: ${(project.genres as string[]).join(", ")}
+
+CHARACTERS:
+${charsText || "None defined"}
+
+LOCATIONS:
+${locsText || "None defined"}
+
+CHAPTERS:
+${chaptersText || "(no chapters written yet)"}
+
+Generate a production package as JSON:
+{
+  "projectBrief": {
+    "title": "string",
+    "logline": "one sentence",
+    "format": "string",
+    "genres": ["string"],
+    "tone": "string",
+    "styleNotes": "string"
+  },
+  "characterSheets": [
+    {
+      "characterId": "leave empty string — route resolves",
+      "name": "string",
+      "role": "string",
+      "soulIdPrompt": "Soul 2.0 optimised: face, hair, eyes, build, clothing. 3-4 sentences.",
+      "voiceNotes": "string"
+    }
+  ],
+  "locationSheets": [
+    {
+      "name": "string",
+      "visualDescription": "string",
+      "moodKeywords": ["string"]
+    }
+  ],
+  "shots": [
+    {
+      "sceneNumber": 1,
+      "chapterId": "leave empty string — route resolves by chapterTitle",
+      "chapterTitle": "string",
+      "shotNumber": 1,
+      "shotType": "Medium shot",
+      "cameraMovement": "Static",
+      "lightingMood": "Golden hour",
+      "timeOfDay": "Afternoon",
+      "subject": "string",
+      "action": "string",
+      "location": "string",
+      "mood": "string",
+      "primaryCharacterName": "string or empty",
+      "soulPrompt": "ready-to-use Soul 2.0 image prompt",
+      "videoPrompt": "motion-oriented video prompt",
+      "dialogue": "string or empty",
+      "speaker": "string or empty"
+    }
+  ]
+}
+
+Generate 3-6 shots per chapter. Focus on visually interesting moments. Make prompts Higgsfield-ready.`;
+
+  const msg = await client.messages.create({
+    model: "claude-sonnet-4-20250514",
+    max_tokens: 8000,
+    system: systemPrompt,
+    messages: [{ role: "user", content: userPrompt }],
+  });
+
+  const raw = msg.content.filter((b: any) => b.type === "text").map((b: any) => b.text).join("");
+  const pkg = safeParseJson(raw);
+  if (!pkg?.shots) return NextResponse.json({ error: "Failed to analyze story. Try adding chapter content first." }, { status: 500 });
+
+  // Resolve character names to IDs
+  const charMap: Record<string, string> = {};
+  for (const c of project.characters) {
+    charMap[c.name.toLowerCase()] = c.id;
+  }
+
+  // Resolve chapter titles to IDs
+  const chapterMap: Record<string, string> = {};
+  for (const c of project.chapters) {
+    chapterMap[c.title.toLowerCase()] = c.id;
+  }
+
+  // Delete existing shots for this project (fresh slate)
+  await db.delete(productionShots).where(eq(productionShots.projectId, params.projectId));
+
+  // Bulk insert shots
+  const toInsert = pkg.shots.map((shot: any, i: number) => ({
+    projectId: params.projectId,
+    chapterId: chapterMap[shot.chapterTitle?.toLowerCase()] ?? null,
+    sceneNumber: shot.sceneNumber ?? 1,
+    shotNumber: shot.shotNumber ?? 1,
+    shotType: shot.shotType ?? "Medium shot",
+    cameraMovement: shot.cameraMovement ?? "Static",
+    lightingMood: shot.lightingMood ?? "Golden hour",
+    timeOfDay: shot.timeOfDay ?? "Afternoon",
+    subject: shot.subject ?? "",
+    action: shot.action ?? "",
+    location: shot.location ?? "",
+    mood: shot.mood ?? "",
+    primaryCharacterId: shot.primaryCharacterName
+      ? (charMap[shot.primaryCharacterName.toLowerCase()] ?? null)
+      : null,
+    soulPrompt: shot.soulPrompt ?? "",
+    videoPrompt: shot.videoPrompt ?? "",
+    dialogue: shot.dialogue ?? "",
+    speaker: shot.speaker ?? "",
+    sortOrder: i,
+  }));
+
+  const inserted = await db.insert(productionShots).values(toInsert).returning();
+
+  return NextResponse.json({
+    brief: pkg.projectBrief,
+    characterSheets: pkg.characterSheets,
+    locationSheets: pkg.locationSheets,
+    shotCount: inserted.length,
+  });
+}
