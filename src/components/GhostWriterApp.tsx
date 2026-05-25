@@ -97,6 +97,7 @@ export default function GhostWriterApp({ projectId }) {
   const [relMapLoading, setRelMapLoading] = useState(false);
   const [selectedMapEdge, setSelectedMapEdge] = useState<any | null>(null);
   const [selectedMapNode, setSelectedMapNode] = useState<any | null>(null);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const chapterSaveTimer = useRef(null);
   const bibleSaveTimer = useRef(null);
@@ -151,6 +152,30 @@ export default function GhostWriterApp({ projectId }) {
     chapterSaveTimer.current = setTimeout(() => {
       fetch(`/api/projects/${projId}/chapters/${chapId}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ [f]: v }) })
         .then(() => {
+          if (f === "content" && v && v.trim().split(/\s+/).length > 200) {
+            fetch(`/api/ai/summarize`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ content: v }),
+            })
+              .then(r => r.json())
+              .then(data => {
+                if (data.summary) {
+                  fetch(`/api/projects/${projId}/chapters/${chapId}`, {
+                    method: "PATCH",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ summary: data.summary }),
+                  });
+                  updateProject((p: any) => ({
+                    ...p,
+                    chapters: p.chapters.map((c: any) =>
+                      c.id === chapId ? { ...c, summary: data.summary } : c
+                    ),
+                  }));
+                }
+              })
+              .catch(() => {});
+          }
           fetch(`/api/projects/${projId}/chapters/${chapId}/extract-memory`, { method: "POST" })
             .then(r => r.json()).then(data => {
               if (data.memories?.length) {
@@ -160,7 +185,7 @@ export default function GhostWriterApp({ projectId }) {
                 ]);
               }
             }).catch(() => {});
-        }).catch(() => {});
+        }).catch(() => { setErrorMsg("Auto-save failed. Your changes may not be saved."); });
     }, 1500);
   };
 
@@ -172,7 +197,7 @@ export default function GhostWriterApp({ projectId }) {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ [field]: value }),
-      }).catch(() => {});
+      }).catch(() => { setErrorMsg("Failed to save Creator Bible changes."); });
     }, 1500);
   };
 
@@ -191,7 +216,7 @@ export default function GhostWriterApp({ projectId }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(r),
       });
-    } catch (e) {}
+    } catch (e) { setErrorMsg("Failed to generate Creator Bible. Please try again."); }
     setGenerating(false); setGenTarget("");
   };
 
@@ -209,7 +234,7 @@ export default function GhostWriterApp({ projectId }) {
         }));
         setNewChar((c: any) => ({ ...c, portraitUrl: data.portraitUrl }));
       }
-    } catch (e) {}
+    } catch (e) { setErrorMsg("Portrait generation failed. Check your Higgsfield API key."); }
     setPortraitLoading(false);
   };
 
@@ -220,7 +245,7 @@ export default function GhostWriterApp({ projectId }) {
       const res = await fetch(`/api/projects/${project.id}/suggest-links`, { method: "POST" });
       const data = await res.json();
       setLinkSuggestions(data.suggestions || []);
-    } catch (e) {}
+    } catch (e) { setErrorMsg("Link suggestion failed. Please try again."); }
     setSuggestingLinks(false);
   };
 
@@ -255,7 +280,7 @@ export default function GhostWriterApp({ projectId }) {
         setPipelineResults(data.results);
         setExpandedAgent(data.results[data.results.length - 1].agent);
       }
-    } catch (e) {}
+    } catch (e) { setErrorMsg("Agent pipeline failed. Please try again."); }
     setPipelineRunning(false);
   };
 
@@ -278,6 +303,8 @@ export default function GhostWriterApp({ projectId }) {
       const res = await fetch(`/api/projects/${project.id}/relationship-map`);
       const data = await res.json();
       setRelMapData(data);
+    } catch (e) {
+      setErrorMsg("Failed to load character connections. Please try again.");
     } finally {
       setRelMapLoading(false);
     }
@@ -291,6 +318,8 @@ export default function GhostWriterApp({ projectId }) {
       const res = await fetch("/api/ai/score-hook", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ hook: prompt, format: project.format }) });
       const data = await res.json();
       if (data.score != null) setHookScore(data);
+    } catch (e) {
+      setErrorMsg("Hook scoring failed. Please try again.");
     } finally {
       setHookScoring(false);
     }
@@ -320,7 +349,7 @@ export default function GhostWriterApp({ projectId }) {
       });
       const data = await res.json();
       setProseResult({ mode: proseMode, ...data, chosen: 0 });
-    } catch (e) {}
+    } catch (e) { setErrorMsg("Prose tool failed. Please try again."); }
     setProseLoading(false);
   };
 
@@ -376,6 +405,33 @@ export default function GhostWriterApp({ projectId }) {
     return res.json();
   };
 
+  const buildNeighbourContext = (p: any): string => {
+    const activeIdx = p.chapters.findIndex((c: any) => c.id === p.activeChapter);
+    const parts: string[] = [];
+
+    const recent = p.chapters
+      .slice(Math.max(0, activeIdx - 2), activeIdx)
+      .filter((c: any) => c.summary);
+    if (recent.length) {
+      parts.push("RECENT CHAPTERS:");
+      recent.forEach((c: any) => parts.push(`[${c.title}]: ${c.summary}`));
+    }
+
+    const next = p.chapters[activeIdx + 1];
+    if (next) {
+      parts.push(`NEXT CHAPTER: "${next.title}" (not yet written — maintain narrative momentum toward this)`);
+    }
+
+    const distant = p.chapters.filter((c: any, i: number) =>
+      c.id !== p.activeChapter && i < activeIdx - 2
+    );
+    if (distant.length) {
+      parts.push("EARLIER CHAPTERS (titles only): " + distant.map((c: any) => c.title).join(", "));
+    }
+
+    return parts.join("\n");
+  };
+
   const buildFullContext = (p = project) => {
     let base: string;
     if (isCreatorFormat(p.format)) {
@@ -383,11 +439,8 @@ export default function GhostWriterApp({ projectId }) {
     } else {
       base = (p.skillLevel === "beginner" ? buildBeginnerContext : buildContext)(p);
     }
-    const summaries = p.chapters
-      .filter((c: any) => c.summary && c.id !== p.activeChapter)
-      .map((c: any) => `[${c.title}]: ${c.summary}`)
-      .join("\n");
-    return summaries ? base + "\n\nPREVIOUS SECTIONS:\n" + summaries : base;
+    const neighbourContext = buildNeighbourContext(p);
+    return neighbourContext ? base + "\n\n" + neighbourContext : base;
   };
 
   const generate = async () => {
@@ -397,7 +450,7 @@ export default function GhostWriterApp({ projectId }) {
       const r = await callAI("generate", { mode, prompt, context: buildFullContext(), format: project.format, projectId: project.id, chapterId: activeChap.id });
       if (mode === "write") { setUndoStack(s => [...s.slice(-9), activeChap.content]); updateChapter("content", activeChap.content + (activeChap.content ? "\n\n" : "") + r.text); }
       else setStreamText(r.text);
-    } catch (e) { setStreamText("Error: " + e.message); }
+    } catch (e) { setErrorMsg("Generation failed. Please try again."); }
     setGenerating(false); setGenTarget("");
   };
 
@@ -408,7 +461,7 @@ export default function GhostWriterApp({ projectId }) {
   const autoSummarize = async () => {
     if (!activeChap.content) return;
     setGenerating(true); setGenTarget("summary");
-    try { const r = await callAI("summarize", { content: activeChap.content }); updateChapter("summary", r.summary); } catch { }
+    try { const r = await callAI("summarize", { content: activeChap.content }); updateChapter("summary", r.summary); } catch (e) { setErrorMsg("Failed to summarize chapter. Please try again."); }
     setGenerating(false); setGenTarget("");
   };
 
@@ -494,7 +547,7 @@ export default function GhostWriterApp({ projectId }) {
     try {
       const r = await callAI("generate", { mode: "brainstorm", prompt: bibleGenPrompt, context: buildFullContext(), format: project.format, projectId: project.id, chapterId: null });
       setStreamText(r.text); setMode("brainstorm");
-    } catch (e) { }
+    } catch (e) { setErrorMsg("World Bible generation failed. Please try again."); }
     setGenerating(false); setGenTarget("");
   };
 
@@ -504,7 +557,7 @@ export default function GhostWriterApp({ projectId }) {
     try {
       const r = await callAI("entity", { type: "character", prompt: charGenPrompt, projectContext: buildContext(project) });
       setNewChar(c => ({ ...c, ...r }));
-    } catch (e) { }
+    } catch (e) { setErrorMsg("Character generation failed. Please try again."); }
     setGenerating(false); setGenTarget("");
   };
   const improveChar = async () => {
@@ -513,7 +566,7 @@ export default function GhostWriterApp({ projectId }) {
     try {
       const r = await callAI("entity", { type: "character", prompt: "", projectContext: buildContext(project), existing: newChar });
       setNewChar(c => ({ ...c, ...r }));
-    } catch (e) { }
+    } catch (e) { setErrorMsg("Character improvement failed. Please try again."); }
     setGenerating(false); setGenTarget("");
   };
 
@@ -523,7 +576,7 @@ export default function GhostWriterApp({ projectId }) {
     try {
       const r = await callAI("entity", { type: "location", prompt: locGenPrompt, projectContext: buildContext(project) });
       setNewLoc(l => ({ ...l, ...r }));
-    } catch (e) { }
+    } catch (e) { setErrorMsg("Location generation failed. Please try again."); }
     setGenerating(false); setGenTarget("");
   };
   const improveLoc = async () => {
@@ -532,7 +585,7 @@ export default function GhostWriterApp({ projectId }) {
     try {
       const r = await callAI("entity", { type: "location", prompt: "", projectContext: buildContext(project), existing: newLoc });
       setNewLoc(l => ({ ...l, ...r }));
-    } catch (e) { }
+    } catch (e) { setErrorMsg("Location improvement failed. Please try again."); }
     setGenerating(false); setGenTarget("");
   };
 
@@ -542,7 +595,7 @@ export default function GhostWriterApp({ projectId }) {
     try {
       const r = await callAI("entity", { type: "plotThread", prompt: plotGenPrompt, projectContext: buildContext(project) });
       setNewPlot(t => ({ ...t, ...r }));
-    } catch (e) { }
+    } catch (e) { setErrorMsg("Plot thread generation failed. Please try again."); }
     setGenerating(false); setGenTarget("");
   };
   const improvePlot = async () => {
@@ -551,7 +604,7 @@ export default function GhostWriterApp({ projectId }) {
     try {
       const r = await callAI("entity", { type: "plotThread", prompt: "", projectContext: buildContext(project), existing: newPlot });
       setNewPlot(t => ({ ...t, ...r }));
-    } catch (e) { }
+    } catch (e) { setErrorMsg("Plot thread improvement failed. Please try again."); }
     setGenerating(false); setGenTarget("");
   };
 
@@ -561,7 +614,7 @@ export default function GhostWriterApp({ projectId }) {
     try {
       const r = await callAI("analyze-work", { title: newRef.title });
       setNewRef(ref => ({ ...ref, attributes: r }));
-    } catch (e) { }
+    } catch (e) { setErrorMsg("Reference work analysis failed. Please try again."); }
     setGenerating(false); setGenTarget("");
   };
 
@@ -571,7 +624,7 @@ export default function GhostWriterApp({ projectId }) {
     try {
       const r = await callAI("generate", { mode: "brainstorm", prompt: "Suggest 3-5 published reference works that would make great style models for this project. For each, give a brief note on what stylistic elements to borrow.", context: buildContext(project), format: project.format, projectId: project.id, chapterId: null });
       setStreamText(r.text); setMode("brainstorm"); setLeftTab("notes");
-    } catch (e) { }
+    } catch (e) { setErrorMsg("Reference work suggestion failed. Please try again."); }
     setGenerating(false); setGenTarget("");
   };
 
@@ -595,11 +648,24 @@ export default function GhostWriterApp({ projectId }) {
         setSavedMsg("Story generated!");
         setTimeout(() => setSavedMsg(""), 2000);
       }
-    } catch (e) { setStreamText("Error generating story"); }
+    } catch (e) { setErrorMsg("Story generation failed. Please try again."); }
     setQuickStartLoading(false);
   };
 
   const entityApiPath = { characters: "characters", locations: "locations", plotThreads: "plot-threads" };
+
+  const toggleAlwaysInContext = async (key: string, item: any, i: number) => {
+    const newVal = item.alwaysInContext === false;
+    fetch(`/api/projects/${project.id}/${entityApiPath[key]}/${item.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ alwaysInContext: newVal }),
+    }).catch(() => { setErrorMsg("Failed to update context priority."); });
+    updateProject((p: any) => ({
+      ...p,
+      [key]: p[key].map((e: any, j: number) => j === i ? { ...e, alwaysInContext: newVal } : e),
+    }));
+  };
   const co = { bg: "#f8f7f4", surface: "#ffffff", surfaceAlt: "#f0efe9", border: "#e2e0d8", text: "#1a1a1a", muted: "#777", accent: "#5b4ccc", accentBg: "#5b4ccc12", danger: "#d94545", green: "#2d9e5e", orange: "#c9860a" };
   const sInput = { background: co.surfaceAlt, border: "1px solid " + co.border, borderRadius: 8, color: co.text, padding: "8px 10px", fontSize: 13, width: "100%", outline: "none", boxSizing: "border-box" };
   const sTextarea = { ...sInput, resize: "vertical", fontFamily: "inherit" };
@@ -623,6 +689,12 @@ export default function GhostWriterApp({ projectId }) {
 
   return (
     <div style={{ display: "flex", height: "100vh", fontFamily: "'Inter',system-ui,sans-serif", background: co.bg, color: co.text, overflow: "hidden" }}>
+      {errorMsg && (
+        <div style={{ position: "fixed", top: 0, left: 0, right: 0, background: "#d94545", color: "#fff", padding: "10px 16px", display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 14, zIndex: 2000 }}>
+          <span>{errorMsg}</span>
+          <button onClick={() => setErrorMsg(null)} style={{ background: "none", border: "none", color: "#fff", cursor: "pointer", fontSize: 18, lineHeight: 1 }}>×</button>
+        </div>
+      )}
       {/* LEFT PANEL */}
       <div style={{ width: leftCollapsed ? 48 : 300, minWidth: leftCollapsed ? 48 : 300, background: co.surface, borderRight: "1px solid " + co.border, display: "flex", flexDirection: "column", transition: "all 0.2s", overflow: "hidden" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 10px", borderBottom: "1px solid " + co.border }}>
@@ -642,13 +714,13 @@ export default function GhostWriterApp({ projectId }) {
                       <input style={{ ...sInput, flex: 1 }} placeholder="Add a fact manually..." value={newMemoryInput} onChange={e => setNewMemoryInput(e.target.value)} onKeyDown={e => {
                         if (e.key === "Enter" && newMemoryInput.trim()) {
                           fetch(`/api/projects/${project.id}/story-memories`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ fact: newMemoryInput.trim() }) })
-                            .then(r => r.json()).then(m => { setStoryMemories(prev => [m, ...prev]); setNewMemoryInput(""); }).catch(() => {});
+                            .then(r => r.json()).then(m => { setStoryMemories(prev => [m, ...prev]); setNewMemoryInput(""); }).catch(() => { setErrorMsg("Failed to add memory. Please try again."); });
                         }
                       }} />
                       <button style={sBtnSm} onClick={() => {
                         if (!newMemoryInput.trim()) return;
                         fetch(`/api/projects/${project.id}/story-memories`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ fact: newMemoryInput.trim() }) })
-                          .then(r => r.json()).then(m => { setStoryMemories(prev => [m, ...prev]); setNewMemoryInput(""); }).catch(() => {});
+                          .then(r => r.json()).then(m => { setStoryMemories(prev => [m, ...prev]); setNewMemoryInput(""); }).catch(() => { setErrorMsg("Failed to add memory. Please try again."); });
                       }}>Add</button>
                     </div>
                     {!storyMemories.length && <div style={{ fontSize: 11, color: co.muted, textAlign: "center", padding: "20px 0" }}>Facts are auto-extracted as you write chapters.</div>}
@@ -664,7 +736,7 @@ export default function GhostWriterApp({ projectId }) {
                               <span style={{ flex: 1, lineHeight: 1.5 }}>{m.fact}</span>
                               <button style={{ background: "none", border: "none", color: co.muted, cursor: "pointer", fontSize: 13, padding: 0, flexShrink: 0 }} onClick={() => {
                                 fetch(`/api/projects/${project.id}/story-memories`, { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ memoryId: m.id }) })
-                                  .then(() => setStoryMemories(prev => prev.filter((x: any) => x.id !== m.id))).catch(() => {});
+                                  .then(() => setStoryMemories(prev => prev.filter((x: any) => x.id !== m.id))).catch(() => { setErrorMsg("Failed to delete memory."); });
                               }}>×</button>
                             </div>
                           ))}
@@ -729,12 +801,12 @@ export default function GhostWriterApp({ projectId }) {
                     <>
                       {project.characters?.length > 0 && (
                         <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 8 }}>
-                          <button style={{ ...sBtnSm, background: showRelMap ? co.accentBg : "transparent", color: showRelMap ? co.accent : co.muted, border: "1px solid " + (showRelMap ? co.accent : co.border) }} onClick={() => { const n = !showRelMap; setShowRelMap(n); if (n) loadRelMap(); }}>🕸 Map</button>
+                          <button title="Shows which characters appear together in chapters" style={{ ...sBtnSm, background: showRelMap ? co.accentBg : "transparent", color: showRelMap ? co.accent : co.muted, border: "1px solid " + (showRelMap ? co.accent : co.border) }} onClick={() => { const n = !showRelMap; setShowRelMap(n); if (n) loadRelMap(); }}>🕸 Connections</button>
                         </div>
                       )}
                       {showRelMap ? (
                         <div>
-                          {relMapLoading && <div style={{ textAlign: "center", padding: 20, color: co.muted, fontSize: 12 }}>Building graph...</div>}
+                          {relMapLoading && <div style={{ textAlign: "center", padding: 20, color: co.muted, fontSize: 12 }}>Building connections...</div>}
                           {!relMapLoading && relMapData && (() => {
                             const nodes = relMapData.nodes;
                             const svgSize = 210;
@@ -749,7 +821,7 @@ export default function GhostWriterApp({ projectId }) {
                             const isolatedIds = new Set(relMapData.isolated.map((n: any) => n.id));
                             return (
                               <>
-                                {nodes.length === 0 && <div style={{ textAlign: "center", padding: 20, color: co.muted, fontSize: 12 }}>Add characters to build a relationship map.</div>}
+                                {nodes.length === 0 && <div style={{ textAlign: "center", padding: 20, color: co.muted, fontSize: 12 }}>Add characters to see who appears together in chapters.</div>}
                                 {nodes.length > 0 && (
                                   <svg width={svgSize} height={svgSize} style={{ display: "block", margin: "0 auto" }}>
                                     {relMapData.edges.map((edge: any, ei: number) => {
@@ -835,6 +907,7 @@ export default function GhostWriterApp({ projectId }) {
                                   {item.status && <span style={{ width: 7, height: 7, borderRadius: "50%", background: item.status === "Active" ? co.green : item.status === "Resolved" ? co.muted : co.orange, flexShrink: 0 }} />}
                                   <span style={{ flex: 1 }}><strong>{item.name}</strong>{item.role && <span style={{ color: co.muted, fontSize: 11 }}> · {item.role}</span>}</span>
                                   <span style={{ fontSize: 10, color: co.accent }}>edit</span>
+                                  <button title={item.alwaysInContext === false ? "Minor — click to pin to AI context" : "Pinned to AI context — click to mark as minor"} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 13, padding: 0, color: item.alwaysInContext === false ? co.muted : co.accent }} onClick={e => { e.stopPropagation(); toggleAlwaysInContext(key, item, i); }}>{item.alwaysInContext === false ? "☆" : "★"}</button>
                                   <button style={{ background: "none", border: "none", color: co.danger, cursor: "pointer", fontSize: 13, padding: 0 }} onClick={e => { e.stopPropagation(); setConfirmModal({ msg: "Delete " + item.name + "?", action: async () => { await fetch(`/api/projects/${project.id}/${entityApiPath[key]}/${item.id}`, { method: "DELETE" }); updateProject(p => ({ ...p, [key]: p[key].filter((_, j) => j !== i) })); setConfirmModal(null); } }); }}>x</button>
                                 </div>
                               ))}
@@ -947,9 +1020,8 @@ export default function GhostWriterApp({ projectId }) {
           )}
           {mode === "write" ? (
             <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
-              <div style={{ padding: "10px 24px 0", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <input style={{ background: "transparent", border: "none", fontSize: 20, fontWeight: 700, padding: 0, fontFamily: "Georgia,serif", color: co.text, outline: "none", flex: 1 }} value={activeChap.title} onChange={e => updateChapter("title", e.target.value)} />
-                <button style={sBtnSm} onClick={autoSummarize} disabled={generating}>Summarize</button>
+              <div style={{ padding: "10px 24px 0" }}>
+                <input style={{ background: "transparent", border: "none", fontSize: 20, fontWeight: 700, padding: 0, fontFamily: "Georgia,serif", color: co.text, outline: "none", width: "100%" }} value={activeChap.title} onChange={e => updateChapter("title", e.target.value)} />
               </div>
               {activeChap.summary && <div style={{ margin: "6px 24px", padding: "8px 12px", background: co.accentBg, borderRadius: 8, fontSize: 12, color: co.muted, borderLeft: "3px solid " + co.accent }}><strong style={{ color: co.accent }}>Continuity:</strong> {activeChap.summary}</div>}
               <textarea style={{ flex: 1, background: co.bg, padding: 24, overflow: "auto", fontSize: 15, lineHeight: 1.8, color: co.text, whiteSpace: "pre-wrap", outline: "none", fontFamily: "Georgia,serif", border: "none", resize: "none", boxSizing: "border-box" }} value={activeChap.content} onChange={e => updateChapter("content", e.target.value)} onSelect={handleTextareaSelect} onMouseUp={handleTextareaSelect} placeholder="Start writing..." />

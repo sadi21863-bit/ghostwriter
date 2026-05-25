@@ -1,3 +1,21 @@
+const CATEGORY_WEIGHTS: Record<string, number> = {
+  character_decision: 3,
+  relationship: 3,
+  world_rule: 2,
+  event: 2,
+  general: 1,
+};
+
+function scoredMemories(memories: any[], chapters: any[], activeChapterId: string): any[] {
+  const activeIdx = chapters?.findIndex((c: any) => c.id === activeChapterId) ?? 0;
+  const scored = memories.map((m: any) => {
+    const categoryScore = CATEGORY_WEIGHTS[m.category] ?? 1;
+    const recencyScore = Math.max(0, 5 - (activeIdx - (m.chapterIndex ?? 0)));
+    return { ...m, _score: categoryScore + recencyScore };
+  });
+  return scored.sort((a: any, b: any) => b._score - a._score).slice(0, 8);
+}
+
 export function buildContext(p) {
   const r = [];
   r.push("PROJECT: " + p.name + " | " + p.format + " | " + (p.genres || []).join(", "));
@@ -13,6 +31,10 @@ export function buildContext(p) {
   if (p.characters?.length) {
     r.push("CHARACTERS:");
     p.characters.forEach(c => {
+      if (c.alwaysInContext === false) {
+        r.push("- " + c.name + (c.role ? " (" + c.role + ", minor)" : " (minor)"));
+        return;
+      }
       const parts = ["- " + c.name + (c.role ? " (" + c.role + ")" : "") + (c.age ? ", age " + c.age : "")];
       if (c.appearance) parts.push("  Appearance: " + c.appearance);
       if (c.personality) parts.push("  Personality: " + c.personality);
@@ -39,6 +61,10 @@ export function buildContext(p) {
   if (p.locations?.length) {
     r.push("LOCATIONS:");
     p.locations.forEach(l => {
+      if (l.alwaysInContext === false) {
+        r.push("- " + l.name + " (minor location)");
+        return;
+      }
       const parts = ["- " + l.name + (l.description ? ": " + l.description : "")];
       if (l.atmosphere) parts.push("  Atmosphere: " + l.atmosphere);
       if (l.history) parts.push("  History: " + l.history);
@@ -50,6 +76,10 @@ export function buildContext(p) {
   if (p.plotThreads?.length) {
     r.push("PLOTS:");
     p.plotThreads.forEach(t => {
+      if (t.alwaysInContext === false) {
+        r.push("- [" + (t.status || "Active") + "] " + t.name + " (minor thread)");
+        return;
+      }
       const parts = ["- [" + t.status + "] " + t.name + (t.description ? ": " + t.description : "")];
       if (t.stakes) parts.push("  Stakes: " + t.stakes);
       if (t.connections) parts.push("  Connections: " + t.connections);
@@ -58,8 +88,9 @@ export function buildContext(p) {
   }
 
   if (p.storyMemories?.length) {
+    const salient = scoredMemories(p.storyMemories, p.chapters ?? [], p.activeChapter ?? "");
     r.push("ESTABLISHED FACTS (do not contradict these):");
-    p.storyMemories.forEach((m: any) => r.push(`- [${m.category}] ${m.fact}`));
+    salient.forEach((m: any) => r.push(`- [${m.category}] ${m.fact}`));
   }
 
   return r.join("\n");
@@ -92,8 +123,9 @@ export function buildCreatorContext(p: any): string {
   }
 
   if (p.storyMemories?.length) {
+    const salient = scoredMemories(p.storyMemories, p.chapters ?? [], p.activeChapter ?? "");
     r.push("ESTABLISHED FACTS (do not contradict these):");
-    p.storyMemories.forEach((m: any) => r.push(`- [${m.category}] ${m.fact}`));
+    salient.forEach((m: any) => r.push(`- [${m.category}] ${m.fact}`));
   }
 
   return r.join("\n");

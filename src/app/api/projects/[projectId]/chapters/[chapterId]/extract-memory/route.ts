@@ -58,6 +58,7 @@ Max 8 facts. No summaries. Only hard facts that affect continuity.`,
       fact: f.fact,
       category: f.category || "general",
       autoExtracted: true,
+      chapterIndex: chapter.sortOrder ?? 0,
     }))
   ).returning();
 
