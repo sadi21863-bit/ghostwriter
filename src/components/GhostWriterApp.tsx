@@ -24,6 +24,8 @@ export default function GhostWriterApp({ projectId }: { projectId: string }) {
     errorMsg, setErrorMsg,
     confirmModal, setConfirmModal,
     higgsfieldKey, savedMsg, setSavedMsg,
+    dialogueCharA, setDialogueCharA,
+    dialogueCharB, setDialogueCharB,
   } = projectState;
 
   const activeChap = project?.chapters?.find((c: any) => c.id === project.activeChapter)
@@ -124,6 +126,7 @@ export default function GhostWriterApp({ projectId }: { projectId: string }) {
         generating={aiActions.generating}
         genTarget={aiActions.genTarget}
         streamText={aiActions.streamText}
+        setStreamText={aiActions.setStreamText}
         undoStack={aiActions.undoStack}
         undoGeneration={aiActions.undoGeneration}
         pipelineRunning={aiActions.pipelineRunning}
@@ -146,9 +149,14 @@ export default function GhostWriterApp({ projectId }: { projectId: string }) {
         hookScoring={aiActions.hookScoring}
         scoreHook={aiActions.scoreHook}
         generate={aiActions.generate}
+        generateDialogue={aiActions.generateDialogue}
         updateProject={projectState.updateProject}
         handleTextareaSelect={aiActions.handleTextareaSelect}
         setSavedMsg={setSavedMsg}
+        dialogueCharA={dialogueCharA}
+        setDialogueCharA={setDialogueCharA}
+        dialogueCharB={dialogueCharB}
+        setDialogueCharB={setDialogueCharB}
       />
 
       <ChapterEditor

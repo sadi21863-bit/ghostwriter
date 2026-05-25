@@ -144,6 +144,59 @@ export function useAIActions({
     setProseResult(null); setSelectedText(""); setSelectedRange(null);
   };
 
+  const generateDialogue = async (charAId: string, charBId: string, dialoguePrompt: string) => {
+    if (!charAId || !charBId) { setErrorMsg("Select both characters before generating dialogue."); return; }
+    const p = project;
+    const charA = p.characters?.find((c: any) => c.id === charAId);
+    const charB = p.characters?.find((c: any) => c.id === charBId);
+    if (!charA || !charB) return;
+    setGenerating(true); setGenTarget("main"); setStreamText("");
+    try {
+      const dialogueContext = `${buildFullContext(p)}
+
+DIALOGUE SCENE — TWO CHARACTER PROFILES:
+
+CHARACTER A — ${charA.name}:
+  Role: ${charA.role || ""}
+  Age: ${charA.age || ""}
+  Personality: ${charA.personality || ""}
+  Speech pattern: ${charA.speechPattern || "No specific pattern defined"}
+  Thinking style: ${charA.thinkingStyle || ""}
+  Fears: ${charA.fears || ""}
+  Desires: ${charA.desires || ""}
+  Current arc: ${charA.arc || ""}
+
+CHARACTER B — ${charB.name}:
+  Role: ${charB.role || ""}
+  Age: ${charB.age || ""}
+  Personality: ${charB.personality || ""}
+  Speech pattern: ${charB.speechPattern || "No specific pattern defined"}
+  Thinking style: ${charB.thinkingStyle || ""}
+  Fears: ${charB.fears || ""}
+  Desires: ${charB.desires || ""}
+  Current arc: ${charB.arc || ""}
+
+DIALOGUE RULES — ENFORCE STRICTLY:
+- Each character must speak in their defined speech pattern. Do not let them sound alike.
+- Write for subtext. Characters should rarely say what they actually mean.
+- One character wants something from the other. Make that tension visible without stating it.
+- Include beats — pauses, physical actions, reactions — woven between lines.
+- Power dynamics must shift at least once during the exchange.
+- No on-the-nose exposition. If information must be conveyed, bury it in conflict.`;
+
+      const res = await fetch("/api/ai/generate", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mode: "write", prompt: dialoguePrompt || `Write a dialogue scene between ${charA.name} and ${charB.name}.`, context: dialogueContext, format: p.format }),
+      });
+      const data = await res.json();
+      if (data.text) {
+        setUndoStack(prev => [...prev.slice(-4), activeChap?.content || ""]);
+        setStreamText(data.text);
+      }
+    } catch (e) { setErrorMsg("Dialogue generation failed. Please try again."); }
+    setGenerating(false); setGenTarget("");
+  };
+
   const scoreHook = async () => {
     if (!prompt.trim() || hookScoring) return;
     setHookScoring(true); setHookScore(null);
@@ -164,7 +217,7 @@ export function useAIActions({
     proseResult, setProseResult, proseLoading,
     hookScore, hookScoring,
     callAI, buildNeighbourContext, buildFullContext,
-    generate, undoGeneration, saveToNotes, autoSummarize,
+    generate, undoGeneration, saveToNotes, autoSummarize, generateDialogue,
     runPipeline, usePipelineOutput,
     handleTextareaSelect, runProse, replaceSelection, scoreHook,
   };

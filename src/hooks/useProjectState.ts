@@ -11,6 +11,8 @@ export function useProjectState(projectId: string) {
   const [higgsfieldKey, setHiggsfieldKey] = useState("");
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [confirmModal, setConfirmModal] = useState<any>(null);
+  const [dialogueCharA, setDialogueCharA] = useState("");
+  const [dialogueCharB, setDialogueCharB] = useState("");
 
   const chapterSaveTimer = useRef<any>(null);
   const bibleSaveTimer = useRef<any>(null);
@@ -165,6 +167,8 @@ export function useProjectState(projectId: string) {
     higgsfieldKey,
     errorMsg, setErrorMsg,
     confirmModal, setConfirmModal,
+    dialogueCharA, setDialogueCharA,
+    dialogueCharB, setDialogueCharB,
     updateProject, updateChapter, updateCreatorBible,
     save, exportAll, addChapter, deleteChapter, moveChapter, toggleGenre, toggleAlwaysInContext,
   };
