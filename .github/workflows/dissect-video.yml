@@ -10,6 +10,9 @@ jobs:
     timeout-minutes: 10
 
     steps:
+      - name: Install pg client
+        run: npm install pg
+
       - name: Analyse YouTube video with Gemini
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}

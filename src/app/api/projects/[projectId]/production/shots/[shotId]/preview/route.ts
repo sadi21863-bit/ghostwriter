@@ -5,6 +5,7 @@ import { projects, productionShots, users } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { generateSoulImage } from "@/lib/higgsfield/client";
 import { put } from "@vercel/blob";
+import { decrypt } from "@/lib/crypto";
 
 async function verifyOwnership(projectId: string, userId: string) {
   return db.query.projects.findFirst({
@@ -18,7 +19,8 @@ export async function POST(_: Request, { params }: { params: { projectId: string
     return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const user = await db.query.users.findFirst({ where: eq(users.id, s.user.id) });
-  if (!user?.higgsfieldApiKey)
+  const higgsfieldKey = decrypt(user?.higgsfieldApiKey ?? "");
+  if (!higgsfieldKey)
     return NextResponse.json({ error: "Add your Higgsfield API key in Settings to generate previews." }, { status: 400 });
 
   const shot = await db.query.productionShots.findFirst({
@@ -34,7 +36,7 @@ export async function POST(_: Request, { params }: { params: { projectId: string
   try {
     const referenceImageUrl = (shot.primaryCharacter as any)?.portraitUrl || undefined;
     const soulUrl = await generateSoulImage({
-      apiKey: user.higgsfieldApiKey,
+      apiKey: higgsfieldKey,
       prompt: shot.soulPrompt || `${shot.subject}. ${shot.action}. ${shot.location}. Cinematic, photorealistic.`,
       referenceImageUrl: referenceImageUrl || undefined,
     });

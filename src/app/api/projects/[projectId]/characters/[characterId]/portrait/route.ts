@@ -4,6 +4,7 @@ import { db } from "@/db";
 import { characters, projects, users } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { generateSoulImage } from "@/lib/higgsfield/client";
+import { decrypt } from "@/lib/crypto";
 
 async function verifyOwnership(projectId: string, userId: string) {
   return db.query.projects.findFirst({
@@ -17,7 +18,7 @@ export async function POST(_: Request, { params }: { params: { projectId: string
     return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const user = await db.query.users.findFirst({ where: eq(users.id, s.user.id) });
-  const apiKey = user?.higgsfieldApiKey || process.env.HIGGSFIELD_API_KEY;
+  const apiKey = decrypt(user?.higgsfieldApiKey ?? "") || process.env.HIGGSFIELD_API_KEY;
   if (!apiKey)
     return NextResponse.json({ error: "Add your Higgsfield API key in Settings to generate portraits." }, { status: 400 });
 

@@ -7,6 +7,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { put } from "@vercel/blob";
 import { generateSoulImage } from "@/lib/higgsfield/client";
 import { ART_STYLES, PanelSpec, buildBreakdownPrompt, buildPanelPrompt, getCharacterReference } from "@/lib/ai/panel-prompt-builder";
+import { decrypt } from "@/lib/crypto";
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! });
 
@@ -41,7 +42,8 @@ export async function POST(req: Request, { params }: { params: { projectId: stri
     return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const user = await db.query.users.findFirst({ where: eq(users.id, s.user.id) });
-  if (!user?.higgsfieldApiKey)
+  const higgsfieldKey = decrypt(user?.higgsfieldApiKey ?? "");
+  if (!higgsfieldKey)
     return NextResponse.json({ error: "Add your Higgsfield API key in Settings to generate comics." }, { status: 400 });
 
   const { chapterId, artStyleId } = await req.json();
@@ -93,7 +95,7 @@ export async function POST(req: Request, { params }: { params: { projectId: stri
       const referenceImageUrl = refName ? getCharacterReference(refName, project.characters) : undefined;
 
       const soulUrl = await generateSoulImage({
-        apiKey: user.higgsfieldApiKey!,
+        apiKey: higgsfieldKey,
         prompt,
         stylePreset: artStyleObj.higgsfieldPreset,
         referenceImageUrl,

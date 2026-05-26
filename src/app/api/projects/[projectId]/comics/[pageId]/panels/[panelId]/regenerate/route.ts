@@ -4,6 +4,7 @@ import { db } from "@/db";
 import { comicPages, comicPanels, projects, users } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { getImageProvider } from "@/lib/media/registry";
+import { decrypt } from "@/lib/crypto";
 import { put } from "@vercel/blob";
 
 async function verifyOwnership(projectId: string, userId: string) {
@@ -28,7 +29,8 @@ export async function POST(_: Request, { params }: { params: { projectId: string
 
   const imageProviderId = user.imageProviderId || "segmind_soul";
   const provider = getImageProvider(imageProviderId);
-  const apiKey = imageProviderId === "openai_gpt_image" ? user.openaiApiKey : user.higgsfieldApiKey;
+  const rawKey = imageProviderId === "openai_gpt_image" ? user.openaiApiKey : user.higgsfieldApiKey;
+  const apiKey = decrypt(rawKey ?? "");
 
   if (!apiKey) {
     return NextResponse.json({ error: `Add your ${provider.name} API key in Settings to generate panels.` }, { status: 400 });

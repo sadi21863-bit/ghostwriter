@@ -4,6 +4,7 @@ import { db } from "@/db";
 import { users } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import Anthropic from "@anthropic-ai/sdk";
+import { decrypt } from "@/lib/crypto";
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! });
 
@@ -16,7 +17,7 @@ export async function POST(req: Request) {
   }
 
   const user = await db.query.users.findFirst({ where: eq(users.id, s.user.id) });
-  const trendKey = user?.trendIntelligenceKey;
+  const trendKey = decrypt(user?.trendIntelligenceKey ?? "");
 
   if (!trendKey) {
     return NextResponse.json({ error: "TREND_INTELLIGENCE_NOT_CONNECTED" }, { status: 403 });

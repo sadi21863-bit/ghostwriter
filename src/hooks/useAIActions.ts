@@ -86,12 +86,6 @@ export function useAIActions({
     setUndoStack(s => s.slice(0, -1));
   };
 
-  const saveToNotes = () => {
-    if (!streamText) return;
-    // updateProject is not in scope here — caller must handle notes update
-    // We expose streamText and mode so the shell can do it
-  };
-
   const autoSummarize = async () => {
     if (!activeChap.content) return;
     setGenerating(true); setGenTarget("summary");
@@ -224,7 +218,7 @@ DIALOGUE RULES — ENFORCE STRICTLY:
     proseResult, setProseResult, proseLoading,
     hookScore, hookScoring,
     callAI, buildNeighbourContext, buildFullContext,
-    generate, undoGeneration, saveToNotes, autoSummarize, generateDialogue,
+    generate, undoGeneration, autoSummarize, generateDialogue,
     runPipeline, usePipelineOutput,
     handleTextareaSelect, runProse, replaceSelection, scoreHook,
   };

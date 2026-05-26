@@ -5,6 +5,7 @@ import { projects, productionShots, users } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { pollJob } from "@/lib/higgsfield/client";
 import { put } from "@vercel/blob";
+import { decrypt } from "@/lib/crypto";
 
 async function verifyOwnership(projectId: string, userId: string) {
   return db.query.projects.findFirst({
@@ -27,11 +28,12 @@ export async function GET(_: Request, { params }: { params: { projectId: string;
     return NextResponse.json({ status: shot.generationStatus });
 
   const user = await db.query.users.findFirst({ where: eq(users.id, s.user.id) });
-  if (!user?.higgsfieldApiKey)
+  const higgsfieldKey = decrypt(user?.higgsfieldApiKey ?? "");
+  if (!higgsfieldKey)
     return NextResponse.json({ error: "API key missing" }, { status: 400 });
 
   const [, pollingUrl] = shot.higgsfieldJobId.split("|");
-  const { status, mediaUrl } = await pollJob({ apiKey: user.higgsfieldApiKey, pollingUrl });
+  const { status, mediaUrl } = await pollJob({ apiKey: higgsfieldKey, pollingUrl });
 
   if (status === "COMPLETED" && mediaUrl) {
     let animatedVideoUrl = mediaUrl;
