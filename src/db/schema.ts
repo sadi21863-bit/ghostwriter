@@ -93,7 +93,19 @@ export const productionShots = pgTable("production_shots", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
-export const usersRelations = relations(users, ({ many }) => ({ projects: many(projects) }));
+export const videoAnalysisJobs = pgTable("video_analysis_jobs", {
+  id:           uuid("id").defaultRandom().primaryKey(),
+  userId:       uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  youtubeUrl:   text("youtube_url").notNull(),
+  status:       varchar("status", { length: 20 }).default("pending"),
+  result:       jsonb("result").$type<Record<string, any>>(),
+  errorMessage: text("error_message"),
+  createdAt:    timestamp("created_at").defaultNow().notNull(),
+  updatedAt:    timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const usersRelations = relations(users, ({ many }) => ({ projects: many(projects), videoAnalysisJobs: many(videoAnalysisJobs) }));
+export const videoAnalysisJobsRelations = relations(videoAnalysisJobs, ({ one }) => ({ user: one(users, { fields: [videoAnalysisJobs.userId], references: [users.id] }) }));
 export const projectsRelations = relations(projects, ({ one, many }) => ({ user: one(users, { fields: [projects.userId], references: [users.id] }), characters: many(characters), locations: many(locations), plotThreads: many(plotThreads), chapters: many(chapters), referenceWorks: many(referenceWorks), generations: many(generations), creatorBible: one(creatorBibles, { fields: [projects.id], references: [creatorBibles.projectId] }), storyMemories: many(storyMemories), comicPages: many(comicPages), productionShots: many(productionShots) }));
 export const charactersRelations = relations(characters, ({ one }) => ({ project: one(projects, { fields: [characters.projectId], references: [projects.id] }) }));
 export const locationsRelations = relations(locations, ({ one }) => ({ project: one(projects, { fields: [locations.projectId], references: [projects.id] }) }));

@@ -98,7 +98,14 @@ Return JSON:
       return NextResponse.json({ error: "Analysis failed. Please try again." }, { status: 500 });
     }
 
-  } catch {
+  } catch (e: any) {
+    const msg = e?.message || "";
+    if (msg.includes("401") || msg.includes("authentication") || msg.includes("api_key")) {
+      return NextResponse.json({ error: "AI service authentication failed. Contact support." }, { status: 500 });
+    }
+    if (msg.includes("quota") || msg.includes("429")) {
+      return NextResponse.json({ error: "YouTube API quota exceeded. Try again tomorrow." }, { status: 429 });
+    }
     return NextResponse.json({ error: "YouTube trend analysis failed. Please try again." }, { status: 500 });
   }
 }

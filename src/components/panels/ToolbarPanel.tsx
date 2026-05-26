@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import ComicStudio from "@/components/ComicStudio";
 import ProductionStudio from "@/components/ProductionStudio";
 import { getPipelines, AGENT_LABELS, type Pipeline } from "@/lib/ai/pipelines";
@@ -88,6 +88,9 @@ export default function ToolbarPanel(props: Props) {
   const [dissectUrl, setDissectUrl] = useState("");
   const [dissectLoading, setDissectLoading] = useState(false);
   const [dissectResult, setDissectResult] = useState<any>(null);
+  const [dissectJobId, setDissectJobId] = useState<string | null>(null);
+  const [dissectStatus, setDissectStatus] = useState("");
+  const dissectPollRef = useRef<any>(null);
 
   const REPURPOSE_TARGETS: Record<string, string[]> = {
     "YouTube Long-form": ["YouTube Short", "TikTok Script", "Instagram Reel", "Twitter/X Thread"],
@@ -175,6 +178,63 @@ export default function ToolbarPanel(props: Props) {
       if (data.edit) setRetentionEdit(data.edit);
     } catch { /* silent */ }
     setRetentionLoading(false);
+  };
+
+  useEffect(() => {
+    return () => { if (dissectPollRef.current) clearInterval(dissectPollRef.current); };
+  }, []);
+
+  const startDissect = async () => {
+    if (!dissectUrl.trim() || dissectLoading) return;
+    setDissectLoading(true);
+    setDissectResult(null);
+    setDissectJobId(null);
+    setDissectStatus("Starting analysis...");
+
+    try {
+      const res = await fetch("/api/ai/dissect-video", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ youtubeUrl: dissectUrl }),
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        setDissectStatus("");
+        setDissectLoading(false);
+        return;
+      }
+
+      setDissectJobId(data.jobId);
+      setDissectStatus("Watching the video… this takes 1–2 minutes");
+
+      const poll = async () => {
+        try {
+          const statusRes = await fetch(`/api/ai/dissect-video/status/${data.jobId}`);
+          const statusData = await statusRes.json();
+
+          if (statusData.status === "complete") {
+            setDissectResult(statusData.analysis);
+            setDissectLoading(false);
+            setDissectStatus("");
+            clearInterval(dissectPollRef.current);
+            dissectPollRef.current = null;
+          } else if (statusData.status === "error") {
+            setDissectLoading(false);
+            setDissectStatus("");
+            clearInterval(dissectPollRef.current);
+            dissectPollRef.current = null;
+          } else if (statusData.status === "processing") {
+            setDissectStatus("Analysing structure and techniques…");
+          }
+        } catch { /* keep polling */ }
+      };
+
+      dissectPollRef.current = setInterval(poll, 4000);
+    } catch {
+      setDissectLoading(false);
+      setDissectStatus("");
+    }
   };
 
   const wordCount = (activeChap.content || "").trim().split(/\s+/).filter(Boolean).length;
@@ -303,17 +363,14 @@ export default function ToolbarPanel(props: Props) {
           <div style={{ fontSize: 11, color: co.muted, marginBottom: 10 }}>Paste any public YouTube URL to see exactly how it's structured, what retention techniques it uses, and which angles it left open.</div>
           <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
             <input style={{ ...sInput, flex: 1 }} value={dissectUrl} onChange={e => setDissectUrl(e.target.value)} placeholder="https://youtube.com/watch?v=..." />
-            <button style={{ ...sBtn, opacity: dissectLoading || !dissectUrl.trim() ? 0.5 : 1 }} disabled={dissectLoading || !dissectUrl.trim()} onClick={async () => {
-              setDissectLoading(true); setDissectResult(null);
-              try {
-                const res = await fetch("/api/ai/dissect-video", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ youtubeUrl: dissectUrl }) });
-                const data = await res.json();
-                if (res.ok) setDissectResult(data.analysis);
-              } catch { /* silent */ }
-              finally { setDissectLoading(false); }
-            }}>{dissectLoading ? "Analysing..." : "Dissect"}</button>
+            <button style={{ ...sBtn, opacity: dissectLoading || !dissectUrl.trim() ? 0.5 : 1 }} disabled={dissectLoading || !dissectUrl.trim()} onClick={startDissect}>{dissectLoading ? "Analysing..." : "Dissect"}</button>
           </div>
-          {dissectLoading && <div style={{ fontSize: 12, color: co.muted, textAlign: "center", padding: "12px 0" }}>Watching the video and analysing structure...</div>}
+          {dissectLoading && (
+            <div style={{ fontSize: 12, color: co.muted, padding: "12px 0" }}>
+              <div style={{ marginBottom: 4 }}>⏳ {dissectStatus}</div>
+              <div style={{ fontSize: 11, color: co.border }}>Processing in the background — results appear automatically</div>
+            </div>
+          )}
           {dissectResult && (
             <div style={{ maxHeight: 400, overflowY: "auto" }}>
               <div style={{ marginBottom: 12 }}>

@@ -1,0 +1,142 @@
+name: Dissect Video
+
+on:
+  repository_dispatch:
+    types: [dissect-video]
+
+jobs:
+  analyse:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Analyse YouTube video with Gemini
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          JOB_ID: ${{ github.event.client_payload.jobId }}
+          YOUTUBE_URL: ${{ github.event.client_payload.youtubeUrl }}
+          CHANNEL_CONTEXT: ${{ github.event.client_payload.channelContext }}
+        run: |
+          node << 'EOF'
+          const https = require("https");
+          const { Client } = require("pg");
+
+          const jobId = process.env.JOB_ID;
+          const youtubeUrl = process.env.YOUTUBE_URL;
+          const channelContext = process.env.CHANNEL_CONTEXT || "";
+          const geminiKey = process.env.GEMINI_API_KEY;
+          const dbUrl = process.env.DATABASE_URL;
+
+          const db = new Client({ connectionString: dbUrl, ssl: { rejectUnauthorized: false } });
+
+          async function updateJob(status, result, errorMessage) {
+            await db.query(
+              `UPDATE video_analysis_jobs SET status = $1, result = $2, error_message = $3, updated_at = NOW() WHERE id = $4`,
+              [status, result ? JSON.stringify(result) : null, errorMessage || null, jobId]
+            );
+          }
+
+          async function main() {
+            await db.connect();
+            console.log("Connected to DB, starting Gemini analysis for job:", jobId);
+
+            await updateJob("processing", null, null);
+
+            const prompt = `Analyse this YouTube video in detail as a content strategist.${channelContext ? "\n" + channelContext : ""}
+
+          Return ONLY valid JSON:
+          {
+            "title": "video title if visible",
+            "format": "Long-form | Short | Reel",
+            "hookType": "fear | curiosity | controversy | story | statistic | question | challenge",
+            "openingLine": "exact first sentence or text shown",
+            "totalStructure": [
+              {
+                "timestamp": "0:00-0:30",
+                "section": "section name",
+                "technique": "specific retention technique used",
+                "purpose": "what this achieves"
+              }
+            ],
+            "reHooks": [
+              { "timestamp": "string", "technique": "how energy is re-spiked here" }
+            ],
+            "payoffMoment": "timestamp where the main promise is delivered",
+            "angle": "the specific angle this creator took on the topic",
+            "whatWorked": ["specific thing that makes this video effective"],
+            "whatToSteal": ["specific technique to replicate"],
+            "freshAngles": ["angle this video did NOT take that could work"],
+            "estimatedRetentionRisk": ["timestamp where viewers likely drop off and why"]
+          }`;
+
+            const requestBody = JSON.stringify({
+              contents: [{
+                parts: [
+                  { file_data: { file_uri: youtubeUrl, mime_type: "video/mp4" } },
+                  { text: prompt }
+                ]
+              }],
+              generationConfig: {
+                temperature: 0.2,
+                responseMimeType: "application/json",
+              }
+            });
+
+            const geminiResult = await new Promise((resolve, reject) => {
+              const options = {
+                hostname: "generativelanguage.googleapis.com",
+                path: `/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`,
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  "Content-Length": Buffer.byteLength(requestBody),
+                },
+              };
+
+              const req = https.request(options, (res) => {
+                let data = "";
+                res.on("data", chunk => { data += chunk; });
+                res.on("end", () => {
+                  if (res.statusCode !== 200) {
+                    reject(new Error(`Gemini API error ${res.statusCode}: ${data}`));
+                    return;
+                  }
+                  resolve(JSON.parse(data));
+                });
+              });
+              req.on("error", reject);
+              req.write(requestBody);
+              req.end();
+            });
+
+            const text = geminiResult.candidates?.[0]?.content?.parts?.[0]?.text;
+            if (!text) {
+              await updateJob("error", null, "No analysis returned from Gemini");
+              await db.end();
+              process.exit(1);
+            }
+
+            let analysis;
+            try {
+              analysis = JSON.parse(text.replace(/```json\n?|```/g, "").trim());
+            } catch {
+              await updateJob("error", null, "Failed to parse Gemini response");
+              await db.end();
+              process.exit(1);
+            }
+
+            await updateJob("complete", analysis, null);
+            console.log("Analysis complete for job:", jobId);
+            await db.end();
+          }
+
+          main().catch(async (err) => {
+            console.error("Error:", err.message);
+            try {
+              await updateJob("error", null, err.message);
+              await db.end();
+            } catch {}
+            process.exit(1);
+          });
+          EOF
