@@ -4,6 +4,8 @@ import ComicStudio from "@/components/ComicStudio";
 import ProductionStudio from "@/components/ProductionStudio";
 import { getPipelines, AGENT_LABELS, type Pipeline } from "@/lib/ai/pipelines";
 import { MODES, PODCAST_MODES, isStoryFormat, isCreatorFormat } from "@/lib/formats";
+import { getDialogueArchetypeNames } from "@/lib/dialogue";
+import { getCombatStyleNames } from "@/lib/combat";
 import { co, sInput, sTextarea, sBtn, sBtnSm } from "@/lib/styles";
 
 interface Props {
@@ -49,7 +51,8 @@ interface Props {
   hookScoring: boolean;
   scoreHook: () => Promise<void>;
   generate: () => Promise<void>;
-  generateDialogue: (charAId: string, charBId: string, prompt: string) => Promise<void>;
+  generateDialogue: (charAId: string, charBId: string, prompt: string, archetypeName: string) => Promise<void>;
+  generateCombat: (styleA: string, styleB: string, prompt: string) => Promise<void>;
   updateProject: (fn: any) => void;
   handleTextareaSelect: (e: React.SyntheticEvent<HTMLTextAreaElement>) => void;
   setSavedMsg: (m: string) => void;
@@ -57,11 +60,17 @@ interface Props {
   setDialogueCharA: (id: string) => void;
   dialogueCharB: string;
   setDialogueCharB: (id: string) => void;
+  dialogueArchetype: string;
+  setDialogueArchetype: (v: string) => void;
+  combatStyleA: string;
+  setCombatStyleA: (v: string) => void;
+  combatStyleB: string;
+  setCombatStyleB: (v: string) => void;
   cohostVoice: string;
   setCohostVoice: (v: string) => void;
 }
 
-const modeLabel = (m: string) => ({ brainstorm: "Brainstorm", outline: "Outline", write: "Write", dialogue: "Dialogue", cohost: "Co-host" }[m] ?? m);
+const modeLabel = (m: string) => ({ brainstorm: "Brainstorm", outline: "Outline", write: "Write", dialogue: "Dialogue", combat: "Combat", cohost: "Co-host" }[m] ?? m);
 
 export default function ToolbarPanel(props: Props) {
   const {
@@ -72,8 +81,10 @@ export default function ToolbarPanel(props: Props) {
     pipelineRunning, pipelineResults, setPipelineResults, expandedAgent, setExpandedAgent, activePipelineId,
     runPipeline, usePipelineOutput,
     selectedText, setSelectedText, setSelectedRange, proseLoading, proseResult, setProseResult, runProse, replaceSelection,
-    hookScore, hookScoring, scoreHook, generate, generateDialogue, updateProject, handleTextareaSelect, setSavedMsg,
+    hookScore, hookScoring, scoreHook, generate, generateDialogue, generateCombat, updateProject, handleTextareaSelect, setSavedMsg,
     dialogueCharA, setDialogueCharA, dialogueCharB, setDialogueCharB,
+    dialogueArchetype, setDialogueArchetype,
+    combatStyleA, setCombatStyleA, combatStyleB, setCombatStyleB,
     cohostVoice, setCohostVoice,
   } = props;
 
@@ -243,7 +254,7 @@ export default function ToolbarPanel(props: Props) {
     ? PODCAST_MODES
     : isStoryFormat(project.format)
     ? MODES
-    : MODES.filter(m => m !== "dialogue");
+    : MODES.filter(m => m !== "dialogue" && m !== "combat");
 
   return (
     <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0, position: "relative" }}>
@@ -462,6 +473,30 @@ export default function ToolbarPanel(props: Props) {
                       );
                     })()}
                   </div>
+                  {/* Scene Archetype */}
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 11, color: co.muted, marginBottom: 4 }}>Scene Archetype</div>
+                    <select style={{ ...sInput, marginBottom: 8 }} value={dialogueArchetype} onChange={e => setDialogueArchetype(e.target.value)}>
+                      {getDialogueArchetypeNames().map(a => <option key={a} value={a}>{a}</option>)}
+                    </select>
+                    {dialogueArchetype && (() => {
+                      const descriptions: Record<string, string> = {
+                        "Argument": "Surface fight concealing a deeper wound. Power shifts. Something true gets said.",
+                        "Interrogation": "One extracts, one protects. Tactics, tells, and the question of who breaks.",
+                        "Confession": "A truth transferred — the confessor circles before landing. Aftermath changes everything.",
+                        "Reunion": "Shared history collides with who they've become. Stilted, then raw.",
+                        "Negotiation": "Both want what the other has. Real bottom lines never stated.",
+                        "Seduction": "Desire disguised as conversation. Plausible deniability until it isn't.",
+                        "Farewell": "The last chance to say it — and what doesn't get said.",
+                        "Group Scene": "Alliances form and shift. Someone gets silenced. The group is its own character.",
+                      };
+                      return (
+                        <div style={{ padding: "10px 12px", background: co.accentBg, borderRadius: 8, border: "1px solid " + co.accent + "40", fontSize: 12, color: co.muted, lineHeight: 1.5 }}>
+                          {descriptions[dialogueArchetype] ?? ""}
+                        </div>
+                      );
+                    })()}
+                  </div>
                 </div>
               )}
             </div>
@@ -493,12 +528,75 @@ export default function ToolbarPanel(props: Props) {
                 value={prompt}
                 onChange={e => setPrompt(e.target.value)}
                 placeholder="Describe the scene — what do they want from each other?"
-                onKeyDown={e => e.key === "Enter" && !generating && generateDialogue(dialogueCharA, dialogueCharB, prompt)}
+                onKeyDown={e => e.key === "Enter" && !generating && generateDialogue(dialogueCharA, dialogueCharB, prompt, dialogueArchetype)}
               />
               <button
                 style={{ ...sBtn, opacity: generating || !dialogueCharA || !dialogueCharB ? 0.5 : 1 }}
                 disabled={generating || !dialogueCharA || !dialogueCharB}
-                onClick={() => generateDialogue(dialogueCharA, dialogueCharB, prompt)}
+                onClick={() => generateDialogue(dialogueCharA, dialogueCharB, prompt, dialogueArchetype)}
+              >
+                {generating ? "..." : "Generate"}
+              </button>
+            </div>
+          </div>
+        )
+        : mode === "combat"
+        ? (
+          <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+            {/* Style selectors */}
+            <div style={{ padding: "12px 16px", borderBottom: "1px solid " + co.border, background: co.surfaceAlt, flexShrink: 0 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: co.accent, marginBottom: 10, textTransform: "uppercase" }}>Combat Mode — Select two fighting styles</div>
+              <div style={{ display: "flex", gap: 16 }}>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 11, color: co.muted, marginBottom: 4 }}>Fighter A Style</div>
+                  <select style={sInput} value={combatStyleA} onChange={e => setCombatStyleA(e.target.value)}>
+                    <option value="">Select style...</option>
+                    {getCombatStyleNames().map(s => <option key={s} value={s}>{s}</option>)}
+                  </select>
+                </div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 11, color: co.muted, marginBottom: 4 }}>Fighter B Style</div>
+                  <select style={sInput} value={combatStyleB} onChange={e => setCombatStyleB(e.target.value)}>
+                    <option value="">Select style...</option>
+                    {getCombatStyleNames().filter(s => s !== combatStyleA).map(s => <option key={s} value={s}>{s}</option>)}
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            {/* Combat output */}
+            <div style={{ flex: 1, overflow: "auto", padding: 24 }}>
+              {generating
+                ? <div style={{ color: co.muted, fontSize: 14 }}>Generating combat scene...</div>
+                : streamText
+                ? <div style={{ whiteSpace: "pre-wrap", fontSize: 15, lineHeight: 1.8, fontFamily: "Georgia,serif" }}>{streamText}</div>
+                : <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%", color: co.muted, fontSize: 14 }}>Select two fighting styles and describe the scene below</div>}
+            </div>
+
+            {/* Insert / Discard bar */}
+            {streamText && !generating && (
+              <div style={{ padding: "8px 16px", borderTop: "1px solid " + co.border, display: "flex", gap: 8, justifyContent: "flex-end", background: co.surfaceAlt, flexShrink: 0 }}>
+                <button style={sBtnSm} onClick={() => setStreamText("")}>Discard</button>
+                <button style={sBtn} onClick={() => {
+                  updateChapter("content", (activeChap?.content || "") + (activeChap?.content ? "\n\n" : "") + streamText);
+                  setStreamText("");
+                }}>Insert into Chapter</button>
+              </div>
+            )}
+
+            {/* Prompt bar */}
+            <div style={{ padding: "12px 16px", borderTop: "1px solid " + co.border, display: "flex", gap: 8, background: co.surface, flexShrink: 0 }}>
+              <input
+                style={{ ...sInput, flex: 1 }}
+                value={prompt}
+                onChange={e => setPrompt(e.target.value)}
+                placeholder="Describe the fight — stakes, setting, who has the advantage?"
+                onKeyDown={e => e.key === "Enter" && !generating && generateCombat(combatStyleA, combatStyleB, prompt)}
+              />
+              <button
+                style={{ ...sBtn, opacity: generating || !combatStyleA || !combatStyleB ? 0.5 : 1 }}
+                disabled={generating || !combatStyleA || !combatStyleB}
+                onClick={() => generateCombat(combatStyleA, combatStyleB, prompt)}
               >
                 {generating ? "..." : "Generate"}
               </button>

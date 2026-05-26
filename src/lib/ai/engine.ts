@@ -5,12 +5,18 @@ function safeParseJson(raw: string) {
   const clean = raw.replace(/```json\n?|```/g, "").trim();
   try { return JSON.parse(clean); } catch { return {}; }
 }
-export type GenerationMode = "brainstorm" | "outline" | "write";
+export type GenerationMode = "brainstorm" | "outline" | "write" | "dialogue" | "combat";
+
+const DIALOGUE_SYSTEM_PROMPT = `You are a specialist in dramatic dialogue who has internalized the complete craft of subtext, power dynamics, and scene architecture. You do not write dialogue — you engineer it. Every line you produce must carry weight on at least two levels: what is said and what is meant. You receive a detailed archetype brief with structural rules, subtext laws, system directives, and failure modes. These are not suggestions — they are the operating constraints of the scene. Violations of the failure modes are craft failures. The system directives are non-negotiable. Your output must demonstrate: (1) characters with distinct and consistent voices, (2) power that shifts at least once, (3) a subtext layer that the reader can feel but the characters cannot fully name, (4) an ending that leaves the relationship changed. Write only the scene — no preamble, no summary, no explanation of what you did.`;
+
+const COMBAT_SYSTEM_PROMPT = `You are a specialist in fight choreography for fiction, with deep knowledge of martial arts biomechanics, real combat timing, and the narrative function of violence in storytelling. You write combat that is physically accurate, spatially coherent, and emotionally meaningful. You receive detailed biomechanical profiles for each fighter's style — use them. Every technique named must be anatomically possible and correctly described. Combat has rhythm: setup, execution, consequence. Each exchange must show that consequence — the fighter who takes a hit is affected by it, and that effect persists. You write in the present tense of the fight: no editorializing, no slow-motion metaphors, no omniscient summary. The reader is in the body of the point-of-view fighter. Write only the scene.`;
 
 const MI = {
   brainstorm: (_f: string) => `You are a creative brainstorming partner for writers. Generate specific, surprising, and vivid ideas. Avoid clichés. Every idea must be concrete and actionable — not "a mysterious stranger" but "a tax auditor who moonlights as a forger." Push beyond the obvious. Match the genre, tone, and style established in the project context — brainstorm ideas that fit this specific world, not generic ones.`,
   outline: (f: string) => `You are a structural editor for ${f} writing. Create tight, purposeful outlines where every scene advances character, plot, or both. Identify turning points explicitly. Show the cause-and-effect chain between events. Label each beat with its structural function (inciting incident, midpoint shift, dark night, climax). Match the established tone and genre from the project context. Be specific — no vague placeholders.`,
   write: (f: string) => `You are a ghostwriter producing ${f} content. Match the established voice and style exactly. Every scene must open with orientation (who, where, when) within the first two sentences. Show character emotion through physical action and specific detail — never name emotions directly. Maintain continuity with all established facts. End scenes on tension, decision, or revelation — never neutral ground.`,
+  dialogue: (_f: string) => DIALOGUE_SYSTEM_PROMPT,
+  combat: (_f: string) => COMBAT_SYSTEM_PROMPT,
 };
 
 const STORY_FORMAT_RULES: Record<string, string> = {

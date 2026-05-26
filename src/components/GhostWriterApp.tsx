@@ -18,6 +18,9 @@ export default function GhostWriterApp({ projectId }: { projectId: string }) {
   const [leftCollapsed, setLeftCollapsed] = useState(false);
   const [rightCollapsed, setRightCollapsed] = useState(false);
   const [cohostVoice, setCohostVoice] = useState("curious_generalist");
+  const [dialogueArchetype, setDialogueArchetype] = useState("Argument");
+  const [combatStyleA, setCombatStyleA] = useState("");
+  const [combatStyleB, setCombatStyleB] = useState("");
 
   const projectState = useProjectState(projectId);
   const {
@@ -161,6 +164,13 @@ export default function GhostWriterApp({ projectId }: { projectId: string }) {
         setDialogueCharB={setDialogueCharB}
         cohostVoice={cohostVoice}
         setCohostVoice={setCohostVoice}
+        dialogueArchetype={dialogueArchetype}
+        setDialogueArchetype={setDialogueArchetype}
+        combatStyleA={combatStyleA}
+        setCombatStyleA={setCombatStyleA}
+        combatStyleB={combatStyleB}
+        setCombatStyleB={setCombatStyleB}
+        generateCombat={aiActions.generateCombat}
       />
 
       <ChapterEditor

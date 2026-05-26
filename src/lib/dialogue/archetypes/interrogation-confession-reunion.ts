@@ -1,0 +1,103 @@
+import type { DialogueArchetype } from "../types";
+
+export const INTERROGATION: DialogueArchetype = {
+  name: "Interrogation",
+  description: "One character extracts information from another. The power asymmetry is explicit — but it shifts. The subject has information the interrogator needs, which is its own kind of power. The scene is about who breaks first and what the breaking costs.",
+  underlyingConflict: "The interrogator needs something. The subject is deciding, in real time, how much it will cost them to give it — or to protect it. The real conflict is not information but will. Who has more reason to hold their position?",
+  powerDynamic: "The interrogator holds institutional or physical power. The subject holds informational power. The scene transfers depending on how each leverages what they have. An interrogator who reveals how much they already know loses leverage. A subject who reveals they are frightened loses leverage.",
+  sceneStructure: "Establishment (the interrogator sets the frame — this is who I am, this is what I need) — Testing (the interrogator probes, the subject deflects) — Pressure (tactics escalate — implied threat, false information, appeal to interest) — Crack or wall (the subject either begins to yield or fortifies completely) — Exit (someone leaves with more than they came with — which one depends on who broke).",
+  subtextRules: [
+    "The interrogator's questions are never just questions — they are moves. Each question positions the subject.",
+    "The subject's answers are never just answers — they are decisions about what to protect.",
+    "Silence is a form of speech in interrogation — what the subject refuses to answer reveals something.",
+    "The interrogator who tells the subject what they already know is trying to make the subject feel surrounded.",
+    "A subject who asks a question of their own is trying to regain control of the exchange.",
+  ],
+  rhythmPattern: "Interrogation has a call-and-response rhythm with unpredictable pauses. The interrogator controls the tempo — speeding up to disorient, slowing to apply pressure. Silence should appear at least three times in the scene: once for the interrogator, once for the subject, once for both.",
+  openingPrinciple: "Begin with the interrogator already in control of the physical space and the subject already seated or positioned lower. The power asymmetry should be visible before a word is spoken. The interrogator's first line should not ask anything — it should state something, establishing dominance.",
+  escalationMechanics: "Interrogation escalates through tactics: the opening tactic (build rapport or assert dominance), the pivot (introduce what you know and see how they react), the leverage play (use what you've observed to apply pressure), the final gambit (the bluff, the threat, the offer).",
+  breakingPoint: "The subject either breaks (gives information, confesses, reveals emotion) or fortifies beyond reach (shuts down completely, asks for a lawyer, goes silent). The breaking point is when the subject stops managing the conversation and responds from a place of genuine feeling — anger, fear, relief, despair.",
+  failureModes: [
+    "The interrogator asks direct questions and the subject answers them directly — no tactics, no evasion.",
+    "The subject volunteers information without being cornered into it.",
+    "The interrogator is uniformly menacing — no variation in approach, no reading of the subject.",
+    "The subject is uniformly resistant — no wavering, no moments of almost-breaking.",
+    "The power dynamic never shifts — the interrogator has all the power from start to finish.",
+  ],
+  systemDirectives: [
+    "The interrogator must use at least two distinct tactics — they are reading the subject and adapting.",
+    "The subject must almost break at least once before they either break or fortify.",
+    "Include one silence that lasts long enough to be uncomfortable in the scene.",
+    "The subject must answer at least one question indirectly — deflecting to a different topic.",
+    "End on ambiguity — even if information was extracted, the interrogator should be uncertain what was withheld.",
+  ],
+  writingNotes: "The best interrogation scenes are about two people reading each other simultaneously. The interrogator is watching for tells; the subject is watching for what the interrogator already knows. Write both minds active, both people performing, both people genuinely uncertain of the outcome.",
+};
+
+export const CONFESSION: DialogueArchetype = {
+  name: "Confession",
+  description: "One character discloses something true and significant to another — something that changes their relationship to each other, to the world, or to themselves. The confession can be a crime, a feeling, a failure, a secret, or a truth long denied. The character confessing is not releasing a burden; they are transferring part of it.",
+  underlyingConflict: "The confessor wants to be free of what they are carrying — but also wants to keep the relationship. These two wants are in conflict. The listener is being asked to absorb something they did not ask for. Their reaction will determine whether the confessor's risk was worth it.",
+  powerDynamic: "Before the confession: the confessor holds the secret and therefore the power. After the confession: the listener holds the knowledge and therefore the power. This is the transfer the confessor is making — and many confessions are never made because the person cannot bear to give up that power.",
+  sceneStructure: "Approach (the confessor orbits the subject — they are there, but they are not saying it yet) — First signal (something is said that indicates what is coming, but not the thing itself) — Retreat (the confessor backs away, deflects, or changes the subject) — Return (something forces them back — the listener's patience, an external event, their own need) — The landing (the confession itself — never in the first sentence, always after circling) — Aftermath (the relationship reconfigures in real time).",
+  subtextRules: [
+    "The confessor almost says it at least twice before they say it.",
+    "The first version of the confession is incomplete — the full truth comes later, or in a different conversation.",
+    "The listener's response shapes what the confessor says next — confessions are co-constructed.",
+    "What the confessor says they feel and what they actually feel are often different.",
+    "The language the confessor uses for the difficult thing is often indirect — not 'I cheated' but 'there was someone else.'",
+  ],
+  rhythmPattern: "Confessions have an uneven rhythm — long circling approaches, short retreats, then the landing which is often quieter than expected. After the confession, lines slow. Both characters are processing. Do not rush the aftermath.",
+  openingPrinciple: "Begin the scene before the confessor has decided to confess — they are still weighing it. The opening should feel ordinary and slightly tense, with the reader aware something is held but not yet what.",
+  escalationMechanics: "The scene escalates through proximity to the truth: each exchange gets closer. The confessor is circling the center and each orbit brings them nearer. The listener may accelerate or slow this — by making the space safe (which makes the confessor circle faster) or by being preoccupied.",
+  breakingPoint: "The moment the confession lands — not the moment the confessor decided to confess, but the specific sentence in which the truth exists fully in the room for the first time. It is almost always quieter than everything around it.",
+  failureModes: [
+    "The confession is made immediately, in the opening lines, without the scene earning it.",
+    "The confessor explains and justifies in detail — real confessions are rarely fully articulate.",
+    "The listener's reaction is uniformly supportive or uniformly condemnatory — no ambiguity.",
+    "The language of the confession is direct and clinical rather than human.",
+    "The scene ends with the relationship resolved — confession changes things; it doesn't fix them.",
+  ],
+  systemDirectives: [
+    "The confessor must circle the subject at least twice before landing.",
+    "The actual confession must be in indirect or incomplete language — not a legal statement.",
+    "The listener's reaction must be ambiguous — the reader should not be certain how they feel.",
+    "Include at least one moment where the confessor almost does not say it.",
+    "The scene must end in the aftermath, not at the moment of confession — show the relationship changing.",
+  ],
+  writingNotes: "The hardest thing about writing confessions is that they are rarely as dramatic as they feel. Real confessions are halting, incomplete, and full of the wrong words. The character says 'I think... there was a time when I...' not 'I confess that.' Honor the messiness.",
+};
+
+export const REUNION: DialogueArchetype = {
+  name: "Reunion",
+  description: "Two characters with significant shared history meet after a significant absence — or return to a significant relationship after a rupture. Everything between them is present in the room even if neither acknowledges it. The scene is about the collision of who they were and who they are now.",
+  underlyingConflict: "Both characters want to return to what was — but they cannot, because both have changed. The conflict is between the desire for continuity and the reality of discontinuity. One character usually wants the reunion more than the other.",
+  powerDynamic: "The character who needs the reunion less has the power. The character who traveled to make it happen, or who opened the conversation, or who has been carrying the weight of the separation — they are more exposed. Power shifts when the less-invested character reveals they are invested after all.",
+  sceneStructure: "Threshold (the moment before contact — both characters knowing what is about to happen) — Surface exchange (the words that pretend the history isn't there) — First real moment (a line that acknowledges the history is there) — The question underneath (what actually needs to be said) — Resolution or rupture (they either move toward each other or further apart).",
+  subtextRules: [
+    "Every ordinary line carries the weight of the shared history — 'you look well' from someone who last saw the other person in hospital is not a simple compliment.",
+    "What the characters do not say about the time between is more present than what they say about it.",
+    "Physical detail — how they stand, whether they touch, who moves toward whom — does more work than dialogue in this scene type.",
+    "One character often performs casualness that is not casual. The performance is visible.",
+    "The moment they first use each other's names (or refuse to) carries specific weight.",
+  ],
+  rhythmPattern: "Reunions start stilted — both characters managing their own exposure. Lines are shorter than natural, safer than genuine. As the scene progresses and the history becomes unavoidable, lines lengthen and become less managed. The rhythm should reflect the thawing — or the decision not to thaw.",
+  openingPrinciple: "Begin in the threshold moment — the instant before contact. The reader should feel the fullness of the history in the gap between the characters before anyone speaks. The first spoken line should be inadequate to the occasion — because it always is.",
+  escalationMechanics: "The scene escalates through proximity to the real subject. Every exchange about the surface is also an exchange about the actual subject. The surface and the real escalate together.",
+  breakingPoint: "The moment when the real subject enters the room explicitly — when someone names the thing that has been present the whole time. Or, alternatively, the moment when one character makes clear the reunion is not going to resolve what the other hoped it would.",
+  failureModes: [
+    "The characters catch up normally — as if the history between them is not present in every word.",
+    "The emotional reunion happens too quickly — characters feel things fully before the scene has earned it.",
+    "The history is explained in dialogue — 'as you know, when we last saw each other...'",
+    "Both characters have the same relationship to the reunion — same level of need, same level of investment.",
+    "The scene ends with resolution — real reunions rarely resolve cleanly.",
+  ],
+  systemDirectives: [
+    "Physical description must carry the history — how they position their bodies relative to each other.",
+    "The real subject must not be named until at least halfway through the scene.",
+    "One character must be performing a casualness they do not feel — and this performance must be visible to the reader.",
+    "Use each character's name at least once, and mark whether using it feels natural or deliberate.",
+    "End the scene in a new understanding of each other, not necessarily in resolution.",
+  ],
+  writingNotes: "Reunions are most powerful when the characters are genuinely different from who they were — not just older, but changed. The collision of who they were to each other and who they are now is the scene's engine.",
+};
