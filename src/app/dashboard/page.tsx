@@ -36,6 +36,10 @@ export default function Dashboard() {
   const [openaiKeyLast4, setOpenaiKeyLast4] = useState("");
   const [openaiInput, setOpenaiInput] = useState("");
   const [imageProviderId, setImageProviderId] = useState("segmind_soul");
+  const [trendKeySet, setTrendKeySet] = useState(false);
+  const [trendKeyLast4, setTrendKeyLast4] = useState("");
+  const [trendKeyInput, setTrendKeyInput] = useState("");
+  const [showTrendKeyInput, setShowTrendKeyInput] = useState(false);
   const [settingsSaving, setSettingsSaving] = useState(false);
   const [settingsMsg, setSettingsMsg] = useState("");
   const [search, setSearch] = useState("");
@@ -61,6 +65,8 @@ export default function Dashboard() {
       setOpenaiKeySet(data.openaiKeySet ?? false);
       setOpenaiKeyLast4(data.openaiKeyLast4 ?? "");
       setImageProviderId(data.imageProviderId ?? "segmind_soul");
+      setTrendKeySet(data.trendIntelligenceKeySet ?? false);
+      setTrendKeyLast4(data.trendIntelligenceKeyLast4 ?? "");
     }).catch(() => {});
   }, [status]);
 
@@ -103,6 +109,7 @@ export default function Dashboard() {
       const body: Record<string, any> = { imageProviderId };
       if (higgsfieldInput.trim()) body.higgsfieldApiKey = higgsfieldInput.trim();
       if (openaiInput.trim()) body.openaiApiKey = openaiInput.trim();
+      if (trendKeyInput.trim()) body.trendIntelligenceKey = trendKeyInput.trim();
       const res = await fetch("/api/user/settings", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -111,6 +118,7 @@ export default function Dashboard() {
       if (res.ok) {
         if (higgsfieldInput.trim()) { setHiggsfieldKeySet(true); setHiggsfieldKeyLast4(higgsfieldInput.trim().slice(-4)); setHiggsfieldInput(""); }
         if (openaiInput.trim()) { setOpenaiKeySet(true); setOpenaiKeyLast4(openaiInput.trim().slice(-4)); setOpenaiInput(""); }
+        if (trendKeyInput.trim()) { setTrendKeySet(true); setTrendKeyLast4(trendKeyInput.trim().slice(-4)); setTrendKeyInput(""); setShowTrendKeyInput(false); }
         setSettingsMsg("Saved!");
         setTimeout(() => setSettingsMsg(""), 2000);
       } else {
@@ -405,6 +413,28 @@ export default function Dashboard() {
                   <input type="password" value={openaiInput} onChange={e => setOpenaiInput(e.target.value)}
                     placeholder={openaiKeySet ? "Enter new key to update" : "sk-..."} className={inputCls} />
                   <p className="text-xs text-gray-400 mt-1">Your credits pay for GPT Image 2 generation directly.</p>
+                </div>
+              )}
+            </div>
+            <div className="mb-5">
+              <div className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-3 pb-2 border-b border-gray-100">
+                Trend Intelligence
+              </div>
+              {trendKeySet ? (
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs font-semibold text-green-600">✓ Connected — last 4: {trendKeyLast4}</p>
+                    <p className="text-xs text-gray-400 mt-1">Powers live Instagram Reels trend analysis.</p>
+                  </div>
+                  <button className="text-xs text-gray-400 underline" onClick={() => setShowTrendKeyInput(true)}>Update</button>
+                </div>
+              ) : (
+                <p className="text-xs text-gray-400">Not connected. Activate from the Trends tab inside any creator project.</p>
+              )}
+              {(!trendKeySet || showTrendKeyInput) && (
+                <div className="mt-3">
+                  <input type="password" value={trendKeyInput} onChange={e => setTrendKeyInput(e.target.value)}
+                    placeholder={trendKeySet ? "Enter new key to update" : "Enter your personal data key"} className={inputCls} />
                 </div>
               )}
             </div>

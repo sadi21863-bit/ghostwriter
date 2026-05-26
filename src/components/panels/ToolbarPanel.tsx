@@ -84,6 +84,10 @@ export default function ToolbarPanel(props: Props) {
   const [repurposeResult, setRepurposeResult] = useState<any>(null);
   const [repurposeLoading, setRepurposeLoading] = useState(false);
   const [repurposeTarget, setRepurposeTarget] = useState("YouTube Short");
+  const [showDissect, setShowDissect] = useState(false);
+  const [dissectUrl, setDissectUrl] = useState("");
+  const [dissectLoading, setDissectLoading] = useState(false);
+  const [dissectResult, setDissectResult] = useState<any>(null);
 
   const REPURPOSE_TARGETS: Record<string, string[]> = {
     "YouTube Long-form": ["YouTube Short", "TikTok Script", "Instagram Reel", "Twitter/X Thread"],
@@ -195,6 +199,9 @@ export default function ToolbarPanel(props: Props) {
         <button style={{ ...sBtnSm, background: showAgents ? co.accentBg : co.surfaceAlt, color: showAgents ? co.accent : co.muted, fontWeight: showAgents ? 700 : 400, border: "1px solid " + (showAgents ? co.accent : co.border) }} onClick={() => { setShowAgents((v: boolean) => !v); setPipelineResults([]); setShowComicStudio(false); setShowProductionStudio(false); }}>⚡ Agents</button>
         {isStoryFormat(project.format) && <button style={{ ...sBtnSm, background: showComicStudio ? co.accentBg : co.surfaceAlt, color: showComicStudio ? co.accent : co.muted, fontWeight: showComicStudio ? 700 : 400, border: "1px solid " + (showComicStudio ? co.accent : co.border) }} onClick={() => { setShowComicStudio((v: boolean) => !v); setShowProductionStudio(false); setShowAgents(false); setPipelineResults([]); }}>🎨 Comics</button>}
         {isStoryFormat(project.format) && <button style={{ ...sBtnSm, background: showProductionStudio ? co.accentBg : co.surfaceAlt, color: showProductionStudio ? co.accent : co.muted, fontWeight: showProductionStudio ? 700 : 400, border: "1px solid " + (showProductionStudio ? co.accent : co.border) }} onClick={() => { setShowProductionStudio((v: boolean) => !v); setShowComicStudio(false); setShowAgents(false); setPipelineResults([]); }}>🎬 Studio</button>}
+        {["YouTube Long-form", "YouTube Short"].includes(project.format) && (
+          <button style={{ ...sBtnSm, background: showDissect ? co.accentBg : co.surfaceAlt, color: showDissect ? co.accent : co.muted, fontWeight: showDissect ? 700 : 400, border: "1px solid " + (showDissect ? co.accent : co.border) }} onClick={() => { setShowDissect(v => !v); setShowAgents(false); setPipelineResults([]); }}>🎬 Dissect Video</button>
+        )}
         <div style={{ flex: 1 }} />
         {mode === "write" && <span style={{ fontSize: 11, color: co.muted, background: co.surfaceAlt, padding: "4px 10px", borderRadius: 6 }}>{wordCount} words | {totalWords} total</span>}
         {mode === "write" && undoStack.length > 0 && <button style={{ ...sBtnSm, background: "#fff3e0", color: "#e65100" }} onClick={undoGeneration}>Undo AI</button>}
@@ -285,6 +292,60 @@ export default function ToolbarPanel(props: Props) {
                 </div>
               ))}
             </>
+          )}
+        </div>
+      )}
+
+      {/* Dissect Video panel */}
+      {showDissect && (
+        <div style={{ padding: "12px 16px", borderBottom: "1px solid " + co.border, background: co.surfaceAlt }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: co.accent, marginBottom: 8 }}>🎬 Competitor Video Dissection</div>
+          <div style={{ fontSize: 11, color: co.muted, marginBottom: 10 }}>Paste any public YouTube URL to see exactly how it's structured, what retention techniques it uses, and which angles it left open.</div>
+          <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
+            <input style={{ ...sInput, flex: 1 }} value={dissectUrl} onChange={e => setDissectUrl(e.target.value)} placeholder="https://youtube.com/watch?v=..." />
+            <button style={{ ...sBtn, opacity: dissectLoading || !dissectUrl.trim() ? 0.5 : 1 }} disabled={dissectLoading || !dissectUrl.trim()} onClick={async () => {
+              setDissectLoading(true); setDissectResult(null);
+              try {
+                const res = await fetch("/api/ai/dissect-video", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ youtubeUrl: dissectUrl }) });
+                const data = await res.json();
+                if (res.ok) setDissectResult(data.analysis);
+              } catch { /* silent */ }
+              finally { setDissectLoading(false); }
+            }}>{dissectLoading ? "Analysing..." : "Dissect"}</button>
+          </div>
+          {dissectLoading && <div style={{ fontSize: 12, color: co.muted, textAlign: "center", padding: "12px 0" }}>Watching the video and analysing structure...</div>}
+          {dissectResult && (
+            <div style={{ maxHeight: 400, overflowY: "auto" }}>
+              <div style={{ marginBottom: 12 }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: co.accent, textTransform: "uppercase", marginBottom: 4 }}>Hook</div>
+                <div style={{ fontSize: 12 }}><strong>{dissectResult.hookType}</strong> — "{dissectResult.openingLine}"</div>
+              </div>
+              {dissectResult.totalStructure?.length > 0 && (
+                <div style={{ marginBottom: 12 }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: co.accent, textTransform: "uppercase", marginBottom: 6 }}>Structure</div>
+                  {dissectResult.totalStructure.map((s: any, i: number) => (
+                    <div key={i} style={{ display: "flex", gap: 8, marginBottom: 4, fontSize: 12 }}>
+                      <span style={{ color: co.muted, minWidth: 60, fontFamily: "monospace" }}>{s.timestamp}</span>
+                      <span><strong>{s.section}</strong> — {s.technique}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {dissectResult.whatToSteal?.length > 0 && (
+                <div style={{ marginBottom: 12 }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: "#16a34a", textTransform: "uppercase", marginBottom: 6 }}>Steal these techniques</div>
+                  {dissectResult.whatToSteal.map((t: string, i: number) => <div key={i} style={{ fontSize: 12, padding: "3px 0" }}>• {t}</div>)}
+                </div>
+              )}
+              {dissectResult.freshAngles?.length > 0 && (
+                <div style={{ marginBottom: 12 }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: co.accent, textTransform: "uppercase", marginBottom: 6 }}>Angles this video left open</div>
+                  {dissectResult.freshAngles.map((a: string, i: number) => (
+                    <div key={i} style={{ fontSize: 12, padding: "3px 0", cursor: "pointer", color: co.accent }} onClick={() => { setPrompt(a); setShowDissect(false); }}>→ {a}</div>
+                  ))}
+                </div>
+              )}
+            </div>
           )}
         </div>
       )}

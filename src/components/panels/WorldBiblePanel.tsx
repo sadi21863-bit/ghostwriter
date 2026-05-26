@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { buildContext, buildCreatorContext } from "@/lib/ai/context-builder";
 import { co, sInput, sTextarea, sBtn, sBtnSm } from "@/lib/styles";
 import { isCreatorFormat, isStoryFormat, FORMATS, GENRES, STYLE_ATTRS, DEFAULT_CHAR, DEFAULT_LOC, DEFAULT_PLOT, CharFields, LocFields, PlotFields } from "@/lib/formats";
@@ -68,6 +68,16 @@ export default function WorldBiblePanel(props: Props) {
   const [relMapLoading, setRelMapLoading] = useState(false);
   const [selectedMapEdge, setSelectedMapEdge] = useState<any | null>(null);
   const [selectedMapNode, setSelectedMapNode] = useState<any | null>(null);
+
+  // Trend Intelligence state
+  const [trendKeyConnected, setTrendKeyConnected] = useState(false);
+  const [trendKeyInput, setTrendKeyInput] = useState("");
+  const [trendSetupStep, setTrendSetupStep] = useState(0);
+  const [savingTrendKey, setSavingTrendKey] = useState(false);
+  const [trendPlatform, setTrendPlatform] = useState("YouTube");
+  const [trendKeyword, setTrendKeyword] = useState("");
+  const [trendLoading, setTrendLoading] = useState(false);
+  const [trendResults, setTrendResults] = useState<any>(null);
 
   // Character modal state
   const [showCharModal, setShowCharModal] = useState(false);
@@ -239,6 +249,36 @@ export default function WorldBiblePanel(props: Props) {
 
   const handleQuickStart = () => quickStartStory(outline => { setStreamText(outline); }, setSavedMsg);
 
+  useEffect(() => {
+    fetch("/api/user/settings").then(r => r.json()).then(data => {
+      setTrendKeyConnected(data.trendIntelligenceKeySet ?? false);
+    }).catch(() => {});
+  }, []);
+
+  const runTrendSearch = async () => {
+    if (!trendKeyword.trim() || trendLoading) return;
+    setTrendLoading(true);
+    setTrendResults(null);
+    try {
+      const endpoint = trendPlatform === "YouTube" ? "/api/ai/trend-youtube" : "/api/ai/trend-instagram";
+      const res = await fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ keyword: trendKeyword, format: project.format, creatorBible }),
+      });
+      const data = await res.json();
+      if (data.error === "TREND_INTELLIGENCE_NOT_CONNECTED") { setTrendKeyConnected(false); return; }
+      if (data.error === "TREND_INTELLIGENCE_KEY_INVALID") { setErrorMsg("Your Trend Intelligence key appears to be invalid. Please update it in the setup above."); setTrendKeyConnected(false); return; }
+      if (data.error === "TREND_INTELLIGENCE_QUOTA_EXCEEDED") { setErrorMsg("You've used your free trend searches for this month. Upgrade your data plan to continue."); return; }
+      if (!res.ok) { setErrorMsg(data.error || "Trend search failed. Please try again."); return; }
+      setTrendResults(data.analysis);
+    } catch {
+      setErrorMsg("Trend search failed. Check your connection.");
+    } finally {
+      setTrendLoading(false);
+    }
+  };
+
   return (
     <>
       <div style={{ width: leftCollapsed ? 48 : 300, minWidth: leftCollapsed ? 48 : 300, background: co.surface, borderRight: "1px solid " + co.border, display: "flex", flexDirection: "column", transition: "all 0.2s", overflow: "hidden" }}>
@@ -248,7 +288,7 @@ export default function WorldBiblePanel(props: Props) {
         </div>
         {!leftCollapsed && <>
           <div style={{ display: "flex", borderBottom: "1px solid " + co.border }}>
-            {["bible", "style", "memory", "notes"].map(t => <button key={t} onClick={() => setLeftTab(t)} style={{ flex: 1, padding: "9px 0", background: "none", border: "none", borderBottom: leftTab === t ? "2px solid " + co.accent : "2px solid transparent", color: leftTab === t ? co.text : co.muted, fontSize: 10, fontWeight: 700, cursor: "pointer", textTransform: "uppercase" }}>{t === "bible" ? "Bible" : t === "style" ? "Style" : t === "memory" ? `Mem${storyMemories.length ? " " + storyMemories.length : ""}` : "Notes"}</button>)}
+            {(isCreatorFormat(project.format) ? ["bible", "trends", "memory", "notes"] : ["bible", "style", "memory", "notes"]).map(t => <button key={t} onClick={() => setLeftTab(t)} style={{ flex: 1, padding: "9px 0", background: "none", border: "none", borderBottom: leftTab === t ? "2px solid " + co.accent : "2px solid transparent", color: leftTab === t ? co.text : co.muted, fontSize: 10, fontWeight: 700, cursor: "pointer", textTransform: "uppercase" }}>{t === "bible" ? "Bible" : t === "style" ? "Style" : t === "trends" ? "Trends" : t === "memory" ? `Mem${storyMemories.length ? " " + storyMemories.length : ""}` : "Notes"}</button>)}
           </div>
           <div style={{ flex: 1, overflow: "auto", padding: "10px 14px" }}>
             {project.skillLevel === "beginner" && !project.characters?.length ? (
@@ -535,6 +575,144 @@ export default function WorldBiblePanel(props: Props) {
                   </>
                 )}
               </>
+            ) : leftTab === "trends" ? (
+              <div>
+                {/* Active banner */}
+                {trendKeyConnected && trendSetupStep === 0 && (
+                  <div style={{ background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 8, padding: "10px 14px", marginBottom: 16, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                    <div>
+                      <span style={{ fontSize: 12, fontWeight: 700, color: "#166534" }}>✓ Trend Intelligence active</span>
+                      <div style={{ fontSize: 11, color: "#15803d", marginTop: 2 }}>Your first 2,000 trend searches are on us.</div>
+                    </div>
+                    <button style={{ fontSize: 11, color: co.muted, background: "none", border: "none", cursor: "pointer" }} onClick={() => setTrendSetupStep(1)}>Update key</button>
+                  </div>
+                )}
+                {/* Platform selector */}
+                <div style={{ fontSize: 11, fontWeight: 700, color: co.muted, textTransform: "uppercase", marginBottom: 8 }}>Analyse trends on</div>
+                <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+                  {["YouTube", "Instagram"].map(p => (
+                    <button key={p} style={{ ...sBtnSm, background: trendPlatform === p ? co.accentBg : "transparent", color: trendPlatform === p ? co.accent : co.muted, border: "1px solid " + (trendPlatform === p ? co.accent : co.border) }} onClick={() => { setTrendPlatform(p); setTrendResults(null); }}>
+                      {p === "YouTube" ? "▶ YouTube" : "📸 Instagram"}
+                    </button>
+                  ))}
+                </div>
+                {/* Instagram locked gate */}
+                {trendPlatform === "Instagram" && !trendKeyConnected && trendSetupStep === 0 && (
+                  <div style={{ position: "relative", borderRadius: 12, overflow: "hidden", marginBottom: 16 }}>
+                    <div style={{ filter: "blur(4px)", opacity: 0.4, pointerEvents: "none", padding: 16 }}>
+                      <div style={{ background: co.surfaceAlt, borderRadius: 8, padding: 12, marginBottom: 8 }}>
+                        <div style={{ fontSize: 11, color: co.accent, fontWeight: 700 }}>TRENDING NOW</div>
+                        <div style={{ fontSize: 13, fontWeight: 600, marginTop: 4 }}>5 fresh angles identified</div>
+                        <div style={{ fontSize: 11, color: co.muted, marginTop: 2 }}>"Nobody has taken the 'failure story' angle yet..."</div>
+                      </div>
+                      <div style={{ background: co.surfaceAlt, borderRadius: 8, padding: 12 }}>
+                        <div style={{ fontSize: 11, color: co.muted }}>Top audio: Kesariya • Tum Hi Ho • Lo-fi study</div>
+                      </div>
+                    </div>
+                    <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: "rgba(255,255,255,0.85)", borderRadius: 12, padding: 20, textAlign: "center" }}>
+                      <div style={{ fontSize: 14, fontWeight: 700, color: co.text, marginBottom: 6 }}>Activate for Instagram Reels</div>
+                      <div style={{ fontSize: 12, color: co.muted, marginBottom: 16, maxWidth: 240, lineHeight: 1.5 }}>See exactly what's saturated and which angles nobody has taken yet — live data, updated in real time.</div>
+                      <button style={{ ...sBtn, padding: "10px 20px", fontSize: 13 }} onClick={() => setTrendSetupStep(1)}>Activate Trend Intelligence →</button>
+                    </div>
+                  </div>
+                )}
+                {/* Setup flow */}
+                {trendSetupStep > 0 && (
+                  <div style={{ background: co.surface, border: "1px solid " + co.border, borderRadius: 12, padding: 16, marginBottom: 16 }}>
+                    <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 4 }}>Activate Trend Intelligence</div>
+                    <div style={{ fontSize: 11, color: co.muted, marginBottom: 16, lineHeight: 1.5 }}>Connect your free personal data key. Takes 60 seconds. Set up once, use forever.</div>
+                    <div style={{ display: "flex", gap: 6, marginBottom: 16 }}>
+                      {[1, 2, 3].map(step => (
+                        <div key={step} style={{ flex: 1, height: 3, borderRadius: 2, background: trendSetupStep >= step ? co.accent : co.border, transition: "background 0.2s" }} />
+                      ))}
+                    </div>
+                    {trendSetupStep === 1 && (
+                      <div>
+                        <div style={{ fontSize: 11, fontWeight: 700, color: co.accent, marginBottom: 8 }}>Step 1 of 3 — Create your free account</div>
+                        <div style={{ fontSize: 11, color: co.muted, marginBottom: 12, lineHeight: 1.6 }}>Click below to create a free account on our data partner's platform. No credit card required. Your first 2,000 trend searches are completely free.</div>
+                        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 8 }}>
+                          <a href="https://console.apify.com/sign-up" target="_blank" rel="noopener noreferrer" style={{ ...sBtn, textDecoration: "none", display: "inline-block" }}>Create free account →</a>
+                          <button style={sBtnSm} onClick={() => setTrendSetupStep(2)}>Already have one</button>
+                        </div>
+                        <button style={{ fontSize: 11, color: co.muted, background: "none", border: "none", cursor: "pointer" }} onClick={() => setTrendSetupStep(2)}>Skip — I've done this</button>
+                      </div>
+                    )}
+                    {trendSetupStep === 2 && (
+                      <div>
+                        <div style={{ fontSize: 11, fontWeight: 700, color: co.accent, marginBottom: 8 }}>Step 2 of 3 — Get your personal key</div>
+                        <div style={{ fontSize: 11, color: co.muted, marginBottom: 10, lineHeight: 1.6 }}>Once logged in, go to:</div>
+                        <div style={{ background: co.surfaceAlt, borderRadius: 8, padding: "8px 12px", marginBottom: 12, fontFamily: "monospace", fontSize: 11 }}>Settings → Integrations → API Tokens → Create new token</div>
+                        <div style={{ fontSize: 11, color: co.muted, marginBottom: 12 }}>Name it anything (e.g. "GhostWriter"), copy the token, and come back here.</div>
+                        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                          <a href="https://console.apify.com/account/integrations" target="_blank" rel="noopener noreferrer" style={{ ...sBtnSm, textDecoration: "none", display: "inline-block" }}>Open settings →</a>
+                          <button style={sBtn} onClick={() => setTrendSetupStep(3)}>I've got my key →</button>
+                        </div>
+                      </div>
+                    )}
+                    {trendSetupStep === 3 && (
+                      <div>
+                        <div style={{ fontSize: 11, fontWeight: 700, color: co.accent, marginBottom: 8 }}>Step 3 of 3 — Connect it</div>
+                        <div style={{ fontSize: 11, color: co.muted, marginBottom: 10 }}>Paste your personal data key below:</div>
+                        <input type="password" value={trendKeyInput} onChange={e => setTrendKeyInput(e.target.value)} placeholder="apify_api_..." style={{ ...sInput, width: "100%", marginBottom: 10, boxSizing: "border-box" as any }} />
+                        <button style={{ ...sBtn, width: "100%", opacity: savingTrendKey || !trendKeyInput.trim() ? 0.5 : 1 }} disabled={savingTrendKey || !trendKeyInput.trim()} onClick={async () => {
+                          setSavingTrendKey(true);
+                          try {
+                            const res = await fetch("/api/user/settings", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ trendIntelligenceKey: trendKeyInput.trim() }) });
+                            if (res.ok) { setTrendKeyConnected(true); setTrendSetupStep(0); setTrendKeyInput(""); }
+                            else setErrorMsg("Failed to save key. Please try again.");
+                          } catch { setErrorMsg("Failed to save key. Please check your connection."); }
+                          finally { setSavingTrendKey(false); }
+                        }}>{savingTrendKey ? "Connecting..." : "Activate Trend Intelligence"}</button>
+                        <div style={{ fontSize: 10, color: co.muted, marginTop: 8, textAlign: "center" }}>Your key is encrypted and stored securely. We never share it.</div>
+                      </div>
+                    )}
+                  </div>
+                )}
+                {/* Search bar */}
+                {(trendPlatform === "YouTube" || (trendPlatform === "Instagram" && trendKeyConnected)) && trendSetupStep === 0 && (
+                  <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+                    <input style={{ ...sInput, flex: 1 }} value={trendKeyword} onChange={e => setTrendKeyword(e.target.value)} placeholder={trendPlatform === "YouTube" ? "e.g. morning routine, productivity..." : "e.g. skincare routine, budget travel..."} onKeyDown={e => e.key === "Enter" && !trendLoading && runTrendSearch()} />
+                    <button style={{ ...sBtn, opacity: trendLoading || !trendKeyword.trim() ? 0.5 : 1 }} disabled={trendLoading || !trendKeyword.trim()} onClick={runTrendSearch}>{trendLoading ? "Analysing..." : "Analyse"}</button>
+                  </div>
+                )}
+                {/* Results */}
+                {trendResults && (
+                  <div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12, padding: "8px 12px", background: co.surfaceAlt, borderRadius: 8 }}>
+                      <div style={{ fontSize: 20, fontWeight: 800, color: co.accent }}>{trendResults.fitScore}/10</div>
+                      <div style={{ fontSize: 12, color: co.muted }}>{trendResults.fitReason}</div>
+                    </div>
+                    {trendResults.saturatedAngles?.length > 0 && (
+                      <div style={{ marginBottom: 14 }}>
+                        <div style={{ fontSize: 11, fontWeight: 700, color: "#dc2626", textTransform: "uppercase", marginBottom: 6 }}>Saturated — everyone is doing this</div>
+                        {trendResults.saturatedAngles.map((a: string, i: number) => (
+                          <div key={i} style={{ fontSize: 12, color: co.muted, padding: "4px 0", borderBottom: "1px solid " + co.border }}>{a}</div>
+                        ))}
+                      </div>
+                    )}
+                    {trendResults.freshAngles?.length > 0 && (
+                      <div style={{ marginBottom: 14 }}>
+                        <div style={{ fontSize: 11, fontWeight: 700, color: "#16a34a", textTransform: "uppercase", marginBottom: 8 }}>Fresh angles nobody has taken</div>
+                        {trendResults.freshAngles.map((a: any, i: number) => (
+                          <div key={i} style={{ background: co.surfaceAlt, borderRadius: 8, padding: 12, marginBottom: 8 }}>
+                            <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 4 }}>{a.angle}</div>
+                            <div style={{ fontSize: 11, color: co.accent, fontStyle: "italic", marginBottom: 6 }}>Hook: "{a.hook}"</div>
+                            <div style={{ fontSize: 11, color: co.muted, marginBottom: a.trendingAudio ? 6 : 0 }}>{a.why}</div>
+                            {a.trendingAudio && <div style={{ fontSize: 11, color: co.muted }}>Audio: {a.trendingAudio}</div>}
+                            <button style={{ ...sBtnSm, marginTop: 8, fontSize: 11 }} onClick={() => { setPrompt(a.hook); setMode("write"); }}>Write this angle</button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {trendPlatform === "Instagram" && trendResults.topAudio?.length > 0 && (
+                      <div>
+                        <div style={{ fontSize: 11, fontWeight: 700, color: co.muted, textTransform: "uppercase", marginBottom: 6 }}>Trending audio right now</div>
+                        {trendResults.topAudio.map((a: string, i: number) => <div key={i} style={{ fontSize: 12, padding: "3px 0" }}>• {a}</div>)}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
             ) : (
               <>
                 {project.skillLevel === "expert" && <button style={{ ...sBtn, width: "100%", marginBottom: 12, opacity: generating ? 0.5 : 1 }} disabled={generating} onClick={suggestRefWorks}>{genTarget === "ref-suggest" ? "..." : "Suggest Reference Works"}</button>}
