@@ -3,25 +3,79 @@ import type { CombatStyle } from "../../types";
 export const NAGINATAJUTSU: CombatStyle = {
   name: "Naginatajutsu",
   origin: "Japan",
-  era: "Developed by samurai warriors from approximately the 10th century; became particularly associated with female warriors (onna-bugeisha) in the Edo period; still practiced today as naginata.",
-  corePhilosophy: "The naginata is a polearm — a blade mounted on a long shaft — and its philosophy reflects its geometry. The blade is at the end of a long lever, which multiplies any movement of the hands into a large arc at the blade. This mechanical advantage means the naginata practitioner can defeat a sword opponent from a distance they cannot reach, can defeat a mounted opponent by attacking the horse's legs, and can hold multiple opponents at range. The art teaches that the polearm's distance is its primary defense: a practitioner who allows an opponent inside the polearm's range has already made a critical error.",
-  bodyMechanics: "The BNR dataset on polearm mechanics establishes the key advantage of the naginata: the blade's velocity at the tip is a function of the shaft's rotation speed multiplied by the shaft's length. A slow rotation of the hands produces a fast arc at the blade. The dataset's measurement of naginata tip velocity shows that a practitioner of moderate strength can generate blade tip speeds exceeding those of a sword cut from the same body rotation — the longer lever amplifies the force. The two-handed grip provides the control needed to direct this speed: the near hand (tsurite) controls the blade's direction while the far hand (motite) drives the arc. Changing which hand is which mid-technique allows the naginata to change direction rapidly.",
-  distancePreference: "Long range — the naginata's 1.8–2.4m length creates a large threat envelope.",
-  footworkPrinciple: "Distance management is the primary footwork principle. The practitioner maintains the ma-ai (combat distance) at which the naginata functions and denies the opponent the ability to close. Circular footwork keeps the blade between the practitioner and the opponent.",
+  era: "Classical Japanese weapon tradition that evolved from battlefield use into modern budo practice.",
+  corePhilosophy: "Naginatajutsu is a long-weapon art built on distance, line control, and sweeping precision. The curved blade mounted on a long shaft gives the fighter the ability to own space before the opponent reaches sword range. The style feels disciplined and spacious: the weapon's geometry matters more than brute strength.",
+  bodyMechanics: `The BNR dataset on pole-weapon combat establishes the relevant spatial mechanics. A naginata of approximately 150cm total length creates a threat radius of roughly 200â230cm when the practitioner extends fully into a cut â significantly longer than a katana and close to double the reach of an unarmed fighter. The curved blade changes the cutting geometry in a specific way: at the end of a sweeping arc, the angle of the blade relative to the target shifts by approximately 20â35 degrees compared to where it entered. This means the cut continues to threaten after the initial contact point, tracking through the target rather than stopping at the first surface. The BNR circular-weapon data shows this is also true of the recovery â the blade does not return along the same arc it cut. It can be redirected into a new line from the end of the first arc, which is why naginata technique emphasizes continuous flow between cuts rather than stop-and-restart mechanics.`,
+  distancePreference: "Long range, controlling the space before the opponent can close.",
+  footworkPrinciple: "Lateral and range-protective. The naginata needs room because it is a pole weapon. The feet keep the arc clear, manage angle, and prevent the opponent from entering the weak inside space. The legs move to preserve the weapon's line rather than to chase the opponent directly.",
   stances: [
-    { name: "Jodan no Kamae (Upper Guard)", bodyPosition: "Naginata raised overhead, blade angled forward and down, body turned to present the minimum profile.", weightDistribution: "55% rear / 45% front", strengths: "Blade threatens from above. Powerful downward cuts accessible immediately.", weaknesses: "The raised position exposes the practitioner to a quick closing rush before the cut can complete." },
-    { name: "Chudan no Kamae (Middle Guard)", bodyPosition: "Naginata horizontal and pointing toward the opponent, blade end forward, body balanced.", weightDistribution: "50% front / 50% rear", strengths: "Direct threatening of the opponent's centerline. All major cuts and thrusts accessible.", weaknesses: "The extended blade can be batted aside by a determined attacker with a short weapon." },
+    {
+      name: "Long Guard",
+      bodyPosition: "Weapon extended enough to claim space, torso upright, shoulders organized behind the shaft, feet positioned for fast retreat or angle change.",
+      weightDistribution: "50% front / 50% rear",
+      strengths: "Controls distance and keeps the blade line available.",
+      weaknesses: "Can be cramped if the opponent enters inside the long arc."
+    },
+    {
+      name: "Sweep Ready",
+      bodyPosition: "Weapon angled so the curved blade can travel through a cutting path while the body remains balanced enough to recover.",
+      weightDistribution: "55% rear / 45% front",
+      strengths: "Improves the ability to cut, redirect, or occupy the opponent's approach.",
+      weaknesses: "Can leave the inside line exposed if the sweep is committed too early."
+    }
   ],
   strikes: [
-    { name: "Sweeping Cut (Kirioroshi)", mechanics: "A downward cutting arc that targets the opponent's shoulder, neck, or upper body. The BNR data shows the naginata's cutting arc is most powerful at the blade's lower third — the tip carries less force due to the longer lever arm's reduced control, but greater velocity. The optimal cutting zone is 30–50cm behind the tip.", setup: "The opponent is at naginata range.", execution: "From a raised guard, the blade descends in a cutting arc driven by hip rotation. The near hand guides the angle, the far hand drives the arc.", recovery: "The blade continues its arc into a lower guard rather than stopping.", counter: "Step inside the blade's optimal cutting zone — the practitioner must then reposition the naginata, which takes time." },
-    { name: "Leg Sweep", mechanics: "A low horizontal sweep targeting the opponent's shins and ankles. The naginata's length allows this technique from a distance where the opponent cannot easily defend their lower line while also protecting their upper body.", setup: "The opponent is advancing, or their guard is high.", execution: "The blade drops to ankle height and sweeps in a horizontal arc across the opponent's base.", recovery: "The sweep continues into a rising guard or a retreating step.", counter: "Jump the sweep or close the distance before the arc is complete." },
+    {
+      name: "Sweeping Cut",
+      mechanics: "The BNR data on curved-blade arcs confirms that the blade angle shifts approximately 20â35 degrees through the arc of a full cut. This means the weapon is not just slicing through a single plane â it is angling through the target as it travels. The recovery motion can be redirected into a new line from the end of the arc, making sequential cuts more efficient than two independent strikes.",
+      setup: "The opponent is outside the weapon's immediate inside line.",
+      execution: "The fighter rotates the weapon through a controlled arc. The blade angle continues shifting through contact, extending the effective cutting window.",
+      recovery: "The weapon does not return along the same arc â it redirects from the end of the first cut into a new line.",
+      counter: "Close aggressively inside the arc before it completes, or force the weapon to miss its long line."
+    },
+    {
+      name: "Stabbing Line",
+      mechanics: "The naginata can cut and stab. The stab uses the weapon's full length as a lever â the BNR data shows that thrusting with a long shaft generates greater tip velocity at peak extension than a shorter weapon can achieve from the same body position, because the shaft amplifies the torso's rotation into tip speed.",
+      setup: "The opponent is approaching along a readable line.",
+      execution: "The fighter extends the weapon directly into the path of the approach. The shaft rotation amplifies tip speed.",
+      recovery: "The weapon is pulled back into the long guard or turned into another line before the opponent can get inside.",
+      counter: "Angle off the line and attack the body before the extension resets."
+    },
+    {
+      name: "Rotating Recovery",
+      mechanics: "The BNR data establishes that the blade's recovery motion after a cut can itself become the next attack, because the curved blade continues to trace a threatening arc during the return. This distinguishes naginata from straight-blade techniques where the recovery is a dead movement.",
+      setup: "A cut or thrust has just been made.",
+      execution: "The body and shaft rotate back through the next usable line rather than returning to a neutral guard.",
+      recovery: "The weapon remains active rather than hanging static after impact.",
+      counter: "Exploit the 200â300ms window before the weapon re-centers and close the distance hard."
+    }
   ],
   defenses: [
-    { name: "Shaft Block", mechanics: "Incoming attacks are blocked with the shaft rather than the blade — the hardwood or metal-reinforced shaft is more durable than the blade for receiving impacts. The block is delivered at an angle to redirect rather than absorb.", setup: "A strike is incoming.", execution: "The shaft rises to intercept the strike at approximately 45 degrees, redirecting the force sideways.", recovery: "The block transitions immediately into a counter — the shaft's position after the block is already set for a sweeping counter.", counter: "A second strike from the other direction before the shaft can redirect." },
+    {
+      name: "Blade Wall",
+      mechanics: "Because the naginata creates a 200â230cm threat radius at full extension, presenting the weapon line is itself a defensive act. An opponent who enters that radius against an active blade must either deflect it â difficult given the weight and arc â or absorb it. The defense is the weapon's presence, not a specific parrying action.",
+      setup: "An opponent is entering the space.",
+      execution: "The fighter presents the weapon line so the advance meets the blade before the body is reachable.",
+      recovery: "The line is reestablished quickly so the defense does not become static.",
+      counter: "Break the barrier by closing under the arc, or force the wielder to over-rotate before entering."
+    }
   ],
-  strengthAgainst: ["Shorter-weapon fighters who must close through the naginata's threat envelope.", "Mounted opponents — the naginata's leg sweep was designed specifically for horse-legs.", "Multiple opponents who approach from a single direction — the long arc covers wide angles."],
-  weakAgainst: ["Opponents who close distance before the naginata can be deployed.", "Confined spaces where the shaft cannot maneuver.", "Multiple opponents approaching from multiple directions simultaneously — the naginata cannot cover all angles."],
-  signatureTells: ["The hands slide along the shaft constantly — adjusting the grip changes the effective arc radius.", "The feet always maintain a measured distance — the practitioner steps back automatically when the opponent advances.", "The blade is always moving slightly — circular patterns while in guard, preventing the opponent from easily reading the next attack angle."],
-  pacing: "Naginatajutsu has a controlled, distant pacing that occasionally erupts into rapid cutting combinations. The practitioner moves constantly to maintain the optimal distance. When an opening appears, the response is fast and often multiple-cut. The pacing should feel like a circling — then sudden, decisive arcs.",
-  writingNotes: "A naginata practitioner carries the art's spatial awareness in every context — they are always aware of their reach, the reach of everything around them, and the distance between themselves and any potential threat. They tend to be deliberate and controlled, and they are most dangerous when they are allowed to maintain their preferred distance.",
+  strengthAgainst: [
+    "Shorter-weapon opponents who must cross a dangerous open lane to reach striking range.",
+    "Mounted threats in the historical sense â the weapon was designed with reach against cavalry.",
+    "Fighters who do not know how to enter under a sweeping arc."
+  ],
+  weakAgainst: [
+    "Close grapplers who get inside the long line and deny the arc.",
+    "Cramped environments where the shaft cannot move cleanly.",
+    "Opponents who can force repeated angle resets and exhaust the wielder's recovery capacity."
+  ],
+  signatureTells: [
+    "The weapon hand and rear foot settle into a shape that preserves reach before the attack begins.",
+    "The curved blade traces a visibly clear arc even before the strike lands â the path is visible in the body's preparation.",
+    "The fighter keeps the torso upright, trusting the weapon to do the closing work.",
+    "Distance between the bodies matters more than the faces â the weapon is the real center of the fight."
+  ],
+  pacing: "Naginatajutsu has an elegant but threatening tempo. The long weapon creates a wide, controlled outer rhythm, and the action becomes urgent only when someone successfully breaks that space. The style should feel like a moving perimeter that can suddenly become lethal when the opponent steps wrong.",
+  writingNotes: "A naginata-trained character often feels disciplined, spatially aware, and calm under pressure. The art teaches that control begins before contact â they think in terms of distance, line, and preserving options. In fiction, they read as composed, precise, and hard to rush because they are used to owning the room before it gets crowded."
 };

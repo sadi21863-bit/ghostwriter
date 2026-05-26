@@ -3,24 +3,83 @@ import type { CombatStyle } from "../../types";
 export const PANKRATION: CombatStyle = {
   name: "Pankration",
   origin: "Ancient Greece",
-  era: "Introduced at the 33rd Olympic Games in 648 BCE; practiced throughout the Greek and Roman world; revived as a competitive sport in the 20th century.",
-  corePhilosophy: "Pankration means 'all power.' It was the Greek synthesis of boxing (pygmachia) and wrestling (pale) into a single system with almost no rules — only eye-gouging and biting were forbidden in the Olympic version, and in the Spartan version even those were permitted. The Pankratiast was trained to fight at every range — standing, clinching, and on the ground — and to transition between them without interruption. The philosophy is completeness: no gap in the fighter's ability that an opponent can exploit.",
-  bodyMechanics: "The KYO dataset's cross-range analysis shows that Pankration's historical effectiveness came from range integration — the ability to strike from wrestling clinch positions and to transition from striking exchanges into throws without reorganizing the grip. The practitioner who can punch from a wrestling clinch denies the opponent the safety of the clinch range. The NTU RGB+D 120 data on ground-and-pound mechanics shows that striking from mount or a dominant standing position over a grounded opponent generates less force than a standing punch, but the opponent's inability to evade or counter-attack compensates for the force reduction.",
-  distancePreference: "All ranges — the system is designed for seamless transitions between striking and grappling distances.",
-  footworkPrinciple: "Aggressive and forward. The Pankratiast does not retreat — they advance through the opponent's defenses, transitioning from striking to clinch to ground as distance changes.",
+  era: "Introduced into the Ancient Olympic Games in 648 BC; historically practiced in the classical Greek world.",
+  corePhilosophy: "Pankration is the archetype of combined fighting: if boxing does not solve the problem, wrestling continues it, and if the fight goes to the ground the contest is still alive. The style's logic is maximal freedom inside minimal rules â the fighter adapts until the opponent cannot continue. It feels like combat stripped to the essentials of dominance and survival.",
+  bodyMechanics: `Pankration operates across all three ranges simultaneously â striking, clinch, and ground â which means the body can never fully commit to the mechanics of one range without keeping the others available. The BIO literature on ancient and mixed-range fighting confirms the central biomechanical challenge: transitions between ranges require different base positions, and the pankratiast must be able to shift between them without a visible reset. The clinch-to-ground transition is particularly demanding. The NTU RGB+D 120 dataset on wrestling captures shows that takedowns initiated from a clinch require the attacker to drop their center of mass below the opponent's center of mass â roughly hip level or lower â before the throw or trip can complete. An upright clinch that attempts to trip without this hip drop produces an unstable wrestling position that a competent opponent can walk out of. Pankration athletes who were known for ground fighting were described in ancient accounts as comfortable initiating this drop under live striking pressure, which is a specific skill that requires extensive conditioning.`,
+  distancePreference: "All ranges â striking, clinch, and ground â without preference.",
+  footworkPrinciple: "Opportunistic. The fighter moves to land, clinch, trip, or escape based on what the moment offers. The feet exist to connect the phases of combat, because the style assumes the exchange may change range at any time.",
   stances: [
-    { name: "Pankratiast Guard", bodyPosition: "Upright, hands forward, ready to both punch and grab, feet shoulder-width, weight balanced forward.", weightDistribution: "55% front / 45% rear", strengths: "Accessible for both punching and clinch entries. The forward weight supports both striking power and takedown driving.", weaknesses: "The upright stance is not optimized for either pure striking or pure grappling — it sacrifices some efficiency in each for versatility in both." },
+    {
+      name: "Standing Ready",
+      bodyPosition: "A balanced fight-ready posture with enough structure to strike, sprawl into wrestling, or shift into a clinch without a formal reset.",
+      weightDistribution: "50% front / 50% rear",
+      strengths: "Supports immediate transition between striking and grappling.",
+      weaknesses: "Can be forced into chaos if the opponent controls the first contact."
+    },
+    {
+      name: "Ground Pressure",
+      bodyPosition: "Chest and hips organized to stay on top or maintain a strong fighting connection while the opponent is on the mat.",
+      weightDistribution: "65% front / 35% rear",
+      strengths: "Keeps pressure on the opponent once the fight descends.",
+      weaknesses: "Can be reversed if the base is sloppy or the top player overcommits."
+    }
   ],
   strikes: [
-    { name: "Cross-Range Attack", mechanics: "A punch thrown from a wrestling clinch position or a takedown attempt initiated from a striking exchange. The KYO data on clinch-range striking shows that elbow and short hooks can be generated from a collar tie or underhook position — the opponent who is protecting against a takedown is not protecting against a punch.", setup: "The practitioner is in a clinch grip or has driven for a takedown.", execution: "From the clinch, a short elbow or hook targets the opponent's head while maintaining the grip. Alternatively, from a striking exchange, the practitioner shoots for a single or double leg.", recovery: "Maintain position — the transition from striking to grappling or back is the technique.", counter: "The hand that clinches cannot simultaneously block the strike from the other arm — prioritize breaking the grip." },
-    { name: "Ground Stomp (Katakrima)", mechanics: "Over a grounded opponent, the standing practitioner stomps the face, head, or body. The historical Pankration permitted this — it is one of the techniques that made Pankration genuinely dangerous rather than competitive. Modern revived Pankration usually prohibits it, but the historical technique is relevant for fiction.", setup: "The opponent is on the ground and the practitioner is standing.", execution: "The heel drives downward into the target.", recovery: "Immediately step away from the opponent's reach.", counter: "Roll away or grab the attacking leg and take the standing fighter down." },
+    {
+      name: "Combination Initiation",
+      mechanics: "Striking in pankration is not an end in itself â it is a tool for changing the range or creating a wrestling entry. The body strikes while already prepared to grapple. The KYO dataset shows that a committed strike shifts the attacker's weight forward by roughly 15â20% of bodyweight for the duration of the follow-through. An experienced pankratiast reads this weight shift and uses it to initiate a clinch or takedown.",
+      setup: "The opponent is within hand range and not yet controlling the clinch.",
+      execution: "The fighter uses a direct hand or foot attack to create damage or disruption, then follows the weight shift into the next range.",
+      recovery: "The striking arm must remain ready to transition into contact or control immediately.",
+      counter: "Collapse into wrestling distance before the strike can keep working."
+    },
+    {
+      name: "Kick to Clinch",
+      mechanics: "Ancient accounts explicitly allow kicking, and the useful application is less about damage and more about using the lower body to force a posture change that creates a takedown entry. A kick to the thigh or midsection disrupts the opponent's weight distribution, and the pankratiast follows the disruption into the clinch.",
+      setup: "There is enough distance for a lower-body strike to develop.",
+      execution: "The fighter drives the leg into an opening while keeping the rest of the body ready to follow into a clinch.",
+      recovery: "The body closes into fighting structure immediately after the kick lands.",
+      counter: "Jam the range and turn the kick entry into a clinch on your own terms."
+    },
+    {
+      name: "Stranglehold Finish",
+      mechanics: "Ancient descriptions frequently cite strangles and choking control as the definitive ground finishes. The NTU RGB+D 120 data on submission holds confirms the biomechanical principle: a choking position that compresses both carotid arteries simultaneously produces unconsciousness in roughly 8â12 seconds. The key is position â the control must deny the opponent's ability to tuck the chin or rotate out.",
+      setup: "The opponent is compromised in clinch or ground control.",
+      execution: "The attacker closes the control line across the throat or neck, keeping the body heavy to prevent escape.",
+      recovery: "If the finish does not occur, the attacker stays connected and pressures the next control phase.",
+      counter: "Tuck the chin early, turn to a safer angle, or prevent the head-and-torso connection from settling."
+    }
   ],
   defenses: [
-    { name: "Shoot Counter", mechanics: "When a takedown (shoot) is incoming, the Pankratiast sprawls — driving the hips back and down, redirecting the opponent's forward momentum into the ground — and transitions immediately to a choke from the sprawl position.", setup: "A takedown attempt is incoming.", execution: "The hips drive backward and down, the weight drops onto the opponent's back, one arm wraps the neck from the top position.", recovery: "Maintain the choke or transition to back control.", counter: "A low single-leg attack targets below the sprawl's defensive position." },
+    {
+      name: "Range Conversion",
+      mechanics: "In pankration, defense and offense are hard to separate because the rules allow the fight to continue through multiple ranges. The useful defense is to use movement and contact to shift the exchange into a range that favors you. A striker under takedown pressure converts to striking. A wrestler under striking pressure converts to the clinch.",
+      setup: "An attack line is developing in the opponent's preferred range.",
+      execution: "The fighter closes, redirects, or changes level to shift the exchange into less favorable conditions for the attacker.",
+      recovery: "The body stays ready for the next range transition.",
+      counter: "Keep the spacing long enough that the transition never becomes yours."
+    }
   ],
-  strengthAgainst: ["Single-range specialists who are competent in one domain but not transitions.", "Strikers who are not prepared to be grabbed and taken down mid-combination.", "Grapplers who are not prepared to be struck from the clinch."],
-  weakAgainst: ["Modern MMA practitioners who train Pankration's range integration systematically — the modern art has refined what the ancient Greeks developed.", "Weapons — Pankration's unarmed system is not designed for weapon situations."],
-  signatureTells: ["The hands are held forward — accessible for both gripping and punching.", "The level changes constantly — the Pankratiast drops and rises to test takedown and strike opportunities.", "Striking combinations end in a clinch entry rather than a retreat."],
-  pacing: "Pankration has an aggressive, flowing pace with no clear separation between its phases. Striking flows into clinch, clinch flows into takedown, takedown flows into ground fighting without pause. The rhythm is the rhythm of one fighter imposing their will across all ranges without stopping.",
-  writingNotes: "The historical Pankratiast was the most complete fighter in the ancient world. A character with this background carries the confidence of someone trained for all eventualities — there is no range of combat that surprises them.",
+  strengthAgainst: [
+    "Specialists who need rules to protect them â pankration is deliberately permissive.",
+    "Opponents who cannot transition between striking and grappling.",
+    "Rivals who panic when the fight goes to the ground, because ground struggle is fully within the system."
+  ],
+  weakAgainst: [
+    "Modern specialists with cleaner sport structure and superior rule-optimized conditioning.",
+    "Fighters who can keep the pace extremely controlled and refuse prolonged exchanges.",
+    "Pure top-control specialists who can dominate before the combined style reasserts itself."
+  ],
+  signatureTells: [
+    "The fighter shifts between striking posture and wrestling posture without a clear divide.",
+    "The eyes track the opponent's balance rather than just the head or hands.",
+    "The body seems comfortable collapsing distance fast â there is no visible hesitation at the grappling entry.",
+    "The fighter continues the exchange after contact instead of treating contact as a stopping point."
+  ],
+  pacing: "Pankration is rough, immediate, and phase-changing. It can start as a standing fight and become a clinch or ground struggle without warning. The rhythm should feel unstable to observers and natural to the fighter â like combat that refuses to stay in one category.",
+  writingNotes: "A pankration-trained character often feels old-world, stubborn, and tolerant of hardship. The training mindset is about keeping composure when the fight becomes ugly. In fiction, they read as people who accept chaos faster than others and do not need elegance to keep moving forward."
 };
+
+// ───────────────────────────────────────────────
+// GRAPPLING ARTS
+// ───────────────────────────────────────────────

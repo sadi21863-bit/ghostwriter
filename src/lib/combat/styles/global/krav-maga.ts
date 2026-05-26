@@ -2,27 +2,80 @@ import type { CombatStyle } from "../../types";
 
 export const KRAV_MAGA: CombatStyle = {
   name: "Krav Maga",
-  origin: "Israel (developed for the Israel Defense Forces)",
-  era: "20th century; developed by Imi Lichtenfeld in the 1940s–50s; continuously updated based on real-world combat and law enforcement experience.",
-  corePhilosophy: "Krav Maga has one purpose: survival. There are no competitions, no forms, no philosophy beyond getting home alive. The system is built on three principles: counter-attack simultaneously with defense, target vulnerable anatomy, and finish the threat completely. It assumes the worst-case scenario — multiple attackers, weapons, confined spaces — and teaches the simplest possible solution to each. Its practitioners are not martial artists. They are people trained to hurt someone enough to escape.",
-  bodyMechanics: "Krav Maga deliberately avoids biomechanical complexity. Techniques are selected for their function under stress-induced fine-motor degradation — simple gross-motor movements that work when adrenaline is flooding the system. The simultaneous defense-and-counter is the system's core mechanical insight: blocking and striking are not separate sequential actions. The forearm deflects the incoming strike while the opposite hand is already striking the attacker's face. The BIO literature on simultaneous action under stress confirms this is effective — it compresses reaction time and prevents the attacker from recovering between a block and a counter.",
-  distancePreference: "Any range — Krav Maga has responses for all distances, including weapon situations. The preferred outcome is immediate close-range damage and escape.",
-  footworkPrinciple: "The 360-degree burst — a diagonal step off the attack line that simultaneously removes the practitioner from harm's way and creates a flanking attack angle. The step is always at 45 degrees to the incoming attack, never straight back.",
+  origin: "Israel",
+  era: "20th-century self-defense system developed for practical civilian and military use; widely practiced today.",
+  corePhilosophy: "Krav Maga is built on urgency, simplicity, and survival. It assumes the situation is already bad and tries to solve the immediate threat with the least possible delay. The style rejects theatricality and favors direct action, rapid recovery, and immediate escape when possible.",
+  bodyMechanics: `Krav Maga's mechanics are organized around a single priority: reducing the time between threat recognition and a meaningful physical response. Research on stress inoculation training (BIO) shows that pre-loaded defensive postures â hands already raised, weight distributed, knees slightly bent â reduce reaction time by approximately 150â200ms compared to a neutral starting position. This is not a trivial margin. In a surprise attack scenario, 200ms is the difference between a response that lands during the attacker's committed motion versus a response that arrives after the damage is done. The system trains simple, repeatable movements precisely because biomechanical complexity degrades under adrenaline. A gross motor strike â palm heel, forearm shove, knee to groin â retains most of its effectiveness when the practitioner is in a stress response. A technically complex technique loses accuracy and timing under the same conditions.`,
+  distancePreference: "Any range, with strong emphasis on immediate close-range resolution and escape.",
+  footworkPrinciple: "Footwork is functional and exit-oriented. The fighter moves to create space, maintain balance, and reach the safest exit rather than to win a prolonged exchange. The feet exist to keep the person alive and moving toward the quickest resolution.",
   stances: [
-    { name: "Passive Stance", bodyPosition: "Hands open at chest height, neutral appearance, weight slightly forward, ready to burst.", weightDistribution: "50% front / 50% rear", strengths: "Does not telegraph defensive training. The hands are in position to parry without looking like they are. The neutral appearance does not escalate verbal confrontations.", weaknesses: "Less structurally strong than a fighting stance. The neutral appearance requires the practitioner to act first without obvious defensive posture." },
-    { name: "Fighting Stance", bodyPosition: "Hands raised, chin down, dominant foot back, weight distributed for mobility.", weightDistribution: "55% rear / 45% front", strengths: "Hands protect the face. Weight distribution allows immediate forward burst.", weaknesses: "Communicates fighting intent — may escalate when de-escalation was possible." },
+    {
+      name: "No-Freeze Guard",
+      bodyPosition: "A practical non-ceremonial posture with hands ready to protect the head, knees soft enough to move, torso prepared to explode into immediate action.",
+      weightDistribution: "50% front / 50% rear",
+      strengths: "Supports immediate reaction and rapid direction change. Already loaded for the first response.",
+      weaknesses: "Can look unstable compared with sport stances, and may be unsustainable in a prolonged exchange."
+    },
+    {
+      name: "Exit Ready",
+      bodyPosition: "Body angled toward the nearest exit, one side slightly open to allow rapid movement away from the threat.",
+      weightDistribution: "55% rear / 45% front",
+      strengths: "Makes disengagement faster after the first response lands.",
+      weaknesses: "Concedes ground if the opponent keeps pressure on the outside line."
+    }
   ],
   strikes: [
-    { name: "360-Degree Defense and Counter", mechanics: "The forearm intercepts an incoming strike from any of the eight primary angles (the 360 system) while the opposite hand simultaneously strikes the attacker's face. The defense and counter are a single motion, not sequential actions. The BIO data on simultaneous action confirms the attacker has no recovery window between defense and counter.", setup: "Any incoming attack — the system trains responses to all eight attack angles.", execution: "The forearm of the near arm rises to intercept at 45 degrees (redirecting rather than blocking), while the opposite hand drives a palm strike or straight punch to the attacker's face.", recovery: "Continue attacking — Krav Maga does not stop after the first counter.", counter: "Against a trained Krav practitioner, the 360-degree defense expects a single attack line. Attack from two simultaneous lines to overwhelm the simultaneous-response system." },
-    { name: "Groin Kick", mechanics: "A fast, direct kick to the groin using the instep or knee. Selected because the anatomical target is always accessible, requires minimal technical precision, and creates immediate incapacitation regardless of the attacker's pain tolerance.", setup: "The attacker is at kicking range.", execution: "The knee drives forward and up from a burst step, the foot or knee contacts the groin.", recovery: "Immediately attack the secondary target (face, eyes, or throat) while the attacker is reacting.", counter: "Protect the groin by lowering the hips and turning sideways — the Krav practitioner will immediately target the new accessible anatomy." },
-    { name: "Eye Strike", mechanics: "A direct strike to the eyes using fingertips or thumb. Selected because it bypasses all conditioning — there is no way to condition the eyes against a direct strike — and creates immediate threat neutralization.", setup: "Any range where the hand can reach the attacker's face.", execution: "The fingers drive directly at the eyes. No telegraphing, no wind-up.", recovery: "Immediately exploit the attacker's protective reaction — they will cover their eyes, exposing other targets.", counter: "A practitioner who telegraphs the eye strike (by looking at the target) gives the attacker time to turn their head." },
+    {
+      name: "Direct Counter",
+      mechanics: "The system's core principle: answer an attack with an immediate, simple counter rather than exchange long combinations. Gross motor movements â palm heel, hammer fist, elbow â retain accuracy under adrenaline where fine-motor-dependent techniques degrade. The body answers along the most direct line available from its current position.",
+      setup: "The threat is immediate and there is no time for elaborate setup.",
+      execution: "The practitioner responds with a fast, direct action from the safest available position. No wind-up. No announcement.",
+      recovery: "The body does not linger â it either continues to protect or moves to exit.",
+      counter: "Stay outside the initial line, keep the defender reacting, and deny them the moment of clean contact."
+    },
+    {
+      name: "Retzev Pressure (Continuous Motion)",
+      mechanics: "Once the first action lands, Krav Maga does not stop to assess. The body chains simple action into the next without a visible pause. The logic is that an attacker who is absorbing continuous pressure cannot organize a counterattack. The sequence ends only when the threat is reduced enough to disengage.",
+      setup: "The defender has already entered the response phase.",
+      execution: "The body chains one simple action into the next. No reset. No pause for evaluation.",
+      recovery: "The sequence ends when danger is reduced enough to create an exit.",
+      counter: "Break the rhythm early or force the defender into a bad angle before the pressure line settles."
+    },
+    {
+      name: "Improvised Tool Use",
+      mechanics: "The system explicitly frames available objects as legitimate defensive tools, which changes the body's orientation from sport exchange to practical problem-solving. A bag, a book, a bottle in hand becomes an extension of the first response. The mechanics are not about weapon forms â they are about integrating whatever is available with minimal cognitive load.",
+      setup: "A usable object is within reach.",
+      execution: "The practitioner integrates the object into the response without delay or technique ceremony.",
+      recovery: "The body stays mobile and ready to disengage whether or not the tool remains in hand.",
+      counter: "Deny access to the tool, collapse the space, or force the defender to drop it."
+    }
   ],
   defenses: [
-    { name: "Burst Step Off-Line", mechanics: "A diagonal step at 45 degrees to the attack removes the practitioner from the attack's path while simultaneously positioning them to attack the attacker's exposed flank.", setup: "Any attack is incoming.", execution: "The step is diagonal and explosive — not a retreat, but a repositioning. The attacker's momentum carries them past.", recovery: "Immediately counter from the flanking position.", counter: "Circle to compensate for the off-line step and continue the attack." },
+    {
+      name: "Cover and Move",
+      mechanics: "Defense must lead to safety, not to a prolonged contest. Cover protects the body long enough to create an exit line. Unlike a formal block, the cover does not try to redirect the attack â it absorbs or deflects it while the feet are already moving to a better position.",
+      setup: "A sudden attack is already in motion.",
+      execution: "The practitioner protects the vulnerable line and moves simultaneously. Cover and exit are one action.",
+      recovery: "The priority is escape or continued protection, not style.",
+      counter: "Trap the movement path so the defender cannot convert cover into exit."
+    }
   ],
-  strengthAgainst: ["Untrained attackers who commit to single attacks — the simultaneous defense-counter ends the exchange in the first exchange.", "Attackers in weapon situations — the system has specific disarms for common weapon attacks.", "Multiple attacker scenarios — the burst step and simultaneous system is designed for outnumbered situations."],
-  weakAgainst: ["Trained combat sports athletes who do not commit to single attacks and can handle the counter.", "Sustained grappling exchanges where the system's simplicity becomes a disadvantage.", "Any situation where a solution other than immediate violence is available and better."],
-  signatureTells: ["The passive stance looks neutral but the weight is already forward.", "Before any burst, the eyes scan the exit — Krav practitioners always know where they are going after.", "Hands are always at face height, even in conversation — the passive stance is a trained default.", "Attacks always aim for anatomy: eyes, throat, groin, knees — not padded areas."],
-  pacing: "Krav Maga has no pacing. It explodes from apparent stillness, delivers maximum damage as fast as possible, and ends. The practitioner is gone before the attacker fully processes what happened. There is no second round if the system works correctly.",
-  writingNotes: "A Krav-trained character is not a fighter. They are someone who has been trained to hurt people efficiently and without hesitation. They don't enjoy it, they don't perform it, and they don't want to be in a situation where it's necessary. When it is, they are very fast and very final.",
+  strengthAgainst: [
+    "Surprise attacks and chaotic situations â the system is built for immediate response under stress.",
+    "Opponents who hesitate after committing â Krav Maga rewards instant action into that gap.",
+    "People who expect a sporting exchange â the style does not follow sport rules or etiquette."
+  ],
+  weakAgainst: [
+    "Controlled sport specialists who can force prolonged exchanges and remove the ability to exit.",
+    "Opponents who stay calm, manage distance, and do not give the reactive cue the system wants.",
+    "Environments where the defender cannot move freely after the initial cover."
+  ],
+  signatureTells: [
+    "The body compresses instantly when danger appears rather than settling into a long stance.",
+    "The hands rise into a practical shield rather than a formal guard position.",
+    "The eyes and torso are already scanning for the exit even while the hands are responding.",
+    "There is almost no wasted motion â the whole body is trying to finish the problem fast and leave."
+  ],
+  pacing: "Krav Maga has the fastest emotional pacing because its job is not to duel but to survive. The first exchange should feel abrupt, efficient, and slightly ugly, followed by immediate movement toward escape or containment. It is crisis management, not performance.",
+  writingNotes: "A character trained in Krav Maga reads as direct, alert, and allergic to nonsense. This training builds a mind that asks 'How do I get safe now?' rather than 'How do I win beautifully?' In fiction, that produces someone who is practical under pressure, decisive in emergencies, and genuinely impatient with posturing."
 };

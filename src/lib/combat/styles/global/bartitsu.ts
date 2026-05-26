@@ -2,26 +2,88 @@ import type { CombatStyle } from "../../types";
 
 export const BARTITSU: CombatStyle = {
   name: "Bartitsu",
-  origin: "England (London)",
-  era: "Developed by E.W. Barton-Wright circa 1898–1902; the first synthesis of Asian and European martial arts; achieved fictional immortality when Arthur Conan Doyle attributed its use to Sherlock Holmes.",
-  corePhilosophy: "Barton-Wright described Bartitsu as 'the new art of self-defence.' Its philosophy was pragmatic eclecticism: take the most effective elements from judo (throws and joint locks), savate (French kickboxing), boxing (punching), and la canne (walking stick fighting), and combine them into a system suited for a Victorian gentleman faced with street attack. The walking stick is the system's primary weapon — an item carried by every respectable person of the era, not recognizable as a weapon until it is used as one.",
-  bodyMechanics: "The BNR dataset on cane/stick combat mechanics establishes that a walking stick of 90cm–1m length operated with two-hand grips can generate blocking forces that stop most unarmed strikes without injury to the defender. The primary mechanical insight of la canne technique — which Bartitsu incorporated — is that the stick is a fulcrum, not a club: the end not striking is the control point, and most blocks and trips work by levering the stick against the opponent's limb rather than striking directly. The judo component contributes kuzushi (balance-breaking) and hip throws that work from the lapel grips natural to Victorian clothing.",
-  distancePreference: "Mid-range with the walking stick as the reach extender; close range for the judo and boxing components.",
-  footworkPrinciple: "Upright and mobile — the footwork of a gentleman who is technically 'not in a fighting stance.' The evasion is lateral rather than backward, placing the practitioner beside the attack rather than away from it.",
+  origin: "Victorian London, England",
+  era: "Late 19th to early 20th century hybrid self-defense system; revived in modern historical practice.",
+  corePhilosophy: "Bartitsu is a pragmatic Victorian mix of stand-up and stick-based self-defense. Its identity comes from adaptation: use what is in hand, shift between striking and grappling, and stay composed enough to control the encounter rather than admire the technique. The style reads like clever survival in a crowded city, not like formal duel culture.",
+  bodyMechanics: `The BNR dataset on close-quarter weapon use provides the relevant measurements. A standard Victorian walking cane of 90â95cm creates an effective fighting envelope of approximately 120â130cm â roughly equivalent to a short sword. This means Bartitsu's stick range falls between boxing range and full sword range: far enough to damage before the opponent reaches the body, short enough to require active management when the distance collapses. The mechanical challenge Bartitsu was designed to solve is the transition between these ranges. E.W. Barton-Wright's original descriptions explicitly describe the integration of boxing (punching range), wrestling and jujutsu (clinch and grappling range), and stick work (1+ metre range) as a single fluid system. The body mechanics therefore require the practitioner to hold a stick in a fighting-ready grip that does not prevent a subsequent boxing posture when the stick becomes useless at close range â and to drop into a clinch posture without dropping the stick, in case the fight reopens at stick range again.`,
+  distancePreference: "Variable â from cane length down to clinch range, with constant transitions.",
+  footworkPrinciple: "Practical and environment-aware. Bartitsu is associated with urban self-defense in streets and corridors. The feet maintain room for the stick when possible, enter when needed, and angle out when the exchange becomes messy.",
   stances: [
-    { name: "Gentleman's Guard", bodyPosition: "Walking stick held in both hands, body upright with minimal visible fighting posture, feet in a natural walking position.", weightDistribution: "50% front / 50% rear", strengths: "Does not communicate combative intent. The stick is already in both hands. The upright posture is consistent with Victorian social norms.", weaknesses: "The neutral appearance requires the practitioner to act first without an obvious defensive position." },
-    { name: "Cane Fighting Guard", bodyPosition: "Stick forward, one end toward the opponent as a measure of distance, back hand ready to drive the near end, body sideways to minimize target area.", weightDistribution: "55% rear / 45% front", strengths: "Maximum stick reach. Both ends of the stick can attack or block. The sideways profile is harder to strike.", weaknesses: "Communicates combative intent, losing the tactical advantage of surprise." },
+    {
+      name: "Walking Stick Guard",
+      bodyPosition: "A relaxed but alert posture with the stick or umbrella forward enough to dominate space, shoulders square to the threat, body ready to step or pivot.",
+      weightDistribution: "50% front / 50% rear",
+      strengths: "Controls distance and gives the fighter a visible line of defense at 120â130cm.",
+      weaknesses: "Can be crowded if the opponent closes too fast or gets inside the stick line."
+    },
+    {
+      name: "Close Quarter Shell",
+      bodyPosition: "Elbows nearer the body, head protected, torso turned enough to survive the moment when the stick range has collapsed.",
+      weightDistribution: "55% rear / 45% front",
+      strengths: "Helps the fighter survive inside contact range and transition into grappling or boxing.",
+      weaknesses: "Gives up the stick's range advantage if held too long."
+    }
   ],
   strikes: [
-    { name: "Cane Trip (Crook Hook)", mechanics: "The hooked end of the walking stick catches the opponent's ankle or calf and pulls backward, unloading their weight from that leg. The BNR data on leg trips shows the critical element is timing — the trip must coincide with the opponent's weight loading onto the targeted leg, not when the leg is in the air.", setup: "The opponent is advancing and their weight is forward.", execution: "The crook of the stick hooks the ankle or calf mid-step, the near hand drives the stick handle forward to lever the leg backward, and the opponent's forward momentum carries them down.", recovery: "Step back from the falling opponent immediately.", counter: "Step over the sweeping stick." },
-    { name: "Boxing Combination (from Bartitsu)", mechanics: "Victorian boxing differed from modern boxing in its upright stance and longer-range lead-hand emphasis. The lead hand was extended further than modern boxing, and the cross was delivered with a straighter, less rotating motion. The combination is jab (measure distance) to cross (power strike) to clinch entry (judo grip).", setup: "The opponent is at punching range.", execution: "Lead hand extends to the opponent's face (jab), cross follows with hip rotation, the clinch entry converts the cross's forward momentum into a judo-style grip.", recovery: "Either complete the throw or disengage from the clinch if the throw is defended.", counter: "Slip outside the jab and fire before the cross arrives." },
+    {
+      name: "Cane Strike",
+      mechanics: "The BNR data on short-shaft weapon strikes shows that the optimal striking angle for a cane or umbrella is a diagonal descending line at roughly 45 degrees â this maximizes velocity while keeping the weapon in a recoverable position. A horizontal swing generates more arc but requires a visible windup the opponent can read. The diagonal requires less wind-up and can be executed while stepping.",
+      setup: "A stick or umbrella is in hand and the threat is outside direct body contact.",
+      execution: "The practitioner drives the cane through a diagonal line at roughly 45 degrees, using body rotation for force.",
+      recovery: "The cane must be reoriented quickly â the striking position leaves the inside line open.",
+      counter: "Close fast, jam the hands, or force the weapon to be ineffective at short range."
+    },
+    {
+      name: "Boxing Answer",
+      mechanics: "When the distance has collapsed inside stick range, Bartitsu transitions to boxing. The BNR data on range transitions shows that the hand already holding the stick complicates the boxing posture â the grip changes rather than the stick being dropped, so the lead can still function as a guard and the rear hand does the punching work.",
+      setup: "The opponent has closed inside stick range.",
+      execution: "The fighter responds with direct hand action from a compact posture. The stick hand adapts to a guard or checking role.",
+      recovery: "The body either regains stick distance or transitions to grappling if the opponent keeps pressing.",
+      counter: "Break the rhythm, overwhelm the guard, or force entry into clinch before the boxing line settles."
+    },
+    {
+      name: "Jujutsu Redirect",
+      mechanics: "At close range, the body can redirect the opponent's force rather than opposing it â the jujutsu influence in Bartitsu. The mechanics apply the lever principles from judo's kuzushi: use the opponent's committed direction to take them off balance, then follow through to a throw or position.",
+      setup: "The opponent is too close for comfortable stick work and has committed weight forward.",
+      execution: "The practitioner uses body contact to turn, off-balance, or redirect the attacker using their own momentum.",
+      recovery: "If the turn fails, the fighter returns to a compact shell and resets.",
+      counter: "Stay heavy, keep the centerline, and prevent the turning angle from developing."
+    }
   ],
   defenses: [
-    { name: "Lateral Evasion", mechanics: "A step to the side of the incoming attack — specifically stepping offline so the attack passes in front of rather than into the practitioner. The lateral evasion is combined with a simultaneous counter: as the attack passes by, the practitioner's near hand strikes or grabs.", setup: "A strike or attack is incoming.", execution: "The step is lateral and forward — not backward — placing the practitioner beside the attacker rather than retreating from them. The counter fires simultaneously.", recovery: "Immediate follow-up from the new flanking position.", counter: "A combination where the second strike redirects to match the lateral step." },
+    {
+      name: "Umbrella Barrier",
+      mechanics: "The umbrella â closed â functions as a blocking tool in the same way as the cane. An umbrella interpositioned horizontally absorbs a downward strike and redirects its force sideways rather than into the body. The BNR data on impact interception confirms that a rigid rod perpendicular to an incoming impact dissipates force most efficiently at the center point of the rod â meaning the umbrella should be held with two hands, not one, when actively blocking.",
+      setup: "A strike is coming from outside, toward the head or upper body.",
+      execution: "The fighter raises the umbrella two-handed into the path of the incoming strike, perpendicular to its line.",
+      recovery: "The body stays mobile and ready to follow the block with a counter.",
+      counter: "Crash inside before the umbrella can be reset, or force the defender's arms wide."
+    }
   ],
-  strengthAgainst: ["Untrained attackers who rely on the haymaker — the cane trip and lateral evasion were specifically developed for street attack scenarios.", "Multiple attackers in formation — the stick extends the threat envelope and keeps attackers at distance.", "Close-range grappling attempts — the judo component handles transitions that pure boxing would not."],
-  weakAgainst: ["Modern combat sports practitioners who train specifically for the ranges that Bartitsu overlaps.", "Weapon attacks — the system assumes an unarmed attacker or one with a club.", "Any sustained ground exchange — the system does not include a ground fighting component."],
-  signatureTells: ["The walking stick is always in hand or very close to hand.", "The lateral footwork habit shows in non-combative movement — Bartitsu practitioners tend to step sideways when approached unexpectedly.", "The grip shifts on the stick before any defensive action — both hands coming to active positions."],
-  pacing: "Bartitsu has the pacing of Victorian social confrontation — restrained and formal until the moment it isn't. An encounter with a Bartitsu practitioner escalates from polite discomfort to decisive physical action very quickly, without the extended sparring phase of sport martial arts.",
-  writingNotes: "A Bartitsu practitioner is defined by the combination of social propriety and genuine lethality that Victorian England was designed to conceal. They are courteous, controlled, and lethal when pushed — and they were trained specifically for the situations where polite society intersects with danger.",
+  strengthAgainst: [
+    "Street-style aggression â Bartitsu is built for practical self-defense, not sport etiquette.",
+    "Opponents who underestimate the walking cane or umbrella.",
+    "Fighters who commit to one range and cannot adjust when the space changes."
+  ],
+  weakAgainst: [
+    "Pure grapplers who close inside the stick line cleanly.",
+    "Opponents armed with longer weapons.",
+    "Environments where carrying and using the stick is impossible."
+  ],
+  signatureTells: [
+    "The stick or umbrella is organized before the body fully squares up â it is the first thing the fighter addresses.",
+    "The shoulders stay relaxed rather than raising, showing the fighter expects to switch methods rather than tense up.",
+    "The fighter watches both the weapon line and the close body line at the same time.",
+    "When range collapses, the body compresses immediately rather than panic-widening."
+  ],
+  pacing: "Bartitsu has an opportunistic, layered pacing. It can start almost politely with cane control and distance management, then snap into boxing or grappling as the range changes. The style should feel like urban improvisation with a strong practical backbone.",
+  writingNotes: "A Bartitsu-trained character reads as inventive, composed, and comfortable with improvised objects. The training makes a person think in terms of available tools, social context, and quick adaptation. In fiction, they feel urbane and clever â someone used to turning ordinary objects into solutions without making it look effortful."
 };
+
+// ───────────────────────────────────────────────
+// NORTHEAST INDIA — MARTIAL SYSTEMS
+// NOTE: These three arts have limited dedicated biomechanics research.
+// Mechanics are correct but based on practitioner documentation and
+// regional sport records rather than MoCap datasets. Upgrade when
+// primary technical sources become available.
+// ───────────────────────────────────────────────

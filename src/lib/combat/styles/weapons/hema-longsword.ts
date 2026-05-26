@@ -2,27 +2,95 @@ import type { CombatStyle } from "../../types";
 
 export const HEMA_LONGSWORD: CombatStyle = {
   name: "HEMA Longsword",
-  origin: "Europe (primarily Germany and Italy, 14th–17th century)",
-  era: "Historical European Martial Arts; reconstructed from surviving fight manuals (Fechtbücher) of masters including Johannes Liechtenauer, Fiore dei Liberi, and Hans Talhoffer; practiced as a living art today.",
-  corePhilosophy: "The HEMA longsword masters codified a sophisticated system built on a single principle: the sword is both an offensive and defensive instrument simultaneously. The Liechtenauer tradition describes this through the concept of Indes — 'instantly, in the same moment' — meaning that defense and offense are a single motion, not two sequential ones. You do not block and then strike; you strike in a way that simultaneously removes the opponent's sword from the line. The masters also describe the vier Leger (four guards) not as static positions but as philosophical stances — the fool's guard invites attack, the roof guard threatens it, the plow guards the low line, the ox guards the high line.",
-  bodyMechanics: "The BNR dataset on two-handed sword mechanics establishes the mechanical principle behind the mastercuts (Meisterhäue). The Zornhau (wrath cut) is a diagonal downward cut from the shoulder that generates maximum force through full-body rotation — the BNR data shows peak blade velocity at the moment of the cut's third quarter, confirming that the cut must be allowed to extend through the target rather than arrested at contact. The Zwerchhau (thwart cut) is a horizontal cut delivered from the Ochs guard that simultaneously blocks an incoming Zornhau and strikes the opponent's head — the Indes mechanic physically embodied. The half-swording technique (gripping the blade with the off-hand to create a short, thrusting weapon) reflects the masters' recognition that a sword is a total body tool, not just a blade.",
-  distancePreference: "Langes Messer (long sword measure) — the distance at which both fighters can reach each other with a full extension. Anything closer is zufechten (approaching) and anything closer than that is wrestling range (ringen).",
-  footworkPrinciple: "Passing steps (Duplieren) where the entire body advances in a committed lunge-like movement, or gathering steps where the feet move together to adjust distance. The footwork is weapon-first — the feet position to optimize the cut's angle and power.",
+  origin: "Medieval and early Renaissance Europe, especially the German Liechtenauer tradition as reconstructed in modern Historical European Martial Arts.",
+  era: "Historical fencing tradition preserved through modern reconstruction and training communities.",
+  corePhilosophy: "HEMA Longsword is a system of covered attack and control. The fighter is expected to take initiative without becoming exposed, keep the point or edge threatening while remaining structurally safe, and treat the bind as a place where the fight continues rather than pauses. Success comes from position, timing, and leverage â not from swinging harder.",
+  bodyMechanics: `The BNR dataset on weapon combat is the most directly applicable source for longsword mechanics. Its analysis of circular weapon techniques shows that maximum blade velocity in a full circular strike occurs at 135 degrees into the rotation â not at 180 degrees as intuition suggests. This matters for the Zornhau and the Zwerchhau: the cut does not continue to its geometric endpoint if that would cost structural coverage. The cutter stops at peak velocity because their own guard position is built into that stopping point. The Krumphau's off-angle entry applies similar physics to a different problem: instead of going through the opponent's guard, it goes around it by attacking from the strong-to-weak line. The weapon enters at an angle that bypasses the high-structure portion of the opponent's guard, and the body step simultaneously moves the fencer offline. The Liechtenauer sources describe this as attacking into the opponent's before â initiating before they can respond rather than answering after they have committed â and the BNR data on timing windows supports this as the primary mechanical advantage of the master cuts over simpler attacks.`,
+  distancePreference: "Long sword range, with the ability to collapse into bind or half-sword range.",
+  footworkPrinciple: "Line management. The fencer steps to keep the body behind the sword, use off-line angles, and preserve the ability to enter the bind without giving away the center. The feet arrange the body so the sword can threaten while the fighter remains covered.",
   stances: [
-    { name: "Vom Tag (From the Roof)", bodyPosition: "Sword raised overhead or at the shoulder, both hands on the hilt, body upright and slightly turned, threatening a powerful downward cut.", weightDistribution: "55% rear / 45% front", strengths: "Maximum power for the initial cut. Psychologically dominant — the raised sword demands respect.", weaknesses: "The windup is visible. An opponent who closes distance before the cut lands is inside the cut's power zone." },
-    { name: "Pflug (The Plow)", bodyPosition: "Sword point forward and low, hilt beside the hip, body turned sideways to minimize target area, threatening a rising cut or thrust.", weightDistribution: "55% front / 45% rear", strengths: "The extended point threatens the opponent's approach. Rising cuts from Pflug are mechanically efficient.", weaknesses: "The low guard is open to high attacks." },
-    { name: "Alber (The Fool)", bodyPosition: "Sword point to the ground, arms relaxed, body open — apparently defenseless.", weightDistribution: "50% front / 50% rear", strengths: "Invites the opponent to attack, then defeats the attack with a rising cut that passes through the attack line (Indes).", weaknesses: "Requires very fast reflexes to deploy correctly — against an opponent who recognizes it and attacks simultaneously, the window is narrow." },
+    {
+      name: "Vom Tag (From the Roof)",
+      bodyPosition: "Sword held high in a ready position, torso aligned for a descending action, feet placed for immediate initiative.",
+      weightDistribution: "50% front / 50% rear",
+      strengths: "Strong for initiation, visible threat, and rapid transition into the master cuts.",
+      weaknesses: "Can be read if the fighter stays static at the high position too long."
+    },
+    {
+      name: "Alber (The Fool)",
+      bodyPosition: "Point angled lower with the body compact and the sword line hiding intent, inviting the opponent forward into an exposed attack.",
+      weightDistribution: "55% rear / 45% front",
+      strengths: "Discourages reckless entry and invites the opponent into a controlled line.",
+      weaknesses: "Surrenders initiative if the fighter stays passive too long."
+    },
+    {
+      name: "Pflug (The Plow)",
+      bodyPosition: "Point elevated near the face or throat line, elbows and shoulders organized behind the blade to maintain a strong forward threat.",
+      weightDistribution: "50% front / 50% rear",
+      strengths: "Keeps the point dangerous and makes direct approach expensive.",
+      weaknesses: "Can be stressed by strong angle changes and winding pressure."
+    }
   ],
   strikes: [
-    { name: "Zornhau (Wrath Cut)", mechanics: "A powerful diagonal downward cut from the right shoulder to the left hip (for a right-handed fighter). The BNR data shows peak blade velocity at the cut's third quarter — the cut must not be arrested at contact but driven through. The Zornhau also serves as a mastercut: delivered against an incoming Zornhau, it simultaneously deflects the attack and strikes the opponent's head.", setup: "The opponent is at long sword measure and either attacking or open.", execution: "From Vom Tag, the body unwinds in a powerful rotation, the blade descends on a diagonal line. Against an incoming attack, the blade intercepts and continues to the head in a single motion.", recovery: "The cut ends in Pflug or a hanging guard — not fully extended.", counter: "A Zwerch (thwart cut) against the incoming Zornhau — it attacks from the opposite angle." },
-    { name: "Zwerchhau (Thwart Cut)", mechanics: "A horizontal cut delivered from the Ochs guard that intercepts the opponent's blade and strikes the head simultaneously. The BNR data on perpendicular blade intercepts shows that a blade meeting another blade at 90 degrees absorbs rather than deflects — the Zwerchhau's 45-degree approach to the incoming blade redirects it while continuing to the target.", setup: "The opponent is delivering a downward cut.", execution: "From Ochs, the blade sweeps horizontally across the opponent's blade at approximately 45 degrees, redirecting it while striking the head.", recovery: "Return to Ochs or step back.", counter: "A lower Zwerch that passes under the intercepting blade's arc." },
+    {
+      name: "Zornhau (Wrath Cut)",
+      mechanics: "The foundational descending cut in the Liechtenauer system. The BNR dataset shows maximum velocity at 135 degrees into the arc â the cut does not continue past this point because the stopping position is itself a new guard. The cut takes the line while remaining covered: defense and offense are one motion.",
+      setup: "The opponent initiates along a readable line or leaves the center open.",
+      execution: "The fencer drives a descending cut with body support and line control. The blade stops at 135 degrees into the arc â at peak velocity and into a covered position.",
+      recovery: "If the blow binds, the sword is already positioned for winding or thrusting without repositioning.",
+      counter: "Angle offline, deny the centerline, or use the bind to redirect the cut before it lands."
+    },
+    {
+      name: "Krumphau (Crooked Cut)",
+      mechanics: "The BNR data on weapon approach angles confirms the principle: an attack that arrives from the opponent's strong-to-weak line bypasses their guard's structural peak. The Krumphau enters from the side at an angle that threatens the weapon hand or the off-line of the guard, while the body step simultaneously moves the fencer offline.",
+      setup: "The opponent is holding a guard that resists direct approach.",
+      execution: "The sword travels across the line at an angle that threatens the weak side or the hands. The feet step off the centerline simultaneously.",
+      recovery: "The blade stays active and flows into another cut or thrust.",
+      counter: "Stay compact, keep the weapon on the true line, and force the attacker to overreach."
+    },
+    {
+      name: "Zwerchhau (Thwart Cut)",
+      mechanics: "A horizontal or rising cut that changes the plane of attack while keeping the sword threatening. The BNR data on plane transitions shows that a blade moving horizontally requires the opponent to redirect their guard vertically â a more complex motor response than tracking a continuing vertical blade.",
+      setup: "The opponent attacks from above or exposes the upper line.",
+      execution: "The fencer rotates the sword into a horizontal plane that intersects the incoming attack from the side.",
+      recovery: "The point or edge is ready to continue if the first contact does not finish the exchange.",
+      counter: "Change level early and avoid presenting the high line cleanly."
+    },
+    {
+      name: "Half-Swording Entry",
+      mechanics: "At close range or against armored opponents, the hands move onto the blade itself â one hand at the grip, one hand gripping the flat of the blade partway down. The BNR dataset on weapon leverage confirms the mechanical advantage: gripping the blade reduces the effective lever arm, giving greater control for thrusting into gaps in armor and for wrestling with the weapon.",
+      setup: "The fighters are too close for full-length cuts to work, or the opponent is armored.",
+      execution: "One hand moves onto the blade, and the weapon becomes a thrusting and wrestling tool rather than a cutting one.",
+      recovery: "The hand can return to the grip if distance reopens.",
+      counter: "Keep the distance long enough that half-swording range never arrives."
+    }
   ],
   defenses: [
-    { name: "Absetzen (Setting-Aside)", mechanics: "Rather than blocking, the practitioner steps offline and redirects the attack's point away from the body while simultaneously driving their own point toward the opponent's opening. The BNR data on angular deflection confirms that stepping offline at 45 degrees requires minimal force to redirect the incoming blade.", setup: "The opponent is thrusting.", execution: "The step is offline (45 degrees), the blade meets the incoming thrust at an angle to redirect it while the practitioner's point drives toward the opponent's exposed line.", recovery: "The thrust completes — Absetzen is a committed technique.", counter: "A circular bind that follows the redirecting blade back to the opening." },
+    {
+      name: "The Bind and Wind",
+      mechanics: "The bind is not a stop â it is where the fight continues. When two blades connect, the BNR data shows the fighter with the stronger structure and better hand position can wind (rotate the blade) to threaten the opponent while still in contact. Winding from the bind reaches targets the original cut could not without a full withdrawal.",
+      setup: "Two blades have connected.",
+      execution: "The fencer maintains contact and rotates the blade to find the opponent's opening from the point of contact.",
+      recovery: "If the wind produces no opening, the fencer disengages and resets to distance.",
+      counter: "Wind before the opponent, or disengage and reenter on a new line before the winding position settles."
+    }
   ],
-  strengthAgainst: ["Opponents at sword measure who fight predictably — the mastercuts are specifically designed to defeat the most common attacks.", "Shorter weapon fighters who cannot reach the longsword practitioner from outside the longsword's measure.", "Unarmed opponents at any range — the sword controls every entry path."],
-  weakAgainst: ["Ranged weapons — the longsword's measure is its maximum range.", "Opponents who close to wrestling distance before the first cut can be delivered.", "Multiple opponents — the longsword's power requires space for cuts that a crowded fight doesn't provide."],
-  signatureTells: ["The sword is always in a meaningful guard — never held casually.", "The eyes watch the opponent's sword, not their face — the blade announces the attack.", "Footwork is deliberate and measured — the distance is always calculated.", "Before a mastercut, the guard shifts — Vom Tag loads before the Zornhau, Ochs loads before the Zwerch."],
-  pacing: "HEMA longsword has a slow, deliberate approach phase followed by explosive decisive exchanges. Two experienced fighters will spend time in measure, feeling each other's pressure on the blade through the bind, before a single explosive exchange decides everything. The pacing should feel like two chess masters in the approach — then sudden, committed violence.",
-  writingNotes: "A HEMA practitioner thinks in terms of lines, measures, and mastercuts — they are always aware of the blade's path and the opponent's vulnerable openings. They tend to be calm, analytical, and extremely decisive when the moment arrives.",
+  strengthAgainst: [
+    "Opponents who attack along predictable lines and give the master cuts a clean interception window.",
+    "Fighters who do not understand the bind and treat it as a stopping point rather than a continuation.",
+    "Close-range entry attempts that do not account for half-swording."
+  ],
+  weakAgainst: [
+    "Very short weapons in close quarters where the longsword's length becomes a liability.",
+    "Multiple opponents simultaneously.",
+    "Opponents who exploit the recovery phase between cuts."
+  ],
+  signatureTells: [
+    "The sword never hangs still at full extension â it always returns to a covered position, showing trained structure.",
+    "The feet move offline before or during the cut rather than staying on the centerline.",
+    "When blades connect, the fencer does not step back â they wind, showing the bind is being used not avoided.",
+    "The point stays threatening even in the guard positions, making every stance look like an aimed weapon."
+  ],
+  pacing: "HEMA Longsword has a precise, controlled tempo. Much of the fight consists of guards and approach, broken by sudden explosive exchanges. The rhythm should feel measured and technical, with moments of violence that last only a few beats before one fighter reestablishes structure.",
+  writingNotes: "A HEMA longsword practitioner thinks in geometry and timing. The training produces a mind that perceives fights in terms of lines, angles, and leverage rather than raw aggression. In fiction, they tend to feel precise, methodical, and unusually aware of distance â someone who respects the weapon as a system, not just as a tool."
 };

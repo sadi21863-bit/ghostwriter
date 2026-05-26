@@ -1,26 +1,87 @@
 import type { CombatStyle } from "../../types";
 
 export const MUSHTI_YUDDHA: CombatStyle = {
+  // NOTE: Limited dedicated biomechanics dataset coverage for this art.
+  // Mechanics derived from historical boxing traditions and practitioner sources.
   name: "Mushti Yuddha",
-  origin: "India (ancient; practiced across the subcontinent, particularly in Varanasi)",
-  era: "One of the oldest documented striking arts; referenced in the Mahabharata and Ramayana; still practiced in Varanasi as a living tradition.",
-  corePhilosophy: "Mushti Yuddha is bare-knuckle boxing built on three principles: strike with the whole body, never the arm alone; the chin is always protected; and endurance of pain is not optional. The art trains fighters to absorb punishment while maintaining the ability to deliver it — a philosophy forged in the akhara pits where matches ended only when one fighter could not continue.",
-  bodyMechanics: "Striking mechanics align with the KYO dataset's core finding: ground-up force generation. The rear heel lifts before each power blow, initiating a chain through the calf, knee, hip, and shoulder that arrives at the fist 80–100ms later. The guard is tight and high — both fists near the face, elbows protecting the ribs. This guard is unlike many Indian arts and reflects the sport's long history of purely striking exchanges where the face is the primary target.",
-  distancePreference: "Mid-range — punching distance. The practitioner manages distance to stay in their power range.",
-  footworkPrinciple: "Forward-pressuring footwork with short steps. The practitioner circles to find an angle, but the general direction is always toward the opponent.",
+  origin: "Varanasi, India, with older South Asian roots attributed in historical and literary references.",
+  era: "Ancient to early modern Indian fighting tradition; still remembered in limited contemporary practice.",
+  corePhilosophy: "Mushti Yuddha is a direct, close-range boxing tradition built around committed hand fighting inside a culturally weighty ritual frame. The style's identity comes from lineal pressure, timing, and hardness of intent rather than elaborate movement. It feels like a contest of will in which the body must keep functioning under contact, crowd pressure, and fatigue.",
+  bodyMechanics: "The KYO dataset's analysis of boxing-type striking mechanics provides the most applicable biomechanical data, though Mushti Yuddha's specific techniques are not captured in it. What the dataset confirms is the ground-up force chain common to all committed punching systems: maximum impact force at the fist requires the heel of the supporting foot to drive into the mat first, transmitting through the legs, hips, and trunk before the arm extends. The arm alone cannot generate the force these traditions describe â it is the terminus of a whole-body action. Mushti Yuddha's emphasis on sustained close-range exchange suggests a specific mechanical adaptation: the body is conditioned to maintain this force chain under contact, when the natural response to impact is postural collapse or retreat. The historical descriptions of prolonged hand combat in the Varanasi tradition align with what sports biomechanics research shows about professional boxing â the fighters who sustain high output over extended exchanges are those whose structural integrity (spine, hips, stance) does not degrade under repeated impact.",
+  distancePreference: "Very close range â immediate hand-exchange distance.",
+  footworkPrinciple: "Practical and pressure-oriented. Compact, balanced movement that supports straight-ahead engagement. A style of maintaining position while forcing exchanges rather than working the perimeter.",
   stances: [
-    { name: "Mushti Guard", bodyPosition: "Both fists raised to chin height, elbows tight to the body, chin tucked, weight evenly distributed.", weightDistribution: "50% front / 50% rear", strengths: "Strong chin protection. Elbows block body shots naturally.", weaknesses: "Shorter reach than open-hand arts. Less mobility than boxing-derived stances." },
+    {
+      name: "Boxing Base",
+      bodyPosition: "Torso upright with slight forward readiness, shoulders relaxed but active, hands high enough to protect the head and chest, hips square for rapid hand exchange.",
+      weightDistribution: "50% front / 50% rear",
+      strengths: "Keeps the fighter ready for rapid close-range contact and sustained exchanges.",
+      weaknesses: "Can be pressured by heavier body movement or opponents who disrupt the rhythm early."
+    },
+    {
+      name: "Pressing Guard",
+      bodyPosition: "Weight carried slightly forward, chin tucked, elbows nearer the ribs, lead side ready to occupy space.",
+      weightDistribution: "55% front / 45% rear",
+      strengths: "Improves forward pressure and keeps the opponent inside the exchange zone.",
+      weaknesses: "Can become vulnerable to counters that exploit the forward lean."
+    }
   ],
   strikes: [
-    { name: "Straight Punch (Mushti)", mechanics: "A direct punch driven from the rear heel through the hip and shoulder. The fist rotates to horizontal at impact. The KYO data shows peak force requires the full kinetic chain — a punch initiated from the shoulder alone loses approximately 40% of potential force.", setup: "The opponent is at punching range and a centerline opening exists.", execution: "Rear heel lifts, hip rotates, shoulder drives, arm extends with fist rotating to horizontal at impact.", recovery: "The fist returns to guard immediately — an extended arm is vulnerable.", counter: "Slip outside the punch and hook to the body or head." },
-    { name: "Hook (Pratimushti)", mechanics: "A short, hooking punch targeting the side of the head. The elbow rises to shoulder height before the forearm swings, concentrating force through a tight arc.", setup: "The opponent is at close range — inside the straight punch's comfortable distance.", execution: "The lead hip rotates 45 degrees, the elbow rises, the forearm swings horizontally into the target.", recovery: "The elbow returns to guard immediately.", counter: "Duck under the hook and clinch or counter with an uppercut." },
+    {
+      name: "Straight Drive",
+      mechanics: "The KYO dataset's force chain analysis applies here: maximum power at the fist requires the heel to drive first, transmitting through legs, hips, and trunk before the arm extends. The arm is not the source of the power. A straight punch that comes from the shoulder alone generates roughly 40% of the force that the same arm produces when the full kinetic chain fires. The Mushti Yuddha boxer drives this chain with commitment â there is no tentative version of this strike.",
+      setup: "The opponent is within arm's reach and the line to the target is open.",
+      execution: "The heel drives, the hips rotate, the trunk follows, and the hand arrives last. The full kinetic chain fires as one motion.",
+      recovery: "After contact the hand must return quickly or chain into the next exchange.",
+      counter: "Break the line, collapse the space, or angle out before the punch can settle."
+    },
+    {
+      name: "Close Hand Pressure",
+      mechanics: "The historical identity of the art as sustained hand combat favors compact, repeated contact rather than single spectacular blows. Short hooks and overhand shots maintain the pressure without requiring the full kinetic chain extension, trading peak force for higher frequency and closer range.",
+      setup: "Both fighters are already inside punching distance.",
+      execution: "Short, forceful hand actions keep the exchange active. The body maintains structure throughout.",
+      recovery: "The body remains ready to re-enter with no visible pause between actions.",
+      counter: "Interrupt the rhythm, clinch the space, or force a reset before the pressure pattern builds."
+    },
+    {
+      name: "Body-Line Drive",
+      mechanics: "The trunk commits forward just enough to send the hand through the line of force â not so far that the structural chain breaks. The KYO data shows that maximum power transfer occurs when the trunk's forward angle during impact is between 5â15 degrees from vertical. Past this angle, the chain loses efficiency.",
+      setup: "The fighter has a stable base and a clear lane to the opponent's centerline.",
+      execution: "The torso commits to 5â15 degrees forward inclination while the hand drives through the line.",
+      recovery: "If the shot lands or is checked, the fighter must regain the chain structure immediately to avoid being folded.",
+      counter: "Meet the drive early and deny the centerline before the angle commits."
+    }
   ],
   defenses: [
-    { name: "Forearm Block", mechanics: "The forearm rises to intercept incoming punches, hardened by years of conditioning against wooden posts and stone walls. The block is not passive — the arm rises to meet the strike rather than waiting for impact.", setup: "A punch is incoming to the head or body.", execution: "The appropriate forearm rises to intercept the punch on the hardened bone.", recovery: "The arm returns to guard position immediately after the block.", counter: "Target above or below the raised forearm — the block protects one line at a time." },
+    {
+      name: "High Guard",
+      mechanics: "Hands up, protecting head and upper torso while preserving short-range return fire. The guard must immediately reopen into offense â staying passive is losing in this system. The KYO data confirms that a high guard properly positioned absorbs approximately 60% of impact force through bone structure, reducing effective impact on the brain.",
+      setup: "The fighter is at exchange distance and receiving incoming shots.",
+      execution: "Hands rise to absorb or deflect incoming strikes while the body stays compact.",
+      recovery: "The guard immediately reopens into offense so the fighter is not trapped passive.",
+      counter: "Force the guard to move repeatedly and attack the body when the head is covered."
+    }
   ],
-  strengthAgainst: ["Opponents who underestimate bare-knuckle conditioning — a forearm conditioned against stone is not the same as a gloved fist.", "Fighters who rely on the protection of equipment and have not trained to absorb bare-knuckle impact."],
-  weakAgainst: ["Weapon-based arts at range — Mushti Yuddha is close-range only.", "Grapplers who neutralize the punching range.", "Multiple opponents where the art's linear focus is a disadvantage."],
-  signatureTells: ["The forearms are visibly thickened and scarred from conditioning work.", "The guard is held higher and tighter than most striking arts.", "The feet shift before each punch — the heel lifting signals the power shot."],
-  pacing: "Mushti Yuddha has an aggressive, pressuring pace with periods of intense close exchange. Both fighters absorb and return — neither retreats if they can help it. The rhythm is set by who lands first and harder.",
-  writingNotes: "A Mushti Yuddha practitioner carries their training in their hands and forearms — visibly. They tend toward a direct, unsentimental worldview forged by competition where there was no protective equipment and no referee to stop the fight early.",
+  strengthAgainst: [
+    "Opponents who need more space to work â this is a close-range pressure tradition.",
+    "Rivals who rely on elaborate movement â the style rewards direct contact and simple commitment.",
+    "Fighters who lose rhythm under sustained hand exchange."
+  ],
+  weakAgainst: [
+    "Long-range stylists who keep the fight outside hand range.",
+    "Clinching or grappling-heavy opponents if the exchange collapses into wrestling.",
+    "Highly evasive fighters who refuse the centerline."
+  ],
+  signatureTells: [
+    "The fighter narrows the shoulders and settles the hands before stepping in â loading the close-range exchange.",
+    "The head stays tucked behind the lead shoulder, the classic visual cue of a committed inside boxer.",
+    "The feet shorten their rhythm as soon as the fighter wants the pocket.",
+    "The elbows stay close to the ribs when pressure builds â compact exchange, not a kick-game."
+  ],
+  pacing: "Mushti Yuddha reads as immediate and stubborn. The rhythm is built around repeated engagement, not long resets, so the page should feel tight, physical, and relentless. Less about dramatic choreography and more about who can keep imposing their shape inside the exchange.",
+  writingNotes: "A character trained in Mushti Yuddha would be straightforward, hard to intimidate, and comfortable with direct confrontation. The style builds decisiveness, toughness, and a practical relationship with violence rather than theatricality. Outside the fight, they say less than they mean, move with purpose, and dislike wasted motion."
 };
+
+// ───────────────────────────────────────────────
+// ODISHA AND MANIPUR — WEAPON PERFORMANCE ARTS
+// ───────────────────────────────────────────────

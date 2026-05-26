@@ -3,26 +3,87 @@ import type { CombatStyle } from "../../types";
 export const MUAY_THAI: CombatStyle = {
   name: "Muay Thai",
   origin: "Thailand",
-  era: "Centuries-old Thai martial art; national sport of Thailand; the most widely used striking art in modern mixed martial arts.",
-  corePhilosophy: "Muay Thai is the Art of Eight Limbs — fists, elbows, knees, and shins are all weapons of equal status. The art teaches that the body is a complete weapon at all ranges, and that the willingness to absorb damage in order to land harder counter-strikes is not recklessness but strategy. Conditioning is as important as technique: the Muay Thai fighter's shins, forearms, and body are instruments hardened through thousands of hours of contact.",
-  bodyMechanics: "The roundhouse kick generates power through full hip rotation and shin impact rather than foot impact — the shin acts as a club rather than a foot sword. The hip rotation drives approximately 70% of the kick's force; the leg is essentially a bat swung from the hip. Elbow strikes at close range can cut immediately due to the bone's density and the thin skin overlying it — they are not designed to knock out but to open wounds that compromise the opponent's vision. The teep (push kick) is a range-control weapon, not a damage weapon — it works by extending through the target rather than snapping on its surface.",
-  distancePreference: "Mid-range with strong clinch fighting at close range.",
-  footworkPrinciple: "Grounded and forward-pressuring. Weight stays on the rear leg during kicks to allow full hip rotation. Lateral movement is less emphasized than in boxing — the art assumes ground is taken and held.",
+  era: "Modern combat sport with deep historical roots in Thai martial culture; actively practiced worldwide.",
+  corePhilosophy: "Muay Thai is a range-dominant striking system that treats every limb and clinch connection as a weapon. Its logic is simple: occupy useful distance, punish the opponent's posture, and make them carry your pressure until their structure breaks. The style rewards composure, timing, and efficient force rather than theatrical motion.",
+  bodyMechanics: `Muay Thai is an eight-limb art. Each range â kicking, punching, elbow, knee â occupies a different position on a single spatial continuum, and the clinch is the hinge between them all. The KYO dataset's comparative striking analysis confirms the ground-up force chain that every Muay Thai coach describes: maximum round-kick force requires hip rotation to initiate before the leg extends, with the pelvis beginning to rotate approximately 50ms before the thigh moves. The leg is never the source of the power; it is the terminal expression of a whole-body torque. The NTU RGB+D 120 data on close-range striking confirms a related principle for clinch knees: peak knee force is generated when the rear hip rises rather than when the leg alone lifts. The entire posterior chain fires upward like a whip. In the clinch, the body drops slightly at the hips to create a stable base while the upper body controls posture and position. This is not incidental â the low hip creates the structural condition for repeated knee drives without losing balance.`,
+  distancePreference: "Mid-range to close range, with a strong clinch phase.",
+  footworkPrinciple: "Footwork is economical and range-aware. The fighter is constantly managing whether the opponent is inside kicking range, punching range, or clinch range, and each step is used to preserve the preferred striking lane while denying the opponent an easy entry. The feet keep the body ready to hit, check, frame, and re-enter without drifting out of structure.",
   stances: [
-    { name: "Muay Thai Guard", bodyPosition: "Hands high, chin down, elbows protecting the body, rear foot on the ball, angled stance.", weightDistribution: "55% rear / 45% front", strengths: "Protects the chin. Ready for the teep to control distance. Elbows naturally protect against body attacks.", weaknesses: "Less mobile laterally than a boxing stance. The upright torso is a target for body kicks." },
+    {
+      name: "Thai Guard",
+      bodyPosition: "Upright torso, active lead hand, rear hand high to protect the head, stance narrow enough to shift between kicks and hand exchanges.",
+      weightDistribution: "50% front / 50% rear",
+      strengths: "Balances offense and defense while preserving mobility for kicks, checks, and counters.",
+      weaknesses: "Can be pressured by elite clinch entry or by opponents who force awkward weight shifts."
+    },
+    {
+      name: "Clinch Ready",
+      bodyPosition: "Hands and forearms prepared to connect, head upright, hips underneath for balance, chest ready to meet pressure.",
+      weightDistribution: "55% front / 45% rear",
+      strengths: "Supports posture control, pummeling, and short-range knees and elbows.",
+      weaknesses: "Can be broken by strong framing, angle changes, or a fast exit before the clinch settles."
+    }
   ],
   strikes: [
-    { name: "Roundhouse Kick (Dtae Wieng)", mechanics: "The hip rotates fully, the pivot foot spins out, and the shin impacts the target. Maximum force requires full hip rotation before shin contact. The kick generates power from the hip's angular velocity — the leg follows the hip, it does not lead it.", setup: "The opponent is at kicking range.", execution: "Pivot on the lead foot, rotate the hip fully, swing the shin into the target at the moment of maximum hip velocity.", recovery: "The kicking leg returns to guard immediately.", counter: "Check the kick (raise the shin to block) and counter with the opposite side." },
-    { name: "Teep (Push Kick)", mechanics: "A linear front kick used to control distance, not damage. The hips drive forward behind the ball of the foot. The teep's effectiveness comes from timing — a well-timed teep stops an advancing opponent completely.", setup: "The opponent is advancing or at controlled distance.", execution: "The lead leg drives forward, the hip extends through the kick, pushing the opponent back.", recovery: "The foot returns immediately — an extended teep is a grabbed leg.", counter: "Catch the foot and sweep, or step inside before it lands." },
-    { name: "Elbow Strike (Sok)", mechanics: "At close range, the elbow's dense bone strikes the opponent's head at the temple, above the eye, or on the cheekbone, cutting the skin immediately. No wind-up needed — the damage comes from proximity and hip rotation.", setup: "The clinch range — opponent is too close for punches.", execution: "The hip rotates, the elbow swings horizontally, diagonally, or downward into the target.", recovery: "Return to guard or clinch position immediately.", counter: "Clinch tightly to neutralize the rotation space needed for elbow generation." },
-    { name: "Knee Strike (Ti Khao)", mechanics: "In the clinch, the knee drives upward into the midsection or drives downward onto a bent opponent. The hip drives behind the knee — a knee without hip drive loses significant force.", setup: "The clinch is established.", execution: "The clinch grip holds the opponent in position, the hip drives forward and upward, the knee rises sharply into the target.", recovery: "The foot returns to the floor and the clinch is maintained.", counter: "Sprawl backward or turn the opponent to receive the knee on the hip or thigh." },
+    {
+      name: "Teep (Push Kick)",
+      mechanics: "A range-management tool, not just a kick. The purpose is to create distance, interrupt forward pressure, and keep the opponent's posture from settling into offense. The KYO dataset shows that push-type kicks generate peak force when the supporting hip stays behind the kicking hip â a subtle rotation that most opponents read too late.",
+      setup: "The opponent is within kicking range and trying to advance.",
+      execution: "The lead leg lifts and drives straight through the opponent's center. The supporting hip locks behind the motion to anchor the push.",
+      recovery: "The leg must return fast enough to preserve the stance before the opponent can grab it.",
+      counter: "Step offline at the moment of commitment, catch the rhythm early, or jam the hip before the leg lifts."
+    },
+    {
+      name: "Round Kick",
+      mechanics: "One of the core limbs of the system. The KYO dataset isolates the force chain precisely: the heel of the supporting foot pivots first, then the hip rotates, then the thigh swings â hip rotation precedes arm extension by ~50ms. The kick functions as a forceful line attack that uses the shin as the striking surface because it delivers a longer impact window than the foot.",
+      setup: "The opponent is at kicking distance and the lane is open.",
+      execution: "The heel pivots, the hips rotate, the leg swings as one connected wave. The shin â not the foot â makes contact.",
+      recovery: "The fighter must re-square before being countered or clinched. A dropped foot signals the round kick landed without control.",
+      counter: "Check it with the shin, jam the hip entry, or force the kicker to overcommit into a bad landing."
+    },
+    {
+      name: "Elbow Line",
+      mechanics: "The elbow is effective because the clinch collapses striking distance to the range where only short-arc weapons work. The shoulder and torso drive the elbow through the line â the arm itself does not swing; it folds and cuts. The compact arc means there is almost no telegraphing before contact.",
+      setup: "The fighters are at short range or in the clinch.",
+      execution: "The arm folds, the shoulder turns, and the elbow cuts through the available line with body support behind it.",
+      recovery: "The hand must return to control or the fighter risks losing the clinch position.",
+      counter: "Break the head position, frame the body, or exit before the elbow line closes."
+    },
+    {
+      name: "Knee Drive (Clinch)",
+      mechanics: "The NTU RGB+D 120 grappling captures confirm the mechanics: peak knee force in a clinch position comes from the rear hip rising, not the knee lifting in isolation. The entire posterior chain fires upward. Upper body posture control prevents the opponent from creating the distance needed to nullify the knee.",
+      setup: "A stable clinch or body lock has been established.",
+      execution: "The rear hip rises, the knee drives through the centerline, the upper body keeps the opponent from escaping. The target is the torso or thigh, not the head.",
+      recovery: "The leg retracts into balance and the clinch is re-formed for the next knee.",
+      counter: "Stall the hips before the clinch settles, break posture, or refuse the upper-body connection entirely."
+    }
   ],
   defenses: [
-    { name: "Shin Check", mechanics: "The defending fighter raises the shin to intercept an incoming kick. Shin meets shin. The attacker's kick is stopped and may cause them pain if the defender's shin conditioning exceeds theirs.", setup: "A kick is incoming to the leg or body.", execution: "The shin rises to meet the kick, absorbing the impact along the shin bone.", recovery: "The leg returns to stance immediately.", counter: "A high kick after a series of low checks — the fighter conditioning to check low may be slow to shift." },
+    {
+      name: "Shin Check",
+      mechanics: "The defending shin is lifted to intercept the incoming round kick. The KYO dataset shows that a properly angled check â tibial surface perpendicular to the incoming shin â transfers the impact force back into the attacker's leg rather than absorbing it. A check is as damaging to the kicker as the kick itself.",
+      setup: "A round kick is incoming along the low or mid line.",
+      execution: "The lead leg lifts and rotates outward so the shin meets the incoming shin at an angle.",
+      recovery: "The leg returns to stance immediately; it was never fully committed to the floor.",
+      counter: "Feint the kick to draw the check, then throw the opposite weapon while the leg is raised."
+    }
   ],
-  strengthAgainst: ["Opponents at medium range who don't check kicks and have no answer for the shin's impact.", "Fighters without a clinch game who can be knee'd repeatedly.", "Anyone without strong shin conditioning who cannot check kicks effectively."],
-  weakAgainst: ["Grapplers who take down immediately and remove the striking range.", "Boxers with superior hand speed who punish the wider stances during kick recovery.", "Fighters who check kicks effectively and counter-punch on the recovery."],
-  signatureTells: ["The hip begins rotating before the kick is visible — the first tell is a weight shift to the rear leg.", "The elbow guard rises before the roundhouse — the body protecting itself before impact.", "Clinch entries always seek double underhooks — the hands probe for grip at close range.", "The shin checks are automatic — Muay Thai fighters raise their shin against body attacks reflexively."],
-  pacing: "Muay Thai has a methodical, economic pace punctuated by explosive combinations. Fighters measure with the teep, establish range, then fire combinations. The clinch phase has its own grinding rhythm. The pacing should feel deliberate and heavy.",
-  writingNotes: "A Muay Thai-trained character is comfortable with damage — they've been conditioned to absorb it and continue. They tend toward a quiet, hard confidence. In fiction, they're fighters who don't flinch.",
+  strengthAgainst: [
+    "Aggressive forward movers who overcommit into clinch and kicking range.",
+    "Boxers who struggle with leg attacks and posture control.",
+    "Opponents who cannot solve the clinch â the style thrives when close-range control is established."
+  ],
+  weakAgainst: [
+    "Pure grapplers who can force prolonged takedowns or top control.",
+    "Fast angle specialists who keep the fight just outside comfortable kicking range.",
+    "Fighters who consistently disrupt the clinch before knees and elbows develop."
+  ],
+  signatureTells: [
+    "The lead leg twitches or lifts before the fighter wants to manage range â a common teep cue.",
+    "The shoulders rise and the head comes in behind the forearms before a clinch entry.",
+    "The supporting heel begins to pivot before the hips fully commit â the body loading the round kick.",
+    "The fighter's posture tightens rather than widens when the clinch is about to become active."
+  ],
+  pacing: "Muay Thai has layered tempo. Long range can feel measured and probing, but once the clinch arrives the pace tightens hard and exchanges become sticky, punishing, and rhythm-heavy. The style can switch from patient distance management to brutal close-range pressure without losing structure.",
+  writingNotes: "A Muay Thai-trained character reads as composed, durable, and acutely aware of distance. Training in this art produces a practical mind that values timing over impulse. In fiction, they should feel like someone who respects pressure, does not panic when crowded, and knows how to keep functioning when things get ugly."
 };

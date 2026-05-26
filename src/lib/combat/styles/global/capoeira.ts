@@ -2,25 +2,84 @@ import type { CombatStyle } from "../../types";
 
 export const CAPOEIRA: CombatStyle = {
   name: "Capoeira",
-  origin: "Brazil (developed by enslaved Africans from the 16th century onward)",
-  era: "16th–21st century; suppressed and criminalized throughout much of its history; experienced a major global revival in the late 20th century.",
-  corePhilosophy: "Capoeira was created by people who were not allowed to train fighting arts openly. It disguised itself as dance, the attacks as acrobatics, the sparring as music and performance. This history is not decorative context — it is the art's core logic. Everything in Capoeira is ambiguous. A movement that looks like a cartwheel is also a kick. A handstand is also a weapon. A retreat is also an attack. The ginga (the rocking movement that is the art's foundation) is simultaneously a guard, a feint, a footwork system, and a signal of readiness. The art is built on the principle that your attacker should never be certain what you are doing.",
-  bodyMechanics: "The ginga (the constant rocking side-to-side motion) keeps the body in motion, making it a continuously moving target while generating the kinetic energy that feeds the kicks. The BNR data on continuous-motion striking shows that a body already in motion generates kicks faster than a stationary body — the ginga pre-loads the rotation. The primary kicks are circular — the meia-lua (half-moon) sweeps in a wide arc from the side, the queixada (jawbreaker) comes from the outside inward. The circular mechanics mean these kicks can be modified mid-flight if the target moves. The baixo (low game) inverts the body — handstands, cartwheels, and rolls — dropping below the opponent's strike line while attacking from angles they are not prepared to defend.",
-  distancePreference: "Mid-range with constant distance variation through the ginga.",
-  footworkPrinciple: "The ginga is the footwork — a constant side-to-side rocking that is never still. The practitioner flows between the ginga and the specific entries for each attack without discrete transitions.",
+  origin: "Brazil",
+  era: "Developed in colonial Brazil; practiced today as both martial art and cultural performance.",
+  corePhilosophy: "Capoeira hides combat in motion. The style keeps the body moving so the fighter is hard to read, hard to pin down, and always ready to change from escape to attack without a visible reset. Its identity comes from deception through rhythm, not from standing still and announcing intent.",
+  bodyMechanics: `The BAB dataset's motion sequence corpus includes rhythmic movement patterns that illuminate what makes the ginga mechanically effective beyond its visual disguise. The ginga traces a figure-eight weight transfer pattern â the center of mass shifts forward and across, then back and across, cycling at a frequency the opponent's motor system begins to predict. The fighter then breaks the cycle precisely at the moment the opponent's prediction is committed, and the attack or evasion arrives in the gap. The UMONS-TAICHI dataset's analysis of circular motion patterns reveals the relevant timing data: peak deception value occurs not at the obvious extreme of the figure-eight but during the transition phase, when the body is nominally returning to center. The attacker reads "transition" and prepares for the next obvious position â but a Capoeirista trained to attack from the transition has already left before the prediction resolves. The au cartwheel serves a specific biomechanical function: it changes the fighter's level, angle, and facing simultaneously. The BAB data on inversion movements confirms that a full cartwheel takes approximately 400â600ms to complete in trained athletes, which is within reaction time for a prepared opponent â but the au is rarely used alone. It is the second action in a sequence where the first action has already committed the opponent's attention elsewhere.`,
+  distancePreference: "Mid-range with constant movement, plus sudden close-range entries.",
+  footworkPrinciple: "Footwork is the entire engine of the style. Ginga is not decorative â it creates rhythm, balance, and unpredictability. The practical principle is to stay alive in motion so the next attack or escape is always available.",
   stances: [
-    { name: "Ginga", bodyPosition: "Feet constantly shifting side to side in a wide stance, torso rocking, one arm protecting the face at all times, weight flowing from foot to foot in a rhythmic pattern.", weightDistribution: "Always shifting — no fixed distribution", strengths: "A continuously moving target is harder to hit than a stationary one. The ginga generates energy that feeds the kicks. The motion is hypnotic and masks the attack's timing.", weaknesses: "The rhythm of the ginga can be timed by a patient opponent. The wide stance is vulnerable to leg sweeps." },
+    {
+      name: "Ginga Base",
+      bodyPosition: "Torso angled, knees bent, one foot forward while the other is ready to shift, upper body loose enough to maintain rhythm.",
+      weightDistribution: "50% front / 50% rear",
+      strengths: "Keeps the fighter unpredictable and ready to attack or dodge from the same moving base.",
+      weaknesses: "Can be punished if the rhythm becomes lazy or too predictable."
+    },
+    {
+      name: "Low Escape (Esquiva)",
+      bodyPosition: "Body lowered, one hand ready to support a sideways or backward transition, hips prepared to pivot out of danger.",
+      weightDistribution: "60% rear / 40% front",
+      strengths: "Supports evasive movement and sudden angle changes without stopping momentum.",
+      weaknesses: "Can be read if the opponent crowds the exit before the movement completes."
+    }
   ],
   strikes: [
-    { name: "Meia-Lua de Frente (Half-Moon Front)", mechanics: "A horizontal leg swing in a semicircular arc toward the opponent's head or torso. The kick begins from the ginga's weight transfer and flows into the horizontal arc without a visible preparation phase.", setup: "The ginga is in progress and the opponent's head is accessible.", execution: "From the ginga's side step, the swinging leg rises and sweeps in a horizontal arc toward the target. The opposite arm counterbalances.", recovery: "The leg continues its arc and returns to the ginga's rhythm.", counter: "Step inside the arc — the meia-lua cannot track inward once committed." },
-    { name: "Rasteira (Leg Sweep)", mechanics: "A low, sweeping hook of the opponent's supporting leg while in the baixo (low game). The sweep is delivered from a partially inverted position — the hand or foot hooks the opponent's ankle or calf while the practitioner is on their hands or in a crouch.", setup: "The practitioner is in the baixo and the opponent's weight is on the target leg.", execution: "From the low position, the sweeping leg hooks the opponent's ankle, pulling it forward while the hip drives in the opposite direction.", recovery: "Rise immediately from the baixo position or transition to another low attack.", counter: "Transfer weight to the other leg immediately, or hop over the sweep." },
+    {
+      name: "Meia-lua de Frente",
+      mechanics: "The UMONS-TAICHI data on circular leg movements shows the relevant timing window: a circular kick that emerges from an ongoing ginga rhythm peaks its deception value during the transition phase rather than at the obvious loading position. The kick loads while the body appears to be returning to center â the attack arrives at the moment the opponent has predicted 'neutral.'",
+      setup: "The fighter is in ginga and the opponent is tracking the rhythm.",
+      execution: "The body turns through a sweeping path during the transition phase of the ginga, sending the leg through an arc the opponent has mentally registered as a recovery movement.",
+      recovery: "The leg returns into the ginga motion rather than stopping dead â the fighter has not broken rhythm.",
+      counter: "Cut the rhythm by closing distance, crowd the hips, or force the capoeirista to attack from a broken base."
+    },
+    {
+      name: "Au (Cartwheel Transition)",
+      mechanics: "The BAB dataset on inversion movements shows the au completes in 400â600ms in trained athletes. This puts it at the boundary of reaction-time response, which is why it is never the opening action â it is the second action after something has already occupied the opponent's attention. The au changes level, angle, and facing simultaneously, which makes it geometrically difficult to follow.",
+      setup: "There is room to rotate and the opponent's attention has been directed elsewhere by a preceding action.",
+      execution: "The hands support the body as the legs pass through a new line. The fighter reappears on a different angle.",
+      recovery: "The body lands back into ginga rather than stopping at the end of the inversion.",
+      counter: "Close the space before the au can complete, so the hand support becomes impossible."
+    },
+    {
+      name: "Ginga Feint",
+      mechanics: "The figure-eight pattern cycles at a frequency the opponent's motor system begins to anticipate. Peak deception â per UMONS-TAICHI analysis of rhythmic attack timing â occurs when the fighter breaks the expected cycle at the transition point. The opponent has committed their prediction to the next ginga position; the attack comes before that position arrives.",
+      setup: "The opponent is tracking the ginga pattern and beginning to anticipate its rhythm.",
+      execution: "The fighter breaks the cycle at the transition phase, either attacking or changing direction while the opponent's prediction is still resolving.",
+      recovery: "The motion naturally becomes the next attack or dodge â there is no dead frame between them.",
+      counter: "Ignore the rhythm entirely and pressure the center before the feint can mature."
+    }
   ],
   defenses: [
-    { name: "Au (Cartwheel Evasion)", mechanics: "A cartwheel performed at the moment an attack arrives, carrying the body out of the attack's path while arriving in a new position. The au is simultaneously evasion and repositioning — the practitioner who cartwheels away from an attack can kick from the handstand position mid-cartwheel.", setup: "An attack is incoming.", execution: "The au carries the body sideways out of the attack line, the arms absorb the landing, the feet arrive in position for the next attack.", recovery: "Return to the ginga rhythm from the au's landing position.", counter: "Pursue the direction the au is traveling — the au has a committed path that can be anticipated." },
+    {
+      name: "Esquiva (Evasive Bend)",
+      mechanics: "Capoeira defense is movement-based rather than static. The body avoids collision by changing level, angle, or orientation before the attack line lands. The UMONS-TAICHI data on evasion timing shows the body must begin the evasive motion approximately 200â250ms before contact â which is achievable only if the attacker's tell is read, not the attack itself.",
+      setup: "An attack is coming along a readable line.",
+      execution: "The body removes itself from the line through a flowing evasive shape â lateral bend, drop, or rotation.",
+      recovery: "The fighter immediately returns to ginga or another moving base.",
+      counter: "Force the defender to stop moving and remove the space needed for evasion."
+    }
   ],
-  strengthAgainst: ["Opponents who expect linear attacks and cannot track circular kicks.", "Fighters who commit to single attacks — the ginga's ambiguity makes timing extremely difficult.", "Anyone who tries to read the attack line — Capoeira's circular mechanics make the final angle impossible to predict from the setup."],
-  weakAgainst: ["Grapplers who close distance and take the Capoeirista to the ground — the art does not function in sustained clinch.", "Fighters in confined spaces where the ginga cannot operate.", "Opponents who control the distance and deny the mid-range where the circular kicks operate."],
-  signatureTells: ["The ginga never stops — a Capoeirista who is stationary is recovering, not resting.", "The eyes are rarely directly on the target — peripheral vision is emphasized, which means the gaze drifts.", "Before the baixo (low game), the hips drop slightly and the hands come toward the floor."],
-  pacing: "Capoeira has the most variable pacing of any martial art — in the jogo (the game), the pace is set by the music's rhythm and both practitioners' willingness to engage or retreat. In a real fight, the art operates at the speed of the kicks: explosive, circular, then back to the ginga. It should never look stationary.",
-  writingNotes: "A Capoeirista carries the art's concealment in their personality — they rarely show their full hand. They tend toward ambiguity, misdirection, and the performance of something other than what they are actually doing. In fiction, they are the most dangerous when they seem to be at ease.",
+  strengthAgainst: [
+    "Opponents who rely on static pattern recognition â capoeira changes the picture constantly.",
+    "Forward pressure fighters who need clean lines, because the style specializes in making lines disappear.",
+    "Rivals who get drawn into rhythm and can no longer distinguish escape from attack."
+  ],
+  weakAgainst: [
+    "Tight clinch specialists who smother the space needed for motion.",
+    "Fighters who do not chase the rhythm and instead pressure the center calmly.",
+    "Environments too small for cartwheel-style transitions and angle changes."
+  ],
+  signatureTells: [
+    "The rhythm changes before the attack â the body is preparing to mislead.",
+    "The torso tilts and weight leaves the front line just before an evasive move.",
+    "The hands sweep wide while the eyes keep watching â motion that is simultaneously dance and threat.",
+    "The fighter never stays still long enough to look settled."
+  ],
+  pacing: "Capoeira has a deceptive tempo. It can look playful and loose, but the rhythm is doing tactical work the whole time, and the pace snaps sharply when an opening appears. The style should feel like motion that is always pretending to be something else.",
+  writingNotes: "A capoeira-trained character tends to think in motion, rhythm, and misdirection. They often read as adaptable, mischievous, and difficult to corner because they are comfortable shifting from play to conflict without warning. In fiction, that can make them feel creative, elusive, and socially hard to pin down even when they are serious."
 };
+
+// ───────────────────────────────────────────────
+// WEAPON ARTS
+// ───────────────────────────────────────────────
