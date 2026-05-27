@@ -21,6 +21,9 @@ export default function GhostWriterApp({ projectId }: { projectId: string }) {
   const [dialogueArchetype, setDialogueArchetype] = useState("Argument");
   const [combatStyleA, setCombatStyleA] = useState("");
   const [combatStyleB, setCombatStyleB] = useState("");
+  const [emotionalEmotion, setEmotionalEmotion] = useState("Grief");
+  const [atmosphereEnvironment, setAtmosphereEnvironment] = useState("Natural");
+  const [tensionType, setTensionType] = useState("Suspense");
 
   const projectState = useProjectState(projectId);
   const {
@@ -171,6 +174,15 @@ export default function GhostWriterApp({ projectId }: { projectId: string }) {
         combatStyleB={combatStyleB}
         setCombatStyleB={setCombatStyleB}
         generateCombat={aiActions.generateCombat}
+        emotionalEmotion={emotionalEmotion}
+        setEmotionalEmotion={setEmotionalEmotion}
+        atmosphereEnvironment={atmosphereEnvironment}
+        setAtmosphereEnvironment={setAtmosphereEnvironment}
+        tensionType={tensionType}
+        setTensionType={setTensionType}
+        generateEmotionalScene={aiActions.generateEmotionalScene}
+        generateAtmosphere={aiActions.generateAtmosphere}
+        generateTension={aiActions.generateTension}
       />
 
       <ChapterEditor

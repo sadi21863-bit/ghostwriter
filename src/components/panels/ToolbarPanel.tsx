@@ -6,6 +6,9 @@ import { getPipelines, AGENT_LABELS, type Pipeline } from "@/lib/ai/pipelines";
 import { MODES, PODCAST_MODES, isStoryFormat, isCreatorFormat } from "@/lib/formats";
 import { getDialogueArchetypeNames } from "@/lib/dialogue";
 import { getCombatStyleNames } from "@/lib/combat";
+import { getEmotionNames } from "@/lib/emotional";
+import { getAtmosphereNames } from "@/lib/atmosphere";
+import { getTensionTypeNames } from "@/lib/tension";
 import { co, sInput, sTextarea, sBtn, sBtnSm } from "@/lib/styles";
 
 interface Props {
@@ -68,9 +71,18 @@ interface Props {
   setCombatStyleB: (v: string) => void;
   cohostVoice: string;
   setCohostVoice: (v: string) => void;
+  emotionalEmotion: string;
+  setEmotionalEmotion: (v: string) => void;
+  atmosphereEnvironment: string;
+  setAtmosphereEnvironment: (v: string) => void;
+  tensionType: string;
+  setTensionType: (v: string) => void;
+  generateEmotionalScene: (emotionName: string, prompt: string) => Promise<void>;
+  generateAtmosphere: (environmentName: string, prompt: string) => Promise<void>;
+  generateTension: (tensionType: string, prompt: string) => Promise<void>;
 }
 
-const modeLabel = (m: string) => ({ brainstorm: "Brainstorm", outline: "Outline", write: "Write", dialogue: "Dialogue", combat: "Combat", cohost: "Co-host" }[m] ?? m);
+const modeLabel = (m: string) => ({ brainstorm: "Brainstorm", outline: "Outline", write: "Write", dialogue: "Dialogue", combat: "Combat", cohost: "Co-host", emotional: "Emotional", atmosphere: "Atmosphere", tension: "Tension" }[m] ?? m);
 
 export default function ToolbarPanel(props: Props) {
   const {
@@ -86,6 +98,10 @@ export default function ToolbarPanel(props: Props) {
     dialogueArchetype, setDialogueArchetype,
     combatStyleA, setCombatStyleA, combatStyleB, setCombatStyleB,
     cohostVoice, setCohostVoice,
+    emotionalEmotion, setEmotionalEmotion,
+    atmosphereEnvironment, setAtmosphereEnvironment,
+    tensionType, setTensionType,
+    generateEmotionalScene, generateAtmosphere, generateTension,
   } = props;
 
   const [retentionEdit, setRetentionEdit] = useState<any>(null);
@@ -600,6 +616,146 @@ export default function ToolbarPanel(props: Props) {
               >
                 {generating ? "..." : "Generate"}
               </button>
+            </div>
+          </div>
+        )
+        : mode === "emotional"
+        ? (
+          <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+            {/* Emotion selector */}
+            <div style={{ padding: "12px 16px", borderBottom: "1px solid " + co.border, background: co.surfaceAlt, flexShrink: 0 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: co.accent, marginBottom: 10, textTransform: "uppercase" }}>Emotional Scene Mode — Select an emotion</div>
+              <div style={{ display: "flex", gap: 16 }}>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 11, color: co.muted, marginBottom: 4 }}>Emotion</div>
+                  <select style={{ ...sInput, marginBottom: 8 }} value={emotionalEmotion} onChange={e => setEmotionalEmotion(e.target.value)}>
+                    {getEmotionNames().map(e => <option key={e} value={e}>{e}</option>)}
+                  </select>
+                  <div style={{ padding: "10px 12px", background: co.accentBg, borderRadius: 8, border: "1px solid " + co.accent + "40", fontSize: 12, color: co.muted, lineHeight: 1.5 }}>
+                    {{
+                      "Grief": "Body-first signal of attachment loss. Wave pattern: numbness → flooding → recession. Physicalizes through AU1 brow raise, hollow chest, disrupted motor memory.",
+                      "Rage": "Sympathetic system at maximum mobilization. Hot wave upward, tunnel vision at peak, jaw + hands are the tell. Controlled rage is quieter and more dangerous.",
+                      "Fear": "Amygdala fires 200ms before conscious awareness. Body moves first. Cold extremities, stomach drop, possible freeze. Lingers 20-60 min after safety.",
+                      "Shame": "Involuntary flush that cannot be suppressed. Gaze drops without decision. Body tries to become smaller. Third-person memory quality.",
+                      "Joy / Elation": "Duchenne vs performed: AU6 cheek crinkle cannot be faked. Body expands, takes up more space. High elation produces coordination failures.",
+                      "Intimacy / Tenderness": "Ventral vagal: brow releases default defense tension. Synchronized breathing. Slightly closer than social distance. Peripheral awareness disappears.",
+                      "Despair": "Dorsal vagal shutdown. Flat affect, not sadness. All movement requires a deliberate decision. Performed normalcy with nothing underneath.",
+                    }[emotionalEmotion] ?? ""}
+                  </div>
+                </div>
+              </div>
+            </div>
+            {/* Output */}
+            <div style={{ flex: 1, overflow: "auto", padding: 24 }}>
+              {generating
+                ? <div style={{ color: co.muted, fontSize: 14 }}>Generating emotional scene...</div>
+                : streamText
+                ? <div style={{ whiteSpace: "pre-wrap", fontSize: 15, lineHeight: 1.8, fontFamily: "Georgia,serif" }}>{streamText}</div>
+                : <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%", color: co.muted, fontSize: 14 }}>Select an emotion and describe the scene below</div>}
+            </div>
+            {/* Insert / Discard bar */}
+            {streamText && !generating && (
+              <div style={{ padding: "8px 16px", borderTop: "1px solid " + co.border, display: "flex", gap: 8, justifyContent: "flex-end", background: co.surfaceAlt, flexShrink: 0 }}>
+                <button style={sBtnSm} onClick={() => setStreamText("")}>Discard</button>
+                <button style={sBtn} onClick={() => { updateChapter("content", (activeChap?.content || "") + (activeChap?.content ? "\n\n" : "") + streamText); setStreamText(""); }}>Insert into Chapter</button>
+              </div>
+            )}
+            {/* Prompt bar */}
+            <div style={{ padding: "12px 16px", borderTop: "1px solid " + co.border, display: "flex", gap: 8, background: co.surface, flexShrink: 0 }}>
+              <input style={{ ...sInput, flex: 1 }} value={prompt} onChange={e => setPrompt(e.target.value)} placeholder="Describe the scene — who is feeling this and what is happening?" onKeyDown={e => e.key === "Enter" && !generating && generateEmotionalScene(emotionalEmotion, prompt)} />
+              <button style={{ ...sBtn, opacity: generating ? 0.5 : 1 }} disabled={generating} onClick={() => generateEmotionalScene(emotionalEmotion, prompt)}>{generating ? "..." : "Generate"}</button>
+            </div>
+          </div>
+        )
+        : mode === "atmosphere"
+        ? (
+          <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+            {/* Environment selector */}
+            <div style={{ padding: "12px 16px", borderBottom: "1px solid " + co.border, background: co.surfaceAlt, flexShrink: 0 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: co.accent, marginBottom: 10, textTransform: "uppercase" }}>Atmosphere Mode — Select an environment</div>
+              <div style={{ display: "flex", gap: 16 }}>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 11, color: co.muted, marginBottom: 4 }}>Environment Type</div>
+                  <select style={{ ...sInput, marginBottom: 8 }} value={atmosphereEnvironment} onChange={e => setAtmosphereEnvironment(e.target.value)}>
+                    {getAtmosphereNames().map(e => <option key={e} value={e}>{e}</option>)}
+                  </select>
+                  <div style={{ padding: "10px 12px", background: co.accentBg, borderRadius: 8, border: "1px solid " + co.accent + "40", fontSize: 12, color: co.muted, lineHeight: 1.5 }}>
+                    {{
+                      "Natural": "Soft fascination (ART). Cortisol drops. Lead with movement. Olfactory key: petrichor + soil + organic decay. Nature is indifferent — that's its power.",
+                      "Urban": "Hard fascination. Directed attention depletes. Anchor with sound layers: ground hum (engine, <200Hz) → voices → sharp sounds above. Temporal signature: 3am city ≠ noon city.",
+                      "Confined": "Forces proximity. Sound amplifies in small spaces. Olfactory: the accumulated presence of other people. Boundaries must be felt by the body.",
+                      "Liminal": "Suspended time and identity. Institutional smell (cleaning products, recycled air). Transitional light. Character says things they'd say nowhere else.",
+                      "Abandoned": "Temporal palimpsest: present decay over implied prior use. Olfactory: mold + damp + old wood. Floor requires conscious trust. Objects left behind tell the story.",
+                    }[atmosphereEnvironment] ?? ""}
+                  </div>
+                </div>
+              </div>
+            </div>
+            {/* Output */}
+            <div style={{ flex: 1, overflow: "auto", padding: 24 }}>
+              {generating
+                ? <div style={{ color: co.muted, fontSize: 14 }}>Generating atmospheric scene...</div>
+                : streamText
+                ? <div style={{ whiteSpace: "pre-wrap", fontSize: 15, lineHeight: 1.8, fontFamily: "Georgia,serif" }}>{streamText}</div>
+                : <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%", color: co.muted, fontSize: 14 }}>Select an environment and describe the scene below</div>}
+            </div>
+            {/* Insert / Discard bar */}
+            {streamText && !generating && (
+              <div style={{ padding: "8px 16px", borderTop: "1px solid " + co.border, display: "flex", gap: 8, justifyContent: "flex-end", background: co.surfaceAlt, flexShrink: 0 }}>
+                <button style={sBtnSm} onClick={() => setStreamText("")}>Discard</button>
+                <button style={sBtn} onClick={() => { updateChapter("content", (activeChap?.content || "") + (activeChap?.content ? "\n\n" : "") + streamText); setStreamText(""); }}>Insert into Chapter</button>
+              </div>
+            )}
+            {/* Prompt bar */}
+            <div style={{ padding: "12px 16px", borderTop: "1px solid " + co.border, display: "flex", gap: 8, background: co.surface, flexShrink: 0 }}>
+              <input style={{ ...sInput, flex: 1 }} value={prompt} onChange={e => setPrompt(e.target.value)} placeholder="Describe the scene — what is happening in this environment?" onKeyDown={e => e.key === "Enter" && !generating && generateAtmosphere(atmosphereEnvironment, prompt)} />
+              <button style={{ ...sBtn, opacity: generating ? 0.5 : 1 }} disabled={generating} onClick={() => generateAtmosphere(atmosphereEnvironment, prompt)}>{generating ? "..." : "Generate"}</button>
+            </div>
+          </div>
+        )
+        : mode === "tension"
+        ? (
+          <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+            {/* Tension type selector */}
+            <div style={{ padding: "12px 16px", borderBottom: "1px solid " + co.border, background: co.surfaceAlt, flexShrink: 0 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: co.accent, marginBottom: 10, textTransform: "uppercase" }}>Tension Mode — Select a tension structure</div>
+              <div style={{ display: "flex", gap: 16 }}>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 11, color: co.muted, marginBottom: 4 }}>Tension Type (Brewer & Lichtenstein 1982)</div>
+                  <select style={{ ...sInput, marginBottom: 8 }} value={tensionType} onChange={e => setTensionType(e.target.value)}>
+                    {getTensionTypeNames().map(t => <option key={t} value={t}>{t}</option>)}
+                  </select>
+                  <div style={{ padding: "10px 12px", background: co.accentBg, borderRadius: 8, border: "1px solid " + co.accent + "40", fontSize: 12, color: co.muted, lineHeight: 1.5 }}>
+                    {{
+                      "Suspense": "Reader ahead of character. Show the bomb, then show a conversation about nothing. Sentence length = pacing. Works even when reader knows the ending.",
+                      "Curiosity": "Present outcome before cause. Reader works backward. Begin with the body / the ruin / the end state. Each answer generates a more specific question.",
+                      "Dread": "No named threat. Accumulate ambiguous anomalies — each with a plausible innocent explanation. Ordinary prose throughout. Never announce the frightening part.",
+                      "Paranoia": "Character's threat-detection may be miscalibrated. Every piece of evidence has an innocent reading. Maintain both interpretations until the last moment.",
+                      "Countdown": "Explicit deadline + real consequence. Time markers at regular intervals. Shorten sentences as clock runs down. Resolution must arrive within the last margin.",
+                    }[tensionType] ?? ""}
+                  </div>
+                </div>
+              </div>
+            </div>
+            {/* Output */}
+            <div style={{ flex: 1, overflow: "auto", padding: 24 }}>
+              {generating
+                ? <div style={{ color: co.muted, fontSize: 14 }}>Generating tension scene...</div>
+                : streamText
+                ? <div style={{ whiteSpace: "pre-wrap", fontSize: 15, lineHeight: 1.8, fontFamily: "Georgia,serif" }}>{streamText}</div>
+                : <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%", color: co.muted, fontSize: 14 }}>Select a tension type and describe the scene below</div>}
+            </div>
+            {/* Insert / Discard bar */}
+            {streamText && !generating && (
+              <div style={{ padding: "8px 16px", borderTop: "1px solid " + co.border, display: "flex", gap: 8, justifyContent: "flex-end", background: co.surfaceAlt, flexShrink: 0 }}>
+                <button style={sBtnSm} onClick={() => setStreamText("")}>Discard</button>
+                <button style={sBtn} onClick={() => { updateChapter("content", (activeChap?.content || "") + (activeChap?.content ? "\n\n" : "") + streamText); setStreamText(""); }}>Insert into Chapter</button>
+              </div>
+            )}
+            {/* Prompt bar */}
+            <div style={{ padding: "12px 16px", borderTop: "1px solid " + co.border, display: "flex", gap: 8, background: co.surface, flexShrink: 0 }}>
+              <input style={{ ...sInput, flex: 1 }} value={prompt} onChange={e => setPrompt(e.target.value)} placeholder="Describe the scene — characters, situation, what's at stake?" onKeyDown={e => e.key === "Enter" && !generating && generateTension(tensionType, prompt)} />
+              <button style={{ ...sBtn, opacity: generating ? 0.5 : 1 }} disabled={generating} onClick={() => generateTension(tensionType, prompt)}>{generating ? "..." : "Generate"}</button>
             </div>
           </div>
         )

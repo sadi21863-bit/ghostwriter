@@ -5,6 +5,9 @@ import { getPipelines, type Pipeline } from "@/lib/ai/pipelines";
 import { isCreatorFormat } from "@/lib/formats";
 import { buildDialogueContext } from "@/lib/dialogue";
 import { buildCombatContext } from "@/lib/combat";
+import { buildEmotionalContext } from "@/lib/emotional";
+import { buildAtmosphereContext } from "@/lib/atmosphere";
+import { buildTensionContext } from "@/lib/tension";
 
 export function useAIActions({
   project, mode, prompt, activeChap,
@@ -184,6 +187,51 @@ export function useAIActions({
     setGenerating(false); setGenTarget("");
   };
 
+  const generateEmotionalScene = async (emotionName: string, emotionalPrompt: string) => {
+    if (!emotionName) { setErrorMsg("Select an emotion before generating."); return; }
+    setGenerating(true); setGenTarget("main"); setStreamText("");
+    try {
+      const ctx = buildEmotionalContext(emotionName) + "\n---\n" + buildFullContext();
+      const res = await fetch("/api/ai/generate", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mode: "emotional", prompt: emotionalPrompt || `Write a scene that physicalizes ${emotionName}.`, context: ctx, format: project.format }),
+      });
+      const data = await res.json();
+      if (data.text) setStreamText(data.text);
+    } catch (e) { setErrorMsg("Emotional scene generation failed. Please try again."); }
+    setGenerating(false); setGenTarget("");
+  };
+
+  const generateAtmosphere = async (environmentName: string, atmospherePrompt: string) => {
+    if (!environmentName) { setErrorMsg("Select an environment before generating."); return; }
+    setGenerating(true); setGenTarget("main"); setStreamText("");
+    try {
+      const ctx = buildAtmosphereContext(environmentName) + "\n---\n" + buildFullContext();
+      const res = await fetch("/api/ai/generate", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mode: "atmosphere", prompt: atmospherePrompt || `Write a scene set in a ${environmentName.toLowerCase()} environment.`, context: ctx, format: project.format }),
+      });
+      const data = await res.json();
+      if (data.text) setStreamText(data.text);
+    } catch (e) { setErrorMsg("Atmosphere generation failed. Please try again."); }
+    setGenerating(false); setGenTarget("");
+  };
+
+  const generateTension = async (tensionType: string, tensionPrompt: string) => {
+    if (!tensionType) { setErrorMsg("Select a tension type before generating."); return; }
+    setGenerating(true); setGenTarget("main"); setStreamText("");
+    try {
+      const ctx = buildTensionContext(tensionType) + "\n---\n" + buildFullContext();
+      const res = await fetch("/api/ai/generate", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mode: "tension", prompt: tensionPrompt || `Write a scene using ${tensionType.toLowerCase()} tension structure.`, context: ctx, format: project.format }),
+      });
+      const data = await res.json();
+      if (data.text) setStreamText(data.text);
+    } catch (e) { setErrorMsg("Tension generation failed. Please try again."); }
+    setGenerating(false); setGenTarget("");
+  };
+
   const scoreHook = async () => {
     if (!prompt.trim() || hookScoring) return;
     setHookScoring(true); setHookScore(null);
@@ -205,6 +253,7 @@ export function useAIActions({
     hookScore, hookScoring,
     callAI, buildNeighbourContext, buildFullContext,
     generate, undoGeneration, autoSummarize, generateDialogue, generateCombat,
+    generateEmotionalScene, generateAtmosphere, generateTension,
     runPipeline, usePipelineOutput,
     handleTextareaSelect, runProse, replaceSelection, scoreHook,
   };
