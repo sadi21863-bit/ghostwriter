@@ -1,36 +1,82 @@
+// src/lib/dialogue/archetypes/argument.ts — UPGRADED with psychological layer
 import type { DialogueArchetype } from "../types";
 
 export const ARGUMENT: DialogueArchetype = {
   name: "Argument",
-  description: "Two or more characters in direct conflict. Not necessarily shouting — the most devastating arguments are cold and precise. What matters is that both parties want something incompatible, and neither is willing to concede it.",
-  underlyingConflict: "The surface argument is never the real argument. Characters fight about dishes when they mean they feel unseen. They argue about money when they mean they have different values. The real conflict lives one level below what is being said. Identify it and let every surface line carry its weight.",
-  powerDynamic: "Arguments are not static — power shifts. The character who opened from strength often ends weaker. The one who seemed to be losing often finds the single line that changes everything. Track who has the power after each exchange and mark the moment it transfers.",
-  sceneStructure: "Opening position (both state their case) — First attack (one escalates, the other absorbs) — Counterattack (the absorbing character fights back, harder) — Revelation (something true is said that cannot be unsaid) — New state (the relationship is different now — worse, closer, or permanently changed).",
+  description: "Two or more characters in direct conflict. Not necessarily shouting — the most devastating arguments are cold and precise. What matters is incompatible wants and unwillingness to concede.",
+  underlyingConflict: "The surface argument is never the real argument. Characters fight about dishes when they mean they feel unseen. Identify the real conflict one level below what is being said.",
+  powerDynamic: "Arguments are not static — power shifts. The character who opened from strength often ends weaker. Track who has power after each exchange and mark the moment it transfers.",
+  sceneStructure: "Opening positions — First attack — Counterattack — Revelation (something true said that cannot be unsaid) — New state (relationship different).",
   subtextRules: [
-    "Every line that attacks is actually a defense. Characters attack when they are frightened.",
+    "Every line that attacks is actually a defense — characters attack when frightened.",
     "The thing a character refuses to say is more important than what they say.",
-    "People in arguments often answer a question that wasn't asked — they answer the question they're afraid of.",
-    "Apologies in arguments are almost never real — they are tactical retreats or further provocations.",
-    "The loudest line is rarely the most damaging. The quiet line that arrives after the shouting is.",
+    "People answer the question they're afraid of, not the one that was asked.",
+    "Apologies in arguments are tactical retreats, not genuine.",
+    "The loudest line is rarely the most damaging.",
   ],
-  rhythmPattern: "Arguments have a breathing pattern: escalation (lines get shorter, faster), plateau (both characters at peak volume/intensity), puncture (one line that changes the temperature). After puncture, lines slow again. The scene should never stay at peak intensity for more than 3–4 exchanges before something shifts.",
-  openingPrinciple: "Never start an argument scene with the argument already in progress. Start in the moment before — the ordinary moment that the argument will rupture. The contrast between the ordinary opening and the first real line of conflict is where the scene's power lives.",
-  escalationMechanics: "Each exchange should raise the stakes by introducing something new: a fact that was hidden, a feeling that was denied, a memory that was buried. The argument escalates not because voices get louder but because the territory of what is being fought over keeps expanding.",
-  breakingPoint: "The revelation — the moment when something true and irreversible is said. It can be an accusation, a confession, an admission of defeat, or a cruelty. After the breaking point, the characters cannot pretend they didn't say it. The breaking point is what the whole scene was building toward.",
+  rhythmPattern: "Breathing pattern: escalation (lines shorter, faster) — plateau (peak intensity) — puncture (one line changes temperature). Never sustain peak intensity for more than 3–4 exchanges.",
+  openingPrinciple: "Never start with the argument already in progress. Start in the ordinary moment that the argument will rupture. The contrast between ordinary opening and first real line is where power lives.",
+  escalationMechanics: "Each exchange raises stakes by introducing something new: a hidden fact, a denied feeling, a buried memory. Arguments escalate through revelation, not volume.",
+  breakingPoint: "The revelation — moment when something true and irreversible is said. After this, neither character can pretend they didn't say it.",
   failureModes: [
     "Both characters say exactly what they mean — no subtext, no deflection, no circling.",
-    "The argument is resolved logically — one person makes a good point and the other concedes.",
-    "Both characters have the same rhythm and vocabulary — identical voices.",
-    "The argument escalates by repetition (saying the same thing louder) rather than by revelation.",
-    "The breaking point is telegraphed — the reader sees it coming long before it arrives.",
-    "The scene ends with the conflict resolved — real arguments rarely resolve in the scene.",
+    "Argument resolved logically — one makes good point, other concedes.",
+    "Both characters have same rhythm and vocabulary.",
+    "Escalates by repetition rather than revelation.",
+    "Scene ends with conflict resolved.",
   ],
   systemDirectives: [
-    "Never let a character say what they actually mean in the first half of the scene.",
-    "Give each character a different sentence length and rhythm — one speaks in short bursts, one in longer defensive explanations.",
-    "Include at least one moment where a character answers a question that wasn't asked.",
-    "The power must transfer at least once — identify who holds it at the start and make sure it is different by the end.",
-    "End the scene in a new state, not a resolved state — the relationship after the argument is different from before it.",
+    "Never let a character say what they actually mean in the first half.",
+    "Give each character different sentence length and rhythm.",
+    "Include at least one moment where a character answers a question not asked.",
+    "Power must transfer at least once.",
+    "End in a new state, not a resolved state.",
   ],
-  writingNotes: "The most powerful arguments in fiction are the ones the reader recognizes — not because they have had this specific fight, but because they have felt this specific pain. Keep the surface stakes domestic or trivial; the real stakes should feel enormous. A fight about who forgot to buy milk can carry the weight of a failing marriage.",
+  writingNotes: "The most powerful arguments in fiction are the ones the reader recognizes — not the specific fight but the specific pain. Keep surface stakes trivial; real stakes enormous.",
+
+  psychological: {
+    partyAState: "sympathetic",
+    partyBState: "sympathetic",
+    stateShift: "Both begin in sympathetic. As the revelation approaches, one party may momentarily drop to dorsal vagal (shutdown, the person who goes quiet and still) while the other escalates further into sympathetic. The person who goes quiet is usually the more dangerous one — the dorsal vagal drop in the middle of an argument signals that the person has passed through rage into a different territory.",
+
+    partyAVoice: {
+      pitch: "Elevated — sympathetic activation raises the larynx. In high argument, voice becomes slightly harsh.",
+      rate: "Accelerating — the fight shortens the gaps between thoughts.",
+      volume: "Elevated then variable — the volume pattern traces the emotional pattern.",
+      prosody: "Degraded — the modulation that makes speech socially readable breaks down. Words that should be stressed aren't; pauses fall in wrong places.",
+      breathSupport: "Audible, effortful — the body is working at elevated output.",
+    },
+    partyBVoice: {
+      pitch: "Same elevated signature — unless Party B has shifted to dorsal vagal, in which case pitch drops unnaturally and volume goes very quiet.",
+      rate: "Either accelerating with Party A, or suddenly slowing (the dorsal vagal drop). The contrast between the rates marks the power shift.",
+      volume: "Dropping voice mid-argument is often more frightening than raised voice — it signals something has changed.",
+      prosody: "The person who has moved past the surface argument speaks with flat, abnormal prosody — the system is prioritizing content over social signaling.",
+      breathSupport: "If Party B has gone cold: the breath becomes controlled and deliberate — they are choosing every word.",
+    },
+
+    activeFacsSignals: [
+      "Both: AU4 (brow lowerer) sustained throughout — the focused threat engagement",
+      "AU23 (lip tightener) + AU24 (lip pressor) = the mouth controlling words it wants to say",
+      "The attacked party: AU17 (chin raiser) appears underneath the anger — the hurt underneath the fight",
+      "AU5 (upper lid raiser) when someone says something that lands: the eyes widen involuntarily at impact",
+      "Suppressed crying tells: AU17 + jaw rigidity = someone fighting back tears during an argument",
+    ],
+
+    somaticPresence: "Both characters: elevated heart rate audible to them (in the ears, the throat). Hands that want to move — gesturing or gripping. The jaw of one character held deliberately shut. The somatic marker of the argument's real subject is often in the gut: nausea that arrives before the character recognizes what they are really fighting about.",
+
+    informationDynamics: {
+      structure: "suspense",
+      readerKnows: "What the argument is really about — the real conflict beneath the surface. Reader sees this before the characters name it.",
+      characterKnows: "Each character knows their own real grievance but not fully the other's. They may not know their own.",
+      gap: "The real subject. Every exchange that argues about the surface widens the gap. The breaking point arrives when the real subject finally enters the room.",
+    },
+
+    psychologicalDirectives: [
+      "Write the AU17 underneath the anger: the chin dimple of suppressed hurt appearing during the fight.",
+      "Write the controlled jaw — the person who has gone cold and is now choosing every word.",
+      "The nausea that arrives before the character knows what they're really fighting about.",
+      "At least one involuntary voice pitch change — the body escalating before the character decides to.",
+      "The hands: what are they doing throughout. Not generic gesturing but the specific posture of this person's anger.",
+    ],
+  },
 };
