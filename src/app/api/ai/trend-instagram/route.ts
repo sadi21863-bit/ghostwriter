@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getRequiredSession } from "@/lib/auth-helpers";
 import { checkAiRateLimit } from "@/lib/ratelimit";
+import { getUserTier, canAccessFeature } from "@/lib/subscription";
 import { db } from "@/db";
 import { users } from "@/db/schema";
 import { eq } from "drizzle-orm";
@@ -13,6 +14,10 @@ export async function POST(req: Request) {
   const s = await getRequiredSession();
   const rl = await checkAiRateLimit(s.user.id);
   if (rl) return rl;
+  const tier = await getUserTier(s.user.id);
+  if (!canAccessFeature(tier, "creator_tools_advanced")) {
+    return NextResponse.json({ error: "upgrade_required", feature: "creator_tools_advanced", tier }, { status: 403 });
+  }
   const { keyword, format, creatorBible } = await req.json();
 
   if (!keyword?.trim()) {

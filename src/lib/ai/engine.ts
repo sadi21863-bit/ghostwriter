@@ -5,7 +5,7 @@ function safeParseJson(raw: string) {
   const clean = raw.replace(/```json\n?|```/g, "").trim();
   try { return JSON.parse(clean); } catch { return {}; }
 }
-export type GenerationMode = "brainstorm" | "outline" | "write" | "dialogue" | "combat" | "emotional" | "atmosphere" | "tension";
+export type GenerationMode = "brainstorm" | "outline" | "write" | "dialogue" | "combat" | "emotional" | "atmosphere" | "tension" | "composition";
 
 const DIALOGUE_SYSTEM_PROMPT = `You are writing a scene driven by dialogue. Your work operates on three simultaneous levels: the verbal (what is said), the physical (what the body is doing), and the structural (the information management between reader and character).
 
@@ -117,11 +117,22 @@ const MI = {
   brainstorm: (_f: string) => `You are a creative brainstorming partner for writers. Generate specific, surprising, and vivid ideas. Avoid clichés. Every idea must be concrete and actionable — not "a mysterious stranger" but "a tax auditor who moonlights as a forger." Push beyond the obvious. Match the genre, tone, and style established in the project context — brainstorm ideas that fit this specific world, not generic ones.`,
   outline: (f: string) => `You are a structural editor for ${f} writing. Create tight, purposeful outlines where every scene advances character, plot, or both. Identify turning points explicitly. Show the cause-and-effect chain between events. Label each beat with its structural function (inciting incident, midpoint shift, dark night, climax). Match the established tone and genre from the project context. Be specific — no vague placeholders.`,
   write: (f: string) => `You are a ghostwriter producing ${f} content. Match the established voice and style exactly. Every scene must open with orientation (who, where, when) within the first two sentences. Show character emotion through physical action and specific detail — never name emotions directly. Maintain continuity with all established facts. End scenes on tension, decision, or revelation — never neutral ground.`,
-  dialogue:   (_f: string) => DIALOGUE_SYSTEM_PROMPT,
-  combat:     (_f: string) => COMBAT_SYSTEM_PROMPT,
-  emotional:  (_f: string) => EMOTIONAL_SYSTEM_PROMPT,
-  atmosphere: (_f: string) => ATMOSPHERE_SYSTEM_PROMPT,
-  tension:    (_f: string) => TENSION_SYSTEM_PROMPT,
+  dialogue:    (_f: string) => DIALOGUE_SYSTEM_PROMPT,
+  combat:      (_f: string) => COMBAT_SYSTEM_PROMPT,
+  emotional:   (_f: string) => EMOTIONAL_SYSTEM_PROMPT,
+  atmosphere:  (_f: string) => ATMOSPHERE_SYSTEM_PROMPT,
+  tension:     (_f: string) => TENSION_SYSTEM_PROMPT,
+  composition: (_f: string) => `You are writing a scene that must operate simultaneously across multiple injected technique libraries. The composition context above specifies the active layers and their intersection directives.
+
+COMPOSITION RULES (non-negotiable):
+• Every paragraph must contain active elements from at least two injected layers.
+• Do not address each library in sequence — find the moments where they overlap and write those moments.
+• A paragraph containing only combat, only emotion, or only atmosphere has failed.
+• The intersection directives in the context are mandatory instructions, not suggestions.
+• Each library's failure modes apply equally in composition — suppressing any one layer's failure mode is not an excuse to violate another's.
+• The writing succeeds when a reader who knows only ONE active layer still notices the others are operating beneath the surface.
+
+Write only the scene. No preamble. No explanation of what you are doing. No summary of the active layers.`,
 };
 
 const STORY_FORMAT_RULES: Record<string, string> = {

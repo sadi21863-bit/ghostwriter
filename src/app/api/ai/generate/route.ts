@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { getRequiredSession } from "@/lib/auth-helpers";
-import { checkAiRateLimit } from "@/lib/ratelimit";
+import { checkAiRateLimit, freeGenerationLimit } from "@/lib/ratelimit";
+import { getUserTier, canAccessFeature } from "@/lib/subscription";
+import { GATED_MODES } from "@/types/subscription";
 import { generate } from "@/lib/ai/engine";
 import { db } from "@/db";
 import { generations } from "@/db/schema";
@@ -9,10 +11,31 @@ export async function POST(req: Request) {
   const session = await getRequiredSession();
   const rl = await checkAiRateLimit(session.user.id);
   if (rl) return rl;
+
   const { mode, prompt, context, format, projectId, chapterId } = await req.json();
 
   if (!prompt?.trim()) return NextResponse.json({ error: "Prompt is required" }, { status: 400 });
   if (!mode) return NextResponse.json({ error: "Mode is required" }, { status: 400 });
+
+  // Tier check: mode-gated features (dialogue, combat, emotional, atmosphere, tension, composition)
+  const tier = await getUserTier(session.user.id);
+  const gatedFeature = GATED_MODES[mode as string];
+  if (gatedFeature && !canAccessFeature(tier, gatedFeature)) {
+    return NextResponse.json({ error: "upgrade_required", feature: gatedFeature, tier }, { status: 403 });
+  }
+
+  // Daily limit: free tier gets 10 generations/day
+  if (tier === "free" && freeGenerationLimit) {
+    const { success } = await freeGenerationLimit.limit(session.user.id);
+    if (!success) {
+      return NextResponse.json({
+        error: "upgrade_required",
+        feature: "unlimited_generations",
+        tier,
+        message: "Free tier limit: 10 generations per day. Upgrade for unlimited.",
+      }, { status: 429 });
+    }
+  }
 
   const totalLength = (context || "").length + (prompt || "").length;
   if (totalLength > 150000) {

@@ -8,11 +8,13 @@ import { buildCombatContext } from "@/lib/combat";
 import { buildEmotionalContext } from "@/lib/emotional";
 import { buildAtmosphereContext } from "@/lib/atmosphere";
 import { buildTensionContext } from "@/lib/tension";
+import { buildCompositionContext, type CompositionLayer } from "@/lib/ai/composer";
+import { compactContext } from "@/lib/compact";
 
 export function useAIActions({
   project, mode, prompt, activeChap,
   updateChapter, setErrorMsg, setSavedMsg,
-  creatorBible, cohostVoice,
+  creatorBible, cohostVoice, setUpgradeRequired,
 }: {
   project: any; mode: string; prompt: string; activeChap: any;
   updateChapter: (f: string, v: any) => void;
@@ -20,6 +22,7 @@ export function useAIActions({
   setSavedMsg: (msg: string) => void;
   creatorBible: any;
   cohostVoice?: string;
+  setUpgradeRequired?: (feature: string) => void;
 }) {
   const [generating, setGenerating] = useState(false);
   const [genTarget, setGenTarget] = useState("");
@@ -79,7 +82,8 @@ export function useAIActions({
         ? `${prompt}\n\nCo-host voice persona: ${cohostVoice}`
         : prompt;
       const r = await callAI("generate", { mode: effectiveMode, prompt: effectivePrompt, context: buildFullContext(), format: effectiveFormat, projectId: project.id, chapterId: activeChap.id });
-      if (mode === "write") { setUndoStack(s => [...s.slice(-9), activeChap.content]); updateChapter("content", activeChap.content + (activeChap.content ? "\n\n" : "") + r.text); }
+      if (r.error === "upgrade_required") { setUpgradeRequired?.(r.feature); }
+      else if (mode === "write") { setUndoStack(s => [...s.slice(-9), activeChap.content]); updateChapter("content", activeChap.content + (activeChap.content ? "\n\n" : "") + r.text); }
       else setStreamText(r.text);
     } catch (e) { setErrorMsg("Generation failed. Please try again."); }
     setGenerating(false); setGenTarget("");
@@ -164,7 +168,8 @@ export function useAIActions({
         body: JSON.stringify({ mode: "dialogue", prompt: dialoguePrompt || `Write a ${archetypeName.toLowerCase()} scene between ${charA.name} and ${charB.name}.`, context: dialogueContext, format: p.format }),
       });
       const data = await res.json();
-      if (data.text) {
+      if (data.error === "upgrade_required") { setUpgradeRequired?.(data.feature); }
+      else if (data.text) {
         setUndoStack(prev => [...prev.slice(-4), activeChap?.content || ""]);
         setStreamText(data.text);
       }
@@ -182,7 +187,8 @@ export function useAIActions({
         body: JSON.stringify({ mode: "combat", prompt: combatPrompt || `Write a fight scene between a ${styleA} fighter and a ${styleB} fighter.`, context: combatCtx, format: project.format }),
       });
       const data = await res.json();
-      if (data.text) setStreamText(data.text);
+      if (data.error === "upgrade_required") { setUpgradeRequired?.(data.feature); }
+      else if (data.text) setStreamText(data.text);
     } catch (e) { setErrorMsg("Combat generation failed. Please try again."); }
     setGenerating(false); setGenTarget("");
   };
@@ -197,7 +203,8 @@ export function useAIActions({
         body: JSON.stringify({ mode: "emotional", prompt: emotionalPrompt || `Write a scene that physicalizes ${emotionName}.`, context: ctx, format: project.format }),
       });
       const data = await res.json();
-      if (data.text) setStreamText(data.text);
+      if (data.error === "upgrade_required") { setUpgradeRequired?.(data.feature); }
+      else if (data.text) setStreamText(data.text);
     } catch (e) { setErrorMsg("Emotional scene generation failed. Please try again."); }
     setGenerating(false); setGenTarget("");
   };
@@ -212,7 +219,8 @@ export function useAIActions({
         body: JSON.stringify({ mode: "atmosphere", prompt: atmospherePrompt || `Write a scene set in a ${environmentName.toLowerCase()} environment.`, context: ctx, format: project.format }),
       });
       const data = await res.json();
-      if (data.text) setStreamText(data.text);
+      if (data.error === "upgrade_required") { setUpgradeRequired?.(data.feature); }
+      else if (data.text) setStreamText(data.text);
     } catch (e) { setErrorMsg("Atmosphere generation failed. Please try again."); }
     setGenerating(false); setGenTarget("");
   };
@@ -227,8 +235,34 @@ export function useAIActions({
         body: JSON.stringify({ mode: "tension", prompt: tensionPrompt || `Write a scene using ${tensionType.toLowerCase()} tension structure.`, context: ctx, format: project.format }),
       });
       const data = await res.json();
-      if (data.text) setStreamText(data.text);
+      if (data.error === "upgrade_required") { setUpgradeRequired?.(data.feature); }
+      else if (data.text) setStreamText(data.text);
     } catch (e) { setErrorMsg("Tension generation failed. Please try again."); }
+    setGenerating(false); setGenTarget("");
+  };
+
+  const generateComposition = async (layers: CompositionLayer[], compositionPrompt: string) => {
+    if (!layers.length) { setErrorMsg("Select at least one layer before generating."); return; }
+    setGenerating(true); setGenTarget("main"); setStreamText("");
+    try {
+      const libraryCtx = buildCompositionContext(layers);
+      const storyCtx = buildFullContext();
+      const fullCtx = compactContext(libraryCtx + "\n\n---\n\n" + storyCtx);
+      const res = await fetch("/api/ai/generate", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          mode: "composition",
+          prompt: compositionPrompt || "Write a scene using the active composition layers.",
+          context: fullCtx,
+          format: project.format,
+          projectId: project.id,
+          chapterId: activeChap.id,
+        }),
+      });
+      const data = await res.json();
+      if (data.error === "upgrade_required") { setUpgradeRequired?.(data.feature); }
+      else if (data.text) setStreamText(data.text);
+    } catch (e) { setErrorMsg("Composition generation failed. Please try again."); }
     setGenerating(false); setGenTarget("");
   };
 
@@ -253,7 +287,7 @@ export function useAIActions({
     hookScore, hookScoring,
     callAI, buildNeighbourContext, buildFullContext,
     generate, undoGeneration, autoSummarize, generateDialogue, generateCombat,
-    generateEmotionalScene, generateAtmosphere, generateTension,
+    generateEmotionalScene, generateAtmosphere, generateTension, generateComposition,
     runPipeline, usePipelineOutput,
     handleTextareaSelect, runProse, replaceSelection, scoreHook,
   };

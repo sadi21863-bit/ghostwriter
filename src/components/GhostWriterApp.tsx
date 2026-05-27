@@ -6,6 +6,9 @@ import { useWorldBible } from "@/hooks/useWorldBible";
 import WorldBiblePanel from "@/components/panels/WorldBiblePanel";
 import ToolbarPanel from "@/components/panels/ToolbarPanel";
 import ChapterEditor from "@/components/panels/ChapterEditor";
+import { UpgradePrompt } from "@/components/upgrade/UpgradePrompt";
+import type { FeatureGate } from "@/types/subscription";
+import type { CompositionLayer } from "@/lib/ai/composer";
 import { co, sBtn, sBtnSm } from "@/lib/styles";
 
 export default function GhostWriterApp({ projectId }: { projectId: string }) {
@@ -24,6 +27,8 @@ export default function GhostWriterApp({ projectId }: { projectId: string }) {
   const [emotionalEmotion, setEmotionalEmotion] = useState("Grief");
   const [atmosphereEnvironment, setAtmosphereEnvironment] = useState("Natural");
   const [tensionType, setTensionType] = useState("Suspense");
+  const [compositionLayers, setCompositionLayers] = useState<CompositionLayer[]>([]);
+  const [upgradeRequired, setUpgradeRequired] = useState<FeatureGate | null>(null);
 
   const projectState = useProjectState(projectId);
   const {
@@ -49,6 +54,7 @@ export default function GhostWriterApp({ projectId }: { projectId: string }) {
     setSavedMsg,
     creatorBible: projectState.creatorBible,
     cohostVoice,
+    setUpgradeRequired: (f) => setUpgradeRequired(f as FeatureGate),
   });
 
   const worldBible = useWorldBible({
@@ -183,6 +189,10 @@ export default function GhostWriterApp({ projectId }: { projectId: string }) {
         generateEmotionalScene={aiActions.generateEmotionalScene}
         generateAtmosphere={aiActions.generateAtmosphere}
         generateTension={aiActions.generateTension}
+        compositionLayers={compositionLayers}
+        setCompositionLayers={setCompositionLayers}
+        generateComposition={aiActions.generateComposition}
+        setUpgradeRequired={(f) => setUpgradeRequired(f as FeatureGate)}
       />
 
       <ChapterEditor
@@ -195,6 +205,10 @@ export default function GhostWriterApp({ projectId }: { projectId: string }) {
         rightCollapsed={rightCollapsed}
         setRightCollapsed={setRightCollapsed}
       />
+
+      {upgradeRequired && (
+        <UpgradePrompt feature={upgradeRequired} onClose={() => setUpgradeRequired(null)} />
+      )}
 
       {confirmModal && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000 }}>

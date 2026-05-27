@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getRequiredSession } from "@/lib/auth-helpers";
 import { checkAiRateLimit } from "@/lib/ratelimit";
+import { getUserTier, canAccessFeature } from "@/lib/subscription";
 import Anthropic from "@anthropic-ai/sdk";
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! });
@@ -36,6 +37,10 @@ export async function POST(req: Request) {
   const session = await getRequiredSession();
   const rl = await checkAiRateLimit(session.user.id);
   if (rl) return rl;
+  const tier = await getUserTier(session.user.id);
+  if (!canAccessFeature(tier, "creator_tools_advanced")) {
+    return NextResponse.json({ error: "upgrade_required", feature: "creator_tools_advanced", tier }, { status: 403 });
+  }
 
   const { content, sourceFormat, targetFormat } = await req.json();
   if (!content?.trim() || !targetFormat) return NextResponse.json({ error: "Missing content or targetFormat" }, { status: 400 });

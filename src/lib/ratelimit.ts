@@ -30,6 +30,16 @@ export const generalRatelimit = redis
     })
   : null;
 
+// 10 AI generations per free user per day
+export const freeGenerationLimit = redis
+  ? new Ratelimit({
+      redis,
+      limiter: Ratelimit.fixedWindow(10, "1 d"),
+      analytics: true,
+      prefix: "gw:free:daily",
+    })
+  : null;
+
 /**
  * Returns a 429 NextResponse if the user is rate-limited, or null if they're allowed.
  * Call immediately after getRequiredSession() in every AI route.
