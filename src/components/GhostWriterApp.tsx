@@ -27,6 +27,8 @@ export default function GhostWriterApp({ projectId }: { projectId: string }) {
   const [emotionalEmotion, setEmotionalEmotion] = useState("Grief");
   const [atmosphereEnvironment, setAtmosphereEnvironment] = useState("Natural");
   const [tensionType, setTensionType] = useState("Suspense");
+  const [horrorArchetype, setHorrorArchetype] = useState("Uncanny");
+  const [comedyArchetype, setComedyArchetype] = useState("Situation");
   const [compositionLayers, setCompositionLayers] = useState<CompositionLayer[]>([]);
   const [upgradeRequired, setUpgradeRequired] = useState<FeatureGate | null>(null);
 
@@ -189,6 +191,12 @@ export default function GhostWriterApp({ projectId }: { projectId: string }) {
         generateEmotionalScene={aiActions.generateEmotionalScene}
         generateAtmosphere={aiActions.generateAtmosphere}
         generateTension={aiActions.generateTension}
+        horrorArchetype={horrorArchetype}
+        setHorrorArchetype={setHorrorArchetype}
+        generateHorror={aiActions.generateHorror}
+        comedyArchetype={comedyArchetype}
+        setComedyArchetype={setComedyArchetype}
+        generateComedy={aiActions.generateComedy}
         compositionLayers={compositionLayers}
         setCompositionLayers={setCompositionLayers}
         generateComposition={aiActions.generateComposition}
@@ -204,6 +212,9 @@ export default function GhostWriterApp({ projectId }: { projectId: string }) {
         moveChapter={projectState.moveChapter}
         rightCollapsed={rightCollapsed}
         setRightCollapsed={setRightCollapsed}
+        passiveSuggestions={projectState.passiveSuggestions}
+        setPassiveSuggestions={projectState.setPassiveSuggestions}
+        setUpgradeRequired={(f) => setUpgradeRequired(f as FeatureGate)}
       />
 
       {upgradeRequired && (

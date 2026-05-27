@@ -2,7 +2,6 @@
 import { useState } from "react";
 import ComicStudio from "@/components/ComicStudio";
 import ProductionStudio from "@/components/ProductionStudio";
-import { getPipelines, AGENT_LABELS, type Pipeline, type AgentKey } from "@/lib/ai/pipelines";
 import { MODES, PODCAST_MODES, isStoryFormat, isCreatorFormat } from "@/lib/formats";
 import { co, sBtn, sBtnSm } from "@/lib/styles";
 
@@ -14,17 +13,23 @@ import { AtmospherePanel } from "./toolbar/modes/AtmospherePanel";
 import { TensionPanel } from "./toolbar/modes/TensionPanel";
 import { WritePanel } from "./toolbar/modes/WritePanel";
 import { CompositionPanel } from "./toolbar/modes/CompositionPanel";
+import { HorrorPanel } from "./toolbar/modes/HorrorPanel";
+import { ComedyPanel } from "./toolbar/modes/ComedyPanel";
 
 // Tool panels
+import { PipelinePanel } from "./toolbar/tools/PipelinePanel";
 import { DissectPanel } from "./toolbar/tools/DissectPanel";
 import { RetentionEditPanel } from "./toolbar/tools/RetentionEditPanel";
 import { RepurposePanel } from "./toolbar/tools/RepurposePanel";
 import { ResearchScaffoldPanel } from "./toolbar/tools/ResearchScaffoldPanel";
 import { GuestIntelPanel } from "./toolbar/tools/GuestIntelPanel";
 import { TrendAnglesPanel } from "./toolbar/tools/TrendAnglesPanel";
+import { HookABPanel } from "./toolbar/tools/HookABPanel";
+import { ThumbnailConceptsPanel } from "./toolbar/tools/ThumbnailConceptsPanel";
 
 import type { HookScore, ProseResult } from "./toolbar/types";
 import type { CompositionLayer } from "@/lib/ai/composer";
+import type { Pipeline } from "@/lib/ai/pipelines";
 
 interface Props {
   project: any;
@@ -98,11 +103,22 @@ interface Props {
   compositionLayers: CompositionLayer[];
   setCompositionLayers: (layers: CompositionLayer[]) => void;
   generateComposition: (layers: CompositionLayer[], prompt: string) => Promise<void>;
+  horrorArchetype: string;
+  setHorrorArchetype: (v: string) => void;
+  generateHorror: (archetypeName: string, prompt: string) => Promise<void>;
+  comedyArchetype: string;
+  setComedyArchetype: (v: string) => void;
+  generateComedy: (archetypeName: string, prompt: string) => Promise<void>;
   setUpgradeRequired?: (feature: string) => void;
 }
 
 const modeLabel = (m: string) => (
-  ({ brainstorm: "Brainstorm", outline: "Outline", write: "Write", dialogue: "Dialogue", combat: "Combat", cohost: "Co-host", emotional: "Emotional", atmosphere: "Atmosphere", tension: "Tension", composition: "Composition" } as Record<string, string>)[m] ?? m
+  ({
+    brainstorm: "Brainstorm", outline: "Outline", write: "Write",
+    dialogue: "Dialogue", combat: "Combat", cohost: "Co-host",
+    emotional: "Emotional", atmosphere: "Atmosphere", tension: "Tension",
+    composition: "Composition", horror: "Horror", comedy: "Comedy",
+  } as Record<string, string>)[m] ?? m
 );
 
 export default function ToolbarPanel(props: Props) {
@@ -124,6 +140,8 @@ export default function ToolbarPanel(props: Props) {
     tensionType, setTensionType,
     generateEmotionalScene, generateAtmosphere, generateTension,
     compositionLayers, setCompositionLayers, generateComposition,
+    horrorArchetype, setHorrorArchetype, generateHorror,
+    comedyArchetype, setComedyArchetype, generateComedy,
     setUpgradeRequired,
   } = props;
 
@@ -137,30 +155,41 @@ export default function ToolbarPanel(props: Props) {
     ? PODCAST_MODES
     : isStoryFormat(project.format)
     ? MODES
-    : MODES.filter(m => m !== "dialogue" && m !== "combat");
+    : MODES.filter(m => m !== "dialogue" && m !== "combat" && m !== "horror" && m !== "comedy");
+
+  const isCreator = isCreatorFormat(project.format);
 
   return (
     <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0, position: "relative" }}>
 
       {/* ── Toolbar row ──────────────────────────────────────────────────── */}
-      <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 16px", background: co.surface, borderBottom: "1px solid " + co.border, flexShrink: 0 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 16px", background: co.surface, borderBottom: "1px solid " + co.border, flexShrink: 0, flexWrap: "wrap" }}>
 
         {/* Mode selector */}
-        <div style={{ display: "flex", gap: 4, background: co.surfaceAlt, borderRadius: 10, padding: 3 }}>
+        <div style={{ display: "flex", gap: 4, background: co.surfaceAlt, borderRadius: 10, padding: 3, flexWrap: "wrap" }}>
           {visibleModes.map(m => (
             <button key={m}
-              style={{ padding: "6px 16px", border: "none", borderRadius: 8, cursor: "pointer", fontWeight: 600, fontSize: 13, background: mode === m ? co.accent : "transparent", color: mode === m ? "#fff" : co.muted }}
+              style={{ padding: "6px 14px", border: "none", borderRadius: 8, cursor: "pointer", fontWeight: 600, fontSize: 13, background: mode === m ? co.accent : "transparent", color: mode === m ? "#fff" : co.muted }}
               onClick={() => setMode(m)}>
               {modeLabel(m)}
             </button>
           ))}
         </div>
 
-        {/* View toggles */}
+        {/* Dissect Video — first for creator formats (Phase 5 reorder) */}
+        {["YouTube Long-form", "YouTube Short"].includes(project.format) && (
+          <button style={{ ...sBtnSm, background: showDissect ? co.accentBg : co.surfaceAlt, color: showDissect ? co.accent : co.muted, fontWeight: showDissect ? 700 : 400, border: "1px solid " + (showDissect ? co.accent : co.border) }}
+            onClick={() => { setShowDissect(v => !v); setShowAgents(false); setPipelineResults([]); }}>
+            🎬 Dissect Video
+          </button>
+        )}
+
+        {/* Agent pipelines toggle */}
         <button style={{ ...sBtnSm, background: showAgents ? co.accentBg : co.surfaceAlt, color: showAgents ? co.accent : co.muted, fontWeight: showAgents ? 700 : 400, border: "1px solid " + (showAgents ? co.accent : co.border) }}
           onClick={() => { setShowAgents((v: boolean) => !v); setPipelineResults([]); setShowComicStudio(false); setShowProductionStudio(false); }}>
           ⚡ Agents
         </button>
+
         {isStoryFormat(project.format) && (
           <button style={{ ...sBtnSm, background: showComicStudio ? co.accentBg : co.surfaceAlt, color: showComicStudio ? co.accent : co.muted, fontWeight: showComicStudio ? 700 : 400, border: "1px solid " + (showComicStudio ? co.accent : co.border) }}
             onClick={() => { setShowComicStudio((v: boolean) => !v); setShowProductionStudio(false); setShowAgents(false); setPipelineResults([]); }}>
@@ -171,12 +200,6 @@ export default function ToolbarPanel(props: Props) {
           <button style={{ ...sBtnSm, background: showProductionStudio ? co.accentBg : co.surfaceAlt, color: showProductionStudio ? co.accent : co.muted, fontWeight: showProductionStudio ? 700 : 400, border: "1px solid " + (showProductionStudio ? co.accent : co.border) }}
             onClick={() => { setShowProductionStudio((v: boolean) => !v); setShowComicStudio(false); setShowAgents(false); setPipelineResults([]); }}>
             🎬 Studio
-          </button>
-        )}
-        {["YouTube Long-form", "YouTube Short"].includes(project.format) && (
-          <button style={{ ...sBtnSm, background: showDissect ? co.accentBg : co.surfaceAlt, color: showDissect ? co.accent : co.muted, fontWeight: showDissect ? 700 : 400, border: "1px solid " + (showDissect ? co.accent : co.border) }}
-            onClick={() => { setShowDissect(v => !v); setShowAgents(false); setPipelineResults([]); }}>
-            🎬 Dissect Video
           </button>
         )}
 
@@ -194,7 +217,13 @@ export default function ToolbarPanel(props: Props) {
           <button style={{ ...sBtnSm, background: "#fff3e0", color: "#e65100" }} onClick={undoGeneration}>Undo AI</button>
         )}
 
-        {/* Retention Edit (owns state, renders button + modal) */}
+        {/* Hook A/B — creator only (Phase 5) */}
+        <HookABPanel format={project.format} onUpgradeRequired={setUpgradeRequired} />
+
+        {/* Thumbnail Concepts — YouTube only (Phase 5) */}
+        <ThumbnailConceptsPanel format={project.format} onUpgradeRequired={setUpgradeRequired} />
+
+        {/* Retention Edit */}
         <RetentionEditPanel
           format={project.format}
           mode={mode}
@@ -204,7 +233,7 @@ export default function ToolbarPanel(props: Props) {
           onUpgradeRequired={setUpgradeRequired}
         />
 
-        {/* Repurpose (owns state, renders select + button + modal) */}
+        {/* Repurpose */}
         <RepurposePanel
           format={project.format}
           mode={mode}
@@ -214,7 +243,7 @@ export default function ToolbarPanel(props: Props) {
           onUpgradeRequired={setUpgradeRequired}
         />
 
-        {/* Research Scaffold (owns state, renders button + modal) */}
+        {/* Research Scaffold */}
         <ResearchScaffoldPanel
           format={project.format}
           mode={mode}
@@ -225,7 +254,7 @@ export default function ToolbarPanel(props: Props) {
           onUpgradeRequired={setUpgradeRequired}
         />
 
-        {/* Guest Intel (owns state, renders button + modal) */}
+        {/* Guest Intel */}
         <GuestIntelPanel
           format={project.format}
           mode={mode}
@@ -236,7 +265,7 @@ export default function ToolbarPanel(props: Props) {
           onUpgradeRequired={setUpgradeRequired}
         />
 
-        {/* Trend Angles (owns state, renders button + modal) */}
+        {/* Trend Angles */}
         <TrendAnglesPanel
           format={project.format}
           prompt={prompt}
@@ -261,54 +290,21 @@ export default function ToolbarPanel(props: Props) {
         )}
       </div>
 
-      {/* ── Agent pipelines panel ────────────────────────────────────────── */}
-      {showAgents && (
-        <div style={{ borderBottom: "1px solid " + co.border, background: co.surfaceAlt, padding: "12px 16px", maxHeight: 420, overflowY: "auto" }}>
-          {pipelineResults.length === 0 ? (
-            <>
-              <div style={{ fontSize: 11, fontWeight: 700, color: co.accent, marginBottom: 10, textTransform: "uppercase" }}>Agent Pipelines — {project.format} / {mode}</div>
-              {getPipelines(project.format, mode).length === 0
-                ? <div style={{ fontSize: 12, color: co.muted }}>No pipelines available for this format + mode combination.</div>
-                : getPipelines(project.format, mode).map((pipeline: Pipeline) => (
-                  <div key={pipeline.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", background: co.surface, borderRadius: 10, marginBottom: 8, border: "1px solid " + co.border }}>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: 13, fontWeight: 700 }}>{pipeline.name}</div>
-                      <div style={{ fontSize: 11, color: co.muted, marginTop: 2 }}>{pipeline.description}</div>
-                      <div style={{ display: "flex", gap: 4, marginTop: 6, flexWrap: "wrap" }}>
-                        {pipeline.agents.map((a: AgentKey) => <span key={a} style={{ fontSize: 10, padding: "2px 8px", borderRadius: 20, background: co.accentBg, color: co.accent, fontWeight: 600 }}>{AGENT_LABELS[a]}</span>)}
-                      </div>
-                    </div>
-                    <button style={{ ...sBtn, opacity: pipelineRunning || !prompt.trim() ? 0.5 : 1 }} disabled={pipelineRunning || !prompt.trim()} onClick={() => runPipeline(pipeline)}>
-                      {pipelineRunning && activePipelineId === pipeline.id ? "Running..." : "Run ▶"}
-                    </button>
-                  </div>
-                ))}
-              {!prompt.trim() && <div style={{ fontSize: 11, color: co.muted, marginTop: 8 }}>Type a prompt below first, then run a pipeline.</div>}
-            </>
-          ) : (
-            <>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-                <div style={{ fontSize: 11, fontWeight: 700, color: co.accent, textTransform: "uppercase" }}>Pipeline Results</div>
-                <button style={sBtnSm} onClick={() => { setPipelineResults([]); setExpandedAgent(null); }}>← Back</button>
-              </div>
-              {pipelineResults.map((r, i) => (
-                <div key={r.agent} style={{ marginBottom: 8, border: "1px solid " + co.border, borderRadius: 10, overflow: "hidden" }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 12px", background: co.surface, cursor: "pointer" }} onClick={() => setExpandedAgent(expandedAgent === r.agent ? null : r.agent)}>
-                    <span style={{ fontSize: 12, fontWeight: 700, flex: 1 }}>{AGENT_LABELS[r.agent as keyof typeof AGENT_LABELS] ?? r.agent}</span>
-                    <span style={{ fontSize: 10, color: co.muted }}>{expandedAgent === r.agent ? "▲" : "▼"}</span>
-                  </div>
-                  {expandedAgent === r.agent && (
-                    <div style={{ padding: 12, background: co.surfaceAlt }}>
-                      <div style={{ fontSize: 13, lineHeight: 1.7, fontFamily: "Georgia,serif", whiteSpace: "pre-wrap", marginBottom: 10 }}>{r.output}</div>
-                      {i === pipelineResults.length - 1 && <button style={sBtn} onClick={() => usePipelineOutput(r.output)}>Use Final Output</button>}
-                    </div>
-                  )}
-                </div>
-              ))}
-            </>
-          )}
-        </div>
-      )}
+      {/* ── Agent pipelines panel (extracted) ───────────────────────────── */}
+      <PipelinePanel
+        show={showAgents}
+        pipelineRunning={pipelineRunning}
+        pipelineResults={pipelineResults}
+        setPipelineResults={setPipelineResults}
+        expandedAgent={expandedAgent}
+        setExpandedAgent={setExpandedAgent}
+        activePipelineId={activePipelineId}
+        runPipeline={runPipeline}
+        usePipelineOutput={usePipelineOutput}
+        prompt={prompt}
+        format={project.format}
+        mode={mode}
+      />
 
       {/* ── Dissect Video panel ──────────────────────────────────────────── */}
       <DissectPanel show={showDissect} setPrompt={setPrompt} />
@@ -374,6 +370,22 @@ export default function ToolbarPanel(props: Props) {
             generateComposition={generateComposition}
             updateChapter={updateChapter}
             activeChap={activeChap}
+          />
+        : mode === "horror"
+        ? <HorrorPanel
+            horrorArchetype={horrorArchetype} setHorrorArchetype={setHorrorArchetype}
+            generating={generating} streamText={streamText} setStreamText={setStreamText}
+            prompt={prompt} setPrompt={setPrompt}
+            generateHorror={generateHorror}
+            updateChapter={updateChapter} activeChap={activeChap}
+          />
+        : mode === "comedy"
+        ? <ComedyPanel
+            comedyArchetype={comedyArchetype} setComedyArchetype={setComedyArchetype}
+            generating={generating} streamText={streamText} setStreamText={setStreamText}
+            prompt={prompt} setPrompt={setPrompt}
+            generateComedy={generateComedy}
+            updateChapter={updateChapter} activeChap={activeChap}
           />
         : <WritePanel
             mode={mode}

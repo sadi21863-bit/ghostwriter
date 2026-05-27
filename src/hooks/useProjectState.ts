@@ -1,6 +1,8 @@
 "use client";
 import { useState, useEffect, useRef } from "react";
 import { isCreatorFormat, getChapterLabel } from "@/lib/formats";
+import { runPassiveChecks } from "@/lib/suggestions/passive";
+import type { PassiveSuggestion } from "@/lib/suggestions/passive";
 
 export function useProjectState(projectId: string) {
   const [project, setProject] = useState<any>(null);
@@ -13,10 +15,12 @@ export function useProjectState(projectId: string) {
   const [confirmModal, setConfirmModal] = useState<any>(null);
   const [dialogueCharA, setDialogueCharA] = useState("");
   const [dialogueCharB, setDialogueCharB] = useState("");
+  const [passiveSuggestions, setPassiveSuggestions] = useState<PassiveSuggestion[]>([]);
 
   const chapterSaveTimer = useRef<any>(null);
   const summarizeTimer = useRef<any>(null);
   const bibleSaveTimer = useRef<any>(null);
+  const evolutionTriggeredRef = useRef<Set<number>>(new Set());
 
   useEffect(() => {
     fetch("/api/user/settings").then(r => r.json()).then(data => {
@@ -44,6 +48,20 @@ export function useProjectState(projectId: string) {
       .catch(() => setLoadError("Failed to load project. Please refresh."));
   }, [projectId]);
 
+  // Phase 3: Character evolution — fire-and-forget every 5 chapters
+  useEffect(() => {
+    if (!project?.id || !project?.chapters?.length) return;
+    const count = project.chapters.length;
+    if (count % 5 === 0 && !evolutionTriggeredRef.current.has(count)) {
+      evolutionTriggeredRef.current.add(count);
+      fetch("/api/ai/character-evolution", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ projectId: project.id, chapterIndex: count - 1 }),
+      }).catch(() => {});
+    }
+  }, [project?.chapters?.length, project?.id]);
+
   const updateProject = (fn: any) => setProject((p: any) => typeof fn === "function" ? fn(p) : fn);
 
   const updateChapter = (f: string, v: any) => {
@@ -65,6 +83,11 @@ export function useProjectState(projectId: string) {
                 ]);
               }
             }).catch(() => {});
+        }
+        // Phase 4: Passive suggestions — algorithmic, zero-cost, runs on every content save
+        if (f === "content" && v) {
+          const suggestions = runPassiveChecks(v);
+          setPassiveSuggestions(suggestions);
         }
         clearTimeout(summarizeTimer.current);
         if (f === "content" && v && v.trim().split(/\s+/).length > 500) {
@@ -181,6 +204,7 @@ export function useProjectState(projectId: string) {
     confirmModal, setConfirmModal,
     dialogueCharA, setDialogueCharA,
     dialogueCharB, setDialogueCharB,
+    passiveSuggestions, setPassiveSuggestions,
     updateProject, updateChapter, updateCreatorBible,
     save, exportAll, addChapter, deleteChapter, moveChapter, toggleGenre, toggleAlwaysInContext,
   };

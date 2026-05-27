@@ -1,0 +1,193 @@
+// src/lib/horror/archetypes/all-horror.ts
+import type { HorrorArchetype } from "../types";
+
+export const UNCANNY: HorrorArchetype = {
+  name: "Uncanny",
+  theoreticalBasis: "Freud's Das Unheimliche (1919): the uncanny arises when the familiar becomes strange. The German heimlich means homely and safe; unheimlich is its opposite. The horror is not produced by the alien or the obviously monstrous — it is produced by the ordinary thing that has become subtly wrong. The childhood home you return to find rearranged by a centimetre. The person who moves almost correctly. The machine that almost breathes. Freud traced this to the return of repressed animistic beliefs — the adult mind has suppressed the childhood sense that objects are alive, and when something makes that belief feel suddenly possible again, the result is the uncanny.",
+  coreDescription: "Uncanny horror is produced by the violation of the expected rather than the introduction of the new. Something that should mean safety now means threat. Something that should be still is almost moving. Something that should be dead is almost alive. The reader recognizes the thing — and that recognition is the horror.",
+  baselineRequirement: "The safe version must be established before the uncanny version can register. If the reader never believed the house was home, the wrongness has nothing to violate. Spend real time on the normal. Make the reader comfortable. Then introduce the deviation so small they almost dismiss it.",
+  onsetMechanics: "The uncanny arrives in the gap between what is registered and what is acknowledged. The character notices something but does not quite name it. The body knows before the mind: a reluctance to enter a room, a hand that pauses on a doorknob without reason. The first uncanny signal must be ambiguous — it could be nothing. The second one confirms it. The third one makes the first two retroactively terrifying.",
+  escalationPattern: "Accumulation without resolution. Each uncanny signal adds to the previous ones without explaining them. The explanation, when it arrives, must be worse than the ambiguity. Never explain the uncanny before the reader is fully in it — premature explanation converts dread to puzzle.",
+  psychologicalMechanisms: [
+    "Freud's return of the repressed: the animistic belief the adult mind has suppressed returns as dread",
+    "The animate/inanimate boundary violation: the thing that is still when watched and moves when not",
+    "The double (Doppelgänger): a copy of the self that exists outside the self's control",
+    "The familiar made strange: the childhood home, the family member, the trusted object — now wrong",
+    "Haidt's disgust: category violation (alive+dead, familiar+threatening) triggers the involuntary disgust response",
+  ],
+  readerSomaticTarget: "Skin prickling at the back of the neck. The reluctance to look at the corner of the room. The sense that the familiar object is being watched rather than watching. Not acute fear — sustained wrongness that the reader cannot pin down.",
+  sacredRules: [
+    "Never name the wrongness directly — 'it was uncanny' destroys the effect",
+    "Establish the safe baseline before introducing any deviation",
+    "The first signal must be dismissable — let the reader almost dismiss it",
+    "Physical sensation precedes cognitive recognition — the body knows first",
+  ],
+  failureModes: [
+    "The horror is introduced before the normal is established",
+    "The wrongness is too obvious — there is nothing to almost-dismiss",
+    "The character immediately recognizes and names the horror",
+    "The uncanny element is explained before it has fully accumulated",
+    "The prose style announces 'this is scary' — unheimlich requires ordinary prose",
+  ],
+  systemDirectives: [
+    "Write the safe version first — spend real time in the normal before any deviation",
+    "The first deviation must be ambiguous: a door slightly ajar, a smell that should not be there",
+    "Three signals minimum before the reader should feel certain something is wrong",
+    "Body sensation before cognitive recognition — 'she found she did not want to go in' before she knows why",
+    "Ordinary prose throughout — the frightening sentences must not sound frightening",
+    "Never use: uncanny, eerie, strange, wrong, off, disturbing as direct adjectives",
+  ],
+  writingNotes: "The uncanny is the hardest horror to write because it requires total trust in the reader's nervous system. The writer cannot announce the horror — they can only create the conditions for it. A wax figure that is too still. A smile that stays a beat too long. A child's drawing where the face is facing the wrong way. The specific, precise, ordinary wrong detail is everything. Vague wrongness is just vague.",
+};
+
+export const BODY_HORROR: HorrorArchetype = {
+  name: "Body Horror",
+  theoreticalBasis: "Carroll's art-horror requires both fear and disgust simultaneously. Body horror is the archetype where disgust dominates. Jonathan Haidt's research (2001) identifies disgust as an evolved pathogen-avoidance system that fires on specific triggers: decay, contamination, bodily violations, category mixing (things that cross the boundary between distinct categories). The crucial finding: disgust is involuntary and cannot be rationally overridden. Knowing that something is not dangerous does not eliminate the disgust response. Body horror exploits this directly — it creates scenes where the disgust fires despite any rational reassurance the reader might offer themselves.",
+  coreDescription: "Body horror is about the violation of bodily integrity and the categories the body is supposed to maintain. Inside/outside. Alive/dead. Whole/fragmented. Clean/contaminated. When these categories collapse or bleed into each other, the disgust response fires involuntarily. The body is the most intimate thing we possess — its violation therefore cannot be made safe by reason.",
+  baselineRequirement: "The body must be established as intact and normal before it is violated. The reader must have a baseline of the character's body as whole, functional, and correctly categorised. The horror lies in the delta.",
+  onsetMechanics: "Body horror often begins with something noticed but not understood: a texture that was not there, an asymmetry that was not there, something that responds differently than it should. The character's own body becoming unfamiliar to them is more disturbing than an external threat.",
+  escalationPattern: "Escalation moves from sensation to observation to recognition to implication. Something feels wrong (sensation) — the character looks (observation) — they understand what they are seeing (recognition) — they understand what it means for them (implication). The implication is the apex. What does this mean for the body's future?",
+  psychologicalMechanisms: [
+    "Haidt's disgust: decay, contamination, bodily violations, category mixing all trigger the pathogen-avoidance response",
+    "Carroll's category violation: the thing that is simultaneously two things it cannot be",
+    "Bodily autonomy horror: the body doing things the self did not instruct it to do",
+    "Contamination: the clean thing that has become unclean, the spread that cannot be stopped",
+    "The body-as-betrayal: the most intimate thing has become adversarial",
+  ],
+  readerSomaticTarget: "The involuntary physical response: the skin crawl, the urge to look away, the nausea that arrives before the conscious mind has processed the image. Haidt's research establishes this response is pre-cognitive. The goal is to produce it in text, where there is no image.",
+  sacredRules: [
+    "Never write 'it was disgusting' — trigger the response, do not label it",
+    "Specific sensory detail produces disgust; vague description does not",
+    "The wrong texture, the wrong temperature, the wrong sound — the sensory mismatch is the horror",
+    "The inside/outside category violation is the most powerful: the thing that should be internal is external",
+  ],
+  failureModes: [
+    "The body horror is described in general terms — 'there was something wrong with his skin'",
+    "The disgust label is applied rather than the sensation triggered — 'it was revolting'",
+    "The violation is too abstract to produce a somatic response",
+    "The character's reaction overwhelms the description — tell us what they see, not what they feel about it",
+    "The wrongness is resolved — body horror should leave the reader's body still responding after the scene ends",
+  ],
+  systemDirectives: [
+    "Specific sensory modalities: texture, temperature, sound, smell — not appearance alone",
+    "The inside/outside category violation: what should be internal is now visible or external",
+    "The character notices the wrong detail before they understand it",
+    "Write what the eyes find, not what the character feels about it",
+    "The implication (what this means for the body going forward) must land after the description",
+    "Never use: gross, disgusting, revolting, horrible as direct adjectives",
+  ],
+  writingNotes: "Body horror works best when the character's own body is the subject. The self looking at the self. The hand that does not respond correctly. The reflection that is not quite synchronised. External body horror (another person's violation) is less powerful than the body that has become a stranger to its owner. The specific wrong detail that the character cannot stop looking at is the scene's heart.",
+};
+
+export const PSYCHOLOGICAL: HorrorArchetype = {
+  name: "Psychological",
+  theoreticalBasis: "The threat in psychological horror may be internal. The reader and sometimes the character cannot determine whether the horror is real or produced by the character's own mind. This exploits the same epistemological uncertainty as Paranoia (in the tension library) but with a specific horror application: the possibility that the character is the source of the threat, not just the target. The research basis includes Wegner's ironic process theory (1994) — the suppressed thought intrudes — and clinical psychology of dissociation, where the self's relationship to its own actions and perceptions becomes uncertain.",
+  coreDescription: "Psychological horror is about the corruption of the perceiving self. The reader cannot trust what the character is reporting. The character may not be able to trust their own perception. The horror may be real, may be hallucination, or may be the character themselves — and the story should never fully resolve which.",
+  baselineRequirement: "The character must be established as reliably perceptive before their perception is corrupted. The reader needs to trust them enough to care about the corruption.",
+  onsetMechanics: "The first signal of psychological horror is something the character notices and decides to dismiss. The decision to dismiss is the onset — it tells the reader the character's reliability is already uncertain. Memory becomes unreliable before perception does.",
+  escalationPattern: "The reliable → unreliable journey: something the character notices → something they misremember → something they did that they cannot account for → something they did that frightens them. Each step removes a layer of certainty about the self's relationship to its own actions and perceptions.",
+  psychologicalMechanisms: [
+    "Wegner's ironic process theory: attempts to suppress thoughts cause their intrusion — the character cannot stop thinking the thing they are trying not to think",
+    "Dissociation: the self's relationship to its own actions becomes uncertain — 'I must have done that, but I don't remember it'",
+    "Epistemic horror: the corruption of the instrument of knowing — if perception is unreliable, what can be trusted?",
+    "The unreliable narrator as horror device: the reader sees the gap between what the character reports and what seems true",
+  ],
+  readerSomaticTarget: "The reader's uncertainty about what is real. The discomfort of not knowing whether to be frightened of the external or the internal threat. The specific unease of not being able to trust the character who is the reader's guide through the story.",
+  sacredRules: [
+    "Never fully resolve the ambiguity — was it real? Was it the character? The story should not answer",
+    "The character's self-doubt must be visible to the reader before it is visible to the character",
+    "Plant the unreliable detail early — a memory that contradicts itself, a timeline that does not add up",
+    "The character's attempts to reassure themselves are the best evidence that reassurance is not possible",
+  ],
+  failureModes: [
+    "The ambiguity is resolved — the horror turns out to be clearly real or clearly internal",
+    "The character is obviously unreliable from the first line — there is nothing to corrupt",
+    "The reader is confused rather than uncertain — confusion is not the same as horror",
+    "The character explains their own unreliability — they should not have this level of self-awareness",
+  ],
+  systemDirectives: [
+    "Plant contradictions in the character's memory or perception early and quietly",
+    "The character's reassurances to themselves should read as evidence against reassurance",
+    "Something the character did and cannot account for — this is the pivot moment",
+    "The reader must be at least one step ahead of the character's self-knowledge",
+    "End in sustained ambiguity — was it real? The scene should not answer this",
+  ],
+  writingNotes: "Psychological horror is the most literary of the horror archetypes because it requires a sophisticated reader relationship. The gap between what the character knows and what the reader suspects is where the horror lives. The scene asks the reader to hold two possibilities simultaneously: the character is in danger, and the character IS the danger. Both must remain alive throughout. The moment one is eliminated, the horror collapses into either thriller or tragedy.",
+};
+
+export const COSMIC: HorrorArchetype = {
+  name: "Cosmic",
+  theoreticalBasis: "Lovecraft's philosophical horror: the universe is vast, indifferent, and incomprehensible. Humanity is an insignificant accident in a cosmos that does not notice us and would not care if it did. The horror comes not from a monster that wants to destroy us (that would imply we matter) but from the realisation that we do not matter at all. The threat is scale and indifference rather than malice. The human mind, confronted with genuine cosmic scale, cannot process it and breaks down — this breakdown is the horror.",
+  coreDescription: "Cosmic horror is about the collapse of human significance. The character confronts something so much larger, older, or more indifferent than themselves that their framework for understanding reality ceases to function. The monster, if there is one, does not hate them. It does not notice them. That is worse.",
+  baselineRequirement: "The character must be established as a person with a functioning sense of meaning, significance, and comprehensibility of the world. Cosmic horror requires dismantling a self that exists. It cannot work on a character who is already lost.",
+  onsetMechanics: "Cosmic horror often begins with a wrong scale: something too large, too old, too numerous, too regular. The geometry that does not follow the rules. The pattern visible from the right distance that no single part knows it is part of. The scale that makes the body feel the size of a bacteria.",
+  escalationPattern: "The scale escalation: human scale → disturbing scale → incomprehensible scale → the mind's attempt to process incomprehensible scale → the failure of that attempt. The failure is the apex. What comes after a human mind tries to contain the incomprehensible?",
+  psychologicalMechanisms: [
+    "Scale horror: the realisation that the human is not the measure of things and never was",
+    "Indifference horror: the entity or force does not notice the character — this is more frightening than malice",
+    "Comprehension failure: the mind trying to process what it cannot process, and the experience of that failure",
+    "Temporal horror: the thing that has been here for geological time and will continue after humanity is gone",
+    "Pattern horror: the meaningful pattern that implies a designer who did not design anything for us",
+  ],
+  readerSomaticTarget: "Vertigo. The specific physical sensation of one's own smallness. The disorientation that comes from scale. Not the terror of the predator but the terror of irrelevance.",
+  sacredRules: [
+    "The cosmic entity must not hate, notice, or pursue the character — indifference is more frightening than malice",
+    "The character's mind must fail to fully process what they encounter — comprehension of the cosmic destroys it",
+    "The scale must be experienced physically, not just intellectually — the body must register what the mind cannot contain",
+    "The horror must be directed at human significance, not human safety",
+  ],
+  failureModes: [
+    "The cosmic entity is just a very large monster that wants to kill the character",
+    "The character understands what they are experiencing — comprehension neutralises cosmic horror",
+    "The scale is described in numbers rather than felt in the body",
+    "The story implies the horror can be defeated, contained, or understood",
+    "The universe is angry rather than indifferent",
+  ],
+  systemDirectives: [
+    "The entity or force must not be directed at the character — it does not know they exist",
+    "The wrong scale must be felt in the body before it is processed by the mind",
+    "The character's framework for understanding reality must visibly fail",
+    "Temporal scale is as horrifying as spatial scale — geological time, the stars that are already dead",
+    "End in the failure of comprehension, not in the comprehension of failure",
+  ],
+  writingNotes: "Cosmic horror is the only archetype where the monster's indifference is more terrifying than its attention. The Lovecraftian insight: we built our entire civilisation on the assumption that we matter. Cosmic horror removes that assumption. The character is not hunted — they are simply not relevant. The geometry that follows different rules. The thing that has been asleep for a million years and might stay asleep. The moment it wakes will not be because of anything we did.",
+};
+
+export const MONSTER: HorrorArchetype = {
+  name: "Monster",
+  theoreticalBasis: "Carroll's art-horror requires a monster — an entity that generates both fear and disgust simultaneously through category violation. The monster is monstrous because it violates our mental categories: it is simultaneously alive and dead, human and non-human, singular and multiple, familiar and alien. Carroll's paradox: we are attracted to horror monsters despite finding them repellent because our curiosity about category-violating things is engaged. The monster also functions through what Carroll calls 'impurity' — the mixing of categories that should be separate (the living dead, the animal-human).",
+  coreDescription: "Monster horror is about the entity that should not exist because it violates the categories reality is supposed to maintain. The monster is not just dangerous — it is wrong. It is wrong in a way that the body registers before the mind processes. The wrongness is the horror, not the danger.",
+  baselineRequirement: "The categories the monster violates must be established as categories. The reader must believe that the dead stay dead, that things are either one thing or another, before the monster can violate these expectations.",
+  onsetMechanics: "The monster is almost always introduced wrongly at first — not directly but through its effects, its sounds, its absence in a place where something should be, or a partial view that allows the wrong detail to land before the full picture arrives.",
+  escalationPattern: "Partial reveal → wrong detail → full reveal → implication. The partial reveal creates anticipation. The wrong detail is the first horror (what part of this is wrong?). The full reveal is Carroll's moment of art-horror. The implication is what the existence of this thing means for everything else.",
+  psychologicalMechanisms: [
+    "Carroll's category violation: the thing is simultaneously two things that cannot coexist",
+    "Carroll's impurity: the mixing of categories that should be separate (living/dead, human/animal)",
+    "Haidt's disgust: the category mixing triggers the pathogen-avoidance response involuntarily",
+    "Fear + disgust fused: the monster produces both simultaneously — this is Carroll's definition of art-horror",
+    "Carroll's paradox: the curiosity about rule-violating entities compels the reader to keep looking despite finding it repellent",
+  ],
+  readerSomaticTarget: "The fused fear+disgust response Carroll describes: the body wanting to flee and being unable to look away simultaneously. The revulsion that does not prevent looking. The specific horror of recognising a category violation before being able to name it.",
+  sacredRules: [
+    "The monster must violate at least one category, not just be large or dangerous",
+    "Never fully reveal the monster before the partial reveal has done its work",
+    "The wrong detail must land before the full picture",
+    "The monster's existence must have implications beyond the immediate scene",
+  ],
+  failureModes: [
+    "The monster is just very dangerous, not categorically wrong",
+    "Full reveal without the partial reveal building to it",
+    "The monster is explained — explanation reduces it to a puzzle",
+    "The disgust layer is absent — the monster is only frightening, not repellent",
+    "The reader understands the monster before the character does — the mystery should outlast the scene",
+  ],
+  systemDirectives: [
+    "Introduce the monster through its effects, its sounds, or a partial view before the full reveal",
+    "The wrong detail must arrive before the full picture — one part of the monster that should not be that way",
+    "Both fear and disgust must be present: the monster is threatening AND wrong",
+    "The category violation must be specific: it is alive+dead, or human+not-human, or singular+multiple — name which",
+    "The full reveal should produce Carroll's art-horror: simultaneous fear and fascinated disgust",
+    "Leave the reader's curiosity unsatisfied — the monster should retain mystery after the scene ends",
+  ],
+  writingNotes: "The most common mistake in monster horror is making the monster just very powerful or very dangerous. Power and danger are not horror — they are threat. The horror in monster horror comes from the wrongness, not the lethality. A monster that is merely lethal is a predator. A monster that is dead and moving, or human and not, or one thing and simultaneously its opposite — that is Carroll's art-horror. The reader cannot look away because the curiosity about the impossible category is engaged.",
+};

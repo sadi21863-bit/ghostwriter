@@ -2,8 +2,29 @@
 import { useState } from "react";
 import { co, sBtnSm } from "@/lib/styles";
 import { getChapterLabel } from "@/lib/formats";
+import type { PassiveSuggestion } from "@/lib/suggestions/passive";
+import type { FeatureGate } from "@/types/subscription";
 
 const CHAPTER_TYPES = ["chapter", "scene", "flashback", "interlude", "prologue", "epilogue"];
+
+const CATEGORY_ICON: Record<string, string> = {
+  continuity: "🔗",
+  character_voice: "💬",
+  world_rule: "🌍",
+  pacing: "⏱",
+  repeated_opener: "🔁",
+  word_repetition: "📝",
+  dialogue_ratio: "💬",
+  sentence_uniformity: "〰",
+};
+
+interface AiSuggestion {
+  category: string;
+  severity: string;
+  message: string;
+  excerpt: string;
+  fix: string;
+}
 
 interface Props {
   project: any;
@@ -14,10 +35,22 @@ interface Props {
   moveChapter: (i: number, dir: number) => Promise<void>;
   rightCollapsed: boolean;
   setRightCollapsed: (v: boolean) => void;
+  passiveSuggestions: PassiveSuggestion[];
+  setPassiveSuggestions: (v: PassiveSuggestion[]) => void;
+  setUpgradeRequired?: (f: FeatureGate) => void;
 }
 
-export default function ChapterEditor({ project, updateProject, updateChapter, addChapter, deleteChapter, moveChapter, rightCollapsed, setRightCollapsed }: Props) {
+export default function ChapterEditor({
+  project, updateProject, updateChapter, addChapter, deleteChapter, moveChapter,
+  rightCollapsed, setRightCollapsed,
+  passiveSuggestions, setPassiveSuggestions,
+  setUpgradeRequired,
+}: Props) {
   const [tagInput, setTagInput] = useState("");
+  const [aiChecking, setAiChecking] = useState(false);
+  const [aiSuggestions, setAiSuggestions] = useState<AiSuggestion[]>([]);
+  const [aiSuggestionsMsg, setAiSuggestionsMsg] = useState("");
+  const [dismissedAi, setDismissedAi] = useState<Set<number>>(new Set());
 
   const activeChap = project.chapters.find((c: any) => c.id === project.activeChapter);
 
@@ -31,6 +64,53 @@ export default function ChapterEditor({ project, updateProject, updateChapter, a
   const removeTag = (tag: string) => {
     updateChapter("tags", (activeChap?.tags || []).filter((t: string) => t !== tag));
   };
+
+  const dismissPassive = (id: string) => {
+    setPassiveSuggestions(passiveSuggestions.filter(s => s.id !== id));
+  };
+
+  const runAiCheck = async () => {
+    if (!activeChap?.content || activeChap.content.length < 100) {
+      setAiSuggestionsMsg("Chapter needs at least 100 characters to check.");
+      return;
+    }
+    setAiChecking(true);
+    setAiSuggestions([]);
+    setAiSuggestionsMsg("");
+    setDismissedAi(new Set());
+    try {
+      const res = await fetch("/api/ai/suggest", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          projectId: project.id,
+          chapterId: activeChap.id,
+          chapterContent: activeChap.content,
+        }),
+      });
+      if (res.status === 403) {
+        const data = await res.json();
+        if (data.error === "upgrade_required" && setUpgradeRequired) {
+          setUpgradeRequired("ai_suggestion_active");
+        } else {
+          setAiSuggestionsMsg("Upgrade to Story Pro to use AI Check.");
+        }
+        return;
+      }
+      const data = await res.json();
+      if (data.suggestions?.length) {
+        setAiSuggestions(data.suggestions);
+      } else {
+        setAiSuggestionsMsg("✅ No issues found. Great writing!");
+      }
+    } catch {
+      setAiSuggestionsMsg("AI Check failed. Please try again.");
+    } finally {
+      setAiChecking(false);
+    }
+  };
+
+  const visibleAiSuggestions = aiSuggestions.filter((_, i) => !dismissedAi.has(i));
 
   return (
     <div style={{ width: rightCollapsed ? 48 : 240, minWidth: rightCollapsed ? 48 : 240, background: co.surface, borderLeft: "1px solid " + co.border, display: "flex", flexDirection: "column", transition: "all 0.2s", overflow: "hidden" }}>
@@ -104,8 +184,63 @@ export default function ChapterEditor({ project, updateProject, updateChapter, a
             );
           })}
         </div>
-        <div style={{ padding: 8, borderTop: "1px solid " + co.border }}>
-          <button style={{ ...sBtnSm, width: "100%" }} onClick={addChapter}>+ Add {getChapterLabel(project.format)}</button>
+
+        {/* ── Passive suggestion chips ── */}
+        {passiveSuggestions.length > 0 && (
+          <div style={{ padding: "8px 10px", borderTop: "1px solid " + co.border }}>
+            <div style={{ fontSize: 10, fontWeight: 700, color: co.muted, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 5 }}>✏️ Writing Tips</div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+              {passiveSuggestions.slice(0, 5).map(s => (
+                <div key={s.id} style={{
+                  background: s.severity === "warning" ? "#fef3c7" : co.surfaceAlt,
+                  border: "1px solid " + (s.severity === "warning" ? "#fcd34d" : co.border),
+                  borderRadius: 6, padding: "4px 6px", fontSize: 10, color: co.text,
+                  display: "flex", alignItems: "flex-start", gap: 4,
+                }}>
+                  <span style={{ flexShrink: 0 }}>{CATEGORY_ICON[s.category] ?? "💡"}</span>
+                  <span style={{ flex: 1, lineHeight: 1.4 }}>{s.message}</span>
+                  <button onClick={() => dismissPassive(s.id)} style={{ background: "none", border: "none", cursor: "pointer", color: co.muted, fontSize: 11, padding: 0, lineHeight: 1, flexShrink: 0 }}>×</button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* ── AI Check results ── */}
+        {(visibleAiSuggestions.length > 0 || aiSuggestionsMsg) && (
+          <div style={{ padding: "8px 10px", borderTop: "1px solid " + co.border }}>
+            <div style={{ fontSize: 10, fontWeight: 700, color: co.muted, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 5 }}>🔍 AI Review</div>
+            {aiSuggestionsMsg && <div style={{ fontSize: 10, color: co.muted, marginBottom: 4 }}>{aiSuggestionsMsg}</div>}
+            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+              {visibleAiSuggestions.map((s, i) => (
+                <div key={i} style={{
+                  background: s.severity === "warning" ? "#fef3c7" : co.surfaceAlt,
+                  border: "1px solid " + (s.severity === "warning" ? "#fcd34d" : co.border),
+                  borderRadius: 6, padding: "4px 6px", fontSize: 10, color: co.text,
+                  display: "flex", alignItems: "flex-start", gap: 4,
+                }}>
+                  <span style={{ flexShrink: 0 }}>{CATEGORY_ICON[s.category] ?? "💡"}</span>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ lineHeight: 1.4, marginBottom: 2 }}>{s.message}</div>
+                    {s.fix && <div style={{ fontSize: 9, color: co.muted, fontStyle: "italic" }}>{s.fix}</div>}
+                  </div>
+                  <button onClick={() => setDismissedAi(prev => { const s = new Set(Array.from(prev)); s.add(i); return s; })} style={{ background: "none", border: "none", cursor: "pointer", color: co.muted, fontSize: 11, padding: 0, lineHeight: 1, flexShrink: 0 }}>×</button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <div style={{ padding: 8, borderTop: "1px solid " + co.border, display: "flex", gap: 4 }}>
+          <button style={{ ...sBtnSm, flex: 1 }} onClick={addChapter}>+ Add {getChapterLabel(project.format)}</button>
+          <button
+            style={{ ...sBtnSm, flexShrink: 0, background: aiChecking ? co.surfaceAlt : co.surface, border: "1px solid " + co.border, opacity: aiChecking ? 0.7 : 1 }}
+            onClick={runAiCheck}
+            disabled={aiChecking}
+            title="AI Story Review (Pro)"
+          >
+            {aiChecking ? "…" : "🔍"}
+          </button>
         </div>
       </>}
     </div>

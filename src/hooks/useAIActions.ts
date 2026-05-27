@@ -10,6 +10,8 @@ import { buildAtmosphereContext } from "@/lib/atmosphere";
 import { buildTensionContext } from "@/lib/tension";
 import { buildCompositionContext, type CompositionLayer } from "@/lib/ai/composer";
 import { compactContext } from "@/lib/compact";
+import { buildHorrorContext } from "@/lib/horror";
+import { buildComedyContext } from "@/lib/comedy";
 
 export function useAIActions({
   project, mode, prompt, activeChap,
@@ -241,6 +243,38 @@ export function useAIActions({
     setGenerating(false); setGenTarget("");
   };
 
+  const generateHorror = async (archetypeName: string, horrorPrompt: string) => {
+    if (!archetypeName) { setErrorMsg("Select a horror archetype."); return; }
+    setGenerating(true); setGenTarget("main"); setStreamText("");
+    try {
+      const ctx = buildHorrorContext(archetypeName) + "\n---\n" + buildFullContext();
+      const res = await fetch("/api/ai/generate", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mode: "horror", prompt: horrorPrompt || `Write a ${archetypeName.toLowerCase()} horror scene.`, context: ctx, format: project.format, projectId: project.id, chapterId: activeChap.id }),
+      });
+      const data = await res.json();
+      if (data.error === "upgrade_required") { setUpgradeRequired?.(data.feature); }
+      else if (data.text) setStreamText(data.text);
+    } catch { setErrorMsg("Horror generation failed. Please try again."); }
+    setGenerating(false); setGenTarget("");
+  };
+
+  const generateComedy = async (archetypeName: string, comedyPrompt: string) => {
+    if (!archetypeName) { setErrorMsg("Select a comedy archetype."); return; }
+    setGenerating(true); setGenTarget("main"); setStreamText("");
+    try {
+      const ctx = buildComedyContext(archetypeName) + "\n---\n" + buildFullContext();
+      const res = await fetch("/api/ai/generate", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mode: "comedy", prompt: comedyPrompt || `Write a ${archetypeName.toLowerCase()} comedy scene.`, context: ctx, format: project.format, projectId: project.id, chapterId: activeChap.id }),
+      });
+      const data = await res.json();
+      if (data.error === "upgrade_required") { setUpgradeRequired?.(data.feature); }
+      else if (data.text) setStreamText(data.text);
+    } catch { setErrorMsg("Comedy generation failed. Please try again."); }
+    setGenerating(false); setGenTarget("");
+  };
+
   const generateComposition = async (layers: CompositionLayer[], compositionPrompt: string) => {
     if (!layers.length) { setErrorMsg("Select at least one layer before generating."); return; }
     setGenerating(true); setGenTarget("main"); setStreamText("");
@@ -288,6 +322,7 @@ export function useAIActions({
     callAI, buildNeighbourContext, buildFullContext,
     generate, undoGeneration, autoSummarize, generateDialogue, generateCombat,
     generateEmotionalScene, generateAtmosphere, generateTension, generateComposition,
+    generateHorror, generateComedy,
     runPipeline, usePipelineOutput,
     handleTextareaSelect, runProse, replaceSelection, scoreHook,
   };

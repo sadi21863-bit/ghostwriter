@@ -16,6 +16,8 @@ const SECTION_WEIGHTS: [string, number][] = [
   ["INFORMATION STATE",         80],
   ["TENSION LIBRARY",           75],
   ["EMOTIONAL SCENE LIBRARY",   75],
+  ["HORROR LIBRARY",            75],
+  ["COMEDY LIBRARY",            75],
   ["ATMOSPHERE LIBRARY",        70],
   ["COMBAT LIBRARY",            70],
   ["MATCHUP:",                  65],

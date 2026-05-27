@@ -1,11 +1,13 @@
 import Anthropic from "@anthropic-ai/sdk";
+import { HORROR_SYSTEM_PROMPT } from "@/lib/horror";
+import { COMEDY_SYSTEM_PROMPT } from "@/lib/comedy";
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! });
 
 function safeParseJson(raw: string) {
   const clean = raw.replace(/```json\n?|```/g, "").trim();
   try { return JSON.parse(clean); } catch { return {}; }
 }
-export type GenerationMode = "brainstorm" | "outline" | "write" | "dialogue" | "combat" | "emotional" | "atmosphere" | "tension" | "composition";
+export type GenerationMode = "brainstorm" | "outline" | "write" | "dialogue" | "combat" | "emotional" | "atmosphere" | "tension" | "composition" | "horror" | "comedy";
 
 const DIALOGUE_SYSTEM_PROMPT = `You are writing a scene driven by dialogue. Your work operates on three simultaneous levels: the verbal (what is said), the physical (what the body is doing), and the structural (the information management between reader and character).
 
@@ -122,6 +124,8 @@ const MI = {
   emotional:   (_f: string) => EMOTIONAL_SYSTEM_PROMPT,
   atmosphere:  (_f: string) => ATMOSPHERE_SYSTEM_PROMPT,
   tension:     (_f: string) => TENSION_SYSTEM_PROMPT,
+  horror:      (_f: string) => HORROR_SYSTEM_PROMPT,
+  comedy:      (_f: string) => COMEDY_SYSTEM_PROMPT,
   composition: (_f: string) => `You are writing a scene that must operate simultaneously across multiple injected technique libraries. The composition context above specifies the active layers and their intersection directives.
 
 COMPOSITION RULES (non-negotiable):

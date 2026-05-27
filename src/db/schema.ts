@@ -1,5 +1,5 @@
 import { pgTable, text, timestamp, integer, jsonb, varchar, uuid, boolean } from "drizzle-orm/pg-core";
-import { relations } from "drizzle-orm";
+import { relations, sql } from "drizzle-orm";
 
 export const users = pgTable("users", { id: uuid("id").defaultRandom().primaryKey(), name: text("name"), email: text("email").notNull().unique(), emailVerified: timestamp("email_verified", { mode: "date" }), image: text("image"), hashedPassword: text("hashed_password"), higgsfieldApiKey: text("higgsfield_api_key").default(""), openaiApiKey: text("openai_api_key").default(""), imageProviderId: text("image_provider_id").default("segmind_soul"), trendIntelligenceKey: text("trend_intelligence_key").default(""), createdAt: timestamp("created_at").defaultNow().notNull(), updatedAt: timestamp("updated_at").defaultNow().notNull() });
 export const accounts = pgTable("accounts", { id: uuid("id").defaultRandom().primaryKey(), userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }), type: text("type").notNull(), provider: text("provider").notNull(), providerAccountId: text("provider_account_id").notNull(), refresh_token: text("refresh_token"), access_token: text("access_token"), expires_at: integer("expires_at"), token_type: text("token_type"), scope: text("scope"), id_token: text("id_token"), session_state: text("session_state") });
@@ -37,6 +37,18 @@ export const storyMemories = pgTable("story_memories", {
   category: varchar("category", { length: 30 }).default("general"),
   autoExtracted: boolean("auto_extracted").default(true),
   chapterIndex: integer("chapter_index").default(0),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const characterEvolutionLog = pgTable("character_evolution_log", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  projectId: uuid("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
+  characterId: uuid("character_id").notNull().references(() => characters.id, { onDelete: "cascade" }),
+  chapterIndex: integer("chapter_index").notNull(),
+  triggerMemoryIds: text("trigger_memory_ids").array().notNull().default(sql`'{}'`),
+  previousState: jsonb("previous_state").notNull().default(sql`'{}'`),
+  updatedTraits: jsonb("updated_traits").notNull().default(sql`'{}'`),
+  evolutionSummary: text("evolution_summary").notNull().default(""),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -121,8 +133,9 @@ export const subscriptions = pgTable("subscriptions", {
 export const usersRelations = relations(users, ({ many, one }) => ({ projects: many(projects), videoAnalysisJobs: many(videoAnalysisJobs), subscription: one(subscriptions, { fields: [users.id], references: [subscriptions.userId] }) }));
 export const subscriptionsRelations = relations(subscriptions, ({ one }) => ({ user: one(users, { fields: [subscriptions.userId], references: [users.id] }) }));
 export const videoAnalysisJobsRelations = relations(videoAnalysisJobs, ({ one }) => ({ user: one(users, { fields: [videoAnalysisJobs.userId], references: [users.id] }) }));
-export const projectsRelations = relations(projects, ({ one, many }) => ({ user: one(users, { fields: [projects.userId], references: [users.id] }), characters: many(characters), locations: many(locations), plotThreads: many(plotThreads), chapters: many(chapters), referenceWorks: many(referenceWorks), generations: many(generations), creatorBible: one(creatorBibles, { fields: [projects.id], references: [creatorBibles.projectId] }), storyMemories: many(storyMemories), comicPages: many(comicPages), productionShots: many(productionShots) }));
-export const charactersRelations = relations(characters, ({ one }) => ({ project: one(projects, { fields: [characters.projectId], references: [projects.id] }) }));
+export const projectsRelations = relations(projects, ({ one, many }) => ({ user: one(users, { fields: [projects.userId], references: [users.id] }), characters: many(characters), locations: many(locations), plotThreads: many(plotThreads), chapters: many(chapters), referenceWorks: many(referenceWorks), generations: many(generations), creatorBible: one(creatorBibles, { fields: [projects.id], references: [creatorBibles.projectId] }), storyMemories: many(storyMemories), comicPages: many(comicPages), productionShots: many(productionShots), characterEvolutionLogs: many(characterEvolutionLog) }));
+export const charactersRelations = relations(characters, ({ one, many }) => ({ project: one(projects, { fields: [characters.projectId], references: [projects.id] }), evolutionLogs: many(characterEvolutionLog) }));
+export const characterEvolutionLogRelations = relations(characterEvolutionLog, ({ one }) => ({ project: one(projects, { fields: [characterEvolutionLog.projectId], references: [projects.id] }), character: one(characters, { fields: [characterEvolutionLog.characterId], references: [characters.id] }) }));
 export const locationsRelations = relations(locations, ({ one }) => ({ project: one(projects, { fields: [locations.projectId], references: [projects.id] }) }));
 export const plotThreadsRelations = relations(plotThreads, ({ one }) => ({ project: one(projects, { fields: [plotThreads.projectId], references: [projects.id] }) }));
 export const chaptersRelations = relations(chapters, ({ one, many }) => ({ project: one(projects, { fields: [chapters.projectId], references: [projects.id] }), comicPages: many(comicPages) }));

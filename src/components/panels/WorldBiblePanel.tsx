@@ -101,6 +101,13 @@ export default function WorldBiblePanel(props: Props) {
   const [showRefModal, setShowRefModal] = useState(false);
   const [newRef, setNewRef] = useState<any>({ title: "", attributes: {} });
 
+  // Character Evolution modal state
+  const [showEvolutionModal, setShowEvolutionModal] = useState(false);
+  const [evolutionCharName, setEvolutionCharName] = useState("");
+  const [evolutionCharId, setEvolutionCharId] = useState("");
+  const [evolutionLogs, setEvolutionLogs] = useState<any[]>([]);
+  const [evolutionLoading, setEvolutionLoading] = useState(false);
+
   const loadRelMap = async () => {
     setRelMapLoading(true); setSelectedMapEdge(null); setSelectedMapNode(null);
     try {
@@ -109,6 +116,20 @@ export default function WorldBiblePanel(props: Props) {
       setRelMapData(data);
     } catch (e) { setErrorMsg("Failed to load character connections. Please try again."); }
     setRelMapLoading(false);
+  };
+
+  const openEvolution = async (char: any) => {
+    setEvolutionCharName(char.name);
+    setEvolutionCharId(char.id);
+    setEvolutionLogs([]);
+    setEvolutionLoading(true);
+    setShowEvolutionModal(true);
+    try {
+      const res = await fetch(`/api/projects/${project.id}/characters/${char.id}/evolution`);
+      const data = await res.json();
+      setEvolutionLogs(data.logs || []);
+    } catch { setErrorMsg("Failed to load evolution timeline."); }
+    setEvolutionLoading(false);
   };
 
   const openCharEdit = (i: number) => { setEditCharIdx(i); setNewChar({ ...DEFAULT_CHAR, ...project.characters[i] }); setCharGenPrompt(""); setShowCharModal(true); };
@@ -564,6 +585,7 @@ export default function WorldBiblePanel(props: Props) {
                                 {item.status && <span style={{ width: 7, height: 7, borderRadius: "50%", background: item.status === "Active" ? co.green : item.status === "Resolved" ? co.muted : co.orange, flexShrink: 0 }} />}
                                 <span style={{ flex: 1 }}><strong>{item.name}</strong>{item.role && <span style={{ color: co.muted, fontSize: 11 }}> · {item.role}</span>}</span>
                                 <span style={{ fontSize: 10, color: co.accent }}>edit</span>
+                                {key === "characters" && item.alwaysInContext !== false && <button title="View character evolution timeline" style={{ background: "none", border: "none", cursor: "pointer", fontSize: 11, padding: 0, color: co.muted }} onClick={e => { e.stopPropagation(); openEvolution(item); }}>📈</button>}
                                 <button title={item.alwaysInContext === false ? "Minor — click to pin to AI context" : "Pinned to AI context — click to mark as minor"} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 13, padding: 0, color: item.alwaysInContext === false ? co.muted : co.accent }} onClick={e => { e.stopPropagation(); toggleAlwaysInContext(key, item, i); }}>{item.alwaysInContext === false ? "☆" : "★"}</button>
                                 <button style={{ background: "none", border: "none", color: co.danger, cursor: "pointer", fontSize: 13, padding: 0 }} onClick={e => { e.stopPropagation(); setConfirmModal({ msg: "Delete " + item.name + "?", action: async () => { await fetch(`/api/projects/${project.id}/${entityApiPath[key]}/${item.id}`, { method: "DELETE" }); updateProject((p: any) => ({ ...p, [key]: p[key].filter((_: any, j: number) => j !== i) })); setConfirmModal(null); } }); }}>x</button>
                               </div>
@@ -807,6 +829,50 @@ export default function WorldBiblePanel(props: Props) {
                 updateProject((p: any) => ({ ...p, referenceWorks: [...p.referenceWorks, created] }));
                 setShowRefModal(false);
               }}>Add</button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Character Evolution Modal */}
+      {showEvolutionModal && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.3)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 999 }} onClick={() => setShowEvolutionModal(false)}>
+          <div style={{ background: co.surface, borderRadius: 16, padding: 24, width: 520, maxHeight: "80vh", overflow: "auto", boxShadow: "0 20px 60px rgba(0,0,0,0.15)", border: "1px solid " + co.border }} onClick={e => e.stopPropagation()}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 16 }}>
+              <h3 style={{ margin: 0, fontSize: 18, fontWeight: 800 }}>📈 {evolutionCharName}'s Evolution</h3>
+              <button style={{ background: "none", border: "none", cursor: "pointer", fontSize: 20, color: co.muted }} onClick={() => setShowEvolutionModal(false)}>×</button>
+            </div>
+            {evolutionLoading && <div style={{ textAlign: "center", padding: "30px 0", color: co.muted, fontSize: 13 }}>Loading timeline...</div>}
+            {!evolutionLoading && evolutionLogs.length === 0 && (
+              <div style={{ textAlign: "center", padding: "30px 0" }}>
+                <div style={{ fontSize: 32, marginBottom: 12 }}>🌱</div>
+                <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 6 }}>No evolution tracked yet</div>
+                <div style={{ fontSize: 11, color: co.muted, lineHeight: 1.5 }}>Character evolution is analysed every 5 chapters.<br />Write more of the story to see how {evolutionCharName} changes.</div>
+              </div>
+            )}
+            {!evolutionLoading && evolutionLogs.length > 0 && (
+              <div style={{ position: "relative" }}>
+                <div style={{ position: "absolute", left: 12, top: 0, bottom: 0, width: 2, background: co.border }} />
+                {evolutionLogs.map((log: any, i: number) => (
+                  <div key={log.id} style={{ paddingLeft: 32, marginBottom: 16, position: "relative" }}>
+                    <div style={{ position: "absolute", left: 6, top: 4, width: 14, height: 14, borderRadius: "50%", background: co.accent, border: "2px solid " + co.surface }} />
+                    <div style={{ fontSize: 10, fontWeight: 700, color: co.muted, textTransform: "uppercase", marginBottom: 4 }}>Chapter {log.chapterIndex + 1}</div>
+                    <div style={{ fontSize: 12, lineHeight: 1.6, marginBottom: 6, color: co.text }}>{log.evolutionSummary}</div>
+                    {log.updatedTraits && Object.entries(log.updatedTraits).some(([, v]) => v) && (
+                      <div style={{ background: co.surfaceAlt, borderRadius: 8, padding: "8px 10px" }}>
+                        <div style={{ fontSize: 10, fontWeight: 700, color: co.accent, marginBottom: 4 }}>UPDATED TRAITS</div>
+                        {Object.entries(log.updatedTraits).filter(([, v]) => v).map(([k, v]) => (
+                          <div key={k} style={{ fontSize: 11, color: co.muted, marginBottom: 2 }}>
+                            <span style={{ color: co.text, fontWeight: 600 }}>{k}:</span> {v as string}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+            <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 8 }}>
+              <button style={sBtnSm} onClick={() => setShowEvolutionModal(false)}>Close</button>
             </div>
           </div>
         </div>
