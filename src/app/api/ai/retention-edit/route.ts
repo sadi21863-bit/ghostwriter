@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getRequiredSession } from "@/lib/auth-helpers";
+import { checkAiRateLimit } from "@/lib/ratelimit";
 import Anthropic from "@anthropic-ai/sdk";
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! });
 
@@ -12,7 +13,9 @@ const FORMAT_RETENTION_RULES: Record<string, string> = {
 };
 
 export async function POST(req: Request) {
-  await getRequiredSession();
+  const session = await getRequiredSession();
+  const rl = await checkAiRateLimit(session.user.id);
+  if (rl) return rl;
   const { script, format } = await req.json();
   if (!script?.trim() || !format) return NextResponse.json({ error: "script and format required" }, { status: 400 });
   const rules = FORMAT_RETENTION_RULES[format] || FORMAT_RETENTION_RULES["YouTube Long-form"];

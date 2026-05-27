@@ -1,13 +1,14 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { getRequiredSession } from "@/lib/auth-helpers";
+import { checkAiRateLimit } from "@/lib/ratelimit";
 import Anthropic from "@anthropic-ai/sdk";
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! });
 
 export async function POST(req: Request) {
-  const session = await getServerSession(authOptions as any);
-  if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const session = await getRequiredSession();
+  const rl = await checkAiRateLimit(session.user.id);
+  if (rl) return rl;
 
   const { topic, format } = await req.json();
   if (!topic?.trim()) return NextResponse.json({ error: "Missing topic" }, { status: 400 });

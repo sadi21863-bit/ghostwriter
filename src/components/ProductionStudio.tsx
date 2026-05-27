@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
+import type { CSSProperties } from "react";
 import { SHOT_TYPES, CAMERA_MOVEMENTS, LIGHTING_MOODS, TIME_OF_DAY, buildShotPromptFragment } from "@/lib/ai/shot-parameters";
 
 type Shot = {
@@ -232,15 +233,15 @@ export default function ProductionStudio({ project, higgsfieldKey }: { project: 
     URL.revokeObjectURL(url);
   }
 
-  const sel: Record<string, string> = {
+  const sel: CSSProperties = {
     border: "1px solid #e5e7eb", borderRadius: 8, padding: "4px 8px", fontSize: 12,
     background: "white", cursor: "pointer", width: "100%",
   };
-  const btn = (color = "#6c47ff"): Record<string, string> => ({
+  const btn = (color = "#6c47ff"): CSSProperties => ({
     background: color, color: "white", border: "none", borderRadius: 6,
     padding: "5px 10px", fontSize: 12, fontWeight: "600", cursor: "pointer",
   });
-  const outBtn: Record<string, string> = {
+  const outBtn: CSSProperties = {
     background: "white", border: "1px solid #e5e7eb", borderRadius: 6,
     padding: "5px 10px", fontSize: 12, fontWeight: "600", cursor: "pointer", color: "#374151",
   };

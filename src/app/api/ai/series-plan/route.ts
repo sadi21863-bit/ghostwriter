@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getRequiredSession } from "@/lib/auth-helpers";
+import { checkAiRateLimit } from "@/lib/ratelimit";
 import Anthropic from "@anthropic-ai/sdk";
 import { db } from "@/db";
 import { projects } from "@/db/schema";
@@ -8,6 +9,8 @@ const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! });
 
 export async function POST(req: Request) {
   const s = await getRequiredSession();
+  const rl = await checkAiRateLimit(s.user.id);
+  if (rl) return rl;
   const { creatorBible, format, currentProjectId } = await req.json();
   if (!format) return NextResponse.json({ error: "format required" }, { status: 400 });
 

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getRequiredSession } from "@/lib/auth-helpers";
+import { checkAiRateLimit } from "@/lib/ratelimit";
 import { db } from "@/db";
 import { users } from "@/db/schema";
 import { eq } from "drizzle-orm";
@@ -10,6 +11,8 @@ const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! });
 
 export async function POST(req: Request) {
   const s = await getRequiredSession();
+  const rl = await checkAiRateLimit(s.user.id);
+  if (rl) return rl;
   const { keyword, format, creatorBible } = await req.json();
 
   if (!keyword?.trim()) {

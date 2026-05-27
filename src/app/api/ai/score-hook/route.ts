@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getRequiredSession } from "@/lib/auth-helpers";
+import { checkAiRateLimit } from "@/lib/ratelimit";
 import Anthropic from "@anthropic-ai/sdk";
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! });
@@ -10,7 +11,9 @@ function safeParseJson(raw: string) {
 }
 
 export async function POST(req: Request) {
-  await getRequiredSession();
+  const session = await getRequiredSession();
+  const rl = await checkAiRateLimit(session.user.id);
+  if (rl) return rl;
   const { hook, format } = await req.json();
 
   if (!hook?.trim() || !format)

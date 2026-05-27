@@ -1,12 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getRequiredSession } from "@/lib/auth-helpers";
+import { checkAiRateLimit } from "@/lib/ratelimit";
 import { generateQuickStory, generateBeginnerCharacters, generateEntity } from "@/lib/ai/engine";
 import { db } from "@/db";
 import { projects, characters, locations, plotThreads } from "@/db/schema";
 import { eq } from "drizzle-orm";
 
 export async function POST(req: NextRequest) {
-    await getRequiredSession();
+    const session = await getRequiredSession();
+    const rl = await checkAiRateLimit(session.user.id);
+    if (rl) return rl;
     const { projectId, title, format, genres } = await req.json();
 
     try {

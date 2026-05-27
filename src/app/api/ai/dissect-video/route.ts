@@ -1,11 +1,21 @@
 import { NextResponse } from "next/server";
 import { getRequiredSession } from "@/lib/auth-helpers";
+import { checkAiRateLimit } from "@/lib/ratelimit";
+import { checkGeminiKey } from "@/lib/env-check";
 import { db } from "@/db";
 import { videoAnalysisJobs } from "@/db/schema";
 import { eq } from "drizzle-orm";
 
 export async function POST(req: Request) {
   const s = await getRequiredSession();
+  const rl = await checkAiRateLimit(s.user.id);
+  if (rl) return rl;
+
+  const geminiError = checkGeminiKey();
+  if (geminiError) {
+    return NextResponse.json({ error: geminiError }, { status: 503 });
+  }
+
   const { youtubeUrl, creatorBible } = await req.json();
 
   if (!youtubeUrl?.trim()) {

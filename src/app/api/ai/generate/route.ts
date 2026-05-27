@@ -1,11 +1,14 @@
 import { NextResponse } from "next/server";
 import { getRequiredSession } from "@/lib/auth-helpers";
+import { checkAiRateLimit } from "@/lib/ratelimit";
 import { generate } from "@/lib/ai/engine";
 import { db } from "@/db";
 import { generations } from "@/db/schema";
 
 export async function POST(req: Request) {
-  await getRequiredSession();
+  const session = await getRequiredSession();
+  const rl = await checkAiRateLimit(session.user.id);
+  if (rl) return rl;
   const { mode, prompt, context, format, projectId, chapterId } = await req.json();
 
   if (!prompt?.trim()) return NextResponse.json({ error: "Prompt is required" }, { status: 400 });

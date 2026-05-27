@@ -24,7 +24,7 @@ export async function PATCH(req: Request, { params }: { params: { projectId: str
 
   const body = await req.json();
   const updates: Record<string, string> = {};
-  for (const key of ALLOWED_FIELDS) {
+  for (const key of Array.from(ALLOWED_FIELDS)) {
     if (key in body) updates[key] = body[key];
   }
 

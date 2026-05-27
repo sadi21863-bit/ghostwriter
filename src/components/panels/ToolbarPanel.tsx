@@ -2,7 +2,7 @@
 import { useState, useEffect, useRef } from "react";
 import ComicStudio from "@/components/ComicStudio";
 import ProductionStudio from "@/components/ProductionStudio";
-import { getPipelines, AGENT_LABELS, type Pipeline } from "@/lib/ai/pipelines";
+import { getPipelines, AGENT_LABELS, type Pipeline, type AgentKey } from "@/lib/ai/pipelines";
 import { MODES, PODCAST_MODES, isStoryFormat, isCreatorFormat } from "@/lib/formats";
 import { getDialogueArchetypeNames } from "@/lib/dialogue";
 import { getCombatStyleNames } from "@/lib/combat";
@@ -348,7 +348,7 @@ export default function ToolbarPanel(props: Props) {
                       <div style={{ fontSize: 13, fontWeight: 700 }}>{pipeline.name}</div>
                       <div style={{ fontSize: 11, color: co.muted, marginTop: 2 }}>{pipeline.description}</div>
                       <div style={{ display: "flex", gap: 4, marginTop: 6, flexWrap: "wrap" }}>
-                        {pipeline.agents.map((a: string) => <span key={a} style={{ fontSize: 10, padding: "2px 8px", borderRadius: 20, background: co.accentBg, color: co.accent, fontWeight: 600 }}>{AGENT_LABELS[a]}</span>)}
+                        {pipeline.agents.map((a: AgentKey) => <span key={a} style={{ fontSize: 10, padding: "2px 8px", borderRadius: 20, background: co.accentBg, color: co.accent, fontWeight: 600 }}>{AGENT_LABELS[a]}</span>)}
                       </div>
                     </div>
                     <button style={{ ...sBtn, opacity: pipelineRunning || !prompt.trim() ? 0.5 : 1 }} disabled={pipelineRunning || !prompt.trim()} onClick={() => runPipeline(pipeline)}>
