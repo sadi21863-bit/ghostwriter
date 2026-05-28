@@ -46,7 +46,7 @@ export async function POST(req: Request) {
     ),
   });
 
-  const results = [];
+  const results: { characterId: string; characterName: string; evolutionSummary: any; contradictionWarning: any }[] = [];
 
   for (const char of mainChars) {
     const charMemories = memories.filter(m =>

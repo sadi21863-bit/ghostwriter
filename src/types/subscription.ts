@@ -25,7 +25,8 @@ export type FeatureGate =
   | "creator_tools_advanced"  // trend intel, video dissection, guest intel, retention editor
   | "composition_layer"
   | "unlimited_generations"
-  | "virality_predict";
+  | "virality_predict"
+  | "audio_novel";
 
 // ── Which tiers unlock which features ─────────────────────────────────────
 
@@ -41,6 +42,7 @@ export const FEATURE_ACCESS: Record<FeatureGate, SubscriptionTier[]> = {
   creator_tools_advanced: ["creator_pro", "all_access"],
   unlimited_generations:  ["story_pro", "creator_pro", "all_access"],
   virality_predict:       ["creator_pro", "all_access"],
+  audio_novel:            [],
 };
 
 // ── Which AI modes require which gate ─────────────────────────────────────
@@ -57,6 +59,10 @@ export const GATED_MODES: Record<string, FeatureGate> = {
   mystery:     "story_modes_advanced",
   romance:     "story_modes_advanced",
   action:      "story_modes_advanced",
+  monologue:   "story_modes_advanced",
+  voice:       "story_modes_advanced",
+  thriller:    "story_modes_advanced",
+  sports:      "story_modes_advanced",
 };
 
 // ── Stripe price IDs (replace with real IDs from Stripe dashboard) ─────────
@@ -137,5 +143,10 @@ export const UPGRADE_COPY: Record<FeatureGate, { title: string; description: str
     title: "Unlock Virality Predictor",
     description: "Predict engagement scores, hook strength, and retention risk before you publish. Get AI-powered improvement suggestions.",
     cta: "Upgrade to Creator Pro — ₹399/month",
+  },
+  audio_novel: {
+    title: "Audio Novel — Add-on",
+    description: "Convert your chapters to audio with character-specific voices. ₹299 per chapter export.",
+    cta: "Purchase Audio Export — ₹299",
   },
 };

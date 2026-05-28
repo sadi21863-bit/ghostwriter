@@ -4,13 +4,17 @@ import { COMEDY_SYSTEM_PROMPT } from "@/lib/comedy";
 import { MYSTERY_SYSTEM_PROMPT } from "@/lib/mystery";
 import { ROMANCE_SYSTEM_PROMPT } from "@/lib/romance";
 import { ACTION_SYSTEM_PROMPT } from "@/lib/action";
+import { MONOLOGUE_SYSTEM_PROMPT } from "@/lib/monologue";
+import { VOICE_SYSTEM_PROMPT } from "@/lib/voice";
+import { THRILLER_SYSTEM_PROMPT } from "@/lib/thriller";
+import { SPORTS_SYSTEM_PROMPT } from "@/lib/sports";
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! });
 
 function safeParseJson(raw: string) {
   const clean = raw.replace(/```json\n?|```/g, "").trim();
   try { return JSON.parse(clean); } catch { return {}; }
 }
-export type GenerationMode = "brainstorm" | "outline" | "write" | "dialogue" | "combat" | "emotional" | "atmosphere" | "tension" | "composition" | "horror" | "comedy" | "mystery" | "romance" | "action";
+export type GenerationMode = "brainstorm" | "outline" | "write" | "dialogue" | "combat" | "emotional" | "atmosphere" | "tension" | "composition" | "horror" | "comedy" | "mystery" | "romance" | "action" | "monologue" | "voice" | "thriller" | "sports";
 
 const DIALOGUE_SYSTEM_PROMPT = `You are writing a scene driven by dialogue. Your work operates on three simultaneous levels: the verbal (what is said), the physical (what the body is doing), and the structural (the information management between reader and character).
 
@@ -132,6 +136,10 @@ const MI = {
   mystery:     (_f: string) => MYSTERY_SYSTEM_PROMPT,
   romance:     (_f: string) => ROMANCE_SYSTEM_PROMPT,
   action:      (_f: string) => ACTION_SYSTEM_PROMPT,
+  monologue:   (_f: string) => MONOLOGUE_SYSTEM_PROMPT,
+  voice:       (_f: string) => VOICE_SYSTEM_PROMPT,
+  thriller:    (_f: string) => THRILLER_SYSTEM_PROMPT,
+  sports:      (_f: string) => SPORTS_SYSTEM_PROMPT,
   composition: (_f: string) => `You are writing a scene that must operate simultaneously across multiple injected technique libraries. The composition context above specifies the active layers and their intersection directives.
 
 COMPOSITION RULES (non-negotiable):

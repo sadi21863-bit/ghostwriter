@@ -890,6 +890,43 @@ export default function WorldBiblePanel(props: Props) {
                 {!data.appearance && <div style={{ fontSize: 10, color: "#166534", marginTop: 4, opacity: 0.7 }}>Add appearance description first</div>}
               </div>
             )}
+            {mi === 0 && isStoryFormat(project.format) && (
+              <div style={{ marginBottom: 8 }}>
+                <div style={{ fontSize: 11, color: co.muted, marginBottom: 4, fontWeight: 600 }}>Voice Profile <span style={{ fontWeight: 400, opacity: 0.7 }}>(Labov/Mairesse — optional)</span></div>
+                <select
+                  style={{ ...sInput }}
+                  value={data.voiceProfile || ""}
+                  onChange={e => setNewChar((c: any) => ({ ...c, voiceProfile: e.target.value }))}
+                >
+                  <option value="">No voice profile</option>
+                  <option value="Vocabulary Register">Vocabulary Register</option>
+                  <option value="Syntactic Fingerprint">Syntactic Fingerprint</option>
+                  <option value="Personality-Language">Personality-Language</option>
+                  <option value="Emotional Degradation">Emotional Degradation</option>
+                  <option value="Prosodic Rhythm">Prosodic Rhythm</option>
+                </select>
+                <div style={{ fontSize: 10, color: co.muted, marginTop: 3 }}>Injected into AI context when generating dialogue or voice scenes for this character</div>
+              </div>
+            )}
+            {mi === 0 && isStoryFormat(project.format) && (
+              <div style={{ marginBottom: 8 }}>
+                <div style={{ fontSize: 11, color: co.muted, marginBottom: 4, fontWeight: 600 }}>TTS Voice <span style={{ fontWeight: 400, opacity: 0.7 }}>(Audio Novel — optional)</span></div>
+                <select
+                  style={{ ...sInput }}
+                  value={data.voiceId || ""}
+                  onChange={e => setNewChar((c: any) => ({ ...c, voiceId: e.target.value }))}
+                >
+                  <option value="">No voice assigned</option>
+                  <option value="alloy">Alloy — neutral, balanced</option>
+                  <option value="echo">Echo — warm, conversational</option>
+                  <option value="fable">Fable — expressive, storytelling</option>
+                  <option value="onyx">Onyx — deep, authoritative</option>
+                  <option value="nova">Nova — bright, energetic</option>
+                  <option value="shimmer">Shimmer — clear, precise</option>
+                </select>
+                <div style={{ fontSize: 10, color: co.muted, marginTop: 3 }}>Used when generating Audio Novel exports for this character's dialogue</div>
+              </div>
+            )}
             {tKey === "plot" && <div style={{ marginBottom: 8 }}><span style={{ fontSize: 11, color: co.muted, marginBottom: 2, display: "block", fontWeight: 600 }}>Status</span><select style={sInput} value={newPlot.status} onChange={e => setNewPlot((t: any) => ({ ...t, status: e.target.value }))}><option>Active</option><option>Simmering</option><option>Resolved</option></select></div>}
             <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 12 }}>
               <button style={sBtnSm} onClick={() => setShow(false)}>Cancel</button>

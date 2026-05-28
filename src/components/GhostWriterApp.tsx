@@ -32,6 +32,10 @@ export default function GhostWriterApp({ projectId }: { projectId: string }) {
   const [mysteryArchetype, setMysteryArchetype] = useState("Clue Planting");
   const [romanceArchetype, setRomanceArchetype] = useState("First Recognition");
   const [actionArchetype, setActionArchetype] = useState("Chase");
+  const [monologueArchetype, setMonologueArchetype] = useState("Interior Monologue");
+  const [voiceProfile, setVoiceProfile] = useState("Vocabulary Register");
+  const [thrillerArchetype, setThrillerArchetype] = useState("Expanding Threat");
+  const [sportsArchetype, setSportsArchetype] = useState("Flow State");
   const [compositionLayers, setCompositionLayers] = useState<CompositionLayer[]>([]);
   const [upgradeRequired, setUpgradeRequired] = useState<FeatureGate | null>(null);
 
@@ -209,6 +213,18 @@ export default function GhostWriterApp({ projectId }: { projectId: string }) {
         actionArchetype={actionArchetype}
         setActionArchetype={setActionArchetype}
         generateAction={aiActions.generateAction}
+        monologueArchetype={monologueArchetype}
+        setMonologueArchetype={setMonologueArchetype}
+        generateMonologue={aiActions.generateMonologue}
+        voiceProfile={voiceProfile}
+        setVoiceProfile={setVoiceProfile}
+        generateVoice={aiActions.generateVoice}
+        thrillerArchetype={thrillerArchetype}
+        setThrillerArchetype={setThrillerArchetype}
+        generateThriller={aiActions.generateThriller}
+        sportsArchetype={sportsArchetype}
+        setSportsArchetype={setSportsArchetype}
+        generateSports={aiActions.generateSports}
         compositionLayers={compositionLayers}
         setCompositionLayers={setCompositionLayers}
         generateComposition={aiActions.generateComposition}

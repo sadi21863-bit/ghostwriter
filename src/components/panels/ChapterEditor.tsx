@@ -51,6 +51,9 @@ export default function ChapterEditor({
   const [aiSuggestions, setAiSuggestions] = useState<AiSuggestion[]>([]);
   const [aiSuggestionsMsg, setAiSuggestionsMsg] = useState("");
   const [dismissedAi, setDismissedAi] = useState<Set<number>>(new Set());
+  const [audioGenerating, setAudioGenerating] = useState(false);
+  const [audioUrl, setAudioUrl] = useState<string | null>(null);
+  const [audioMsg, setAudioMsg] = useState("");
 
   const activeChap = project.chapters.find((c: any) => c.id === project.activeChapter);
 
@@ -231,8 +234,41 @@ export default function ChapterEditor({
           </div>
         )}
 
+        {audioUrl && (
+          <div style={{ padding: "8px 10px", borderTop: "1px solid " + co.border }}>
+            <div style={{ fontSize: 10, fontWeight: 700, color: co.muted, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 5 }}>🎧 Audio Export</div>
+            <audio controls style={{ width: "100%", height: 32 }} src={audioUrl} />
+          </div>
+        )}
+        {audioMsg && (
+          <div style={{ padding: "4px 10px", fontSize: 10, color: co.muted }}>{audioMsg}</div>
+        )}
         <div style={{ padding: 8, borderTop: "1px solid " + co.border, display: "flex", gap: 4 }}>
           <button style={{ ...sBtnSm, flex: 1 }} onClick={addChapter}>+ Add {getChapterLabel(project.format)}</button>
+          <button
+            style={{ ...sBtnSm, flexShrink: 0, background: audioGenerating ? co.surfaceAlt : co.surface, border: "1px solid " + co.border, opacity: audioGenerating ? 0.7 : 1 }}
+            onClick={async () => {
+              if (audioGenerating || !activeChap?.content) return;
+              const wc = (activeChap.content || "").split(/\s+/).filter(Boolean).length;
+              const estimatedRs = Math.round(wc * 0.002 * 83);
+              if (!window.confirm(`Generate audio for this chapter? Estimated cost: ~₹${estimatedRs}. Uses your OpenAI API key.`)) return;
+              setAudioGenerating(true); setAudioMsg("Generating audio..."); setAudioUrl(null);
+              try {
+                const res = await fetch("/api/audio/generate", {
+                  method: "POST", headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ projectId: project.id, chapterId: activeChap.id }),
+                });
+                const data = await res.json();
+                if (data.audioUrl) { setAudioUrl(data.audioUrl); setAudioMsg(`${Math.round(data.durationSeconds / 60)}m ${data.durationSeconds % 60}s · ${data.segments} segments`); }
+                else { setAudioMsg(data.error || "Audio generation failed."); }
+              } catch { setAudioMsg("Audio generation failed."); }
+              setAudioGenerating(false);
+            }}
+            disabled={audioGenerating || !activeChap?.content}
+            title="Audio Novel — generate chapter audio"
+          >
+            {audioGenerating ? "…" : "🎧"}
+          </button>
           <button
             style={{ ...sBtnSm, flexShrink: 0, background: aiChecking ? co.surfaceAlt : co.surface, border: "1px solid " + co.border, opacity: aiChecking ? 0.7 : 1 }}
             onClick={runAiCheck}

@@ -11,11 +11,11 @@ export const getChapterLabel = (format: string): string =>
   (({ Novel: "Chapter", Screenplay: "Scene", "Web Series": "Episode", "YouTube Long-form": "Section", "YouTube Short": "Beat", "TikTok Script": "Beat", "Instagram Reel": "Beat", "Podcast Episode": "Segment" } as Record<string, string>)[format] ?? "Chapter");
 
 export const GENRES = ["Fantasy", "Sci-Fi", "Horror", "Thriller", "Romance", "Drama", "Comedy", "Mystery", "Literary Fiction", "Action", "Historical", "Dystopian", "Noir", "Satire"];
-export const MODES = ["brainstorm", "outline", "write", "dialogue", "combat", "emotional", "atmosphere", "tension", "composition", "horror", "comedy", "mystery", "romance", "action"];
+export const MODES = ["brainstorm", "outline", "write", "dialogue", "combat", "emotional", "atmosphere", "tension", "composition", "horror", "comedy", "mystery", "romance", "action", "monologue", "voice", "thriller", "sports"];
 export const PODCAST_MODES = ["brainstorm", "outline", "write", "cohost"];
 export const STYLE_ATTRS = ["Pacing", "Tone", "POV Style", "Dialogue Style", "Sentence Structure", "Atmosphere"];
 
-export const DEFAULT_CHAR = { name: "", role: "", age: "", appearance: "", personality: "", thinkingStyle: "", behavior: "", habits: "", fears: "", desires: "", speechPattern: "", backstory: "", arc: "" };
+export const DEFAULT_CHAR = { name: "", role: "", age: "", appearance: "", personality: "", thinkingStyle: "", behavior: "", habits: "", fears: "", desires: "", speechPattern: "", backstory: "", arc: "", voiceProfile: "", voiceId: "" };
 export const DEFAULT_LOC = { name: "", description: "", atmosphere: "", history: "", sensoryDetails: "" };
 export const DEFAULT_PLOT = { name: "", description: "", status: "Active", stakes: "", connections: "" };
 

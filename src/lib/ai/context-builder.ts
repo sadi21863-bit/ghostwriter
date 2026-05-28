@@ -80,6 +80,7 @@ export function buildContext(p: ContextProject): string {
       }
       const parts = ["- " + c.name + (c.role ? " (" + c.role + ")" : "") + (c.age ? ", age " + c.age : "")];
       if (c.appearance)    parts.push("  Appearance: " + c.appearance);
+      if ((c as any).voiceProfile) parts.push("  Voice profile (Labov/Mairesse): " + (c as any).voiceProfile);
       if (c.personality)   parts.push("  Personality: " + c.personality);
       if (c.thinkingStyle) parts.push("  Thinking: " + c.thinkingStyle);
       if (c.behavior)      parts.push("  Behavior: " + c.behavior);

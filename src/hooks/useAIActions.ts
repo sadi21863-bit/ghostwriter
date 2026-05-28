@@ -15,6 +15,10 @@ import { buildComedyContext } from "@/lib/comedy";
 import { buildMysteryContext } from "@/lib/mystery";
 import { buildRomanceContext } from "@/lib/romance";
 import { buildActionContext } from "@/lib/action";
+import { buildMonologueContext } from "@/lib/monologue";
+import { buildVoiceContext } from "@/lib/voice";
+import { buildThrillerContext } from "@/lib/thriller";
+import { buildSportsContext } from "@/lib/sports";
 
 export function useAIActions({
   project, mode, prompt, activeChap,
@@ -310,6 +314,70 @@ export function useAIActions({
     setGenerating(false); setGenTarget("");
   };
 
+  const generateMonologue = async (archetypeName: string, monologuePrompt: string) => {
+    if (!archetypeName) { setErrorMsg("Select a monologue archetype."); return; }
+    setGenerating(true); setGenTarget("main"); setStreamText("");
+    try {
+      const ctx = buildMonologueContext(archetypeName) + "\n---\n" + buildFullContext();
+      const res = await fetch("/api/ai/generate", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mode: "monologue", prompt: monologuePrompt || `Write a ${archetypeName.toLowerCase()} interior monologue.`, context: ctx, format: project.format, projectId: project.id, chapterId: activeChap.id }),
+      });
+      const data = await res.json();
+      if (data.error === "upgrade_required") { setUpgradeRequired?.(data.feature); }
+      else if (data.text) setStreamText(data.text);
+    } catch { setErrorMsg("Monologue generation failed. Please try again."); }
+    setGenerating(false); setGenTarget("");
+  };
+
+  const generateVoice = async (profileName: string, voicePrompt: string) => {
+    if (!profileName) { setErrorMsg("Select a voice profile."); return; }
+    setGenerating(true); setGenTarget("main"); setStreamText("");
+    try {
+      const ctx = buildVoiceContext(profileName) + "\n---\n" + buildFullContext();
+      const res = await fetch("/api/ai/generate", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mode: "voice", prompt: voicePrompt || `Write a scene using the ${profileName} voice profile.`, context: ctx, format: project.format, projectId: project.id, chapterId: activeChap.id }),
+      });
+      const data = await res.json();
+      if (data.error === "upgrade_required") { setUpgradeRequired?.(data.feature); }
+      else if (data.text) setStreamText(data.text);
+    } catch { setErrorMsg("Voice generation failed. Please try again."); }
+    setGenerating(false); setGenTarget("");
+  };
+
+  const generateThriller = async (archetypeName: string, thrillerPrompt: string) => {
+    if (!archetypeName) { setErrorMsg("Select a thriller archetype."); return; }
+    setGenerating(true); setGenTarget("main"); setStreamText("");
+    try {
+      const ctx = buildThrillerContext(archetypeName) + "\n---\n" + buildFullContext();
+      const res = await fetch("/api/ai/generate", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mode: "thriller", prompt: thrillerPrompt || `Write a ${archetypeName.toLowerCase()} thriller scene.`, context: ctx, format: project.format, projectId: project.id, chapterId: activeChap.id }),
+      });
+      const data = await res.json();
+      if (data.error === "upgrade_required") { setUpgradeRequired?.(data.feature); }
+      else if (data.text) setStreamText(data.text);
+    } catch { setErrorMsg("Thriller generation failed. Please try again."); }
+    setGenerating(false); setGenTarget("");
+  };
+
+  const generateSports = async (archetypeName: string, sportsPrompt: string) => {
+    if (!archetypeName) { setErrorMsg("Select a sports archetype."); return; }
+    setGenerating(true); setGenTarget("main"); setStreamText("");
+    try {
+      const ctx = buildSportsContext(archetypeName) + "\n---\n" + buildFullContext();
+      const res = await fetch("/api/ai/generate", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mode: "sports", prompt: sportsPrompt || `Write a ${archetypeName.toLowerCase()} sports scene.`, context: ctx, format: project.format, projectId: project.id, chapterId: activeChap.id }),
+      });
+      const data = await res.json();
+      if (data.error === "upgrade_required") { setUpgradeRequired?.(data.feature); }
+      else if (data.text) setStreamText(data.text);
+    } catch { setErrorMsg("Sports generation failed. Please try again."); }
+    setGenerating(false); setGenTarget("");
+  };
+
   const generateAction = async (archetypeName: string, actionPrompt: string) => {
     if (!archetypeName) { setErrorMsg("Select an action archetype."); return; }
     setGenerating(true); setGenTarget("main"); setStreamText("");
@@ -374,6 +442,7 @@ export function useAIActions({
     generate, undoGeneration, autoSummarize, generateDialogue, generateCombat,
     generateEmotionalScene, generateAtmosphere, generateTension, generateComposition,
     generateHorror, generateComedy, generateMystery, generateRomance, generateAction,
+    generateMonologue, generateVoice, generateThriller, generateSports,
     runPipeline, usePipelineOutput,
     handleTextareaSelect, runProse, replaceSelection, scoreHook,
   };

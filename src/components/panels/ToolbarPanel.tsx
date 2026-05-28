@@ -18,6 +18,10 @@ import { ComedyPanel } from "./toolbar/modes/ComedyPanel";
 import { MysteryPanel } from "./toolbar/modes/MysteryPanel";
 import { RomancePanel } from "./toolbar/modes/RomancePanel";
 import { ActionPanel } from "./toolbar/modes/ActionPanel";
+import { MonologuePanel } from "./toolbar/modes/MonologuePanel";
+import { VoicePanel } from "./toolbar/modes/VoicePanel";
+import { ThrillerPanel } from "./toolbar/modes/ThrillerPanel";
+import { SportsPanel } from "./toolbar/modes/SportsPanel";
 
 // Tool panels
 import { PipelinePanel } from "./toolbar/tools/PipelinePanel";
@@ -121,6 +125,18 @@ interface Props {
   actionArchetype: string;
   setActionArchetype: (v: string) => void;
   generateAction: (archetypeName: string, prompt: string) => Promise<void>;
+  monologueArchetype: string;
+  setMonologueArchetype: (v: string) => void;
+  generateMonologue: (archetypeName: string, prompt: string) => Promise<void>;
+  voiceProfile: string;
+  setVoiceProfile: (v: string) => void;
+  generateVoice: (profileName: string, prompt: string) => Promise<void>;
+  thrillerArchetype: string;
+  setThrillerArchetype: (v: string) => void;
+  generateThriller: (archetypeName: string, prompt: string) => Promise<void>;
+  sportsArchetype: string;
+  setSportsArchetype: (v: string) => void;
+  generateSports: (archetypeName: string, prompt: string) => Promise<void>;
   setUpgradeRequired?: (feature: string) => void;
 }
 
@@ -131,6 +147,7 @@ const modeLabel = (m: string) => (
     emotional: "Emotional", atmosphere: "Atmosphere", tension: "Tension",
     composition: "Composition", horror: "Horror", comedy: "Comedy",
     mystery: "Mystery", romance: "Romance", action: "Action",
+    monologue: "Monologue", voice: "Voice", thriller: "Thriller", sports: "Sports",
   } as Record<string, string>)[m] ?? m
 );
 
@@ -158,6 +175,10 @@ export default function ToolbarPanel(props: Props) {
     mysteryArchetype, setMysteryArchetype, generateMystery,
     romanceArchetype, setRomanceArchetype, generateRomance,
     actionArchetype, setActionArchetype, generateAction,
+    monologueArchetype, setMonologueArchetype, generateMonologue,
+    voiceProfile, setVoiceProfile, generateVoice,
+    thrillerArchetype, setThrillerArchetype, generateThriller,
+    sportsArchetype, setSportsArchetype, generateSports,
     setUpgradeRequired,
   } = props;
 
@@ -425,6 +446,38 @@ export default function ToolbarPanel(props: Props) {
             generating={generating} streamText={streamText} setStreamText={setStreamText}
             prompt={prompt} setPrompt={setPrompt}
             generateAction={generateAction}
+            updateChapter={updateChapter} activeChap={activeChap}
+          />
+        : mode === "monologue"
+        ? <MonologuePanel
+            monologueArchetype={monologueArchetype} setMonologueArchetype={setMonologueArchetype}
+            generating={generating} streamText={streamText} setStreamText={setStreamText}
+            prompt={prompt} setPrompt={setPrompt}
+            generateMonologue={generateMonologue}
+            updateChapter={updateChapter} activeChap={activeChap}
+          />
+        : mode === "voice"
+        ? <VoicePanel
+            voiceProfile={voiceProfile} setVoiceProfile={setVoiceProfile}
+            generating={generating} streamText={streamText} setStreamText={setStreamText}
+            prompt={prompt} setPrompt={setPrompt}
+            generateVoice={generateVoice}
+            updateChapter={updateChapter} activeChap={activeChap}
+          />
+        : mode === "thriller"
+        ? <ThrillerPanel
+            thrillerArchetype={thrillerArchetype} setThrillerArchetype={setThrillerArchetype}
+            generating={generating} streamText={streamText} setStreamText={setStreamText}
+            prompt={prompt} setPrompt={setPrompt}
+            generateThriller={generateThriller}
+            updateChapter={updateChapter} activeChap={activeChap}
+          />
+        : mode === "sports"
+        ? <SportsPanel
+            sportsArchetype={sportsArchetype} setSportsArchetype={setSportsArchetype}
+            generating={generating} streamText={streamText} setStreamText={setStreamText}
+            prompt={prompt} setPrompt={setPrompt}
+            generateSports={generateSports}
             updateChapter={updateChapter} activeChap={activeChap}
           />
         : <WritePanel
