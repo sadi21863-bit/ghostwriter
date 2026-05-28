@@ -108,6 +108,14 @@ export default function WorldBiblePanel(props: Props) {
   const [evolutionLogs, setEvolutionLogs] = useState<any[]>([]);
   const [evolutionLoading, setEvolutionLoading] = useState(false);
 
+  // Soul ID training modal state
+  const [showSoulIdModal, setShowSoulIdModal] = useState(false);
+  const [soulIdCharId, setSoulIdCharId] = useState("");
+  const [soulIdUrls, setSoulIdUrls] = useState("");
+  const [soulIdTraining, setSoulIdTraining] = useState(false);
+  const [soulIdJobId, setSoulIdJobId] = useState("");
+  const [soulIdMsg, setSoulIdMsg] = useState("");
+
   const loadRelMap = async () => {
     setRelMapLoading(true); setSelectedMapEdge(null); setSelectedMapNode(null);
     try {
@@ -130,6 +138,56 @@ export default function WorldBiblePanel(props: Props) {
       setEvolutionLogs(data.logs || []);
     } catch { setErrorMsg("Failed to load evolution timeline."); }
     setEvolutionLoading(false);
+  };
+
+  const openSoulIdModal = (charId: string) => {
+    setSoulIdCharId(charId);
+    setSoulIdUrls("");
+    setSoulIdMsg("");
+    setSoulIdJobId("");
+    setShowSoulIdModal(true);
+  };
+
+  const startSoulIdTraining = async () => {
+    const urls = soulIdUrls.split("\n").map(u => u.trim()).filter(Boolean);
+    if (urls.length < 3) { setSoulIdMsg("Enter at least 3 image URLs (one per line)."); return; }
+    setSoulIdTraining(true);
+    setSoulIdMsg("Starting Soul ID training...");
+    try {
+      const res = await fetch(`/api/projects/${project.id}/characters/${soulIdCharId}/soul-id`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ referenceImageUrls: urls }),
+      });
+      const data = await res.json();
+      if (!res.ok) { setSoulIdMsg(data.error || "Training failed."); setSoulIdTraining(false); return; }
+      setSoulIdJobId(data.jobId);
+      setSoulIdMsg("Training Soul ID... (30–120 seconds)");
+      pollSoulId(data.jobId);
+    } catch { setSoulIdMsg("Training failed. Please try again."); setSoulIdTraining(false); }
+  };
+
+  const pollSoulId = async (jobId: string) => {
+    const interval = setInterval(async () => {
+      try {
+        const res = await fetch(`/api/projects/${project.id}/characters/${soulIdCharId}/soul-id?jobId=${jobId}`);
+        const data = await res.json();
+        if (data.status === "completed") {
+          clearInterval(interval);
+          setSoulIdTraining(false);
+          setSoulIdMsg("Soul ID trained successfully!");
+          updateProject((p: any) => ({
+            ...p,
+            characters: p.characters.map((c: any) => c.id === soulIdCharId ? { ...c, soulId: data.soulId } : c),
+          }));
+          setTimeout(() => setShowSoulIdModal(false), 1500);
+        } else if (data.status === "failed") {
+          clearInterval(interval);
+          setSoulIdTraining(false);
+          setSoulIdMsg("Training failed. Please try again with clearer photos.");
+        }
+      } catch { clearInterval(interval); setSoulIdTraining(false); setSoulIdMsg("Polling error."); }
+    }, 8000);
   };
 
   const openCharEdit = (i: number) => { setEditCharIdx(i); setNewChar({ ...DEFAULT_CHAR, ...project.characters[i] }); setCharGenPrompt(""); setShowCharModal(true); };
@@ -778,6 +836,15 @@ export default function WorldBiblePanel(props: Props) {
                     {portraitLoading ? "Generating..." : newChar.portraitUrl ? "Regenerate" : "Generate Portrait"}
                   </button>
                   {!newChar.appearance && <div style={{ fontSize: 10, color: co.muted, marginTop: 4 }}>Add appearance first</div>}
+                  {newChar.soulId ? (
+                    <div style={{ fontSize: 10, color: "#166534", background: "#DCFCE7", padding: "2px 6px", borderRadius: 4, marginTop: 4, display: "inline-block" }}>
+                      ✓ Soul ID trained — consistent panels
+                    </div>
+                  ) : newChar.portraitUrl && newChar.id ? (
+                    <button onClick={() => openSoulIdModal(newChar.id)} style={{ fontSize: 11, color: "#4F46E5", background: "none", border: "1px solid #4F46E5", borderRadius: 4, padding: "3px 8px", cursor: "pointer", marginTop: 4, display: "block" }}>
+                      Train Soul ID for panel consistency
+                    </button>
+                  ) : null}
                 </div>
               </div>
             )}
@@ -805,6 +872,31 @@ export default function WorldBiblePanel(props: Props) {
           </div>
         </div>
       ))}
+
+      {/* Soul ID Training Modal */}
+      {showSoulIdModal && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1100 }} onClick={() => !soulIdTraining && setShowSoulIdModal(false)}>
+          <div style={{ background: co.surface, borderRadius: 16, padding: 24, width: 440, boxShadow: "0 20px 60px rgba(0,0,0,0.2)", border: "1px solid " + co.border }} onClick={(e: any) => e.stopPropagation()}>
+            <h3 style={{ margin: "0 0 8px", fontSize: 16, fontWeight: 800 }}>Train Soul ID</h3>
+            <p style={{ fontSize: 12, color: co.muted, marginBottom: 12 }}>Paste 3–10 public image URLs (one per line) showing the character's face from different angles. Training takes 30–120 seconds.</p>
+            <textarea
+              value={soulIdUrls}
+              onChange={e => setSoulIdUrls(e.target.value)}
+              placeholder={"https://example.com/photo1.jpg\nhttps://example.com/photo2.jpg\nhttps://example.com/photo3.jpg"}
+              rows={5}
+              style={{ ...sTextarea, width: "100%", fontSize: 11, fontFamily: "monospace", boxSizing: "border-box" }}
+              disabled={soulIdTraining}
+            />
+            {soulIdMsg && <div style={{ fontSize: 11, color: soulIdMsg.includes("success") ? "#166534" : co.muted, marginTop: 6 }}>{soulIdMsg}</div>}
+            <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 12 }}>
+              <button style={sBtnSm} disabled={soulIdTraining} onClick={() => setShowSoulIdModal(false)}>Cancel</button>
+              <button style={{ ...sBtn, opacity: soulIdTraining ? 0.5 : 1 }} disabled={soulIdTraining} onClick={startSoulIdTraining}>
+                {soulIdTraining ? "Training..." : "Start Training"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Ref Work Modal */}
       {showRefModal && (

@@ -6,7 +6,7 @@ import { eq, and } from "drizzle-orm";
 import Anthropic from "@anthropic-ai/sdk";
 import { put } from "@vercel/blob";
 import { generateSoulImage } from "@/lib/higgsfield/client";
-import { ART_STYLES, PanelSpec, buildBreakdownPrompt, buildPanelPrompt, getCharacterReference } from "@/lib/ai/panel-prompt-builder";
+import { ART_STYLES, PanelSpec, buildBreakdownPrompt, buildPanelPrompt } from "@/lib/ai/panel-prompt-builder";
 import { decrypt } from "@/lib/crypto";
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! });
@@ -87,18 +87,34 @@ export async function POST(req: Request, { params }: { params: { projectId: stri
     artStyle: artStyleId ?? "manga",
   }).returning();
 
+  function getCharacterSoulReference(characterName: string, chars: any[]): {
+    referenceImageUrl?: string;
+    soulId?: string;
+    referenceStrength: number;
+  } {
+    const char = chars.find((c: any) => c.name === characterName);
+    if (!char) return { referenceStrength: 0.85 };
+    if (char.soulId) return { soulId: char.soulId, referenceStrength: 0.95 };
+    if (char.portraitUrl) return { referenceImageUrl: char.portraitUrl, referenceStrength: 0.85 };
+    return { referenceStrength: 0.85 };
+  }
+
   // Generate all panels (allow partial success)
   const panelResults = await Promise.allSettled(
     specs.map(async (spec, i) => {
       const prompt = buildPanelPrompt(spec, project.characters, artStyleObj, project.name);
       const refName = spec.characters?.[0];
-      const referenceImageUrl = refName ? getCharacterReference(refName, project.characters) : undefined;
+      const { referenceImageUrl, soulId, referenceStrength } = refName
+        ? getCharacterSoulReference(refName, project.characters)
+        : { referenceStrength: 0.85 };
 
       const soulUrl = await generateSoulImage({
         apiKey: higgsfieldKey,
         prompt,
         stylePreset: artStyleObj.higgsfieldPreset,
         referenceImageUrl,
+        soulId,
+        referenceStrength,
       });
 
       let imageUrl = soulUrl;
@@ -113,7 +129,7 @@ export async function POST(req: Request, { params }: { params: { projectId: stri
         imageUrl = blob.url;
       }
 
-      return { prompt, imageUrl, referenceImageUrl: referenceImageUrl ?? "", index: i };
+      return { prompt, imageUrl, referenceImageUrl: soulId ?? referenceImageUrl ?? "", index: i };
     })
   );
 

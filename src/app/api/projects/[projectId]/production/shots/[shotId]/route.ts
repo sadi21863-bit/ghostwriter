@@ -14,7 +14,7 @@ async function verifyOwnership(projectId: string, userId: string) {
 const ALLOWED_FIELDS = new Set([
   "shotType", "cameraMovement", "lightingMood", "timeOfDay",
   "subject", "action", "location", "mood", "soulPrompt", "videoPrompt",
-  "dialogue", "speaker",
+  "dialogue", "speaker", "cameraPreset", "viralPreset",
 ]);
 
 export async function PATCH(req: Request, { params }: { params: { projectId: string; shotId: string } }) {

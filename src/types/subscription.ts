@@ -24,7 +24,8 @@ export type FeatureGate =
   | "comic_studio"
   | "creator_tools_advanced"  // trend intel, video dissection, guest intel, retention editor
   | "composition_layer"
-  | "unlimited_generations";
+  | "unlimited_generations"
+  | "virality_predict";
 
 // ── Which tiers unlock which features ─────────────────────────────────────
 
@@ -39,6 +40,7 @@ export const FEATURE_ACCESS: Record<FeatureGate, SubscriptionTier[]> = {
   composition_layer:    ["story_pro", "all_access"],
   creator_tools_advanced: ["creator_pro", "all_access"],
   unlimited_generations:  ["story_pro", "creator_pro", "all_access"],
+  virality_predict:       ["creator_pro", "all_access"],
 };
 
 // ── Which AI modes require which gate ─────────────────────────────────────
@@ -127,5 +129,10 @@ export const UPGRADE_COPY: Record<FeatureGate, { title: string; description: str
     title: "Daily Limit Reached",
     description: "Free tier includes 10 AI generations per day. Upgrade for unlimited generations.",
     cta: "Upgrade to Story Pro — ₹799/month",
+  },
+  virality_predict: {
+    title: "Unlock Virality Predictor",
+    description: "Predict engagement scores, hook strength, and retention risk before you publish. Get AI-powered improvement suggestions.",
+    cta: "Upgrade to Creator Pro — ₹399/month",
   },
 };

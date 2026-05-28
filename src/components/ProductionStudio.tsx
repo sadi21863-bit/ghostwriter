@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { CSSProperties } from "react";
 import { SHOT_TYPES, CAMERA_MOVEMENTS, LIGHTING_MOODS, TIME_OF_DAY, buildShotPromptFragment } from "@/lib/ai/shot-parameters";
+import { CAMERA_PRESETS, CAMERA_PRESET_GROUPS, VIRAL_PRESETS } from "@/lib/higgsfield/presets";
 
 type Shot = {
   id: string;
@@ -24,6 +25,8 @@ type Shot = {
   animatedVideoUrl: string;
   finalVideoUrl: string;
   generationStatus: string;
+  cameraPreset: string;
+  viralPreset: string;
   primaryCharacter?: { name: string; portraitUrl?: string } | null;
 };
 
@@ -36,11 +39,12 @@ type CharSheet = { name: string; role: string; soulIdPrompt: string; voiceNotes:
 type LocSheet = { name: string; visualDescription: string; moodKeywords: string[] };
 
 const VIDEO_MODELS = [
-  { id: "kling",    label: "Kling 3.0",    note: "Physics-aware, 4K" },
-  { id: "veo",      label: "Veo 3.1",      note: "Realistic/cinematic" },
-  { id: "sora",     label: "Sora 2",       note: "Stylized narrative" },
-  { id: "seedance", label: "Seedance 2.0", note: "Fast social content" },
-  { id: "wan",      label: "WAN 2.5",      note: "Lip-sync/talking head" },
+  { id: "kling",    label: "Kling 3.0",    note: "Physics-aware · 4K · Best for action",   badge: null    },
+  { id: "veo",      label: "Veo 3.1",      note: "Realistic · Cinematic · Native audio",    badge: "AUDIO" },
+  { id: "sora",     label: "Sora 2",       note: "Stylized · Narrative · Best for drama",   badge: null    },
+  { id: "seedance", label: "Seedance 2.0", note: "Fast · Social content · Best for shorts", badge: null    },
+  { id: "wan",      label: "WAN 2.5",      note: "Talking heads · Lip-sync · Avatars",      badge: null    },
+  { id: "hailuo",   label: "Hailuo 02",    note: "Smooth motion · Cinematic quality",        badge: "NEW"   },
 ];
 
 const STATUS_LABELS: Record<string, string> = {
@@ -400,6 +404,24 @@ function ShotCard({
   const btn = (color = "#6c47ff"): React.CSSProperties => ({ background: color, color: "white", border: "none", borderRadius: 6, padding: "4px 10px", fontSize: 11, fontWeight: "600", cursor: "pointer", whiteSpace: "nowrap" });
   const outBtn: React.CSSProperties = { background: "white", border: "1px solid #e5e7eb", borderRadius: 6, padding: "4px 10px", fontSize: 11, fontWeight: "600", cursor: "pointer", color: "#374151", whiteSpace: "nowrap" };
 
+  const [viralityScore, setViralityScore] = useState<any>(null);
+  const [viralityLoading, setViralityLoading] = useState(false);
+
+  const predictEngagement = async () => {
+    setViralityLoading(true);
+    try {
+      const res = await fetch("/api/ai/virality-predict", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ videoPrompt: shot.videoPrompt || shot.soulPrompt }),
+      });
+      if (res.status === 403) { setViralityScore({ error: "upgrade_required" }); return; }
+      const data = await res.json();
+      setViralityScore(data);
+    } catch { setViralityScore({ error: "Failed. Please try again." }); }
+    setViralityLoading(false);
+  };
+
   return (
     <div style={{ border: status === "error" ? "2px solid #f87171" : "1px solid #e5e7eb", borderRadius: 10, background: "white", marginBottom: 12, overflow: "hidden", display: "flex" }}>
       {/* Image / video column */}
@@ -440,8 +462,11 @@ function ShotCard({
           {status === "animated" && (
             <>
               <select value={videoModel} onChange={e => onModelChange(e.target.value)} style={sel}>
-                {VIDEO_MODELS.map(m => <option key={m.id} value={m.id}>{m.label}</option>)}
+                {VIDEO_MODELS.map(m => <option key={m.id} value={m.id}>{m.label}{m.badge ? ` [${m.badge}]` : ""}</option>)}
               </select>
+              {videoModel === "veo" && (
+                <div style={{ fontSize: 9, color: "#d97706", marginTop: 2 }}>Veo 3.1 generates native audio alongside video.</div>
+              )}
               {higgsfieldKey && <button onClick={() => onGenerateVideo(shot.id)} style={btn("#d97706")}>⚡ Generate Video</button>}
             </>
           )}
@@ -511,6 +536,38 @@ function ShotCard({
             style={{ width: "100%", border: "1px solid #e5e7eb", borderRadius: 6, padding: "4px 6px", fontSize: 11, resize: "vertical", fontFamily: "inherit" }} />
         </div>
 
+        {/* Camera Preset */}
+        <div>
+          <div style={{ fontSize: 10, fontWeight: 700, color: "#9ca3af", marginBottom: 2 }}>CAMERA PRESET</div>
+          <select value={shot.cameraPreset || ""} onChange={e => onUpdate(shot.id, { cameraPreset: e.target.value })} style={sel}>
+            <option value="">No camera preset</option>
+            {CAMERA_PRESET_GROUPS.map(group => (
+              <optgroup key={group.label} label={group.label}>
+                {group.presets.map(p => (
+                  <option key={p.id} value={p.id}>{p.label}</option>
+                ))}
+              </optgroup>
+            ))}
+          </select>
+          {shot.cameraPreset && CAMERA_PRESETS[shot.cameraPreset] && (
+            <div style={{ fontSize: 9, color: "#6b7280", marginTop: 2 }}>{CAMERA_PRESETS[shot.cameraPreset].description}</div>
+          )}
+        </div>
+
+        {/* Viral Preset */}
+        <div>
+          <div style={{ fontSize: 10, fontWeight: 700, color: "#9ca3af", marginBottom: 2 }}>VIRAL PRESET</div>
+          <select value={shot.viralPreset || ""} onChange={e => onUpdate(shot.id, { viralPreset: e.target.value })} style={sel}>
+            <option value="">No viral preset</option>
+            {VIRAL_PRESETS.map(p => (
+              <option key={p.id} value={p.id}>{p.label}</option>
+            ))}
+          </select>
+          {shot.viralPreset && VIRAL_PRESETS.find(p => p.id === shot.viralPreset) && (
+            <div style={{ fontSize: 9, color: "#6b7280", marginTop: 2 }}>{VIRAL_PRESETS.find(p => p.id === shot.viralPreset)!.description}</div>
+          )}
+        </div>
+
         {/* Dialogue */}
         {(shot.dialogue || shot.speaker) && (
           <div style={{ fontSize: 12, color: "#374151", fontStyle: "italic", borderTop: "1px solid #f3f4f6", paddingTop: 6 }}>
@@ -519,7 +576,54 @@ function ShotCard({
           </div>
         )}
 
-        <div style={{ fontSize: 10, color: "#9ca3af", marginTop: "auto" }}>Status: {STATUS_LABELS[status] || status}</div>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: "auto" }}>
+          <div style={{ fontSize: 10, color: "#9ca3af" }}>Status: {STATUS_LABELS[status] || status}</div>
+          {(status === "final_ready" || status === "animated") && (
+            <button onClick={predictEngagement} disabled={viralityLoading} style={{ ...outBtn, fontSize: 10, padding: "2px 8px" }}>
+              {viralityLoading ? "Analysing…" : "📊 Predict Engagement"}
+            </button>
+          )}
+        </div>
+
+        {viralityScore && !viralityScore.error && (
+          <div style={{ background: "#f9fafb", border: "1px solid #e5e7eb", borderRadius: 8, padding: 10, marginTop: 4 }}>
+            <div style={{ display: "flex", gap: 12, marginBottom: 8, alignItems: "flex-end" }}>
+              <div style={{ textAlign: "center" }}>
+                <div style={{ fontSize: 28, fontWeight: 800, color: viralityScore.overallScore >= 7 ? "#059669" : viralityScore.overallScore >= 4 ? "#d97706" : "#ef4444" }}>{viralityScore.overallScore}<span style={{ fontSize: 14 }}>/10</span></div>
+                <div style={{ fontSize: 9, color: "#6b7280" }}>Overall</div>
+              </div>
+              <div style={{ textAlign: "center" }}>
+                <div style={{ fontSize: 20, fontWeight: 700, color: "#374151" }}>{viralityScore.hookStrength}/10</div>
+                <div style={{ fontSize: 9, color: "#6b7280" }}>Hook</div>
+              </div>
+              <div style={{ textAlign: "center" }}>
+                <div style={{ fontSize: 14, fontWeight: 700, color: viralityScore.retentionRisk === "low" ? "#059669" : viralityScore.retentionRisk === "medium" ? "#d97706" : "#ef4444", background: viralityScore.retentionRisk === "low" ? "#dcfce7" : viralityScore.retentionRisk === "medium" ? "#fef3c7" : "#fee2e2", padding: "2px 6px", borderRadius: 4 }}>{viralityScore.retentionRisk} risk</div>
+                <div style={{ fontSize: 9, color: "#6b7280" }}>Retention</div>
+              </div>
+              <div style={{ textAlign: "center" }}>
+                <div style={{ fontSize: 16, fontWeight: 700, color: "#374151" }}>{viralityScore.estimatedWatchPercent}%</div>
+                <div style={{ fontSize: 9, color: "#6b7280" }}>Watch %</div>
+              </div>
+            </div>
+            {viralityScore.strengths?.length > 0 && (
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 3, marginBottom: 4 }}>
+                {viralityScore.strengths.map((s: string, i: number) => (
+                  <span key={i} style={{ fontSize: 9, background: "#dcfce7", color: "#166534", padding: "1px 6px", borderRadius: 3 }}>✓ {s}</span>
+                ))}
+              </div>
+            )}
+            {viralityScore.improvements?.length > 0 && (
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 3 }}>
+                {viralityScore.improvements.map((s: string, i: number) => (
+                  <span key={i} style={{ fontSize: 9, background: "#fef3c7", color: "#92400e", padding: "1px 6px", borderRadius: 3 }}>⚡ {s}</span>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+        {viralityScore?.error === "upgrade_required" && (
+          <div style={{ fontSize: 10, color: "#d97706", background: "#fef3c7", padding: "4px 8px", borderRadius: 6, marginTop: 4 }}>Upgrade to Creator Pro to use Virality Predictor.</div>
+        )}
       </div>
     </div>
   );
