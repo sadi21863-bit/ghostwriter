@@ -108,6 +108,9 @@ export default function WorldBiblePanel(props: Props) {
   const [evolutionLogs, setEvolutionLogs] = useState<any[]>([]);
   const [evolutionLoading, setEvolutionLoading] = useState(false);
 
+  // Visual Profile generation state
+  const [visualProfileLoading, setVisualProfileLoading] = useState(false);
+
   // Soul ID training modal state
   const [showSoulIdModal, setShowSoulIdModal] = useState(false);
   const [soulIdCharId, setSoulIdCharId] = useState("");
@@ -864,6 +867,29 @@ export default function WorldBiblePanel(props: Props) {
                   : <textarea style={sTextarea} rows={2} value={data[key] || ""} onChange={(e: any) => setData((d: any) => ({ ...d, [key]: e.target.value }))} />}
               </div>
             ))}
+            {mi === 0 && isStoryFormat(project.format) && (
+              <div style={{ marginBottom: 8, padding: "10px 12px", background: "#f0fdf4", borderRadius: 8, border: "1px solid #bbf7d0" }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: "#166534", marginBottom: 6 }}>VISUAL PROFILE</div>
+                {data.visualProfile ? (
+                  <div style={{ fontSize: 11, color: "#166534", marginBottom: 6, lineHeight: 1.5, fontStyle: "italic" }}>{data.visualProfile}</div>
+                ) : null}
+                <button
+                  style={{ ...sBtnSm, background: "#dcfce7", color: "#166534", opacity: (visualProfileLoading || !data.appearance) ? 0.5 : 1 }}
+                  disabled={visualProfileLoading || !data.appearance}
+                  onClick={async () => {
+                    setVisualProfileLoading(true);
+                    try {
+                      const r = await callAI("entity", { type: "visual_profile", name: data.name, role: data.role, appearance: data.appearance });
+                      if (r.visualProfile) setNewChar((c: any) => ({ ...c, visualProfile: r.visualProfile }));
+                    } catch { setErrorMsg("Visual profile generation failed."); }
+                    setVisualProfileLoading(false);
+                  }}
+                >
+                  {visualProfileLoading ? "Generating..." : data.visualProfile ? "Regenerate Visual Profile" : "Generate Visual Profile"}
+                </button>
+                {!data.appearance && <div style={{ fontSize: 10, color: "#166534", marginTop: 4, opacity: 0.7 }}>Add appearance description first</div>}
+              </div>
+            )}
             {tKey === "plot" && <div style={{ marginBottom: 8 }}><span style={{ fontSize: 11, color: co.muted, marginBottom: 2, display: "block", fontWeight: 600 }}>Status</span><select style={sInput} value={newPlot.status} onChange={e => setNewPlot((t: any) => ({ ...t, status: e.target.value }))}><option>Active</option><option>Simmering</option><option>Resolved</option></select></div>}
             <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 12 }}>
               <button style={sBtnSm} onClick={() => setShow(false)}>Cancel</button>
@@ -878,15 +904,16 @@ export default function WorldBiblePanel(props: Props) {
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1100 }} onClick={() => !soulIdTraining && setShowSoulIdModal(false)}>
           <div style={{ background: co.surface, borderRadius: 16, padding: 24, width: 440, boxShadow: "0 20px 60px rgba(0,0,0,0.2)", border: "1px solid " + co.border }} onClick={(e: any) => e.stopPropagation()}>
             <h3 style={{ margin: "0 0 8px", fontSize: 16, fontWeight: 800 }}>Train Soul ID</h3>
-            <p style={{ fontSize: 12, color: co.muted, marginBottom: 12 }}>Paste 3–10 public image URLs (one per line) showing the character's face from different angles. Training takes 30–120 seconds.</p>
+            <p style={{ fontSize: 12, color: co.muted, marginBottom: 12 }}>Paste 3–10 hosted image URLs of your character (one per line)</p>
             <textarea
               value={soulIdUrls}
               onChange={e => setSoulIdUrls(e.target.value)}
-              placeholder={"https://example.com/photo1.jpg\nhttps://example.com/photo2.jpg\nhttps://example.com/photo3.jpg"}
+              placeholder={"https://i.imgur.com/abc123.jpg\nhttps://i.imgur.com/def456.jpg\nhttps://i.imgur.com/ghi789.jpg"}
               rows={5}
               style={{ ...sTextarea, width: "100%", fontSize: 11, fontFamily: "monospace", boxSizing: "border-box" }}
               disabled={soulIdTraining}
             />
+            <div style={{ fontSize: 11, color: co.muted, marginTop: 4 }}>Host images on Imgur (free) or Cloudinary. Direct image links only.</div>
             {soulIdMsg && <div style={{ fontSize: 11, color: soulIdMsg.includes("success") ? "#166534" : co.muted, marginTop: 6 }}>{soulIdMsg}</div>}
             <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 12 }}>
               <button style={sBtnSm} disabled={soulIdTraining} onClick={() => setShowSoulIdModal(false)}>Cancel</button>

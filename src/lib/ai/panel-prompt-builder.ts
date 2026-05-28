@@ -48,7 +48,7 @@ export function buildPanelPrompt(
   const charDetails = spec.characters
     .map((name: string) => characters.find((c: any) => c.name === name))
     .filter(Boolean)
-    .map((c: any) => `${c.name}: ${c.appearance || "no appearance description"}`)
+    .map((c: any) => `${c.name}: ${c.visualProfile || c.appearance || "no description"}`)
     .join(". ");
 
   return `${artStyle.higgsfieldPreset} style comic panel. ${spec.shotType}. ${spec.action}. Setting: ${spec.location}. Mood: ${spec.mood}.${charDetails ? " Characters — " + charDetails + "." : ""} Story: ${projectName}. Professional sequential art, cinematic framing, high detail. Leave blank space at bottom 15% for dialogue overlay. No text, no speech bubbles, no captions in the image.`;

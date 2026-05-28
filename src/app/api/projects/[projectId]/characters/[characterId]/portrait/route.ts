@@ -24,9 +24,10 @@ export async function POST(_: Request, { params }: { params: { projectId: string
 
   const char = await db.query.characters.findFirst({ where: eq(characters.id, params.characterId) });
   if (!char) return NextResponse.json({ error: "Character not found" }, { status: 404 });
-  if (!char.appearance) return NextResponse.json({ error: "Add an appearance description first." }, { status: 400 });
+  const visualDesc = char.visualProfile || char.appearance || "";
+  if (!visualDesc) return NextResponse.json({ error: "Add an appearance description first." }, { status: 400 });
 
-  const prompt = `Character portrait. ${char.name}${char.role ? ", " + char.role : ""}. Appearance: ${char.appearance}. Clean character art, detailed face, neutral expression, white background, concept art style. No text, no speech bubbles.`;
+  const prompt = `Character portrait. ${char.name}${char.role ? ", " + char.role : ""}. ${visualDesc}. Clean character art, detailed face, neutral expression, white background, concept art style. No text, no speech bubbles.`;
 
   const portraitUrl = await generateSoulImage({ apiKey, prompt });
 

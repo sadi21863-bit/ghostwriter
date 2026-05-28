@@ -12,6 +12,9 @@ import { buildCompositionContext, type CompositionLayer } from "@/lib/ai/compose
 import { compactContext } from "@/lib/compact";
 import { buildHorrorContext } from "@/lib/horror";
 import { buildComedyContext } from "@/lib/comedy";
+import { buildMysteryContext } from "@/lib/mystery";
+import { buildRomanceContext } from "@/lib/romance";
+import { buildActionContext } from "@/lib/action";
 
 export function useAIActions({
   project, mode, prompt, activeChap,
@@ -275,6 +278,54 @@ export function useAIActions({
     setGenerating(false); setGenTarget("");
   };
 
+  const generateMystery = async (archetypeName: string, mysteryPrompt: string) => {
+    if (!archetypeName) { setErrorMsg("Select a mystery archetype."); return; }
+    setGenerating(true); setGenTarget("main"); setStreamText("");
+    try {
+      const ctx = buildMysteryContext(archetypeName) + "\n---\n" + buildFullContext();
+      const res = await fetch("/api/ai/generate", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mode: "mystery", prompt: mysteryPrompt || `Write a ${archetypeName.toLowerCase()} mystery scene.`, context: ctx, format: project.format, projectId: project.id, chapterId: activeChap.id }),
+      });
+      const data = await res.json();
+      if (data.error === "upgrade_required") { setUpgradeRequired?.(data.feature); }
+      else if (data.text) setStreamText(data.text);
+    } catch { setErrorMsg("Mystery generation failed. Please try again."); }
+    setGenerating(false); setGenTarget("");
+  };
+
+  const generateRomance = async (archetypeName: string, romancePrompt: string) => {
+    if (!archetypeName) { setErrorMsg("Select a romance archetype."); return; }
+    setGenerating(true); setGenTarget("main"); setStreamText("");
+    try {
+      const ctx = buildRomanceContext(archetypeName) + "\n---\n" + buildFullContext();
+      const res = await fetch("/api/ai/generate", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mode: "romance", prompt: romancePrompt || `Write a ${archetypeName.toLowerCase()} romance scene.`, context: ctx, format: project.format, projectId: project.id, chapterId: activeChap.id }),
+      });
+      const data = await res.json();
+      if (data.error === "upgrade_required") { setUpgradeRequired?.(data.feature); }
+      else if (data.text) setStreamText(data.text);
+    } catch { setErrorMsg("Romance generation failed. Please try again."); }
+    setGenerating(false); setGenTarget("");
+  };
+
+  const generateAction = async (archetypeName: string, actionPrompt: string) => {
+    if (!archetypeName) { setErrorMsg("Select an action archetype."); return; }
+    setGenerating(true); setGenTarget("main"); setStreamText("");
+    try {
+      const ctx = buildActionContext(archetypeName) + "\n---\n" + buildFullContext();
+      const res = await fetch("/api/ai/generate", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mode: "action", prompt: actionPrompt || `Write a ${archetypeName.toLowerCase()} action scene.`, context: ctx, format: project.format, projectId: project.id, chapterId: activeChap.id }),
+      });
+      const data = await res.json();
+      if (data.error === "upgrade_required") { setUpgradeRequired?.(data.feature); }
+      else if (data.text) setStreamText(data.text);
+    } catch { setErrorMsg("Action generation failed. Please try again."); }
+    setGenerating(false); setGenTarget("");
+  };
+
   const generateComposition = async (layers: CompositionLayer[], compositionPrompt: string) => {
     if (!layers.length) { setErrorMsg("Select at least one layer before generating."); return; }
     setGenerating(true); setGenTarget("main"); setStreamText("");
@@ -322,7 +373,7 @@ export function useAIActions({
     callAI, buildNeighbourContext, buildFullContext,
     generate, undoGeneration, autoSummarize, generateDialogue, generateCombat,
     generateEmotionalScene, generateAtmosphere, generateTension, generateComposition,
-    generateHorror, generateComedy,
+    generateHorror, generateComedy, generateMystery, generateRomance, generateAction,
     runPipeline, usePipelineOutput,
     handleTextareaSelect, runProse, replaceSelection, scoreHook,
   };

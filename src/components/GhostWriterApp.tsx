@@ -29,6 +29,9 @@ export default function GhostWriterApp({ projectId }: { projectId: string }) {
   const [tensionType, setTensionType] = useState("Suspense");
   const [horrorArchetype, setHorrorArchetype] = useState("Uncanny");
   const [comedyArchetype, setComedyArchetype] = useState("Situation");
+  const [mysteryArchetype, setMysteryArchetype] = useState("Clue Planting");
+  const [romanceArchetype, setRomanceArchetype] = useState("First Recognition");
+  const [actionArchetype, setActionArchetype] = useState("Chase");
   const [compositionLayers, setCompositionLayers] = useState<CompositionLayer[]>([]);
   const [upgradeRequired, setUpgradeRequired] = useState<FeatureGate | null>(null);
 
@@ -197,6 +200,15 @@ export default function GhostWriterApp({ projectId }: { projectId: string }) {
         comedyArchetype={comedyArchetype}
         setComedyArchetype={setComedyArchetype}
         generateComedy={aiActions.generateComedy}
+        mysteryArchetype={mysteryArchetype}
+        setMysteryArchetype={setMysteryArchetype}
+        generateMystery={aiActions.generateMystery}
+        romanceArchetype={romanceArchetype}
+        setRomanceArchetype={setRomanceArchetype}
+        generateRomance={aiActions.generateRomance}
+        actionArchetype={actionArchetype}
+        setActionArchetype={setActionArchetype}
+        generateAction={aiActions.generateAction}
         compositionLayers={compositionLayers}
         setCompositionLayers={setCompositionLayers}
         generateComposition={aiActions.generateComposition}

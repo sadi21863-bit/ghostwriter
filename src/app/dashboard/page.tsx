@@ -32,6 +32,9 @@ export default function Dashboard() {
   const [higgsfieldKeySet, setHiggsfieldKeySet] = useState(false);
   const [higgsfieldKeyLast4, setHiggsfieldKeyLast4] = useState("");
   const [higgsfieldInput, setHiggsfieldInput] = useState("");
+  const [higgsfieldSecretSet, setHiggsfieldSecretSet] = useState(false);
+  const [higgsfieldSecretLast4, setHiggsfieldSecretLast4] = useState("");
+  const [higgsfieldSecretInput, setHiggsfieldSecretInput] = useState("");
   const [openaiKeySet, setOpenaiKeySet] = useState(false);
   const [openaiKeyLast4, setOpenaiKeyLast4] = useState("");
   const [openaiInput, setOpenaiInput] = useState("");
@@ -62,6 +65,8 @@ export default function Dashboard() {
     fetch("/api/user/settings").then(r => r.json()).then(data => {
       setHiggsfieldKeySet(data.higgsfieldKeySet ?? false);
       setHiggsfieldKeyLast4(data.higgsfieldKeyLast4 ?? "");
+      setHiggsfieldSecretSet(data.higgsfieldSecretSet ?? false);
+      setHiggsfieldSecretLast4(data.higgsfieldSecretLast4 ?? "");
       setOpenaiKeySet(data.openaiKeySet ?? false);
       setOpenaiKeyLast4(data.openaiKeyLast4 ?? "");
       setImageProviderId(data.imageProviderId ?? "segmind_soul");
@@ -108,6 +113,7 @@ export default function Dashboard() {
     try {
       const body: Record<string, any> = { imageProviderId };
       if (higgsfieldInput.trim()) body.higgsfieldApiKey = higgsfieldInput.trim();
+      if (higgsfieldSecretInput.trim()) body.higgsfieldApiSecret = higgsfieldSecretInput.trim();
       if (openaiInput.trim()) body.openaiApiKey = openaiInput.trim();
       if (trendKeyInput.trim()) body.trendIntelligenceKey = trendKeyInput.trim();
       const res = await fetch("/api/user/settings", {
@@ -117,6 +123,7 @@ export default function Dashboard() {
       });
       if (res.ok) {
         if (higgsfieldInput.trim()) { setHiggsfieldKeySet(true); setHiggsfieldKeyLast4(higgsfieldInput.trim().slice(-4)); setHiggsfieldInput(""); }
+        if (higgsfieldSecretInput.trim()) { setHiggsfieldSecretSet(true); setHiggsfieldSecretLast4(higgsfieldSecretInput.trim().slice(-4)); setHiggsfieldSecretInput(""); }
         if (openaiInput.trim()) { setOpenaiKeySet(true); setOpenaiKeyLast4(openaiInput.trim().slice(-4)); setOpenaiInput(""); }
         if (trendKeyInput.trim()) { setTrendKeySet(true); setTrendKeyLast4(trendKeyInput.trim().slice(-4)); setTrendKeyInput(""); setShowTrendKeyInput(false); }
         setSettingsMsg("Saved!");
@@ -384,6 +391,19 @@ export default function Dashboard() {
                 value={higgsfieldInput}
                 onChange={e => setHiggsfieldInput(e.target.value)}
                 placeholder={higgsfieldKeySet ? "Enter new key to update" : "hf-xxxxxxxxxxxxxxxx"}
+                className={inputCls}
+              />
+              <label className="block text-xs font-bold text-gray-400 uppercase tracking-wide mb-1 mt-3">
+                Higgsfield API Secret
+              </label>
+              {higgsfieldSecretSet ? (
+                <p className="text-xs text-green-600 font-semibold mb-2">Connected — last 4: {higgsfieldSecretLast4}</p>
+              ) : null}
+              <input
+                type="password"
+                value={higgsfieldSecretInput}
+                onChange={e => setHiggsfieldSecretInput(e.target.value)}
+                placeholder={higgsfieldSecretSet ? "Enter new secret to update" : "Higgsfield API Secret (required for Soul ID training)"}
                 className={inputCls}
               />
               {higgsfieldKeySet ? (

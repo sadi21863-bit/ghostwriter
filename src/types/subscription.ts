@@ -54,6 +54,9 @@ export const GATED_MODES: Record<string, FeatureGate> = {
   composition: "composition_layer",
   horror:      "story_modes_advanced",
   comedy:      "story_modes_advanced",
+  mystery:     "story_modes_advanced",
+  romance:     "story_modes_advanced",
+  action:      "story_modes_advanced",
 };
 
 // ── Stripe price IDs (replace with real IDs from Stripe dashboard) ─────────

@@ -15,6 +15,9 @@ import { WritePanel } from "./toolbar/modes/WritePanel";
 import { CompositionPanel } from "./toolbar/modes/CompositionPanel";
 import { HorrorPanel } from "./toolbar/modes/HorrorPanel";
 import { ComedyPanel } from "./toolbar/modes/ComedyPanel";
+import { MysteryPanel } from "./toolbar/modes/MysteryPanel";
+import { RomancePanel } from "./toolbar/modes/RomancePanel";
+import { ActionPanel } from "./toolbar/modes/ActionPanel";
 
 // Tool panels
 import { PipelinePanel } from "./toolbar/tools/PipelinePanel";
@@ -109,6 +112,15 @@ interface Props {
   comedyArchetype: string;
   setComedyArchetype: (v: string) => void;
   generateComedy: (archetypeName: string, prompt: string) => Promise<void>;
+  mysteryArchetype: string;
+  setMysteryArchetype: (v: string) => void;
+  generateMystery: (archetypeName: string, prompt: string) => Promise<void>;
+  romanceArchetype: string;
+  setRomanceArchetype: (v: string) => void;
+  generateRomance: (archetypeName: string, prompt: string) => Promise<void>;
+  actionArchetype: string;
+  setActionArchetype: (v: string) => void;
+  generateAction: (archetypeName: string, prompt: string) => Promise<void>;
   setUpgradeRequired?: (feature: string) => void;
 }
 
@@ -118,6 +130,7 @@ const modeLabel = (m: string) => (
     dialogue: "Dialogue", combat: "Combat", cohost: "Co-host",
     emotional: "Emotional", atmosphere: "Atmosphere", tension: "Tension",
     composition: "Composition", horror: "Horror", comedy: "Comedy",
+    mystery: "Mystery", romance: "Romance", action: "Action",
   } as Record<string, string>)[m] ?? m
 );
 
@@ -142,6 +155,9 @@ export default function ToolbarPanel(props: Props) {
     compositionLayers, setCompositionLayers, generateComposition,
     horrorArchetype, setHorrorArchetype, generateHorror,
     comedyArchetype, setComedyArchetype, generateComedy,
+    mysteryArchetype, setMysteryArchetype, generateMystery,
+    romanceArchetype, setRomanceArchetype, generateRomance,
+    actionArchetype, setActionArchetype, generateAction,
     setUpgradeRequired,
   } = props;
 
@@ -385,6 +401,30 @@ export default function ToolbarPanel(props: Props) {
             generating={generating} streamText={streamText} setStreamText={setStreamText}
             prompt={prompt} setPrompt={setPrompt}
             generateComedy={generateComedy}
+            updateChapter={updateChapter} activeChap={activeChap}
+          />
+        : mode === "mystery"
+        ? <MysteryPanel
+            mysteryArchetype={mysteryArchetype} setMysteryArchetype={setMysteryArchetype}
+            generating={generating} streamText={streamText} setStreamText={setStreamText}
+            prompt={prompt} setPrompt={setPrompt}
+            generateMystery={generateMystery}
+            updateChapter={updateChapter} activeChap={activeChap}
+          />
+        : mode === "romance"
+        ? <RomancePanel
+            romanceArchetype={romanceArchetype} setRomanceArchetype={setRomanceArchetype}
+            generating={generating} streamText={streamText} setStreamText={setStreamText}
+            prompt={prompt} setPrompt={setPrompt}
+            generateRomance={generateRomance}
+            updateChapter={updateChapter} activeChap={activeChap}
+          />
+        : mode === "action"
+        ? <ActionPanel
+            actionArchetype={actionArchetype} setActionArchetype={setActionArchetype}
+            generating={generating} streamText={streamText} setStreamText={setStreamText}
+            prompt={prompt} setPrompt={setPrompt}
+            generateAction={generateAction}
             updateChapter={updateChapter} activeChap={activeChap}
           />
         : <WritePanel
