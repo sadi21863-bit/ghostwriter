@@ -8,8 +8,8 @@ export interface Character {
   alwaysInContext: boolean;
   linkedLocationIds: string[];
   linkedPlotThreadIds: string[];
-  voiceProfile: string;
-  voiceId: string;
+  voiceProfile?: string;
+  voiceId?: string;
 }
 
 export interface Location {
