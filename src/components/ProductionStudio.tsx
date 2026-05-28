@@ -218,7 +218,7 @@ export default function ProductionStudio({ project, higgsfieldKey }: { project: 
       locSheets.forEach(l => { md += `### ${l.name}\n${l.visualDescription}\n**Keywords:** ${l.moodKeywords?.join(", ")}\n\n`; });
     }
     md += `## Shot List\n\n`;
-    const scenes = Array.from(new Set(shots.map(s => s.sceneNumber))).sort((a, b) => a - b);
+    const scenes = Array.from(new Set(shots.map(s => s.sceneNumber))).sort((a: number, b: number) => a - b);
     scenes.forEach(scene => {
       const sceneShots = shots.filter(s => s.sceneNumber === scene);
       md += `### Scene ${scene}\n\n`;
@@ -319,7 +319,7 @@ export default function ProductionStudio({ project, higgsfieldKey }: { project: 
         )}
 
         <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 8, color: "#374151" }}>SHOT LIST</div>
-        {Array.from(new Set(shots.map(s => s.sceneNumber))).sort((a, b) => a - b).map(scene => {
+        {Array.from(new Set(shots.map(s => s.sceneNumber))).sort((a: number, b: number) => a - b).map(scene => {
           const sceneShots = shots.filter(s => s.sceneNumber === scene);
           return (
             <div key={scene} style={{ marginBottom: 16 }}>
@@ -341,7 +341,7 @@ export default function ProductionStudio({ project, higgsfieldKey }: { project: 
   }
 
   // ── SHOT LIST VIEW ───────────────────────────────────────────────────────────
-  const scenes = Array.from(new Set(shots.map(s => s.sceneNumber))).sort((a, b) => a - b);
+  const scenes = Array.from(new Set(shots.map(s => s.sceneNumber))).sort((a: number, b: number) => a - b);
 
   return (
     <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>

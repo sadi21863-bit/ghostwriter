@@ -42,7 +42,7 @@ export const FEATURE_ACCESS: Record<FeatureGate, SubscriptionTier[]> = {
   creator_tools_advanced: ["creator_pro", "all_access"],
   unlimited_generations:  ["story_pro", "creator_pro", "all_access"],
   virality_predict:       ["creator_pro", "all_access"],
-  audio_novel:            [],
+  audio_novel:            ["story_pro", "all_access"],
 };
 
 // ── Which AI modes require which gate ─────────────────────────────────────

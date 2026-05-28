@@ -1,4 +1,5 @@
 "use client";
+import type { FormEvent } from "react";
 import { useState } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
@@ -16,7 +17,7 @@ export default function Login() {
 
   const switchTab = (t: Tab) => { setTab(t); setError(""); };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setError("");
     setLoading(true);

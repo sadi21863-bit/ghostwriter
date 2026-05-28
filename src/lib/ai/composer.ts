@@ -103,6 +103,19 @@ export const LAYER_COLORS: Record<CompositionLayerType, { bg: string; text: stri
   atmosphere: { bg: "#f0fdf4", text: "#14532d" },
 };
 
+// ── Compatibility matrix ──────────────────────────────────────────────────────
+
+// Checks whether two generation modes can be combined (primary + modifier).
+// Returns false if: same mode, or the combination is semantically nonsensical.
+const INCOMPATIBLE_PAIRS = new Set([
+  "atmosphere:combat",  // serene/liminal atmosphere can't take combat as a modifier
+]);
+
+export function isCompatible(primary: string, modifier: string): boolean {
+  if (primary === modifier) return false;
+  return !INCOMPATIBLE_PAIRS.has(`${primary}:${modifier}`);
+}
+
 // ── Context builder ───────────────────────────────────────────────────────────
 
 export function buildCompositionContext(layers: CompositionLayer[]): string {

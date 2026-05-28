@@ -5,6 +5,8 @@
 
 import { NextResponse } from "next/server";
 import { getRequiredSession } from "@/lib/auth-helpers";
+import { checkAiRateLimit } from "@/lib/ratelimit";
+import { getUserTier } from "@/lib/subscription";
 import { db } from "@/db";
 import { projects, chapters, characters, audioExports, users } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
@@ -15,6 +17,18 @@ const NARRATOR_VOICE = "fable";
 
 export async function POST(req: Request) {
   const session = await getRequiredSession();
+
+  const rl = await checkAiRateLimit(session.user.id);
+  if (rl) return rl;
+
+  const tier = await getUserTier(session.user.id);
+  if (!["story_pro", "all_access"].includes(tier)) {
+    return NextResponse.json({
+      error: "upgrade_required",
+      feature: "audio_novel",
+      message: "Audio Novel is available on Story Pro and All-Access plans.",
+    }, { status: 403 });
+  }
 
   const { projectId, chapterId } = await req.json();
 

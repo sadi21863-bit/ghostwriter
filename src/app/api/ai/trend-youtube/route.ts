@@ -2,6 +2,9 @@ import { NextResponse } from "next/server";
 import { getRequiredSession } from "@/lib/auth-helpers";
 import { checkAiRateLimit } from "@/lib/ratelimit";
 import { getUserTier, canAccessFeature } from "@/lib/subscription";
+import { db } from "@/db";
+import { creatorBibles } from "@/db/schema";
+import { eq } from "drizzle-orm";
 import Anthropic from "@anthropic-ai/sdk";
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! });
@@ -14,7 +17,16 @@ export async function POST(req: Request) {
   if (!canAccessFeature(tier, "creator_tools_advanced")) {
     return NextResponse.json({ error: "upgrade_required", feature: "creator_tools_advanced", tier }, { status: 403 });
   }
-  const { keyword, format, creatorBible } = await req.json();
+  const { keyword, format, creatorBible, projectId } = await req.json();
+
+  // Server-side niche lookup — augments client-supplied creatorBible if projectId provided
+  let serverNiche = "";
+  if (projectId) {
+    const bible = await db.query.creatorBibles.findFirst({
+      where: eq(creatorBibles.projectId, projectId),
+    });
+    if (bible?.niche) serverNiche = bible.niche;
+  }
 
   if (!keyword?.trim()) {
     return NextResponse.json({ error: "keyword required" }, { status: 400 });
@@ -61,8 +73,9 @@ export async function POST(req: Request) {
       };
     });
 
-    const channelContext = creatorBible
-      ? `\nChannel: ${creatorBible.channelName || ""} | Niche: ${creatorBible.niche || ""} | Voice: ${creatorBible.channelVoice || ""} | Audience: ${creatorBible.audienceInterests || ""}`
+    const niche = serverNiche || creatorBible?.niche || "";
+    const channelContext = (creatorBible || serverNiche)
+      ? `\nChannel: ${creatorBible?.channelName || ""} | Niche: ${niche} | Voice: ${creatorBible?.channelVoice || ""} | Audience: ${creatorBible?.audienceInterests || ""}${niche ? `\nFocus specifically on trends in this niche: ${niche}` : ""}`
       : "";
 
     const msg = await client.messages.create({

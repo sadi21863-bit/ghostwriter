@@ -31,6 +31,7 @@ import { RepurposePanel } from "./toolbar/tools/RepurposePanel";
 import { ResearchScaffoldPanel } from "./toolbar/tools/ResearchScaffoldPanel";
 import { GuestIntelPanel } from "./toolbar/tools/GuestIntelPanel";
 import { TrendAnglesPanel } from "./toolbar/tools/TrendAnglesPanel";
+import { TrendNichePanel } from "./toolbar/tools/TrendNichePanel";
 import { HookABPanel } from "./toolbar/tools/HookABPanel";
 import { ThumbnailConceptsPanel } from "./toolbar/tools/ThumbnailConceptsPanel";
 
@@ -299,6 +300,14 @@ export default function ToolbarPanel(props: Props) {
           topic={activeChap.title}
           setSavedMsg={setSavedMsg}
           updateProject={updateProject}
+          onUpgradeRequired={setUpgradeRequired}
+        />
+
+        {/* Niche Trend Intelligence */}
+        <TrendNichePanel
+          format={project.format}
+          projectId={project.id}
+          setPrompt={setPrompt}
           onUpgradeRequired={setUpgradeRequired}
         />
 

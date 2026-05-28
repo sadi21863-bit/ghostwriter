@@ -1,4 +1,5 @@
 "use client";
+import type { FormEvent } from "react";
 import { useEffect, useState } from "react";
 import { useSession, signOut } from "next-auth/react";
 import { useRouter } from "next/navigation";
@@ -84,7 +85,7 @@ export default function Dashboard() {
       .finally(() => setLoading(false));
   }, [status]);
 
-  const createProject = async (e: React.FormEvent) => {
+  const createProject = async (e: FormEvent) => {
     e.preventDefault();
     if (!newName.trim()) return;
     setCreating(true);
