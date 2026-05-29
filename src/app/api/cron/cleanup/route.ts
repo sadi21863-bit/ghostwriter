@@ -5,8 +5,9 @@ import { lt } from "drizzle-orm";
 
 // Called by Vercel Cron — secured by CRON_SECRET header
 export async function GET(req: Request) {
+  const secret = process.env.CRON_SECRET;
   const authHeader = req.headers.get("authorization");
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+  if (!secret || authHeader !== `Bearer ${secret}`) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

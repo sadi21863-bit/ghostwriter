@@ -41,7 +41,10 @@ export async function POST(req: Request) {
   }
 
   const videoSummaries = completed.map((j: any, i: number) => {
-    const result = typeof j.result === "string" ? JSON.parse(j.result) : j.result;
+    let result: any = j.result;
+    if (typeof result === "string") {
+      try { result = JSON.parse(result); } catch { result = {}; }
+    }
     return `VIDEO ${i + 1} (${j.youtubeUrl}):\n${JSON.stringify(result, null, 2).slice(0, 1500)}`;
   }).join("\n\n---\n\n");
 

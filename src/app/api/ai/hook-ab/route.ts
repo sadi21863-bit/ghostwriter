@@ -105,10 +105,15 @@ Return ONLY valid JSON:
   });
 
   const raw = response.content[0].type === "text" ? response.content[0].text : "{}";
-  const parsed = JSON.parse(raw.replace(/```json\n?|```/g, "").trim());
+  let parsed: any;
+  try {
+    parsed = JSON.parse(raw.replace(/```json\n?|```/g, "").trim());
+  } catch {
+    return NextResponse.json({ error: "Failed to parse hook response" }, { status: 500 });
+  }
 
   if (projectId && bible && !isABMode && parsed.hooks) {
-    const newArchetypes = (parsed.hooks as any[]).map((h: any) => h.archetype);
+    const newArchetypes = (parsed.hooks as any[]).map((h: any) => h.archetype).filter(Boolean);
     const updatedMemory = [...hookMemory, ...newArchetypes].slice(-20);
     await db.update(creatorBibles)
       .set({ hookMemory: updatedMemory } as any)

@@ -4,13 +4,18 @@ import { checkAiRateLimit } from "@/lib/ratelimit";
 import { generateQuickStory, generateBeginnerCharacters, generateEntity } from "@/lib/ai/engine";
 import { db } from "@/db";
 import { projects, characters, locations, plotThreads } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 
 export async function POST(req: NextRequest) {
     const session = await getRequiredSession();
     const rl = await checkAiRateLimit(session.user.id);
     if (rl) return rl;
     const { projectId, title, format, genres } = await req.json();
+
+    const owned = await db.query.projects.findFirst({
+        where: and(eq(projects.id, projectId), eq(projects.userId, session.user.id)),
+    });
+    if (!owned) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
     try {
         // Generate quick story skeleton

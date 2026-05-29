@@ -12,6 +12,7 @@ export async function GET() {
   const jobs = await db.query.videoAnalysisJobs.findMany({
     where: eq(videoAnalysisJobs.userId, s.user.id),
     orderBy: [desc(videoAnalysisJobs.createdAt)],
+    limit: 50,
   });
   return NextResponse.json({ jobs: jobs.map((j: any) => ({
     id: j.id,

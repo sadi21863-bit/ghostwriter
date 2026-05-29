@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import { co, sBtn, sBtnSm, sInput } from "@/lib/styles";
+import { co, sBtn, sBtnSm } from "@/lib/styles";
 
 interface Props {
   format: string;
@@ -23,13 +23,16 @@ interface ScriptResult {
 }
 
 export function TikTokNativePanel({ format, onUpgradeRequired }: Props) {
-  const [show, setShow]         = useState(false);
-  const [tab, setTab]           = useState<"hooks" | "script">("hooks");
-  const [topic, setTopic]       = useState("");
-  const [loading, setLoading]   = useState(false);
-  const [hooks, setHooks]       = useState<HookResult[]>([]);
-  const [script, setScript]     = useState<ScriptResult | null>(null);
-  const [copied, setCopied]     = useState<string | null>(null);
+  const [show, setShow]           = useState(false);
+  const [tab, setTab]             = useState<"hooks" | "script">("hooks");
+  const [topic, setTopic]         = useState("");
+  const [niche, setNiche]         = useState("");
+  const [soundStrategy, setSoundStrategy] = useState("Voice-only");
+  const [loading, setLoading]     = useState(false);
+  const [hooks, setHooks]         = useState<HookResult[]>([]);
+  const [script, setScript]       = useState<ScriptResult | null>(null);
+  const [copied, setCopied]       = useState<string | null>(null);
+  const [genError, setGenError]   = useState<string | null>(null);
 
   if (!["TikTok Script", "TikTok Native"].includes(format)) return null;
 
@@ -38,17 +41,19 @@ export function TikTokNativePanel({ format, onUpgradeRequired }: Props) {
     setLoading(true);
     setHooks([]);
     setScript(null);
+    setGenError(null);
     try {
       const res = await fetch("/api/ai/tiktok-native", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ topic, mode: tab }),
+        body: JSON.stringify({ topic, niche: niche.trim() || undefined, soundStrategy, mode: tab }),
       });
       const data = await res.json();
       if (data.error === "upgrade_required") { onUpgradeRequired?.(data.feature); setShow(false); }
+      else if (data.error) setGenError(data.error);
       else if (tab === "hooks") setHooks(data.hooks ?? []);
       else setScript(data);
-    } catch { /* silent */ }
+    } catch { setGenError("Generation failed. Please try again."); }
     setLoading(false);
   };
 
@@ -100,6 +105,24 @@ export function TikTokNativePanel({ format, onUpgradeRequired }: Props) {
               onChange={e => setTopic(e.target.value)}
             />
 
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginTop: 8 }}>
+              <input
+                style={{ padding: "7px 10px", border: "1px solid " + co.border, borderRadius: 8, fontSize: 12, outline: "none" }}
+                placeholder="Niche (optional)"
+                value={niche}
+                onChange={e => setNiche(e.target.value)}
+              />
+              <select
+                style={{ padding: "7px 10px", border: "1px solid " + co.border, borderRadius: 8, fontSize: 12, background: "#fff", cursor: "pointer" }}
+                value={soundStrategy}
+                onChange={e => setSoundStrategy(e.target.value)}
+              >
+                {["Trending audio", "Original audio", "Voice-only", "Mixed"].map(s => (
+                  <option key={s}>{s}</option>
+                ))}
+              </select>
+            </div>
+
             <button
               style={{ ...sBtn, width: "100%", marginTop: 10, background: "#be185d", opacity: loading || !topic.trim() ? 0.5 : 1 }}
               disabled={loading || !topic.trim()}
@@ -107,6 +130,10 @@ export function TikTokNativePanel({ format, onUpgradeRequired }: Props) {
             >
               {loading ? "Generating…" : tab === "hooks" ? "Generate 5 Hooks" : "Write Full Script"}
             </button>
+
+            {genError && (
+              <div style={{ marginTop: 10, fontSize: 12, color: "#ef4444", padding: "8px 12px", background: "#fef2f2", borderRadius: 8 }}>{genError}</div>
+            )}
 
             {hooks.length > 0 && (
               <div style={{ marginTop: 18, display: "flex", flexDirection: "column", gap: 10 }}>

@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { buildContext, buildCreatorContext } from "@/lib/ai/context-builder";
 import { co, sInput, sTextarea, sBtn, sBtnSm } from "@/lib/styles";
 import { isCreatorFormat, isStoryFormat, FORMATS, GENRES, STYLE_ATTRS, DEFAULT_CHAR, DEFAULT_LOC, DEFAULT_PLOT, CharFields, LocFields, PlotFields } from "@/lib/formats";
@@ -123,6 +123,8 @@ export default function WorldBiblePanel(props: Props) {
   const [soulIdTraining, setSoulIdTraining] = useState(false);
   const [soulIdJobId, setSoulIdJobId] = useState("");
   const [soulIdMsg, setSoulIdMsg] = useState("");
+  const soulIdPollRef = useRef<any>(null);
+  useEffect(() => { return () => { if (soulIdPollRef.current) clearInterval(soulIdPollRef.current); }; }, []);
 
   const loadRelMap = async () => {
     setRelMapLoading(true); setSelectedMapEdge(null); setSelectedMapNode(null);
@@ -171,30 +173,34 @@ export default function WorldBiblePanel(props: Props) {
       if (!res.ok) { setSoulIdMsg(data.error || "Training failed."); setSoulIdTraining(false); return; }
       setSoulIdJobId(data.jobId);
       setSoulIdMsg("Training Soul ID... (30–120 seconds)");
-      pollSoulId(data.jobId);
+      pollSoulId(data.jobId, soulIdCharId);
     } catch { setSoulIdMsg("Training failed. Please try again."); setSoulIdTraining(false); }
   };
 
-  const pollSoulId = async (jobId: string) => {
-    const interval = setInterval(async () => {
+  const pollSoulId = (jobId: string, charId: string) => {
+    if (soulIdPollRef.current) clearInterval(soulIdPollRef.current);
+    soulIdPollRef.current = setInterval(async () => {
       try {
-        const res = await fetch(`/api/projects/${project.id}/characters/${soulIdCharId}/soul-id?jobId=${jobId}`);
+        const res = await fetch(`/api/projects/${project.id}/characters/${charId}/soul-id?jobId=${jobId}`);
         const data = await res.json();
         if (data.status === "completed") {
-          clearInterval(interval);
+          clearInterval(soulIdPollRef.current); soulIdPollRef.current = null;
           setSoulIdTraining(false);
           setSoulIdMsg("Soul ID trained successfully!");
           updateProject((p: any) => ({
             ...p,
-            characters: p.characters.map((c: any) => c.id === soulIdCharId ? { ...c, soulId: data.soulId } : c),
+            characters: p.characters.map((c: any) => c.id === charId ? { ...c, soulId: data.soulId } : c),
           }));
           setTimeout(() => setShowSoulIdModal(false), 1500);
         } else if (data.status === "failed") {
-          clearInterval(interval);
+          clearInterval(soulIdPollRef.current); soulIdPollRef.current = null;
           setSoulIdTraining(false);
           setSoulIdMsg("Training failed. Please try again with clearer photos.");
         }
-      } catch { clearInterval(interval); setSoulIdTraining(false); setSoulIdMsg("Polling error."); }
+      } catch {
+        clearInterval(soulIdPollRef.current); soulIdPollRef.current = null;
+        setSoulIdTraining(false); setSoulIdMsg("Polling error.");
+      }
     }, 8000);
   };
 

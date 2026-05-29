@@ -33,12 +33,14 @@ export function ChannelAutopsyPanel({ format, onUpgradeRequired }: Props) {
 
   useEffect(() => {
     if (!show) return;
+    const ctrl = new AbortController();
     setFetching(true);
-    fetch("/api/ai/dissect-video")
+    fetch("/api/ai/dissect-video", { signal: ctrl.signal })
       .then(r => r.json())
       .then(d => setJobs((d.jobs ?? []).filter((j: Job) => j.status === "completed")))
-      .catch(() => {})
+      .catch(e => { if (e.name !== "AbortError") {} })
       .finally(() => setFetching(false));
+    return () => ctrl.abort();
   }, [show]);
 
   const toggle = (id: string) => {

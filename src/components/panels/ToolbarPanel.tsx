@@ -332,6 +332,8 @@ export default function ToolbarPanel(props: Props) {
           format={project.format}
           mode={mode}
           content={activeChap.content}
+          niche={project.creatorBible?.niche}
+          channelVoice={project.creatorBible?.channelVoice}
           setSavedMsg={setSavedMsg}
           updateProject={updateProject}
           onUpgradeRequired={setUpgradeRequired}

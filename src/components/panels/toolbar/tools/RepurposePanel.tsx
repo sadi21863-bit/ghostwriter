@@ -7,6 +7,8 @@ interface Props {
   format: string;
   mode: string;
   content: string;
+  niche?: string;
+  channelVoice?: string;
   setSavedMsg: (m: string) => void;
   updateProject: (fn: any) => void;
   onUpgradeRequired?: (feature: string) => void;
@@ -36,7 +38,7 @@ function platformText(key: string, data: any): string {
   }
 }
 
-export function RepurposePanel({ format, mode, content, setSavedMsg, updateProject, onUpgradeRequired }: Props) {
+export function RepurposePanel({ format, mode, content, niche, channelVoice, setSavedMsg, updateProject, onUpgradeRequired }: Props) {
   const [show, setShow]         = useState(false);
   const [loading, setLoading]   = useState(false);
   const [result, setResult]     = useState<Record<string, any> | null>(null);
@@ -53,7 +55,7 @@ export function RepurposePanel({ format, mode, content, setSavedMsg, updateProje
       const res = await fetch("/api/ai/repurpose", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ script: content, format }),
+        body: JSON.stringify({ script: content, format, niche, channelVoice }),
       });
       const data = await res.json();
       if (data.error === "upgrade_required") { onUpgradeRequired?.(data.feature); }
