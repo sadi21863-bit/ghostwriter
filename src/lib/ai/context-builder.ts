@@ -98,6 +98,28 @@ export function buildContext(p: ContextProject): string {
         const linked = p.plotThreads?.filter((t: PlotThread) => c.linkedPlotThreadIds.includes(t.id));
         if (linked?.length) parts.push("  Involved in: " + linked.map((t: PlotThread) => t.name).join(", "));
       }
+      // Structural function injection
+      const fnMap: Record<string, string> = {
+        Mirror:    "Narrative function: Mirror. Reflects the protagonist's values back — validating or distorting. Reveal the protagonist through this character's reaction to them.",
+        Foil:      "Narrative function: Foil. Shares the protagonist's context but makes the opposite choices. Show the path not taken.",
+        Mentor:    "Narrative function: Mentor/Threshold Guardian. Grants access to new capability or world. Opens a threshold, then steps back.",
+        Herald:    "Narrative function: Herald. Announces change and disrupts the status quo.",
+        Trickster: "Narrative function: Trickster. Destabilises assumptions. Introduces instability in every scene they appear in.",
+        Shadow:    "Narrative function: Shadow. Embodies what the protagonist fears becoming. They are the warning.",
+        Catalyst:  "Narrative function: Catalyst. Transforms everyone around them. Has no arc of their own.",
+      };
+      if ((c as any).structuralFunction && fnMap[(c as any).structuralFunction]) {
+        parts.push("  " + fnMap[(c as any).structuralFunction]);
+      }
+      // Voice profile injection
+      const reg: Record<string, string> = { Formal: "formal register, full sentences", Casual: "casual register, contractions, colloquial", Regional: "regional dialect markers", Institutional: "profession-specific register", Hybrid: "code-switches between registers" };
+      const comp: Record<string, string> = { Verbose: "speaks at length, elaborates, qualifies", Balanced: "standard sentence length", Terse: "short responses, minimal elaboration", Fragments: "speaks in fragments and incomplete sentences" };
+      const tic: Record<string, string> = { "Deflects-with-humor": "deflects emotional content with humor", "Asks-instead-of-asserts": "asks questions rather than making direct statements", "Profession-metaphors": "draws analogies from their professional domain", "Qualifies-everything": "prefaces assertions with hedges and qualifications" };
+      const vParts: string[] = [];
+      if ((c as any).voiceRegister    && reg[(c as any).voiceRegister])    vParts.push(reg[(c as any).voiceRegister]);
+      if ((c as any).voiceCompression && comp[(c as any).voiceCompression]) vParts.push(comp[(c as any).voiceCompression]);
+      if ((c as any).verbalTic && (c as any).verbalTic !== "None" && tic[(c as any).verbalTic]) vParts.push(tic[(c as any).verbalTic]);
+      if (vParts.length) parts.push("  Voice: " + vParts.join(", "));
       r.push(parts.join("\n"));
     });
   }

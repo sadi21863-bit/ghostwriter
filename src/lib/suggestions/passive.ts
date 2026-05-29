@@ -17,7 +17,7 @@ export interface PassiveSuggestion {
   severity: "warning" | "info";
 }
 
-export function runPassiveChecks(text: string): PassiveSuggestion[] {
+export function runPassiveChecks(text: string, previousChapterContent?: string): PassiveSuggestion[] {
   if (!text || text.length < 100) return [];
   const suggestions: PassiveSuggestion[] = [];
 
@@ -26,8 +26,31 @@ export function runPassiveChecks(text: string): PassiveSuggestion[] {
   suggestions.push(...checkPacing(text));
   suggestions.push(...checkDialogueRatio(text));
   suggestions.push(...checkSentenceUniformity(text));
+  if (previousChapterContent) {
+    suggestions.push(...checkEmotionalContinuity(text, previousChapterContent));
+  }
 
   return suggestions;
+}
+
+function checkEmotionalContinuity(currentText: string, prevChapterEnd: string): PassiveSuggestion[] {
+  if (!prevChapterEnd || !currentText) return [];
+  const prev = prevChapterEnd.slice(-300).toLowerCase();
+  const curr = currentText.slice(0, 400).toLowerCase();
+  const neg = ["grief","loss","died","afraid","terror","despair","wept","broken","shattered","abandoned","failed","devastated","wound","pain","hopeless"];
+  const pos = ["joy","laugh","smiled","relief","triumph","won","warm","safe","peace","happy"];
+  const pScore = pos.filter(w => prev.includes(w)).length - neg.filter(w => prev.includes(w)).length;
+  const cScore = pos.filter(w => curr.includes(w)).length - neg.filter(w => curr.includes(w)).length;
+  if (pScore < -2 && cScore > 2) {
+    return [{
+      id: "emotional_continuity",
+      category: "pacing" as SuggestionCategory,
+      message: "The previous chapter ended with strong negative emotion but this one opens with a sharp emotional shift. Consider a bleed-through line — a small residue of the previous state before the new scene takes over.",
+      excerpt: currentText.slice(0, 60),
+      severity: "info",
+    }];
+  }
+  return [];
 }
 
 function checkRepeatedSentenceOpeners(text: string): PassiveSuggestion[] {

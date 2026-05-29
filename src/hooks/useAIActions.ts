@@ -19,6 +19,10 @@ import { buildMonologueContext } from "@/lib/monologue";
 import { buildVoiceContext } from "@/lib/voice";
 import { buildThrillerContext } from "@/lib/thriller";
 import { buildSportsContext } from "@/lib/sports";
+import { buildSettingContext } from "@/lib/setting";
+import { buildHistoricalContext } from "@/lib/historical";
+import { buildScitechContext } from "@/lib/scitech";
+import { buildEthicsContext } from "@/lib/ethics";
 
 export function useAIActions({
   project, mode, prompt, activeChap,
@@ -419,6 +423,70 @@ export function useAIActions({
     setGenerating(false); setGenTarget("");
   };
 
+  const generateSetting = async (archetypeName: string, settingPrompt: string) => {
+    if (!archetypeName) { setErrorMsg("Select a setting archetype."); return; }
+    setGenerating(true); setGenTarget("main"); setStreamText("");
+    try {
+      const ctx = buildSettingContext(archetypeName) + "\n---\n" + buildFullContext();
+      const res = await fetch("/api/ai/generate", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mode: "setting", prompt: settingPrompt || `Write a scene using the ${archetypeName} setting archetype.`, context: ctx, format: project.format, projectId: project.id, chapterId: activeChap.id }),
+      });
+      const data = await res.json();
+      if (data.error === "upgrade_required") { setUpgradeRequired?.(data.feature); }
+      else if (data.text) setStreamText(data.text);
+    } catch { setErrorMsg("Setting generation failed. Please try again."); }
+    setGenerating(false); setGenTarget("");
+  };
+
+  const generateHistorical = async (archetypeName: string, historicalPrompt: string) => {
+    if (!archetypeName) { setErrorMsg("Select a historical archetype."); return; }
+    setGenerating(true); setGenTarget("main"); setStreamText("");
+    try {
+      const ctx = buildHistoricalContext(archetypeName) + "\n---\n" + buildFullContext();
+      const res = await fetch("/api/ai/generate", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mode: "historical", prompt: historicalPrompt || `Write a scene using the ${archetypeName} historical texture.`, context: ctx, format: project.format, projectId: project.id, chapterId: activeChap.id }),
+      });
+      const data = await res.json();
+      if (data.error === "upgrade_required") { setUpgradeRequired?.(data.feature); }
+      else if (data.text) setStreamText(data.text);
+    } catch { setErrorMsg("Historical generation failed. Please try again."); }
+    setGenerating(false); setGenTarget("");
+  };
+
+  const generateScitech = async (archetypeName: string, scitechPrompt: string) => {
+    if (!archetypeName) { setErrorMsg("Select a science/technology archetype."); return; }
+    setGenerating(true); setGenTarget("main"); setStreamText("");
+    try {
+      const ctx = buildScitechContext(archetypeName) + "\n---\n" + buildFullContext();
+      const res = await fetch("/api/ai/generate", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mode: "scitech", prompt: scitechPrompt || `Write a scene using the ${archetypeName} science/technology archetype.`, context: ctx, format: project.format, projectId: project.id, chapterId: activeChap.id }),
+      });
+      const data = await res.json();
+      if (data.error === "upgrade_required") { setUpgradeRequired?.(data.feature); }
+      else if (data.text) setStreamText(data.text);
+    } catch { setErrorMsg("Scitech generation failed. Please try again."); }
+    setGenerating(false); setGenTarget("");
+  };
+
+  const generateEthics = async (archetypeName: string, ethicsPrompt: string) => {
+    if (!archetypeName) { setErrorMsg("Select an ethics archetype."); return; }
+    setGenerating(true); setGenTarget("main"); setStreamText("");
+    try {
+      const ctx = buildEthicsContext(archetypeName) + "\n---\n" + buildFullContext();
+      const res = await fetch("/api/ai/generate", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mode: "ethics", prompt: ethicsPrompt || `Write a scene using the ${archetypeName} moral archetype.`, context: ctx, format: project.format, projectId: project.id, chapterId: activeChap.id }),
+      });
+      const data = await res.json();
+      if (data.error === "upgrade_required") { setUpgradeRequired?.(data.feature); }
+      else if (data.text) setStreamText(data.text);
+    } catch { setErrorMsg("Ethics generation failed. Please try again."); }
+    setGenerating(false); setGenTarget("");
+  };
+
   const scoreHook = async () => {
     if (!prompt.trim() || hookScoring) return;
     setHookScoring(true); setHookScore(null);
@@ -443,6 +511,7 @@ export function useAIActions({
     generateEmotionalScene, generateAtmosphere, generateTension, generateComposition,
     generateHorror, generateComedy, generateMystery, generateRomance, generateAction,
     generateMonologue, generateVoice, generateThriller, generateSports,
+    generateSetting, generateHistorical, generateScitech, generateEthics,
     runPipeline, usePipelineOutput,
     handleTextareaSelect, runProse, replaceSelection, scoreHook,
   };

@@ -22,6 +22,10 @@ import { MonologuePanel } from "./toolbar/modes/MonologuePanel";
 import { VoicePanel } from "./toolbar/modes/VoicePanel";
 import { ThrillerPanel } from "./toolbar/modes/ThrillerPanel";
 import { SportsPanel } from "./toolbar/modes/SportsPanel";
+import { SettingPanel } from "./toolbar/modes/SettingPanel";
+import { HistoricalPanel } from "./toolbar/modes/HistoricalPanel";
+import { ScitechPanel } from "./toolbar/modes/ScitechPanel";
+import { EthicsPanel } from "./toolbar/modes/EthicsPanel";
 
 // Tool panels
 import { PipelinePanel } from "./toolbar/tools/PipelinePanel";
@@ -138,6 +142,18 @@ interface Props {
   sportsArchetype: string;
   setSportsArchetype: (v: string) => void;
   generateSports: (archetypeName: string, prompt: string) => Promise<void>;
+  settingArchetype: string;
+  setSettingArchetype: (v: string) => void;
+  generateSetting: (archetypeName: string, prompt: string) => Promise<void>;
+  historicalArchetype: string;
+  setHistoricalArchetype: (v: string) => void;
+  generateHistorical: (archetypeName: string, prompt: string) => Promise<void>;
+  scitechArchetype: string;
+  setScitechArchetype: (v: string) => void;
+  generateScitech: (archetypeName: string, prompt: string) => Promise<void>;
+  ethicsArchetype: string;
+  setEthicsArchetype: (v: string) => void;
+  generateEthics: (archetypeName: string, prompt: string) => Promise<void>;
   setUpgradeRequired?: (feature: string) => void;
 }
 
@@ -149,6 +165,7 @@ const modeLabel = (m: string) => (
     composition: "Composition", horror: "Horror", comedy: "Comedy",
     mystery: "Mystery", romance: "Romance", action: "Action",
     monologue: "Monologue", voice: "Voice", thriller: "Thriller", sports: "Sports",
+    setting: "Setting", historical: "Historical", scitech: "Sci/Tech", ethics: "Ethics",
   } as Record<string, string>)[m] ?? m
 );
 
@@ -180,6 +197,10 @@ export default function ToolbarPanel(props: Props) {
     voiceProfile, setVoiceProfile, generateVoice,
     thrillerArchetype, setThrillerArchetype, generateThriller,
     sportsArchetype, setSportsArchetype, generateSports,
+    settingArchetype, setSettingArchetype, generateSetting,
+    historicalArchetype, setHistoricalArchetype, generateHistorical,
+    scitechArchetype, setScitechArchetype, generateScitech,
+    ethicsArchetype, setEthicsArchetype, generateEthics,
     setUpgradeRequired,
   } = props;
 
@@ -487,6 +508,38 @@ export default function ToolbarPanel(props: Props) {
             generating={generating} streamText={streamText} setStreamText={setStreamText}
             prompt={prompt} setPrompt={setPrompt}
             generateSports={generateSports}
+            updateChapter={updateChapter} activeChap={activeChap}
+          />
+        : mode === "setting"
+        ? <SettingPanel
+            settingArchetype={settingArchetype} setSettingArchetype={setSettingArchetype}
+            generating={generating} streamText={streamText} setStreamText={setStreamText}
+            prompt={prompt} setPrompt={setPrompt}
+            generateSetting={generateSetting}
+            updateChapter={updateChapter} activeChap={activeChap}
+          />
+        : mode === "historical"
+        ? <HistoricalPanel
+            historicalArchetype={historicalArchetype} setHistoricalArchetype={setHistoricalArchetype}
+            generating={generating} streamText={streamText} setStreamText={setStreamText}
+            prompt={prompt} setPrompt={setPrompt}
+            generateHistorical={generateHistorical}
+            updateChapter={updateChapter} activeChap={activeChap}
+          />
+        : mode === "scitech"
+        ? <ScitechPanel
+            scitechArchetype={scitechArchetype} setScitechArchetype={setScitechArchetype}
+            generating={generating} streamText={streamText} setStreamText={setStreamText}
+            prompt={prompt} setPrompt={setPrompt}
+            generateScitech={generateScitech}
+            updateChapter={updateChapter} activeChap={activeChap}
+          />
+        : mode === "ethics"
+        ? <EthicsPanel
+            ethicsArchetype={ethicsArchetype} setEthicsArchetype={setEthicsArchetype}
+            generating={generating} streamText={streamText} setStreamText={setStreamText}
+            prompt={prompt} setPrompt={setPrompt}
+            generateEthics={generateEthics}
             updateChapter={updateChapter} activeChap={activeChap}
           />
         : <WritePanel

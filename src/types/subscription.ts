@@ -63,6 +63,10 @@ export const GATED_MODES: Record<string, FeatureGate> = {
   voice:       "story_modes_advanced",
   thriller:    "story_modes_advanced",
   sports:      "story_modes_advanced",
+  setting:     "story_modes_advanced",
+  historical:  "story_modes_advanced",
+  scitech:     "story_modes_advanced",
+  ethics:      "story_modes_advanced",
 };
 
 // ── Stripe price IDs (replace with real IDs from Stripe dashboard) ─────────

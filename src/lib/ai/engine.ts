@@ -8,13 +8,17 @@ import { MONOLOGUE_SYSTEM_PROMPT } from "@/lib/monologue";
 import { VOICE_SYSTEM_PROMPT } from "@/lib/voice";
 import { THRILLER_SYSTEM_PROMPT } from "@/lib/thriller";
 import { SPORTS_SYSTEM_PROMPT } from "@/lib/sports";
+import { SETTING_SYSTEM_PROMPT } from "@/lib/setting";
+import { HISTORICAL_SYSTEM_PROMPT } from "@/lib/historical";
+import { SCITECH_SYSTEM_PROMPT } from "@/lib/scitech";
+import { ETHICS_SYSTEM_PROMPT } from "@/lib/ethics";
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! });
 
 function safeParseJson(raw: string) {
   const clean = raw.replace(/```json\n?|```/g, "").trim();
   try { return JSON.parse(clean); } catch { return {}; }
 }
-export type GenerationMode = "brainstorm" | "outline" | "write" | "dialogue" | "combat" | "emotional" | "atmosphere" | "tension" | "composition" | "horror" | "comedy" | "mystery" | "romance" | "action" | "monologue" | "voice" | "thriller" | "sports";
+export type GenerationMode = "brainstorm" | "outline" | "write" | "dialogue" | "combat" | "emotional" | "atmosphere" | "tension" | "composition" | "horror" | "comedy" | "mystery" | "romance" | "action" | "monologue" | "voice" | "thriller" | "sports" | "setting" | "historical" | "scitech" | "ethics";
 
 const DIALOGUE_SYSTEM_PROMPT = `You are writing a scene driven by dialogue. Your work operates on three simultaneous levels: the verbal (what is said), the physical (what the body is doing), and the structural (the information management between reader and character).
 
@@ -140,6 +144,10 @@ const MI = {
   voice:       (_f: string) => VOICE_SYSTEM_PROMPT,
   thriller:    (_f: string) => THRILLER_SYSTEM_PROMPT,
   sports:      (_f: string) => SPORTS_SYSTEM_PROMPT,
+  setting:     (_f: string) => SETTING_SYSTEM_PROMPT,
+  historical:  (_f: string) => HISTORICAL_SYSTEM_PROMPT,
+  scitech:     (_f: string) => SCITECH_SYSTEM_PROMPT,
+  ethics:      (_f: string) => ETHICS_SYSTEM_PROMPT,
   composition: (_f: string) => `You are writing a scene that must operate simultaneously across multiple injected technique libraries. The composition context above specifies the active layers and their intersection directives.
 
 COMPOSITION RULES (non-negotiable):
@@ -225,7 +233,12 @@ export async function generate({ mode, prompt, context, format, maxTokens = 4000
     ? "\n\n" + STORY_FORMAT_RULES[format]
     : "";
   const system = (MI as Record<string, (f: string) => string>)[mode](format) + formatRules + "\n---\n" + context;
-  const msg = await client.messages.create({ model: "claude-sonnet-4-20250514", max_tokens: maxTokens, system, messages: [{ role: "user", content: prompt }] });
+  const msg = await client.messages.create({
+    model: "claude-sonnet-4-20250514",
+    max_tokens: maxTokens,
+    system: [{ type: "text", text: system, cache_control: { type: "ephemeral" } }],
+    messages: [{ role: "user", content: prompt }],
+  });
   const text = msg.content.filter(b => b.type === "text").map(b => (b as any).text).join("");
   return { text, tokensUsed: msg.usage.input_tokens + msg.usage.output_tokens, model: "claude-sonnet-4-20250514" };
 }

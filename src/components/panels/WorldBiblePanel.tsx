@@ -111,6 +111,11 @@ export default function WorldBiblePanel(props: Props) {
   // Visual Profile generation state
   const [visualProfileLoading, setVisualProfileLoading] = useState(false);
 
+  // World Bible inference state
+  const [inferLoading, setInferLoading] = useState(false);
+  const [inferResult, setInferResult] = useState<any>(null);
+  const [inferSelected, setInferSelected] = useState<Record<string, boolean>>({});
+
   // Soul ID training modal state
   const [showSoulIdModal, setShowSoulIdModal] = useState(false);
   const [soulIdCharId, setSoulIdCharId] = useState("");
@@ -635,6 +640,40 @@ export default function WorldBiblePanel(props: Props) {
                           <div style={{ fontSize: 10, fontWeight: 700, color: co.accent, marginBottom: 6 }}>AI WORLD BUILDER</div>
                           <div style={{ display: "flex", gap: 6 }}><input style={sInput} placeholder="A heist in a floating city..." value={bibleGenPrompt} onChange={e => setBibleGenPrompt(e.target.value)} onKeyDown={e => e.key === "Enter" && generateWorldBible()} /><button style={{ ...sBtn, opacity: generating ? 0.5 : 1 }} disabled={generating} onClick={generateWorldBible}>{genTarget === "bible" ? "..." : "Build"}</button></div>
                         </div>}
+                        {/* Infer from Chapters button — only when ≥2 chapters have content */}
+                        {project.chapters?.filter((c: any) => (c.content || "").length > 100).length >= 2 && (
+                          <div style={{ marginBottom: 10 }}>
+                            <button
+                              style={{ ...sBtnSm, background: "#f0fdf4", color: "#166534", fontWeight: 600, opacity: inferLoading ? 0.5 : 1 }}
+                              disabled={inferLoading}
+                              onClick={async () => {
+                                setInferLoading(true);
+                                setInferResult(null);
+                                try {
+                                  const res = await fetch(`/api/projects/${project.id}/world-bible/infer`, { method: "POST" });
+                                  const data = await res.json();
+                                  if (data.error) { alert(data.error); }
+                                  else {
+                                    setInferResult(data);
+                                    const sel: Record<string, boolean> = {};
+                                    const existingNames = new Set([
+                                      ...(project.characters || []).map((c: any) => c.name?.toLowerCase()),
+                                      ...(project.locations || []).map((l: any) => l.name?.toLowerCase()),
+                                      ...(project.plotThreads || []).map((t: any) => t.name?.toLowerCase()),
+                                    ]);
+                                    [...(data.characters || []), ...(data.locations || []), ...(data.plotThreads || [])].forEach((item: any, i: number) => {
+                                      sel[`item-${i}-${item.name}`] = !existingNames.has(item.name?.toLowerCase());
+                                    });
+                                    setInferSelected(sel);
+                                  }
+                                } catch { alert("Inference failed. Try again."); }
+                                setInferLoading(false);
+                              }}
+                            >
+                              {inferLoading ? "Analysing chapters..." : "✨ Infer from Chapters"}
+                            </button>
+                          </div>
+                        )}
                         {([["Characters", project.characters, openCharNew, openCharEdit, "characters"], ["Locations", project.locations, openLocNew, openLocEdit, "locations"], ["Plot Threads", project.plotThreads, openPlotNew, openPlotEdit, "plotThreads"]] as [string, any[], () => void, (i: number) => void, string][]).map(([title, items, onNew, onEdit, key]) => (
                           <div key={key} style={{ marginBottom: 12 }}>
                             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
@@ -927,6 +966,57 @@ export default function WorldBiblePanel(props: Props) {
                 <div style={{ fontSize: 10, color: co.muted, marginTop: 3 }}>Used when generating Audio Novel exports for this character's dialogue</div>
               </div>
             )}
+            {mi === 0 && isStoryFormat(project.format) && (
+              <div>
+              {/* Structural Function */}
+              <div style={{ marginBottom: 12 }}>
+                <div style={{ fontSize: 11, color: co.muted, marginBottom: 4, fontWeight: 600 }}>Structural Function <span style={{ fontWeight: 400, opacity: 0.7 }}>(optional)</span></div>
+                <select
+                  style={{ ...sInput }}
+                  value={data.structuralFunction || ""}
+                  onChange={e => setNewChar((c: any) => ({ ...c, structuralFunction: e.target.value }))}
+                >
+                  <option value="">No structural function</option>
+                  <option value="Mirror">Mirror — reflects protagonist's values back</option>
+                  <option value="Foil">Foil — shares context, makes opposite choices</option>
+                  <option value="Mentor">Mentor / Threshold Guardian</option>
+                  <option value="Herald">Herald — announces change</option>
+                  <option value="Trickster">Trickster — destabilises assumptions</option>
+                  <option value="Shadow">Shadow — embodies what protagonist fears becoming</option>
+                  <option value="Catalyst">Catalyst — transforms others, no arc of their own</option>
+                </select>
+              </div>
+
+              {/* Voice Profile (Labov/Pennebaker) */}
+              <div style={{ marginBottom: 12 }}>
+                <div style={{ fontSize: 11, color: co.muted, marginBottom: 4, fontWeight: 600 }}>Voice Register <span style={{ fontWeight: 400, opacity: 0.7 }}>(Labov — optional)</span></div>
+                <select style={{ ...sInput, marginBottom: 6 }} value={data.voiceRegister || ""} onChange={e => setNewChar((c: any) => ({ ...c, voiceRegister: e.target.value }))}>
+                  <option value="">No register</option>
+                  <option value="Formal">Formal</option>
+                  <option value="Casual">Casual</option>
+                  <option value="Regional">Regional</option>
+                  <option value="Institutional">Institutional</option>
+                  <option value="Hybrid">Hybrid</option>
+                </select>
+                <div style={{ fontSize: 11, color: co.muted, marginBottom: 4, fontWeight: 600 }}>Voice Compression <span style={{ fontWeight: 400, opacity: 0.7 }}>(Pennebaker)</span></div>
+                <select style={{ ...sInput, marginBottom: 6 }} value={data.voiceCompression || ""} onChange={e => setNewChar((c: any) => ({ ...c, voiceCompression: e.target.value }))}>
+                  <option value="">No compression</option>
+                  <option value="Verbose">Verbose</option>
+                  <option value="Balanced">Balanced</option>
+                  <option value="Terse">Terse</option>
+                  <option value="Fragments">Fragments</option>
+                </select>
+                <div style={{ fontSize: 11, color: co.muted, marginBottom: 4, fontWeight: 600 }}>Verbal Tic <span style={{ fontWeight: 400, opacity: 0.7 }}>(optional)</span></div>
+                <select style={{ ...sInput }} value={data.verbalTic || ""} onChange={e => setNewChar((c: any) => ({ ...c, verbalTic: e.target.value }))}>
+                  <option value="">None</option>
+                  <option value="Deflects-with-humor">Deflects-with-humor</option>
+                  <option value="Asks-instead-of-asserts">Asks-instead-of-asserts</option>
+                  <option value="Profession-metaphors">Profession-metaphors</option>
+                  <option value="Qualifies-everything">Qualifies-everything</option>
+                </select>
+              </div>
+              </div>
+            )}
             {tKey === "plot" && <div style={{ marginBottom: 8 }}><span style={{ fontSize: 11, color: co.muted, marginBottom: 2, display: "block", fontWeight: 600 }}>Status</span><select style={sInput} value={newPlot.status} onChange={e => setNewPlot((t: any) => ({ ...t, status: e.target.value }))}><option>Active</option><option>Simmering</option><option>Resolved</option></select></div>}
             <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 12 }}>
               <button style={sBtnSm} onClick={() => setShow(false)}>Cancel</button>
@@ -956,6 +1046,71 @@ export default function WorldBiblePanel(props: Props) {
               <button style={sBtnSm} disabled={soulIdTraining} onClick={() => setShowSoulIdModal(false)}>Cancel</button>
               <button style={{ ...sBtn, opacity: soulIdTraining ? 0.5 : 1 }} disabled={soulIdTraining} onClick={startSoulIdTraining}>
                 {soulIdTraining ? "Training..." : "Start Training"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* World Bible Inference Modal */}
+      {inferResult && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1200 }} onClick={() => setInferResult(null)}>
+          <div style={{ background: "#fff", borderRadius: 16, padding: 24, width: 560, maxHeight: "80vh", overflow: "auto", boxShadow: "0 20px 60px rgba(0,0,0,0.2)", border: "1px solid #e5e7eb" }} onClick={(e: any) => e.stopPropagation()}>
+            <h3 style={{ margin: "0 0 4px", fontSize: 16, fontWeight: 800 }}>✨ Found in your chapters</h3>
+            <p style={{ fontSize: 12, color: "#6b7280", margin: "0 0 16px" }}>Select which items to import. Already-existing entries are unchecked.</p>
+            {[
+              { label: "Characters", items: inferResult.characters || [], type: "character" },
+              { label: "Locations", items: inferResult.locations || [], type: "location" },
+              { label: "Plot Threads", items: inferResult.plotThreads || [], type: "plotThread" },
+            ].map(({ label, items, type }) => items.length > 0 && (
+              <div key={type} style={{ marginBottom: 16 }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: "#6c47ff", textTransform: "uppercase", marginBottom: 6 }}>{label} ({items.length})</div>
+                {items.map((item: any, i: number) => {
+                  const key = `item-${i}-${item.name}`;
+                  return (
+                    <label key={key} style={{ display: "flex", alignItems: "flex-start", gap: 8, marginBottom: 6, cursor: "pointer" }}>
+                      <input type="checkbox" checked={!!inferSelected[key]} onChange={e => setInferSelected(s => ({ ...s, [key]: e.target.checked }))} style={{ marginTop: 2 }} />
+                      <div>
+                        <div style={{ fontSize: 13, fontWeight: 600 }}>{item.name}{item.role && <span style={{ fontWeight: 400, color: "#6b7280" }}> — {item.role}</span>}</div>
+                        {item.description && <div style={{ fontSize: 11, color: "#6b7280" }}>{item.description}</div>}
+                        {item.personality && <div style={{ fontSize: 11, color: "#6b7280" }}>{item.personality}</div>}
+                      </div>
+                    </label>
+                  );
+                })}
+              </div>
+            ))}
+            {(inferResult.worldRules?.length > 0) && (
+              <div style={{ marginBottom: 12, background: "#f9fafb", borderRadius: 8, padding: 10, fontSize: 12, color: "#374151" }}>
+                <div style={{ fontWeight: 700, marginBottom: 4 }}>World Rules extracted:</div>
+                {inferResult.worldRules.map((r: string, i: number) => <div key={i}>• {r}</div>)}
+              </div>
+            )}
+            <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 12 }}>
+              <button style={{ padding: "6px 14px", borderRadius: 6, border: "1px solid #e5e7eb", background: "#fff", cursor: "pointer", fontSize: 13 }} onClick={() => setInferResult(null)}>Cancel</button>
+              <button
+                style={{ padding: "6px 14px", borderRadius: 6, background: "#6c47ff", color: "#fff", border: "none", cursor: "pointer", fontSize: 13, fontWeight: 600 }}
+                onClick={async () => {
+                  const allItems = [
+                    ...(inferResult.characters || []).map((c: any, i: number) => ({ ...c, type: "character", key: `item-${i}-${c.name}` })),
+                    ...(inferResult.locations || []).map((l: any, i: number) => ({ ...l, type: "location", key: `item-${(inferResult.characters?.length || 0) + i}-${l.name}` })),
+                    ...(inferResult.plotThreads || []).map((t: any, i: number) => ({ ...t, type: "plotThread", key: `item-${(inferResult.characters?.length || 0) + (inferResult.locations?.length || 0) + i}-${t.name}` })),
+                  ];
+                  for (const item of allItems) {
+                    if (!inferSelected[item.key]) continue;
+                    if (item.type === "character") {
+                      await fetch(`/api/projects/${project.id}/characters`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: item.name, role: item.role || "", personality: item.personality || "", appearance: item.appearance || "" }) });
+                    } else if (item.type === "location") {
+                      await fetch(`/api/projects/${project.id}/locations`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: item.name, description: item.description || "" }) });
+                    } else if (item.type === "plotThread") {
+                      await fetch(`/api/projects/${project.id}/plot-threads`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: item.name, description: item.description || "" }) });
+                    }
+                  }
+                  setInferResult(null);
+                  window.location.reload();
+                }}
+              >
+                Import Selected
               </button>
             </div>
           </div>

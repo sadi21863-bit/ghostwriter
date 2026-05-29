@@ -86,7 +86,10 @@ export function useProjectState(projectId: string) {
         }
         // Phase 4: Passive suggestions — algorithmic, zero-cost, runs on every content save
         if (f === "content" && v) {
-          const suggestions = runPassiveChecks(v);
+          const sortedChapters = [...(project.chapters || [])].sort((a: any, b: any) => a.sortOrder - b.sortOrder);
+          const chapIdx = sortedChapters.findIndex((c: any) => c.id === chapId);
+          const prevContent = chapIdx > 0 ? sortedChapters[chapIdx - 1]?.content : undefined;
+          const suggestions = runPassiveChecks(v, prevContent);
           setPassiveSuggestions(suggestions);
         }
         clearTimeout(summarizeTimer.current);

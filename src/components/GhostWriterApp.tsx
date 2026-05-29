@@ -36,6 +36,10 @@ export default function GhostWriterApp({ projectId }: { projectId: string }) {
   const [voiceProfile, setVoiceProfile] = useState("Vocabulary Register");
   const [thrillerArchetype, setThrillerArchetype] = useState("Expanding Threat");
   const [sportsArchetype, setSportsArchetype] = useState("Flow State");
+  const [settingArchetype, setSettingArchetype] = useState("Prospect-Refuge");
+  const [historicalArchetype, setHistoricalArchetype] = useState("Longue Durée");
+  const [scitechArchetype, setScitechArchetype] = useState("Normal Science");
+  const [ethicsArchetype, setEthicsArchetype] = useState("Moral Dumbfounding");
   const [compositionLayers, setCompositionLayers] = useState<CompositionLayer[]>([]);
   const [upgradeRequired, setUpgradeRequired] = useState<FeatureGate | null>(null);
 
@@ -225,6 +229,18 @@ export default function GhostWriterApp({ projectId }: { projectId: string }) {
         sportsArchetype={sportsArchetype}
         setSportsArchetype={setSportsArchetype}
         generateSports={aiActions.generateSports}
+        settingArchetype={settingArchetype}
+        setSettingArchetype={setSettingArchetype}
+        generateSetting={aiActions.generateSetting}
+        historicalArchetype={historicalArchetype}
+        setHistoricalArchetype={setHistoricalArchetype}
+        generateHistorical={aiActions.generateHistorical}
+        scitechArchetype={scitechArchetype}
+        setScitechArchetype={setScitechArchetype}
+        generateScitech={aiActions.generateScitech}
+        ethicsArchetype={ethicsArchetype}
+        setEthicsArchetype={setEthicsArchetype}
+        generateEthics={aiActions.generateEthics}
         compositionLayers={compositionLayers}
         setCompositionLayers={setCompositionLayers}
         generateComposition={aiActions.generateComposition}

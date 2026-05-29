@@ -2,3 +2,16 @@
 @tailwind components;
 @tailwind utilities;
 body { font-family: 'Inter', system-ui, sans-serif; }
+
+.prose-content,
+[contenteditable="true"],
+.chapter-editor-content,
+.chapter-content {
+  font-family: 'Literata', Georgia, 'Times New Roman', serif;
+  font-size: 18px;
+  line-height: 1.75;
+  max-width: 70ch;
+  margin: 0 auto;
+  letter-spacing: 0.01em;
+}
+.prose-content p { margin-bottom: 1.2em; margin-top: 0; }
