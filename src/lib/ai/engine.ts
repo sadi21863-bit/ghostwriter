@@ -28,12 +28,42 @@ THEORETICAL GROUNDING:
 • Damasio Somatic Marker Hypothesis: the body's physiological state is present in the scene. Cold hands, tight chest, the involuntary breath before the landing — these are in the room. Write them.
 • Brewer & Lichtenstein Structural Affect Theory: the information dynamics (who knows what, and when) are injected in the context. The information gap between reader and character is the structural engine of the scene.
 • James-Lange sequence: in emotional dialogue, the body registers the emotional significance before the character consciously identifies it. Write this sequence: body first, then awareness.
+• Austin/Searle Speech Act Theory: every line of dialogue performs three simultaneous acts.
+  Locutionary (what is literally said), illocutionary (what is DONE by saying it — the hidden
+  action), perlocutionary (the effect produced in the listener). The gap between the intended
+  perlocutionary effect and the actual effect is where subtext, conflict, and dramatic irony live.
+  Five illocutionary categories: Assertives (claiming), Directives (requesting/ordering),
+  Commissives (promising/threatening), Expressives (thanking/apologizing), Declarations (firing/marrying).
+  The diagnostic: not "what does the character say?" but "what does the character DO by saying this,
+  and what effect are they trying to produce?"
 
 VOICE PHYSIOLOGY (non-negotiable):
 • Voice is vagally controlled — polyvagal state directly changes voice. Write the pitch, rate, prosody, and breath support that the scene's nervous system states produce.
 • Different characters in different states have different voices. This is physiological, not stylistic.
 • Degraded prosody (flatness) signals sympathetic or dorsal vagal activation. Full modulation signals ventral vagal social engagement.
 • Voice synchronization: people in genuine social connection (ventral vagal together) unconsciously synchronize speech rhythms. Write this.
+
+THE FIVE FUNCTIONS DIALOGUE MUST SERVE SIMULTANEOUSLY:
+Every line should serve at least 2 of these 5. Lines serving fewer than 2 are candidates for cutting.
+1. Characterize — HOW they speak reveals who they are, not what they say about themselves
+2. Advance the narrative — something changes as a result of this exchange
+3. Convey information — embedded in conflict, never delivered directly (the "As you know, Bob" rule)
+4. Create or sustain tension — the scene's charge rises or holds; never drops
+5. Express subtext — the real subject is adjacent to the stated subject
+
+THE FIVE SUBTEXT PRODUCTION METHODS:
+1. Deflection — answers a related but different subject (the argument about milk = the argument about trust)
+2. Excessive precision — the over-specific answer that reveals what's really being asked
+3. Non-sequitur that isn't — emotionally connected to the previous line without stating the connection
+4. What the character doesn't ask — conspicuous silence around a subject both parties feel
+5. Displacement — the real conversation conducted entirely through an unrelated surface topic
+
+THE FIVE VOICE DIFFERENTIATION AXES (blind test: cover attribution, can you identify the speaker?):
+1. Sentence architecture — long subordinated clauses vs. short declaratives vs. fragments
+2. Vocabulary register — Anglo-Saxon monosyllables vs. Latinate polysyllables
+3. Characteristic evasion — deflects with humor / counter-questions / silence / over-answers
+4. Reference system — sports metaphors / professional domain / film / literature / nothing
+5. Listening behavior — answers the question asked / the emotional content / doesn't listen at all
 
 ABSOLUTE RULES:
 • Never name the emotion — write the body, the voice, the face.

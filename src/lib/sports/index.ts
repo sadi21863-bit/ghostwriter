@@ -20,6 +20,20 @@ THEORETICAL GROUNDING:
 • Beilock (2010) choking: expert performance fails when conscious monitoring interferes with automatic processes. The athlete who thinks about their technique performs at a beginner's level. The analytical system is the enemy.
 • Hackman (2002) team dynamics: high-performing teams communicate minimally because they predict maximally. Backup behavior — anticipating teammates' needs — is the signature of a functional collective.
 • Attribution of defeat: whether the athlete believes they could have won (effort failure) vs. were outmatched (opponent excellence) changes the psychological weight of the loss.
+• Bernard Suits (The Grasshopper, 1978): a game requires four elements — a prelusory goal
+  (the physical outcome, e.g. ball in net), constitutive rules (which deliberately prohibit
+  the most efficient means), lusory means (the permitted means), and the lusory attitude
+  (voluntary acceptance of the rules to make the game possible). The gamesmanship insight:
+  a loophole exploiter uses technically permitted means while violating the lusory attitude —
+  they are technically playing but not really playing. This is the deepest framework for
+  sports drama: the conflict between the prelusory goal (winning) and the lusory attitude
+  (whether winning this way is real).
+• Kinetic chain biomechanics: force is generated in the largest muscle groups and transmitted
+  sequentially through adjacent segments to the point of contact. The athlete who fails
+  generates force at the wrong point in the chain (usually too distal — wrist, not hip).
+  Injury occurs downstream of the chain failure point: the pitcher with weak hip rotation
+  overloads their shoulder. This is why sports injury is narratively interesting: the visible
+  point of failure is never where the real failure is.
 
 BODY IS FIRST:
 Before thought, before analysis, before feeling — write the body.

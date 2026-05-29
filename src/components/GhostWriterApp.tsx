@@ -6,6 +6,7 @@ import { useWorldBible } from "@/hooks/useWorldBible";
 import WorldBiblePanel from "@/components/panels/WorldBiblePanel";
 import ToolbarPanel from "@/components/panels/ToolbarPanel";
 import ChapterEditor from "@/components/panels/ChapterEditor";
+import { StoryHealthPanel } from "@/components/panels/StoryHealthPanel";
 import { UpgradePrompt } from "@/components/upgrade/UpgradePrompt";
 import type { FeatureGate } from "@/types/subscription";
 import type { CompositionLayer } from "@/lib/ai/composer";
@@ -42,6 +43,7 @@ export default function GhostWriterApp({ projectId }: { projectId: string }) {
   const [ethicsArchetype, setEthicsArchetype] = useState("Moral Dumbfounding");
   const [compositionLayers, setCompositionLayers] = useState<CompositionLayer[]>([]);
   const [upgradeRequired, setUpgradeRequired] = useState<FeatureGate | null>(null);
+  const [showStoryHealth, setShowStoryHealth] = useState(false);
 
   const projectState = useProjectState(projectId);
   const {
@@ -245,6 +247,7 @@ export default function GhostWriterApp({ projectId }: { projectId: string }) {
         setCompositionLayers={setCompositionLayers}
         generateComposition={aiActions.generateComposition}
         setUpgradeRequired={(f) => setUpgradeRequired(f as FeatureGate)}
+        onShowStoryHealth={() => setShowStoryHealth(true)}
       />
 
       <ChapterEditor
@@ -260,6 +263,14 @@ export default function GhostWriterApp({ projectId }: { projectId: string }) {
         setPassiveSuggestions={projectState.setPassiveSuggestions}
         setUpgradeRequired={(f) => setUpgradeRequired(f as FeatureGate)}
       />
+
+      {showStoryHealth && (
+        <StoryHealthPanel
+          projectId={project.id}
+          activeChapContent={activeChap?.content || ""}
+          onClose={() => setShowStoryHealth(false)}
+        />
+      )}
 
       {upgradeRequired && (
         <UpgradePrompt feature={upgradeRequired} onClose={() => setUpgradeRequired(null)} />

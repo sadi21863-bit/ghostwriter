@@ -10,38 +10,98 @@ function safeParseJson(raw: string) {
   try { return JSON.parse(clean); } catch { return null; }
 }
 
-const PROSE_PROMPTS: Record<string, (ctx: string) => string> = {
-  expand: (ctx) =>
-    `You are a prose expansion specialist. Take the given text and expand it into a fuller, richer passage. Add sensory detail, ground the moment physically, deepen the emotional texture. Do not change what happens — only enrich it. Return ONLY the expanded text. No explanation, no preamble.\nWorld context for characters and locations present:\n${ctx}`,
-
-  rewrite: (ctx) =>
-    `You are a prose rewriter. Generate EXACTLY 5 different rewrites of the given text. Each rewrite should vary in tone, rhythm, or stylistic approach while preserving the same events and meaning. Return as a JSON array of 5 strings: ["rewrite1","rewrite2","rewrite3","rewrite4","rewrite5"]. No markdown fences, no explanation, only the JSON array.\nWorld context:\n${ctx}`,
-
-  "show-dont-tell": (ctx) =>
-    `You are a "show don't tell" specialist. Rewrite the given text to eliminate telling statements and replace them with specific sensory details, physical actions, and concrete images. If a character feels afraid, show their hands. If a location is gloomy, show the peeling paint. Never state an emotion directly. Return ONLY the rewritten text. No explanation.\nCharacter and location context:\n${ctx}`,
-
-  tighten: (ctx) =>
-    `You are a line editor specialising in concision. Cut the given text to its essential meaning. Remove redundancy, weak modifiers, and throat-clearing. Every word must earn its place. Do not change the events, tone, or voice — only eliminate what is unnecessary. Target 40-60% of the original length. Return ONLY the tightened text.\nContext:\n${ctx}`,
+const sensoryDirectives: Record<string, string> = {
+  horror: "Expand using: olfactory decay (what does wrong smell like?), auditory wrongness (the sound that should not be there), tactile temperature drop.",
+  romance: "Expand using: thermal sensation (warmth proximity), tactile awareness (clothing against skin, the nearness of another body), interoceptive signals (pulse, breath rate).",
+  action: "Expand using: proprioceptive kinesthesia (where the body is in space, the specific muscle firing), auditory shock (the sound arriving before the pain).",
+  atmosphere: "Expand using: olfactory first (smell before sight — smell bypasses cortical analysis), then sound, then the quality of light.",
+  setting: "Expand using: the Proust Effect — what does this specific place smell like, and what involuntary memory does that smell trigger?",
 };
+
+function buildExpandSystem(activeMode?: string): string {
+  const modeDirective = activeMode && sensoryDirectives[activeMode]
+    ? `ACTIVE LIBRARY MODE — ${activeMode.toUpperCase()}:\n${sensoryDirectives[activeMode]}\n\n`
+    : "";
+  return `You are expanding this prose with sensory and physical depth.
+
+${modeDirective}CHRISTENSEN'S CUMULATIVE SENTENCE:
+Take the base clause. Add 3-5 free modifiers (participial phrases, absolute phrases, appositives).
+Each free modifier must name a specific observable action or sensation. No abstract characterizations.
+Example: "She stood at the door" → "She stood at the door, her hand flat against the wood, feeling the grain under her palm, the cold coming through in slow pulses, her breath gone quiet."
+
+Add sensory specificity. Add physical grounding. Every addition must be observable.
+
+Do not change what happens — only enrich it. Return ONLY the expanded text. No explanation, no preamble.
+World context for characters and locations present:`;
+}
+
+const SHOW_DONT_TELL_SYSTEM = `You are upgrading prose from telling to showing.
+
+THE SIMULATION HIERARCHY (Gallese mirror neuron research):
+Ranked from highest to lowest reader simulation response:
+1. Physical action + specific sensation — highest (motor + interoceptive systems activate)
+2. Physical action alone — high
+3. Described emotional state with physical correlate ("her stomach dropped") — moderate
+4. Named emotional state ("she was frightened") — low
+5. Abstract characterization ("she was a frightened person") — minimal
+
+Your task: move every named emotional state up the hierarchy.
+Replace the named state with its embodied specificity.
+"She was sad" → what is the body doing when sad? Eyes stay down. Chest contracts. Breath becomes shallow. The fork moves food around the plate.
+Never name the emotion. Write the body.
+
+Return ONLY the rewritten text. No explanation.
+Character and location context:`;
+
+const TIGHTEN_SYSTEM = `You are cutting this prose to its essential meaning.
+
+THE ANGLO-SAXON/LATINATE RULE:
+Anglo-Saxon words: short, concrete, bodily, direct — blood, bone, fear, home, die, cry, hard, cold, now.
+Latinate words: long, abstract, formal, institutional — emotion, residence, terminate, difficulty, comprehend.
+At the emotional peak: use Anglo-Saxon monosyllables. Register shift signals importance.
+Elsewhere: cut, don't switch register arbitrarily.
+
+FOUR CUTS in order:
+1. Adverbs modifying strong verbs (she ran quickly → she sprinted)
+2. Redundant attribution (he thought to himself → he thought)
+3. Throat-clearing openers (It was the case that → cut entirely)
+4. Latinate abstractions at emotional moments (she experienced profound sadness → she couldn't breathe)
+
+Cut to the bone. Every word must earn its place.
+Do not change the events, tone, or voice — only eliminate what is unnecessary. Target 40-60% of the original length. Return ONLY the tightened text.
+Context:`;
 
 export async function POST(req: Request) {
   const session = await getRequiredSession();
   const rl = await checkAiRateLimit(session.user.id);
   if (rl) return rl;
-  const { text, mode, projectContext } = await req.json();
+  const { text, mode, projectContext, activeMode } = await req.json();
 
   if (!text?.trim() || !mode)
     return NextResponse.json({ error: "text and mode required" }, { status: 400 });
 
-  const systemFn = PROSE_PROMPTS[mode];
-  if (!systemFn)
+  const validModes = ["expand", "rewrite", "show-dont-tell", "tighten"];
+  if (!validModes.includes(mode))
     return NextResponse.json({ error: "invalid mode" }, { status: 400 });
+
+  const ctx = projectContext || "";
+
+  let systemPrompt: string;
+  if (mode === "expand") {
+    systemPrompt = buildExpandSystem(activeMode) + "\n" + ctx;
+  } else if (mode === "show-dont-tell") {
+    systemPrompt = SHOW_DONT_TELL_SYSTEM + "\n" + ctx;
+  } else if (mode === "tighten") {
+    systemPrompt = TIGHTEN_SYSTEM + "\n" + ctx;
+  } else {
+    systemPrompt = `You are a prose rewriter. Generate EXACTLY 5 different rewrites of the given text. Each rewrite should vary in tone, rhythm, or stylistic approach while preserving the same events and meaning. Return as a JSON array of 5 strings: ["rewrite1","rewrite2","rewrite3","rewrite4","rewrite5"]. No markdown fences, no explanation, only the JSON array.\nWorld context:\n${ctx}`;
+  }
 
   try {
     const msg = await client.messages.create({
       model: "claude-sonnet-4-20250514",
       max_tokens: 2000,
-      system: systemFn(projectContext || ""),
+      system: systemPrompt,
       messages: [{ role: "user", content: text }],
     });
 

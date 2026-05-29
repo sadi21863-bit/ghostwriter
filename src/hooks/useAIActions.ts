@@ -151,7 +151,7 @@ export function useAIActions({
     try {
       const res = await fetch("/api/ai/prose", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: selectedText, mode: proseMode, projectContext: buildFullContext() }),
+        body: JSON.stringify({ text: selectedText, mode: proseMode, projectContext: buildFullContext(), activeMode: mode }),
       });
       const data = await res.json();
       setProseResult({ mode: proseMode, ...data, chosen: 0 });

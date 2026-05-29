@@ -191,3 +191,114 @@ export const MONSTER: HorrorArchetype = {
   ],
   writingNotes: "The most common mistake in monster horror is making the monster just very powerful or very dangerous. Power and danger are not horror — they are threat. The horror in monster horror comes from the wrongness, not the lethality. A monster that is merely lethal is a predator. A monster that is dead and moving, or human and not, or one thing and simultaneously its opposite — that is Carroll's art-horror. The reader cannot look away because the curiosity about the impossible category is engaged.",
 };
+
+export const COMPULSION: HorrorArchetype = {
+  name: "Compulsion",
+  theoreticalBasis: "Freud's Thanatos — the death drive — expressed as a compulsion that moves toward destruction against the character's conscious will. Junji Ito's Enigma of Amigara Fault: characters find holes in a cliff shaped exactly like their bodies and feel an overwhelming pull to enter, despite knowing it means death. The mechanism: the compulsion is not weakness, not insanity, not external control. The character is fully aware of what is happening and cannot stop. The horror of Amigara Fault is that the body moves toward its own destruction with the mind watching, unable to intervene. Sociogenic illness and mass psychogenic events (Dancing Plague 1518, Salem, Tanganyika laughter epidemic) show the same mechanism at scale: bodies acting against conscious will in response to a social signal. Sleep paralysis — the body immobilized while the mind watches — is the closest neurological correlate.",
+  coreDescription: "The character knows exactly what is happening. They know it is wrong. They know where it leads. They move toward it anyway. The awareness does not help — it makes it worse. The horror is specifically that knowledge is insufficient to stop the compulsion. The compulsion must be retroactively inevitable: looking back, the pull was always there.",
+  baselineRequirement: "The compulsion must be established as a small attractive pull before it becomes irresistible. The hole feels like it was shaped for them. The edge of the roof is interesting. The thing they should not touch is almost beautiful. Attraction before destruction — the pull must have genuine appeal before the horror begins.",
+  onsetMechanics: "Three stages: (1) The thing exerts a pull that the character finds strange but not alarming. They are aware of it and can still choose. (2) The pull intensifies. The character resists and succeeds, but the resistance costs something. (3) The pull becomes irresistible. The character is moving toward the thing before they decide to. The body acts; the mind watches.",
+  escalationPattern: "The escalation is the narrowing of the gap between awareness and action. Stage one: large gap (notices the pull, ignores it easily). Stage two: smaller gap (resists with effort). Stage three: gap gone (the body is already moving). The horror peaks when the character is fully conscious and fully unable to intervene.",
+  psychologicalMechanisms: [
+    "Freud's Thanatos: the death drive as a compulsion toward destruction",
+    "Sleep paralysis structure: mind awake, body acting independently",
+    "Sociogenic illness: the body responding to a signal the conscious mind cannot locate or refuse",
+    "The retroactively inevitable: the pull was always there, now visible",
+    "The awareness trap: knowing does not help — understanding the compulsion is not the same as being free of it",
+  ],
+  readerSomaticTarget: "The reader's own sense of the small compulsions they cannot explain — the edge of a high place, the intrusive thought, the thing they return to despite themselves. Recognition of the mechanism in themselves.",
+  sacredRules: [
+    "The character must be fully conscious throughout — the horror is specifically that consciousness is insufficient",
+    "The compulsion must offer something genuinely attractive before the destruction phase",
+    "The body moves before the decision — write the action before the character's awareness of deciding",
+    "Freeze the horror at the moment the character realizes the gap has closed",
+  ],
+  failureModes: [
+    "The character is unconscious or controlled externally — this removes the central horror",
+    "The compulsion appears only as repulsion — the attraction must precede the destruction",
+    "The character resists and succeeds permanently — the third stage never arrives",
+    "The mechanism is explained before it is experienced",
+  ],
+  systemDirectives: [
+    "Establish the attractive pull first — the compulsion offers something real before it takes",
+    "Stage the narrowing: the character resists at stage two with visible effort and cost",
+    "The body moves first at stage three — write the physical action before the character's mind catches up",
+    "Freeze the moment the character realizes they cannot stop — do not animate what happens next",
+    "The last line should be the body in motion, not the mind's reaction to the body in motion",
+  ],
+  writingNotes: "The Compulsion archetype works because it activates the reader's own experience of intrusive thoughts, impulses, and the small terrifying gap between knowing something is wrong and being unable to stop. The reading experience mirrors the character experience: the reader cannot stop reading about the thing they know is going to be terrible. The form enacts the content.",
+};
+
+export const SOCIAL_HORROR: HorrorArchetype = {
+  name: "Social Horror",
+  theoreticalBasis: "René Girard's mimetic desire: we do not desire things independently — we desire what others desire, or what we observe others fearing. In horror, the social transmission of fear is the mechanism: one person's terror becomes legible to others, who begin to feel it themselves before they know its source. Erving Goffman's social performance theory: our sense of self depends entirely on the social performance being maintained by everyone around us — when the performance begins to break down, the self becomes uncertain. Mass psychogenic illness (Salem, Dancing Plague, factory outbreaks) is the documented real-world form: bodies responding to social signals with physical symptoms, with no physical cause. The specific horror: reality is socially constructed, and when enough people stop performing it correctly, the construction fails.",
+  coreDescription: "The thing that is wrong is social reality, not physical reality. The character's horror is specifically that the people around them have changed — not in their bodies but in their behavior, their shared agreement about what is real, their social performance. The horror spreads like a social contagion: one person stops performing normally, and the ones who notice begin to feel the pull themselves.",
+  baselineRequirement: "Establish the social normal with precision: the specific social rituals of this group, the specific performance everyone maintains, the specific unspoken agreements that make the social world feel stable. The horror requires the reader to have inhabited the normal social world before it begins to fail.",
+  onsetMechanics: "One person stops performing the social ritual correctly — not dramatically, subtly. Their eye contact is wrong. Their response to a greeting is a beat too slow. They do not laugh at the right moment. The protagonist notices and dismisses it. Then another person. Then the protagonist begins to wonder if they themselves are the one who has changed.",
+  escalationPattern: "The spread: each new person who stops performing normally adds weight to the protagonist's doubt about their own perception of reality. The horror escalates from 'something is wrong with one person' to 'something is wrong with everyone' to 'something is wrong with me for thinking something is wrong' to 'something is wrong with the social world itself and I cannot locate stable ground.'",
+  psychologicalMechanisms: [
+    "Girard's mimetic transmission: the fear spreads because it is witnessed, not because it is reasoned",
+    "Goffman's performance failure: when the social performance breaks down, identity becomes unstable",
+    "Mass psychogenic illness: bodies producing symptoms in response to social signals without physical cause",
+    "The protagonist's epistemic isolation: they cannot verify their own perception through social confirmation",
+    "The horror of being the only one who notices — or the horror of realizing everyone else has already noticed",
+  ],
+  readerSomaticTarget: "The reader's own sensitivity to social wrongness — the moment in a conversation when something is off but you can't identify it. The scene that feels wrong without visible cause. The group that has subtly changed in a way that resists naming.",
+  sacredRules: [
+    "The wrongness must be social, not physical — no monsters, no unexplained deaths, only behavioral deviation",
+    "The protagonist must doubt their own perception — the uncertainty about who has changed is essential",
+    "The spread must be gradual enough that each new person's deviation could be explained away individually",
+    "Freeze the moment the protagonist realizes they cannot confirm their own sanity through social validation",
+  ],
+  failureModes: [
+    "The horror has a visible physical cause — this converts social horror to conventional horror",
+    "The protagonist never doubts their own perception",
+    "The social deviation is too extreme to be dismissible in its early stages",
+    "The ending resolves the ambiguity — social horror should leave the constructed nature of reality uncertain",
+  ],
+  systemDirectives: [
+    "Establish the specific social rituals and performances of this group before any deviation",
+    "The first deviation must be so small that the protagonist almost convinces themselves they imagined it",
+    "Increase the spread gradually — never two people deviating simultaneously at first",
+    "The protagonist's isolation: they cannot verify their perception through social confirmation",
+    "Do not resolve the question of who or what has changed — the uncertainty is the horror",
+  ],
+  writingNotes: "Social horror is most powerful in settings where social performance is already high-stakes: professional environments, family gatherings, communities with strong shared rituals. The more important the performance is to everyone present, the more horrifying its failure. The real-world anchors (Salem, Dancing Plague 1518) work because they show that these mechanisms are not fictional — they are documented features of human social psychology.",
+};
+
+export const EXISTENTIAL_HORROR: HorrorArchetype = {
+  name: "Existential Horror",
+  theoreticalBasis: "Terror Management Theory (Becker 1973, The Denial of Death): human culture is an elaborate defense against awareness of mortality — the mortality buffer. Religion, legacy, meaning, the sense that one's life matters: all of these are psychological structures that manage the terror of death by making it seem purposeful, distant, or transcendable. When the mortality buffer is stripped away — not death threatened, but death made meaningless, or the self made cosmically irrelevant — the result is terror that no amount of courage can address because it has no object to face. Thomas Ligotti's philosophical pessimism and Camus's Absurdism: the horror is not that you will die but that the universe is indifferent to whether you exist, and the 'meaning' you believe you inhabit was always a fiction your nervous system required.",
+  coreDescription: "The horror is not the threat to the body or the self — it is the removal of the belief that the body or the self matters. Lovecraft's cosmic horror works not because the Old Gods will kill you but because in their presence, your death becomes cosmically irrelevant — smaller than irrelevant, because irrelevance requires that something relevant exists to be measured against. The existential horror archetype strips the mortality buffer without threatening the body.",
+  baselineRequirement: "The character must have an active mortality buffer — a belief in their own significance, their narrative, their legacy, the meaning of their choices. The horror requires a functioning buffer to strip. A character who has already lost the sense that their life matters cannot experience existential horror — they are already past it.",
+  onsetMechanics: "The stripping of the buffer: not through argument but through encounter with a scale, a perspective, a revelation that makes the character's sense of personal significance suddenly impossible to sustain. The universe does not care. Not 'does not care about them specifically' — does not care. The distinction between existing and not existing is the same magnitude as the distinction between one water molecule and another.",
+  escalationPattern: "The buffer reasserts itself: the character attempts to reconstruct the sense of meaning after the initial encounter. This partial reconstruction is what makes the escalation possible — the horror returns to strip the buffer again, this time with the knowledge that reconstruction is possible and always insufficient.",
+  psychologicalMechanisms: [
+    "Terror Management Theory: the mortality buffer stripped rather than death threatened",
+    "Cosmic insignificance: not personal mortality but the irrelevance of existence itself",
+    "The return of the buffer: meaning reasserts itself and is stripped again — the cycle is the horror",
+    "Ligotti's insight: consciousness itself is the source of the horror — the universe's indifference requires a conscious being to experience it",
+    "The vertiginous gap between the scale of the self's experience and the scale of the universe",
+  ],
+  readerSomaticTarget: "The specific vertiginous feeling of genuine scale-confrontation: the 3am thought that goes too far, the moment when the stars seem wrong rather than beautiful. Not fear of death but the specific nausea of realizing that the self's sense of importance was always a construction.",
+  sacredRules: [
+    "The horror is the removal of meaning, not the threat to life — no monster, no death threat",
+    "The mortality buffer must be present and functioning before the horror begins",
+    "The scale must be real — the cosmic indifference must be genuinely incomprehensible, not merely large",
+    "The character's attempt to reconstruct meaning must partially succeed before being stripped again",
+  ],
+  failureModes: [
+    "The horror has a physical dimension — a monster, a death threat — which gives the character something to face",
+    "The character has no functioning mortality buffer at the start",
+    "The existential revelation is presented as an argument to be answered rather than an encounter to be survived",
+    "The ending provides meaning — existential horror specifically cannot be resolved through meaning",
+  ],
+  systemDirectives: [
+    "Establish the character's mortality buffer first — what makes their life feel significant to them?",
+    "The encounter with scale must be non-arguable — not a philosophical position but a direct experiential encounter",
+    "Write the specific phenomenology of the mortality buffer failing: the thoughts that cannot be thought away",
+    "The partial reconstruction of meaning must be genuine — the character is not stupid, they rebuild correctly — and then the scale returns",
+    "Do not provide an answer. The horror is specifically that there is no adequate answer.",
+  ],
+  writingNotes: "Existential horror is the hardest to write because the temptation is always to provide a consoling answer at the end — meaning reasserts itself, human connection matters, the small scale of individual experience is beautiful rather than terrifying. The archetype requires refusing that consolation. The Ligotti influence: the correct response to the universe's indifference is not to find a smaller scale where meaning lives — it is to face the fact that all scales are equally indifferent. This is not a position most writers or readers are comfortable sustaining. That discomfort is the point.",
+};

@@ -155,6 +155,7 @@ interface Props {
   setEthicsArchetype: (v: string) => void;
   generateEthics: (archetypeName: string, prompt: string) => Promise<void>;
   setUpgradeRequired?: (feature: string) => void;
+  onShowStoryHealth?: () => void;
 }
 
 const modeLabel = (m: string) => (
@@ -202,6 +203,7 @@ export default function ToolbarPanel(props: Props) {
     scitechArchetype, setScitechArchetype, generateScitech,
     ethicsArchetype, setEthicsArchetype, generateEthics,
     setUpgradeRequired,
+    onShowStoryHealth,
   } = props;
 
   // Local UI toggle (not business logic)
@@ -259,6 +261,13 @@ export default function ToolbarPanel(props: Props) {
           <button style={{ ...sBtnSm, background: showProductionStudio ? co.accentBg : co.surfaceAlt, color: showProductionStudio ? co.accent : co.muted, fontWeight: showProductionStudio ? 700 : 400, border: "1px solid " + (showProductionStudio ? co.accent : co.border) }}
             onClick={() => { setShowProductionStudio((v: boolean) => !v); setShowComicStudio(false); setShowAgents(false); setPipelineResults([]); }}>
             🎬 Studio
+          </button>
+        )}
+
+        {isStoryFormat(project.format) && onShowStoryHealth && (
+          <button style={{ ...sBtnSm, background: co.surfaceAlt, color: co.muted, border: "1px solid " + co.border }}
+            onClick={onShowStoryHealth}>
+            📊 Story Health
           </button>
         )}
 

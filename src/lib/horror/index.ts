@@ -2,15 +2,18 @@
 export type { HorrorArchetype } from "./types";
 export { buildHorrorContext, getHorrorArchetypeNames } from "./context";
 
-import { UNCANNY, BODY_HORROR, PSYCHOLOGICAL, COSMIC, MONSTER } from "./archetypes/all-horror";
+import { UNCANNY, BODY_HORROR, PSYCHOLOGICAL, COSMIC, MONSTER, COMPULSION, SOCIAL_HORROR, EXISTENTIAL_HORROR } from "./archetypes/all-horror";
 import type { HorrorArchetype } from "./types";
 
 export const HORROR_ARCHETYPES: Record<string, HorrorArchetype> = {
-  "Uncanny":       UNCANNY,
-  "Body Horror":   BODY_HORROR,
-  "Psychological": PSYCHOLOGICAL,
-  "Cosmic":        COSMIC,
-  "Monster":       MONSTER,
+  "Uncanny":            UNCANNY,
+  "Body Horror":        BODY_HORROR,
+  "Psychological":      PSYCHOLOGICAL,
+  "Cosmic":             COSMIC,
+  "Monster":            MONSTER,
+  "Compulsion":         COMPULSION,
+  "Social Horror":      SOCIAL_HORROR,
+  "Existential Horror": EXISTENTIAL_HORROR,
 };
 
 export const HORROR_SYSTEM_PROMPT = `You are writing a horror scene. Your job is to produce the horror response in the reader — not to describe horror, not to announce it, not to label it. Produce it.
