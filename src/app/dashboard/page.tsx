@@ -151,203 +151,196 @@ export default function Dashboard() {
     setDeleting(false);
   };
 
+  const GW_DARK = "#0d0d10";
+  const GW_GOLD = "#c9a84c";
+  const GW_CREAM = "#faf9f5";
+  const GW_BORDER = "#ede9df";
+
+  const FORMAT_COLORS: Record<string, string> = {
+    "Novel": "#5b4ccc", "Screenplay": "#0ea5e9", "Web Series": "#8b5cf6",
+    "YouTube Long-form": "#ef4444", "YouTube Short": "#f97316", "TikTok Script": "#ec4899",
+    "TikTok Native": "#fe2c55", "Instagram Reel": "#a855f7", "Podcast Episode": "#10b981",
+  };
+
+  const inputS: React.CSSProperties = {
+    width: "100%", padding: "10px 14px", background: "#f5f4f0", border: "1px solid " + GW_BORDER,
+    borderRadius: 10, fontSize: 13, color: "#1a1a1a", outline: "none", boxSizing: "border-box",
+    fontFamily: "'Figtree', sans-serif",
+  };
+
+  const filteredProjects = projects.filter(p =>
+    p.name.toLowerCase().includes(search.toLowerCase()) &&
+    (filterFormat === "All" || p.format === filterFormat)
+  );
+
   if (status === "loading" || (status === "authenticated" && loading)) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-surface-bg">
-        <span className="text-brand font-semibold text-base">Loading…</span>
+      <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: GW_DARK }}>
+        <style>{`@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600&family=Figtree:wght@400;500;600;700&display=swap');`}</style>
+        <span style={{ color: GW_GOLD, fontSize: 14, fontFamily: "'Figtree', sans-serif", letterSpacing: 2, textTransform: "uppercase" }}>Loading…</span>
       </div>
     );
   }
 
-  const inputCls = "w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand";
-
   return (
-    <div className="min-h-screen bg-surface-bg">
+    <div style={{ minHeight: "100vh", background: GW_CREAM, fontFamily: "'Figtree', sans-serif" }}>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,600;0,700;1,600&family=Figtree:wght@400;500;600;700&display=swap');
+        @keyframes gw-in { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
+        .gw-card { animation: gw-in 0.3s ease both; transition: box-shadow 0.2s, transform 0.18s; }
+        .gw-card:hover { box-shadow: 0 8px 32px rgba(0,0,0,0.10) !important; transform: translateY(-2px); }
+        .gw-card .gw-del { opacity: 0; transition: opacity 0.15s; }
+        .gw-card:hover .gw-del { opacity: 1; }
+        .gw-input:focus { border-color: ${GW_GOLD} !important; box-shadow: 0 0 0 3px rgba(201,168,76,0.12) !important; }
+        .gw-gold-btn { transition: background 0.2s, transform 0.15s; }
+        .gw-gold-btn:hover:not(:disabled) { background: #b8963e !important; transform: translateY(-1px); }
+        .gw-hdr-btn { transition: color 0.15s, background 0.15s; }
+        .gw-hdr-btn:hover { background: rgba(255,255,255,0.07) !important; color: #fff !important; }
+      `}</style>
+
       {/* Header */}
-      <header className="bg-white border-b border-gray-100 px-6 py-4 flex items-center justify-between">
-        <span className="text-xl font-extrabold text-brand">GhostWriter</span>
-        <div className="flex items-center gap-4">
-          <span className="text-sm text-gray-400 hidden sm:block">
+      <header style={{ background: GW_DARK, borderBottom: "1px solid #1a1a22", padding: "0 32px", height: 60, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 24, color: GW_GOLD, fontWeight: 600, letterSpacing: 1 }}>
+          GhostWriter
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <span style={{ fontSize: 12, color: "#444", marginRight: 8 }}>
             {session?.user?.name || session?.user?.email}
           </span>
-          <button
-            onClick={() => setShowSettings(true)}
-            className="text-sm text-gray-500 hover:text-gray-700 border border-gray-200 rounded-lg px-3 py-1.5 transition-colors"
-          >
-            ⚙️ Settings
+          <button className="gw-hdr-btn" onClick={() => setShowSettings(true)}
+            style={{ fontSize: 12, color: "#666", background: "transparent", border: "1px solid #1e1e2a", borderRadius: 8, padding: "6px 12px", cursor: "pointer", fontFamily: "'Figtree', sans-serif" }}>
+            ⚙ Settings
           </button>
-          <button
-            onClick={() => signOut({ callbackUrl: "/login" })}
-            className="text-sm text-gray-500 hover:text-gray-700 border border-gray-200 rounded-lg px-3 py-1.5 transition-colors"
-          >
+          <button className="gw-hdr-btn" onClick={() => signOut({ callbackUrl: "/login" })}
+            style={{ fontSize: 12, color: "#666", background: "transparent", border: "1px solid #1e1e2a", borderRadius: 8, padding: "6px 12px", cursor: "pointer", fontFamily: "'Figtree', sans-serif" }}>
             Sign Out
           </button>
         </div>
       </header>
 
-      <main className="max-w-5xl mx-auto px-6 py-10">
-        <div className="flex items-center justify-between mb-8">
-          <h1 className="text-2xl font-extrabold text-gray-900">Your Projects</h1>
-          <button
-            onClick={() => setShowCreate(true)}
-            className="bg-brand text-white font-bold px-4 py-2 rounded-lg hover:bg-brand-light transition-colors text-sm"
-          >
+      <main style={{ maxWidth: 1080, margin: "0 auto", padding: "48px 24px" }}>
+
+        {/* Page title + action */}
+        <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", marginBottom: 36 }}>
+          <div>
+            <div style={{ fontSize: 11, letterSpacing: 3, color: "#aaa", textTransform: "uppercase", marginBottom: 8 }}>Studio</div>
+            <h1 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 38, color: "#1a1a1a", fontWeight: 600, lineHeight: 1, margin: 0 }}>
+              Your Projects
+            </h1>
+          </div>
+          <button className="gw-gold-btn" onClick={() => setShowCreate(true)}
+            style={{ background: GW_GOLD, color: "#0d0d10", border: "none", borderRadius: 10, padding: "11px 22px", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "'Figtree', sans-serif", letterSpacing: 0.3 }}>
             + New Project
           </button>
         </div>
 
         {error && (
-          <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-4 py-2 mb-5">
-            {error}
-          </p>
+          <div style={{ fontSize: 13, color: "#c54444", background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 8, padding: "10px 16px", marginBottom: 24 }}>{error}</div>
         )}
 
         {projects.length > 0 && (
-          <div className="flex gap-3 mb-6">
-            <input type="text" placeholder="Search projects..." value={search}
-              onChange={e => setSearch(e.target.value)}
-              className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand/30" />
-            <select value={filterFormat} onChange={e => setFilterFormat(e.target.value)}
-              className="border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none">
+          <div style={{ display: "flex", gap: 10, marginBottom: 28 }}>
+            <input type="text" placeholder="Search projects…" value={search} onChange={e => setSearch(e.target.value)} className="gw-input"
+              style={{ ...inputS, flex: 1 }} />
+            <select value={filterFormat} onChange={e => setFilterFormat(e.target.value)} className="gw-input"
+              style={{ ...inputS, width: "auto", cursor: "pointer" }}>
               <option value="All">All formats</option>
               {FORMATS.map(f => <option key={f}>{f}</option>)}
             </select>
           </div>
         )}
 
-        {(() => {
-          const filteredProjects = projects.filter(p =>
-            p.name.toLowerCase().includes(search.toLowerCase()) &&
-            (filterFormat === "All" || p.format === filterFormat)
-          );
-          return projects.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-24 text-center">
-            <p className="text-gray-300 text-5xl mb-4">✦</p>
-            <p className="text-gray-500 text-base font-medium mb-2">No projects yet</p>
-            <p className="text-gray-400 text-sm mb-6">Create your first project to start writing.</p>
-            <button
-              onClick={() => setShowCreate(true)}
-              className="bg-brand text-white font-bold px-6 py-2.5 rounded-lg hover:bg-brand-light transition-colors text-sm"
-            >
+        {projects.length === 0 ? (
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "96px 0", textAlign: "center" }}>
+            <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 64, color: "#e2ddd4", marginBottom: 20, lineHeight: 1 }}>✦</div>
+            <div style={{ fontSize: 18, fontWeight: 600, color: "#555", marginBottom: 8 }}>No projects yet</div>
+            <div style={{ fontSize: 14, color: "#aaa", marginBottom: 28 }}>Create your first project to begin writing.</div>
+            <button className="gw-gold-btn" onClick={() => setShowCreate(true)}
+              style={{ background: GW_GOLD, color: "#0d0d10", border: "none", borderRadius: 10, padding: "12px 28px", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "'Figtree', sans-serif" }}>
               Create your first project
             </button>
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {filteredProjects.map(p => (
-              <div
-                key={p.id}
-                className="bg-white rounded-xl border border-gray-100 p-5 shadow-sm hover:shadow-md transition-shadow cursor-pointer group"
-                onClick={() => router.push("/project/" + p.id)}
-              >
-                <div className="flex items-start justify-between gap-2">
-                  <div className="flex-1 min-w-0">
-                    <h2 className="font-bold text-gray-900 truncate text-base">{p.name}</h2>
-                    <p className="text-xs text-gray-400 mt-0.5">
-                      {p.format} · {p.chapters?.length ?? 0} chapter{(p.chapters?.length ?? 0) !== 1 ? "s" : ""}
-                    </p>
-                    {p.genres?.length > 0 && (
-                      <p className="text-xs text-brand mt-1 truncate">{p.genres.slice(0, 3).join(", ")}</p>
-                    )}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: 16 }}>
+            {filteredProjects.map((p, idx) => {
+              const accentColor = FORMAT_COLORS[p.format] ?? "#5b4ccc";
+              return (
+                <div key={p.id} className="gw-card"
+                  style={{ background: "#fff", borderRadius: 14, border: "1px solid " + GW_BORDER, padding: 0, cursor: "pointer", overflow: "hidden", boxShadow: "0 2px 8px rgba(0,0,0,0.05)", animationDelay: `${idx * 0.04}s`, position: "relative" }}
+                  onClick={() => router.push("/project/" + p.id)}
+                >
+                  <div style={{ height: 3, background: accentColor }} />
+                  <div style={{ padding: "18px 20px 16px" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <h2 style={{ fontSize: 15, fontWeight: 700, color: "#1a1a1a", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", margin: 0, marginBottom: 4 }}>{p.name}</h2>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                          <span style={{ fontSize: 10, fontWeight: 700, color: accentColor, background: accentColor + "18", padding: "2px 8px", borderRadius: 20, textTransform: "uppercase", letterSpacing: 0.8 }}>{p.format}</span>
+                          <span style={{ fontSize: 11, color: "#aaa" }}>{p.chapters?.length ?? 0} chapter{(p.chapters?.length ?? 0) !== 1 ? "s" : ""}</span>
+                        </div>
+                        {p.genres?.length > 0 && (
+                          <div style={{ fontSize: 11, color: "#888", marginTop: 6, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.genres.slice(0, 3).join(" · ")}</div>
+                        )}
+                      </div>
+                      <button className="gw-del" onClick={e => { e.stopPropagation(); setDeleteTarget(p); }}
+                        style={{ background: "none", border: "none", cursor: "pointer", color: "#ccc", fontSize: 14, padding: "2px 4px", marginLeft: 8, lineHeight: 1 }}
+                        title="Delete project">✕</button>
+                    </div>
+                    <div style={{ fontSize: 11, color: "#ccc", marginTop: 14 }}>
+                      {new Date(p.updatedAt).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" })}
+                    </div>
                   </div>
-                  <button
-                    onClick={e => { e.stopPropagation(); setDeleteTarget(p); }}
-                    className="text-gray-200 hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100 text-base font-bold p-1 rounded leading-none"
-                    title="Delete project"
-                  >
-                    ✕
-                  </button>
                 </div>
-                <p className="text-xs text-gray-300 mt-4">
-                  {new Date(p.updatedAt).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" })}
-                </p>
-              </div>
-            ))}
+              );
+            })}
           </div>
-        );
-        })()}
+        )}
       </main>
 
-      {/* Onboarding Modal */}
       {showOnboarding && <Onboarding onDismiss={() => setShowOnboarding(false)} />}
+
+      {/* Overlay helper */}
+      {(showCreate || showSettings || !!deleteTarget) && (
+        <style>{`.gw-modal-input:focus { border-color: ${GW_GOLD} !important; outline: none !important; box-shadow: 0 0 0 3px rgba(201,168,76,0.12) !important; }`}</style>
+      )}
 
       {/* Create project modal */}
       {showCreate && (
-        <div
-          className="fixed inset-0 bg-black/30 flex items-center justify-center z-50 px-4"
-          onClick={() => setShowCreate(false)}
-        >
-          <div
-            className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-xl"
-            onClick={e => e.stopPropagation()}
-          >
-            <h2 className="text-lg font-extrabold mb-5">New Project</h2>
-            <form onSubmit={createProject} className="space-y-4">
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 50, padding: "0 16px" }} onClick={() => setShowCreate(false)}>
+          <div style={{ background: "#fff", borderRadius: 18, padding: "28px 28px 24px", width: "100%", maxWidth: 400, boxShadow: "0 24px 64px rgba(0,0,0,0.18)" }} onClick={e => e.stopPropagation()}>
+            <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 24, fontWeight: 600, marginBottom: 24, color: "#1a1a1a" }}>New Project</div>
+            <form onSubmit={createProject} style={{ display: "flex", flexDirection: "column", gap: 18 }}>
               <div>
-                <label className="block text-xs font-bold text-gray-400 uppercase tracking-wide mb-1">Title</label>
-                <input
-                  autoFocus
-                  type="text"
-                  required
-                  value={newName}
-                  onChange={e => setNewName(e.target.value)}
-                  placeholder="My Novel"
-                  className={inputCls}
-                />
+                <label style={{ display: "block", fontSize: 10, fontWeight: 700, color: "#aaa", textTransform: "uppercase", letterSpacing: 1.2, marginBottom: 6 }}>Title</label>
+                <input autoFocus type="text" required value={newName} onChange={e => setNewName(e.target.value)} placeholder="My Novel" className="gw-modal-input" style={inputS} />
               </div>
               <div>
-                <label className="block text-xs font-bold text-gray-400 uppercase tracking-wide mb-1">Format</label>
-                <select
-                  value={newFormat}
-                  onChange={e => setNewFormat(e.target.value)}
-                  className={inputCls}
-                >
+                <label style={{ display: "block", fontSize: 10, fontWeight: 700, color: "#aaa", textTransform: "uppercase", letterSpacing: 1.2, marginBottom: 6 }}>Format</label>
+                <select value={newFormat} onChange={e => setNewFormat(e.target.value)} className="gw-modal-input" style={{ ...inputS, cursor: "pointer" }}>
                   {FORMATS.map(f => <option key={f}>{f}</option>)}
                 </select>
               </div>
               <div>
-                <label className="block text-xs font-bold text-gray-400 uppercase tracking-wide mb-2">Experience Level</label>
-                <div className="flex gap-3">
-                  <button
-                    type="button"
-                    onClick={() => setNewSkillLevel("beginner")}
-                    className={`flex-1 py-2 px-3 rounded-lg border text-sm font-semibold transition-all ${newSkillLevel === "beginner"
-                      ? "bg-brand text-white border-brand"
-                      : "bg-white text-gray-600 border-gray-200 hover:border-gray-300"
-                      }`}
-                  >
-                    🎯 Beginner
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setNewSkillLevel("expert")}
-                    className={`flex-1 py-2 px-3 rounded-lg border text-sm font-semibold transition-all ${newSkillLevel === "expert"
-                      ? "bg-brand text-white border-brand"
-                      : "bg-white text-gray-600 border-gray-200 hover:border-gray-300"
-                      }`}
-                  >
-                    ⭐ Expert
-                  </button>
+                <label style={{ display: "block", fontSize: 10, fontWeight: 700, color: "#aaa", textTransform: "uppercase", letterSpacing: 1.2, marginBottom: 8 }}>Experience Level</label>
+                <div style={{ display: "flex", gap: 10 }}>
+                  {(["beginner", "expert"] as const).map(lvl => (
+                    <button key={lvl} type="button" onClick={() => setNewSkillLevel(lvl)}
+                      style={{ flex: 1, padding: "10px 0", border: `1px solid ${newSkillLevel === lvl ? GW_GOLD : GW_BORDER}`, borderRadius: 10, fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "'Figtree', sans-serif", background: newSkillLevel === lvl ? "#fefce8" : "#fff", color: newSkillLevel === lvl ? "#92400e" : "#888", transition: "all 0.15s" }}>
+                      {lvl === "beginner" ? "🎯 Beginner" : "⭐ Expert"}
+                    </button>
+                  ))}
                 </div>
-                <p className="text-xs text-gray-400 mt-2">
-                  {newSkillLevel === "beginner"
-                    ? "Quick start: AI generates story from minimal input"
-                    : "Full control: Build detailed world with AI as assistant"}
-                </p>
+                <div style={{ fontSize: 11, color: "#aaa", marginTop: 8 }}>
+                  {newSkillLevel === "beginner" ? "Quick start: AI generates story from minimal input" : "Full control: Build detailed world with AI as assistant"}
+                </div>
               </div>
-              <div className="flex gap-3 pt-1">
-                <button
-                  type="button"
-                  onClick={() => setShowCreate(false)}
-                  className="flex-1 border border-gray-200 text-gray-600 font-semibold py-2 rounded-lg text-sm hover:bg-gray-50"
-                >
+              <div style={{ display: "flex", gap: 10, marginTop: 4 }}>
+                <button type="button" onClick={() => setShowCreate(false)}
+                  style={{ flex: 1, border: "1px solid " + GW_BORDER, background: "#fff", color: "#888", fontWeight: 600, padding: "10px 0", borderRadius: 10, fontSize: 13, cursor: "pointer", fontFamily: "'Figtree', sans-serif" }}>
                   Cancel
                 </button>
-                <button
-                  type="submit"
-                  disabled={creating}
-                  className="flex-1 bg-brand text-white font-bold py-2 rounded-lg text-sm hover:bg-brand-light disabled:opacity-50"
-                >
+                <button type="submit" disabled={creating} className="gw-gold-btn"
+                  style={{ flex: 1, background: GW_GOLD, color: "#0d0d10", border: "none", fontWeight: 700, padding: "10px 0", borderRadius: 10, fontSize: 13, cursor: creating ? "not-allowed" : "pointer", opacity: creating ? 0.6 : 1, fontFamily: "'Figtree', sans-serif" }}>
                   {creating ? "Creating…" : "Create"}
                 </button>
               </div>
@@ -358,122 +351,71 @@ export default function Dashboard() {
 
       {/* Settings modal */}
       {showSettings && (
-        <div
-          className="fixed inset-0 bg-black/30 flex items-center justify-center z-50 px-4"
-          onClick={() => setShowSettings(false)}
-        >
-          <div
-            className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-xl"
-            onClick={e => e.stopPropagation()}
-          >
-            <h2 className="text-lg font-extrabold mb-5">⚙️ Settings</h2>
-            <div className="mb-5">
-              <div className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-3 pb-2 border-b border-gray-100">
-                Higgsfield Integration
-              </div>
-              <label className="block text-xs font-bold text-gray-400 uppercase tracking-wide mb-1">
-                Higgsfield API Key
-              </label>
-              {higgsfieldKeySet ? (
-                <div className="flex items-center gap-2 mb-2">
-                  <span className="text-sm text-gray-600 font-mono bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 flex-1">
-                    ••••••••••••••••  last4: {higgsfieldKeyLast4}
-                  </span>
-                  <button
-                    onClick={() => setHiggsfieldInput("")}
-                    className="text-sm text-brand font-semibold hover:underline"
-                  >
-                    Update
-                  </button>
-                </div>
-              ) : null}
-              <input
-                type="password"
-                value={higgsfieldInput}
-                onChange={e => setHiggsfieldInput(e.target.value)}
-                placeholder={higgsfieldKeySet ? "Enter new key to update" : "hf-xxxxxxxxxxxxxxxx"}
-                className={inputCls}
-              />
-              <label className="block text-xs font-bold text-gray-400 uppercase tracking-wide mb-1 mt-3">
-                Higgsfield API Secret
-              </label>
-              {higgsfieldSecretSet ? (
-                <p className="text-xs text-green-600 font-semibold mb-2">Connected — last 4: {higgsfieldSecretLast4}</p>
-              ) : null}
-              <input
-                type="password"
-                value={higgsfieldSecretInput}
-                onChange={e => setHiggsfieldSecretInput(e.target.value)}
-                placeholder={higgsfieldSecretSet ? "Enter new secret to update" : "Higgsfield API Secret (required for Soul ID training)"}
-                className={inputCls}
-              />
-              {higgsfieldKeySet ? (
-                <p className="text-xs text-green-600 font-semibold mt-2">
-                  ✅ Connected — Comics and Production Studio are enabled.
-                </p>
-              ) : (
-                <p className="text-xs text-amber-600 mt-2">
-                  ⚠️ Not connected. Get your key at higgsfield.ai → Account → API Keys.
-                  Your credits pay for image and video generation directly.
-                </p>
-              )}
-            </div>
-            <div className="mb-5">
-              <div className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-3 pb-2 border-b border-gray-100">
-                Image Generation
-              </div>
-              <label className="block text-xs font-bold text-gray-400 uppercase tracking-wide mb-1">Provider</label>
-              <select value={imageProviderId} onChange={e => setImageProviderId(e.target.value)} className={inputCls}>
-                <option value="segmind_soul">Higgsfield Soul 2.0 — Recommended (best for character-consistent comic panels)</option>
-                <option value="openai_gpt_image">GPT Image 2 — OpenAI (superior general image quality, uses OpenAI key)</option>
-              </select>
-              {imageProviderId === "openai_gpt_image" && (
-                <div className="mt-3">
-                  <label className="block text-xs font-bold text-gray-400 uppercase tracking-wide mb-1">OpenAI API Key</label>
-                  {openaiKeySet && <p className="text-xs text-green-600 font-semibold mb-2">Connected — last 4: {openaiKeyLast4}</p>}
-                  <input type="password" value={openaiInput} onChange={e => setOpenaiInput(e.target.value)}
-                    placeholder={openaiKeySet ? "Enter new key to update" : "sk-..."} className={inputCls} />
-                  <p className="text-xs text-gray-400 mt-1">Your credits pay for GPT Image 2 generation directly.</p>
-                </div>
-              )}
-            </div>
-            <div className="mb-5">
-              <div className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-3 pb-2 border-b border-gray-100">
-                Trend Intelligence
-              </div>
-              {trendKeySet ? (
-                <div className="flex items-center justify-between">
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 50, padding: "0 16px" }} onClick={() => setShowSettings(false)}>
+          <div style={{ background: "#fff", borderRadius: 18, padding: "28px", width: "100%", maxWidth: 420, maxHeight: "88vh", overflowY: "auto", boxShadow: "0 24px 64px rgba(0,0,0,0.18)" }} onClick={e => e.stopPropagation()}>
+            <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 24, fontWeight: 600, marginBottom: 24, color: "#1a1a1a" }}>Settings</div>
+
+            {[
+              { title: "Higgsfield Integration", content: (
+                <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
                   <div>
-                    <p className="text-xs font-semibold text-green-600">✓ Connected — last 4: {trendKeyLast4}</p>
-                    <p className="text-xs text-gray-400 mt-1">Powers live Instagram Reels trend analysis.</p>
+                    <label style={{ display: "block", fontSize: 10, fontWeight: 700, color: "#aaa", textTransform: "uppercase", letterSpacing: 1.2, marginBottom: 6 }}>API Key</label>
+                    {higgsfieldKeySet && <div style={{ fontSize: 11, color: "#16a34a", marginBottom: 6 }}>✓ Connected — ••••{higgsfieldKeyLast4}</div>}
+                    <input type="password" value={higgsfieldInput} onChange={e => setHiggsfieldInput(e.target.value)} placeholder={higgsfieldKeySet ? "Enter new key to update" : "hf-xxxxxxxxxxxxxxxx"} className="gw-modal-input" style={inputS} />
                   </div>
-                  <button className="text-xs text-gray-400 underline" onClick={() => setShowTrendKeyInput(true)}>Update</button>
+                  <div>
+                    <label style={{ display: "block", fontSize: 10, fontWeight: 700, color: "#aaa", textTransform: "uppercase", letterSpacing: 1.2, marginBottom: 6 }}>API Secret</label>
+                    {higgsfieldSecretSet && <div style={{ fontSize: 11, color: "#16a34a", marginBottom: 6 }}>✓ Connected — ••••{higgsfieldSecretLast4}</div>}
+                    <input type="password" value={higgsfieldSecretInput} onChange={e => setHiggsfieldSecretInput(e.target.value)} placeholder={higgsfieldSecretSet ? "Enter new secret to update" : "API Secret"} className="gw-modal-input" style={inputS} />
+                  </div>
+                  <div style={{ fontSize: 11, color: higgsfieldKeySet ? "#16a34a" : "#d97706" }}>
+                    {higgsfieldKeySet ? "✅ Comics and Production Studio enabled." : "⚠ Not connected. Get key at higgsfield.ai → Account → API Keys."}
+                  </div>
                 </div>
-              ) : (
-                <p className="text-xs text-gray-400">Not connected. Activate from the Trends tab inside any creator project.</p>
-              )}
-              {(!trendKeySet || showTrendKeyInput) && (
-                <div className="mt-3">
-                  <input type="password" value={trendKeyInput} onChange={e => setTrendKeyInput(e.target.value)}
-                    placeholder={trendKeySet ? "Enter new key to update" : "Enter your personal data key"} className={inputCls} />
+              )},
+              { title: "Image Generation", content: (
+                <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                  <select value={imageProviderId} onChange={e => setImageProviderId(e.target.value)} className="gw-modal-input" style={{ ...inputS, cursor: "pointer" }}>
+                    <option value="segmind_soul">Higgsfield Soul 2.0 — Recommended</option>
+                    <option value="openai_gpt_image">GPT Image 2 — OpenAI</option>
+                  </select>
+                  {imageProviderId === "openai_gpt_image" && (
+                    <div>
+                      {openaiKeySet && <div style={{ fontSize: 11, color: "#16a34a", marginBottom: 6 }}>✓ Connected — ••••{openaiKeyLast4}</div>}
+                      <input type="password" value={openaiInput} onChange={e => setOpenaiInput(e.target.value)} placeholder={openaiKeySet ? "Enter new key to update" : "sk-..."} className="gw-modal-input" style={inputS} />
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
-            {settingsMsg && (
-              <p className="text-sm text-green-600 font-semibold mb-3">{settingsMsg}</p>
-            )}
-            <div className="flex gap-3">
-              <button
-                onClick={() => setShowSettings(false)}
-                className="flex-1 border border-gray-200 text-gray-600 font-semibold py-2 rounded-lg text-sm hover:bg-gray-50"
-              >
+              )},
+              { title: "Trend Intelligence", content: (
+                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                  {trendKeySet
+                    ? <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                        <div style={{ fontSize: 11, color: "#16a34a" }}>✓ Connected — ••••{trendKeyLast4}</div>
+                        <button style={{ background: "none", border: "none", fontSize: 11, color: "#aaa", cursor: "pointer", textDecoration: "underline" }} onClick={() => setShowTrendKeyInput(true)}>Update</button>
+                      </div>
+                    : <div style={{ fontSize: 11, color: "#aaa" }}>Not connected. Activate from the Trends tab inside any creator project.</div>
+                  }
+                  {(!trendKeySet || showTrendKeyInput) && (
+                    <input type="password" value={trendKeyInput} onChange={e => setTrendKeyInput(e.target.value)} placeholder={trendKeySet ? "Enter new key to update" : "Enter your personal data key"} className="gw-modal-input" style={inputS} />
+                  )}
+                </div>
+              )},
+            ].map(({ title, content }) => (
+              <div key={title} style={{ marginBottom: 24 }}>
+                <div style={{ fontSize: 10, fontWeight: 700, color: "#aaa", textTransform: "uppercase", letterSpacing: 1.5, marginBottom: 14, paddingBottom: 10, borderBottom: "1px solid " + GW_BORDER }}>{title}</div>
+                {content}
+              </div>
+            ))}
+
+            {settingsMsg && <div style={{ fontSize: 13, color: "#16a34a", fontWeight: 600, marginBottom: 14 }}>{settingsMsg}</div>}
+            <div style={{ display: "flex", gap: 10 }}>
+              <button onClick={() => setShowSettings(false)}
+                style={{ flex: 1, border: "1px solid " + GW_BORDER, background: "#fff", color: "#888", fontWeight: 600, padding: "10px 0", borderRadius: 10, fontSize: 13, cursor: "pointer", fontFamily: "'Figtree', sans-serif" }}>
                 Cancel
               </button>
-              <button
-                onClick={saveSettings}
-                disabled={settingsSaving}
-                className="flex-1 bg-brand text-white font-bold py-2 rounded-lg text-sm hover:bg-brand-light disabled:opacity-50"
-              >
+              <button onClick={saveSettings} disabled={settingsSaving} className="gw-gold-btn"
+                style={{ flex: 1, background: GW_GOLD, color: "#0d0d10", border: "none", fontWeight: 700, padding: "10px 0", borderRadius: 10, fontSize: 13, cursor: settingsSaving ? "not-allowed" : "pointer", opacity: settingsSaving ? 0.6 : 1, fontFamily: "'Figtree', sans-serif" }}>
                 {settingsSaving ? "Saving…" : "Save"}
               </button>
             </div>
@@ -481,26 +423,19 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* Delete confirm modal */}
+      {/* Delete confirm */}
       {deleteTarget && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 px-4">
-          <div className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-xl">
-            <h2 className="text-lg font-bold mb-2">Delete &ldquo;{deleteTarget.name}&rdquo;?</h2>
-            <p className="text-sm text-gray-500 mb-5">
-              This permanently deletes the project and all its chapters. This cannot be undone.
-            </p>
-            <div className="flex gap-3">
-              <button
-                onClick={() => setDeleteTarget(null)}
-                className="flex-1 border border-gray-200 text-gray-600 font-semibold py-2 rounded-lg text-sm hover:bg-gray-50"
-              >
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 50, padding: "0 16px" }}>
+          <div style={{ background: "#fff", borderRadius: 18, padding: "28px", width: "100%", maxWidth: 380, boxShadow: "0 24px 64px rgba(0,0,0,0.18)" }}>
+            <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 22, fontWeight: 600, marginBottom: 10, color: "#1a1a1a" }}>Delete &ldquo;{deleteTarget.name}&rdquo;?</div>
+            <div style={{ fontSize: 13, color: "#888", marginBottom: 24, lineHeight: 1.6 }}>This permanently deletes the project and all its chapters. This cannot be undone.</div>
+            <div style={{ display: "flex", gap: 10 }}>
+              <button onClick={() => setDeleteTarget(null)}
+                style={{ flex: 1, border: "1px solid " + GW_BORDER, background: "#fff", color: "#888", fontWeight: 600, padding: "10px 0", borderRadius: 10, fontSize: 13, cursor: "pointer", fontFamily: "'Figtree', sans-serif" }}>
                 Cancel
               </button>
-              <button
-                onClick={confirmDelete}
-                disabled={deleting}
-                className="flex-1 bg-red-500 text-white font-bold py-2 rounded-lg text-sm hover:bg-red-600 disabled:opacity-50"
-              >
+              <button onClick={confirmDelete} disabled={deleting}
+                style={{ flex: 1, background: "#ef4444", color: "#fff", border: "none", fontWeight: 700, padding: "10px 0", borderRadius: 10, fontSize: 13, cursor: deleting ? "not-allowed" : "pointer", opacity: deleting ? 0.6 : 1, fontFamily: "'Figtree', sans-serif" }}>
                 {deleting ? "Deleting…" : "Delete"}
               </button>
             </div>
