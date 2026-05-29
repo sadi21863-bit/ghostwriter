@@ -12,84 +12,118 @@ interface Props {
   onUpgradeRequired?: (feature: string) => void;
 }
 
-const REPURPOSE_TARGETS: Record<string, string[]> = {
-  "YouTube Long-form": ["YouTube Short", "TikTok Script", "Instagram Reel", "Twitter/X Thread"],
-  "Podcast Episode": ["YouTube Short", "TikTok Script", "Instagram Reel", "Twitter/X Thread"],
-  "YouTube Short": ["TikTok Script", "Instagram Reel", "Twitter/X Thread"],
-  "TikTok Script": ["YouTube Short", "Instagram Reel", "Twitter/X Thread"],
-  "Instagram Reel": ["YouTube Short", "TikTok Script", "Twitter/X Thread"],
-};
+const PLATFORMS = [
+  { key: "youtube_short",       label: "YT Short" },
+  { key: "tiktok",              label: "TikTok" },
+  { key: "instagram",           label: "Instagram" },
+  { key: "twitter_thread",      label: "Thread" },
+  { key: "linkedin",            label: "LinkedIn" },
+  { key: "newsletter",          label: "Newsletter" },
+  { key: "youtube_description", label: "YT Desc" },
+];
 
-/** Repurpose select + button in toolbar + modal. Owns its own state. */
+function platformText(key: string, data: any): string {
+  if (!data) return "";
+  switch (key) {
+    case "instagram":
+      return [data.caption, "", ...(data.carouselSlides ?? []).map((s: string, i: number) => `Slide ${i + 1}: ${s}`), "", ...(data.hashtags ?? [])].join("\n");
+    case "twitter_thread":
+      return Array.isArray(data) ? data.map((t: string, i: number) => `${i + 1}/ ${t}`).join("\n\n") : data;
+    case "newsletter":
+      return `Subject: ${data.subject}\nPreview: ${data.preview}\n\n${data.body}`;
+    default:
+      return typeof data === "string" ? data : JSON.stringify(data, null, 2);
+  }
+}
+
 export function RepurposePanel({ format, mode, content, setSavedMsg, updateProject, onUpgradeRequired }: Props) {
-  const [repurposeResult, setRepurposeResult] = useState<any>(null);
-  const [repurposeLoading, setRepurposeLoading] = useState(false);
-  const [repurposeTarget, setRepurposeTarget] = useState("YouTube Short");
+  const [show, setShow]         = useState(false);
+  const [loading, setLoading]   = useState(false);
+  const [result, setResult]     = useState<Record<string, any> | null>(null);
+  const [activeTab, setActiveTab] = useState("youtube_short");
+  const [copied, setCopied]     = useState(false);
 
-  const targets = REPURPOSE_TARGETS[format] ?? [];
-
-  if (mode !== "write" || !isCreatorFormat(format) || !content?.trim() || targets.length === 0) return null;
+  if (mode !== "write" || !isCreatorFormat(format) || !content?.trim()) return null;
 
   const run = async () => {
-    if (!content?.trim() || repurposeLoading) return;
-    setRepurposeLoading(true);
-    setRepurposeResult(null);
+    if (loading) return;
+    setLoading(true);
+    setResult(null);
     try {
       const res = await fetch("/api/ai/repurpose", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ content, sourceFormat: format, targetFormat: repurposeTarget }),
+        body: JSON.stringify({ script: content, format }),
       });
       const data = await res.json();
       if (data.error === "upgrade_required") { onUpgradeRequired?.(data.feature); }
-      else if (data.repurposed) setRepurposeResult(data);
+      else {
+        setResult(data);
+        const firstAvail = PLATFORMS.find(p => data[p.key]);
+        if (firstAvail) setActiveTab(firstAvail.key);
+        setShow(true);
+      }
     } catch { /* silent */ }
-    setRepurposeLoading(false);
+    setLoading(false);
+  };
+
+  const copyActive = () => {
+    if (!result) return;
+    navigator.clipboard.writeText(platformText(activeTab, result[activeTab]));
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+  };
+
+  const copyAll = () => {
+    if (!result) return;
+    const all = PLATFORMS
+      .filter(p => result[p.key])
+      .map(p => `=== ${p.label.toUpperCase()} ===\n\n${platformText(p.key, result[p.key])}`)
+      .join("\n\n\n");
+    navigator.clipboard.writeText(all);
+    setSavedMsg("All platforms copied!"); setTimeout(() => setSavedMsg(""), 1800);
   };
 
   return (
     <>
-      <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-        <select
-          style={{ ...sBtnSm, border: "1px solid " + co.border, background: co.surfaceAlt, color: co.text, padding: "4px 6px", fontSize: 11, cursor: "pointer" } as any}
-          value={repurposeTarget}
-          onChange={e => setRepurposeTarget(e.target.value)}
-        >
-          {targets.map(t => <option key={t}>{t}</option>)}
-        </select>
-        <button
-          style={{ ...sBtnSm, background: "#ede9fe", color: "#7c3aed", fontWeight: 600, opacity: repurposeLoading ? 0.5 : 1 }}
-          disabled={repurposeLoading}
-          onClick={run}
-        >
-          {repurposeLoading ? "..." : "♻️ Repurpose"}
-        </button>
-      </div>
+      <button
+        style={{ ...sBtnSm, background: "#ede9fe", color: "#7c3aed", fontWeight: 600, opacity: loading ? 0.5 : 1 }}
+        disabled={loading}
+        onClick={run}
+      >
+        {loading ? "..." : "♻️ Atomise"}
+      </button>
 
-      {/* Repurpose Modal */}
-      {repurposeResult && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000 }} onClick={() => setRepurposeResult(null)}>
-          <div style={{ background: co.surface, borderRadius: 16, padding: 24, width: 620, maxHeight: "80vh", overflow: "auto", boxShadow: "0 20px 60px rgba(0,0,0,0.2)", border: "1px solid " + co.border }} onClick={e => e.stopPropagation()}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-              <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800 }}>♻️ Repurposed for {repurposeResult.targetFormat}</h3>
-              <button style={{ background: "none", border: "none", color: co.muted, cursor: "pointer", fontSize: 18 }} onClick={() => setRepurposeResult(null)}>×</button>
+      {show && result && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000 }} onClick={() => setShow(false)}>
+          <div style={{ background: co.surface, borderRadius: 16, padding: 24, width: 680, maxHeight: "85vh", overflow: "hidden", display: "flex", flexDirection: "column", boxShadow: "0 20px 60px rgba(0,0,0,0.2)", border: "1px solid " + co.border }} onClick={e => e.stopPropagation()}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14, flexShrink: 0 }}>
+              <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800 }}>♻️ Content Atomiser</h3>
+              <button style={{ background: "none", border: "none", color: co.muted, cursor: "pointer", fontSize: 18 }} onClick={() => setShow(false)}>×</button>
             </div>
-            <div style={{ marginBottom: 12 }}>
-              <div style={{ fontSize: 10, fontWeight: 700, color: co.muted, textTransform: "uppercase", marginBottom: 6 }}>Best Moment Extracted</div>
-              <div style={{ padding: 12, background: co.accentBg, borderRadius: 8, fontSize: 12, color: co.muted, lineHeight: 1.6, fontStyle: "italic", borderLeft: "3px solid " + co.accent }}>{repurposeResult.bestMoment}</div>
+
+            <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginBottom: 14, flexShrink: 0 }}>
+              {PLATFORMS.filter(p => result[p.key]).map(p => (
+                <button
+                  key={p.key}
+                  style={{ ...sBtnSm, fontSize: 11, background: activeTab === p.key ? co.accentBg : co.surfaceAlt, color: activeTab === p.key ? co.accent : co.muted, border: "1px solid " + (activeTab === p.key ? co.accent : co.border) }}
+                  onClick={() => setActiveTab(p.key)}
+                >
+                  {p.label}
+                </button>
+              ))}
             </div>
-            <div style={{ marginBottom: 16 }}>
-              <div style={{ fontSize: 10, fontWeight: 700, color: co.accent, textTransform: "uppercase", marginBottom: 6 }}>Repurposed Script</div>
-              <div style={{ padding: 16, background: co.surfaceAlt, borderRadius: 10, fontSize: 14, lineHeight: 1.8, whiteSpace: "pre-wrap", border: "1px solid " + co.border }}>{repurposeResult.repurposed}</div>
+
+            <div style={{ flex: 1, overflowY: "auto", padding: "14px 16px", background: co.surfaceAlt, borderRadius: 10, border: "1px solid " + co.border, fontSize: 13, lineHeight: 1.8, whiteSpace: "pre-wrap", fontFamily: "inherit" }}>
+              {platformText(activeTab, result[activeTab])}
             </div>
-            <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-              <button style={sBtnSm} onClick={() => setRepurposeResult(null)}>Discard</button>
-              <button style={{ ...sBtnSm, background: co.accentBg, color: co.accent }} onClick={() => { navigator.clipboard.writeText(repurposeResult.repurposed); setSavedMsg("Copied!"); setTimeout(() => setSavedMsg(""), 1500); }}>Copy</button>
-              <button style={sBtn} onClick={() => {
-                updateProject((p: any) => ({ ...p, notes: (p.notes || "") + (p.notes ? "\n---\n" : "") + "[REPURPOSE:" + repurposeResult.targetFormat.toUpperCase() + "]\n" + repurposeResult.repurposed }));
-                setSavedMsg("Saved to Notes"); setTimeout(() => setSavedMsg(""), 1500);
-                setRepurposeResult(null);
-              }}>Save to Notes</button>
+
+            <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 14, flexShrink: 0 }}>
+              <button style={sBtnSm} onClick={() => setShow(false)}>Close</button>
+              <button style={{ ...sBtnSm, background: co.accentBg, color: co.accent }} onClick={copyActive}>
+                {copied ? "✓ Copied!" : `Copy ${PLATFORMS.find(p => p.key === activeTab)?.label ?? ""}`}
+              </button>
+              <button style={{ ...sBtn }} onClick={copyAll}>Copy All Platforms</button>
             </div>
           </div>
         </div>

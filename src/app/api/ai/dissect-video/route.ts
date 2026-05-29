@@ -5,7 +5,21 @@ import { getUserTier, canAccessFeature } from "@/lib/subscription";
 import { checkGeminiKey } from "@/lib/env-check";
 import { db } from "@/db";
 import { videoAnalysisJobs } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { eq, desc } from "drizzle-orm";
+
+export async function GET() {
+  const s = await getRequiredSession();
+  const jobs = await db.query.videoAnalysisJobs.findMany({
+    where: eq(videoAnalysisJobs.userId, s.user.id),
+    orderBy: [desc(videoAnalysisJobs.createdAt)],
+  });
+  return NextResponse.json({ jobs: jobs.map((j: any) => ({
+    id: j.id,
+    youtubeUrl: j.youtubeUrl,
+    status: j.status,
+    createdAt: j.createdAt,
+  })) });
+}
 
 export async function POST(req: Request) {
   const s = await getRequiredSession();

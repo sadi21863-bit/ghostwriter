@@ -1,14 +1,14 @@
 export const FORMATS = [
   "Novel", "Screenplay", "Web Series",
   "YouTube Long-form", "YouTube Short",
-  "TikTok Script", "Instagram Reel", "Podcast Episode",
+  "TikTok Script", "TikTok Native", "Instagram Reel", "Podcast Episode",
 ];
-export const CREATOR_FORMATS = ["YouTube Long-form", "YouTube Short", "TikTok Script", "Instagram Reel", "Podcast Episode"];
+export const CREATOR_FORMATS = ["YouTube Long-form", "YouTube Short", "TikTok Script", "TikTok Native", "Instagram Reel", "Podcast Episode"];
 export const STORY_FORMATS = ["Novel", "Screenplay", "Web Series"];
 export const isCreatorFormat = (f: string) => CREATOR_FORMATS.includes(f);
 export const isStoryFormat = (f: string) => STORY_FORMATS.includes(f);
 export const getChapterLabel = (format: string): string =>
-  (({ Novel: "Chapter", Screenplay: "Scene", "Web Series": "Episode", "YouTube Long-form": "Section", "YouTube Short": "Beat", "TikTok Script": "Beat", "Instagram Reel": "Beat", "Podcast Episode": "Segment" } as Record<string, string>)[format] ?? "Chapter");
+  (({ Novel: "Chapter", Screenplay: "Scene", "Web Series": "Episode", "YouTube Long-form": "Section", "YouTube Short": "Beat", "TikTok Script": "Beat", "TikTok Native": "Beat", "Instagram Reel": "Beat", "Podcast Episode": "Segment" } as Record<string, string>)[format] ?? "Chapter");
 
 export const GENRES = ["Fantasy", "Sci-Fi", "Horror", "Thriller", "Romance", "Drama", "Comedy", "Mystery", "Literary Fiction", "Action", "Historical", "Dystopian", "Noir", "Satire"];
 export const MODES = ["brainstorm", "outline", "write", "dialogue", "combat", "emotional", "atmosphere", "tension", "composition", "horror", "comedy", "mystery", "romance", "action", "monologue", "voice", "thriller", "sports", "setting", "historical", "scitech", "ethics", "endings"];

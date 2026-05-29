@@ -39,6 +39,9 @@ import { TrendAnglesPanel } from "./toolbar/tools/TrendAnglesPanel";
 import { TrendNichePanel } from "./toolbar/tools/TrendNichePanel";
 import { HookABPanel } from "./toolbar/tools/HookABPanel";
 import { ThumbnailConceptsPanel } from "./toolbar/tools/ThumbnailConceptsPanel";
+import { ChannelAutopsyPanel } from "./toolbar/tools/ChannelAutopsyPanel";
+import { TikTokNativePanel } from "./toolbar/tools/TikTokNativePanel";
+import { CreatorSEOPanel } from "./toolbar/tools/CreatorSEOPanel";
 
 import type { HookScore, ProseResult } from "./toolbar/types";
 import type { CompositionLayer } from "@/lib/ai/composer";
@@ -300,10 +303,19 @@ export default function ToolbarPanel(props: Props) {
         )}
 
         {/* Hook A/B — creator only (Phase 5) */}
-        <HookABPanel format={project.format} onUpgradeRequired={setUpgradeRequired} />
+        <HookABPanel format={project.format} projectId={project.id} onUpgradeRequired={setUpgradeRequired} />
 
         {/* Thumbnail Concepts — YouTube only (Phase 5) */}
         <ThumbnailConceptsPanel format={project.format} onUpgradeRequired={setUpgradeRequired} />
+
+        {/* Channel Autopsy — YouTube formats */}
+        <ChannelAutopsyPanel format={project.format} onUpgradeRequired={setUpgradeRequired} />
+
+        {/* TikTok Native — TikTok formats */}
+        <TikTokNativePanel format={project.format} onUpgradeRequired={setUpgradeRequired} />
+
+        {/* Creator SEO Suite — YouTube formats */}
+        <CreatorSEOPanel format={project.format} mode={mode} content={activeChap.content} onUpgradeRequired={setUpgradeRequired} />
 
         {/* Retention Edit */}
         <RetentionEditPanel

@@ -25,6 +25,10 @@ export const creatorBibles = pgTable("creator_bibles", {
   competitorNotes:    text("competitor_notes").default(""),
   defaultCta:         text("default_cta").default(""),
   cohostVoice:        varchar("cohost_voice", { length: 50 }).default("none"),
+  hookMemory:         jsonb("hook_memory").$type<string[]>().default([]),
+  tiktokHandle:       text("tiktok_handle").default(""),
+  tiktokNiche:        text("tiktok_niche").default(""),
+  soundStrategy:      text("sound_strategy").default(""),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
