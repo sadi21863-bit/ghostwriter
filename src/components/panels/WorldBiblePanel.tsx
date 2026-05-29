@@ -1015,6 +1015,35 @@ export default function WorldBiblePanel(props: Props) {
                   <option value="Qualifies-everything">Qualifies-everything</option>
                 </select>
               </div>
+
+              {/* Villain Profile */}
+              <div style={{ marginTop: 16, paddingTop: 14, borderTop: "1px solid " + co.border }}>
+                <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: co.text, cursor: "pointer", marginBottom: 10 }}>
+                  <input
+                    type="checkbox"
+                    checked={data.antagonistToggle || false}
+                    onChange={e => setNewChar((c: any) => ({ ...c, antagonistToggle: e.target.checked }))}
+                  />
+                  This character believes they are the hero of this story
+                </label>
+                {data.antagonistToggle && (
+                  <div>
+                    <div style={{ fontSize: 11, color: co.muted, marginBottom: 4, fontWeight: 600 }}>Antagonist Type</div>
+                    <select
+                      style={{ ...sInput }}
+                      value={data.antagonistType || ""}
+                      onChange={e => setNewChar((c: any) => ({ ...c, antagonistType: e.target.value }))}
+                    >
+                      <option value="">Select type</option>
+                      <option value="Narcissist">Narcissist — grandiosity, entitlement, needs to be witnessed</option>
+                      <option value="Machiavellian">Machiavellian — calculated self-interest, patient, strategic</option>
+                      <option value="Psychopath">Psychopath — impulsive, low anxiety, absent fear of consequences</option>
+                      <option value="Ideological">Ideological — acting from conviction, believes harm is justified</option>
+                      <option value="Systemic">Systemic — the system is the villain, no single face</option>
+                    </select>
+                  </div>
+                )}
+              </div>
               </div>
             )}
             {tKey === "plot" && <div style={{ marginBottom: 8 }}><span style={{ fontSize: 11, color: co.muted, marginBottom: 2, display: "block", fontWeight: 600 }}>Status</span><select style={sInput} value={newPlot.status} onChange={e => setNewPlot((t: any) => ({ ...t, status: e.target.value }))}><option>Active</option><option>Simmering</option><option>Resolved</option></select></div>}

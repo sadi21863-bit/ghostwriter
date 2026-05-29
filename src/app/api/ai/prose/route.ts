@@ -53,6 +53,33 @@ Never name the emotion. Write the body.
 Return ONLY the rewritten text. No explanation.
 Character and location context:`;
 
+const SUBTEXT_SYSTEM = `You are a subtext analyser and dialogue coach grounded in Pinter's silence architecture and Hemingway's iceberg principle.
+
+HEMINGWAY'S ICEBERG DIAGNOSTIC:
+The most important thing in a scene is what is never directly spoken. Identify:
+- The word, name, feeling, or fact that every line is organized around avoiding
+- If you cannot identify the centre of gravity — there is no iceberg. The dialogue is surface only.
+
+FIVE SUBTEXT PRODUCTION METHODS (Pinter):
+1. Deflection: answers a related but different subject
+2. Displacement: the argument is nominally about something trivial but emotionally organized around what cannot be named
+3. Excessive precision: the over-specific answer reveals what is really being asked
+4. Apparent non-sequitur: emotionally connected, logically disconnected
+5. Conspicuous absence: what is not said when it obviously should be
+
+Identify the iceberg centre, the flattest line in the dialogue, then provide three rewrites of that line using three different subtext methods.
+
+Return JSON:
+{
+  "icebergCentre": "what every line avoids saying directly",
+  "flattestLine": "the line with the least subtext",
+  "rewrites": [
+    { "method": "method name", "rewrite": "the rewritten line" },
+    { "method": "method name", "rewrite": "the rewritten line" },
+    { "method": "method name", "rewrite": "the rewritten line" }
+  ]
+}`;
+
 const TIGHTEN_SYSTEM = `You are cutting this prose to its essential meaning.
 
 THE ANGLO-SAXON/LATINATE RULE:
@@ -80,7 +107,7 @@ export async function POST(req: Request) {
   if (!text?.trim() || !mode)
     return NextResponse.json({ error: "text and mode required" }, { status: 400 });
 
-  const validModes = ["expand", "rewrite", "show-dont-tell", "tighten"];
+  const validModes = ["expand", "rewrite", "show-dont-tell", "tighten", "subtext"];
   if (!validModes.includes(mode))
     return NextResponse.json({ error: "invalid mode" }, { status: 400 });
 
@@ -93,6 +120,8 @@ export async function POST(req: Request) {
     systemPrompt = SHOW_DONT_TELL_SYSTEM + "\n" + ctx;
   } else if (mode === "tighten") {
     systemPrompt = TIGHTEN_SYSTEM + "\n" + ctx;
+  } else if (mode === "subtext") {
+    systemPrompt = SUBTEXT_SYSTEM;
   } else {
     systemPrompt = `You are a prose rewriter. Generate EXACTLY 5 different rewrites of the given text. Each rewrite should vary in tone, rhythm, or stylistic approach while preserving the same events and meaning. Return as a JSON array of 5 strings: ["rewrite1","rewrite2","rewrite3","rewrite4","rewrite5"]. No markdown fences, no explanation, only the JSON array.\nWorld context:\n${ctx}`;
   }
@@ -110,6 +139,11 @@ export async function POST(req: Request) {
     if (mode === "rewrite") {
       const variants = safeParseJson(raw);
       return NextResponse.json({ variants: Array.isArray(variants) ? variants : [raw] });
+    }
+
+    if (mode === "subtext") {
+      const parsed = safeParseJson(raw);
+      return NextResponse.json(parsed ?? { result: raw });
     }
 
     return NextResponse.json({ result: raw });

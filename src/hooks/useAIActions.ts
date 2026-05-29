@@ -23,6 +23,7 @@ import { buildSettingContext } from "@/lib/setting";
 import { buildHistoricalContext } from "@/lib/historical";
 import { buildScitechContext } from "@/lib/scitech";
 import { buildEthicsContext } from "@/lib/ethics";
+import { buildEndingsContext } from "@/lib/endings";
 
 export function useAIActions({
   project, mode, prompt, activeChap,
@@ -487,6 +488,22 @@ export function useAIActions({
     setGenerating(false); setGenTarget("");
   };
 
+  const generateEndings = async (archetypeName: string, endingsPrompt: string) => {
+    if (!archetypeName) { setErrorMsg("Select an endings archetype."); return; }
+    setGenerating(true); setGenTarget("main"); setStreamText("");
+    try {
+      const ctx = buildEndingsContext(archetypeName) + "\n---\n" + buildFullContext();
+      const res = await fetch("/api/ai/generate", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mode: "endings", prompt: endingsPrompt || `Write a scene using the ${archetypeName} ending archetype.`, context: ctx, format: project.format, projectId: project.id, chapterId: activeChap.id }),
+      });
+      const data = await res.json();
+      if (data.error === "upgrade_required") { setUpgradeRequired?.(data.feature); }
+      else if (data.text) setStreamText(data.text);
+    } catch { setErrorMsg("Endings generation failed. Please try again."); }
+    setGenerating(false); setGenTarget("");
+  };
+
   const scoreHook = async () => {
     if (!prompt.trim() || hookScoring) return;
     setHookScoring(true); setHookScore(null);
@@ -511,7 +528,7 @@ export function useAIActions({
     generateEmotionalScene, generateAtmosphere, generateTension, generateComposition,
     generateHorror, generateComedy, generateMystery, generateRomance, generateAction,
     generateMonologue, generateVoice, generateThriller, generateSports,
-    generateSetting, generateHistorical, generateScitech, generateEthics,
+    generateSetting, generateHistorical, generateScitech, generateEthics, generateEndings,
     runPipeline, usePipelineOutput,
     handleTextareaSelect, runProse, replaceSelection, scoreHook,
   };

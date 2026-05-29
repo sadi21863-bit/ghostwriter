@@ -7,6 +7,7 @@ import WorldBiblePanel from "@/components/panels/WorldBiblePanel";
 import ToolbarPanel from "@/components/panels/ToolbarPanel";
 import ChapterEditor from "@/components/panels/ChapterEditor";
 import { StoryHealthPanel } from "@/components/panels/StoryHealthPanel";
+import { ExportPanel } from "@/components/panels/ExportPanel";
 import { UpgradePrompt } from "@/components/upgrade/UpgradePrompt";
 import type { FeatureGate } from "@/types/subscription";
 import type { CompositionLayer } from "@/lib/ai/composer";
@@ -41,9 +42,11 @@ export default function GhostWriterApp({ projectId }: { projectId: string }) {
   const [historicalArchetype, setHistoricalArchetype] = useState("Longue Durée");
   const [scitechArchetype, setScitechArchetype] = useState("Normal Science");
   const [ethicsArchetype, setEthicsArchetype] = useState("Moral Dumbfounding");
+  const [endingsArchetype, setEndingsArchetype] = useState("Resolution");
   const [compositionLayers, setCompositionLayers] = useState<CompositionLayer[]>([]);
   const [upgradeRequired, setUpgradeRequired] = useState<FeatureGate | null>(null);
   const [showStoryHealth, setShowStoryHealth] = useState(false);
+  const [showExport, setShowExport] = useState(false);
 
   const projectState = useProjectState(projectId);
   const {
@@ -243,11 +246,15 @@ export default function GhostWriterApp({ projectId }: { projectId: string }) {
         ethicsArchetype={ethicsArchetype}
         setEthicsArchetype={setEthicsArchetype}
         generateEthics={aiActions.generateEthics}
+        endingsArchetype={endingsArchetype}
+        setEndingsArchetype={setEndingsArchetype}
+        generateEndings={aiActions.generateEndings}
         compositionLayers={compositionLayers}
         setCompositionLayers={setCompositionLayers}
         generateComposition={aiActions.generateComposition}
         setUpgradeRequired={(f) => setUpgradeRequired(f as FeatureGate)}
         onShowStoryHealth={() => setShowStoryHealth(true)}
+        onShowExport={() => setShowExport(true)}
       />
 
       <ChapterEditor
@@ -269,6 +276,13 @@ export default function GhostWriterApp({ projectId }: { projectId: string }) {
           projectId={project.id}
           activeChapContent={activeChap?.content || ""}
           onClose={() => setShowStoryHealth(false)}
+        />
+      )}
+
+      {showExport && (
+        <ExportPanel
+          projectId={project.id}
+          onClose={() => setShowExport(false)}
         />
       )}
 

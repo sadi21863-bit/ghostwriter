@@ -32,7 +32,12 @@ export async function POST(req: Request, { params }: { params: { projectId: stri
   }
 
   if (controllingIdea) {
-    await db.update(projects).set({ controllingIdea } as any).where(eq(projects.id, params.projectId));
+    if (controllingIdea.length > 500) {
+      return NextResponse.json({ error: "Controlling Idea must be under 500 characters." }, { status: 400 });
+    }
+    await db.update(projects)
+      .set({ controllingIdea: controllingIdea.trim() } as Partial<typeof projects.$inferInsert>)
+      .where(eq(projects.id, params.projectId));
   }
 
   const allChapters = await db.query.chapters.findMany({

@@ -31,7 +31,7 @@ interface StoryHealthPanelProps {
 }
 
 export function StoryHealthPanel({ projectId, activeChapContent, onClose }: StoryHealthPanelProps) {
-  const [tab, setTab] = useState<"validator" | "dead-scenes" | "theme" | "tension">("validator");
+  const [tab, setTab] = useState<"validator" | "dead-scenes" | "theme" | "tension" | "transport">("validator");
 
   // Scene Validator state
   const [selectedPurposes, setSelectedPurposes] = useState<string[]>([]);
@@ -44,6 +44,11 @@ export function StoryHealthPanel({ projectId, activeChapContent, onClose }: Stor
   const [deadScenesResult, setDeadScenesResult] = useState<any>(null);
   const [deadScenesError, setDeadScenesError] = useState("");
   const [expandedScene, setExpandedScene] = useState<string | null>(null);
+
+  // Transportation Check state
+  const [checkingTransport, setCheckingTransport] = useState(false);
+  const [transportResult, setTransportResult] = useState<any>(null);
+  const [transportError, setTransportError] = useState("");
 
   // Theme Tracker state
   const [controllingIdea, setControllingIdea] = useState("");
@@ -84,6 +89,21 @@ export function StoryHealthPanel({ projectId, activeChapContent, onClose }: Stor
       if (data.error) { setDeadScenesError(data.error); } else { setDeadScenesResult(data); }
     } catch { setDeadScenesError("Scan failed. Try again."); }
     setScanning(false);
+  };
+
+  const runTransportCheck = async () => {
+    if (!activeChapContent?.trim()) { setTransportError("Open a chapter with content first."); return; }
+    setCheckingTransport(true); setTransportError(""); setTransportResult(null);
+    try {
+      const res = await fetch(`/api/projects/${projectId}/transportation-check`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ chapterContent: activeChapContent }),
+      });
+      const data = await res.json();
+      if (data.error) { setTransportError(data.error); } else { setTransportResult(data); }
+    } catch { setTransportError("Check failed. Try again."); }
+    setCheckingTransport(false);
   };
 
   const runTheme = async () => {
@@ -142,6 +162,7 @@ export function StoryHealthPanel({ projectId, activeChapContent, onClose }: Stor
             { id: "dead-scenes", label: "Dead Scenes" },
             { id: "theme", label: "Theme Tracker" },
             { id: "tension", label: "Tension Curve" },
+            { id: "transport", label: "Transportation" },
           ] as const).map(t => (
             <button key={t.id} onClick={() => setTab(t.id)} style={tabStyle(tab === t.id)}>{t.label}</button>
           ))}
@@ -384,6 +405,84 @@ export function StoryHealthPanel({ projectId, activeChapContent, onClose }: Stor
           {/* ── Tension Curve ── */}
           {tab === "tension" && (
             <TensionCurve projectId={projectId} />
+          )}
+
+          {/* ── Transportation Check ── */}
+          {tab === "transport" && (
+            <div>
+              <p style={{ fontSize: 13, color: "#9898A6", margin: "0 0 14px" }}>
+                Green &amp; Brock's Transportation-Imagery Model: identify the six ejection mechanisms that break reader immersion.
+              </p>
+              <button onClick={runTransportCheck} disabled={checkingTransport} style={btnStyle(checkingTransport, "#6366f1")}>
+                {checkingTransport ? "Analysing…" : "Check Current Chapter"}
+              </button>
+              {errorBox(transportError)}
+
+              {transportResult && (
+                <div style={{ marginTop: 16 }}>
+                  {/* First Page Test */}
+                  {transportResult.firstPageTest && (
+                    <div style={{ padding: "12px 14px", background: "#111113", borderRadius: 8, marginBottom: 14 }}>
+                      <div style={{ fontSize: 11, fontWeight: 600, color: "#9898A6", marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.05em" }}>First Page Test</div>
+                      <div style={{ display: "flex", gap: 16, marginBottom: 8 }}>
+                        {[
+                          { label: "Vivid image", pass: transportResult.firstPageTest.vivid },
+                          { label: "Specific person", pass: transportResult.firstPageTest.specificPerson },
+                          { label: "Clean prose", pass: transportResult.firstPageTest.clean },
+                        ].map(t => (
+                          <div key={t.label} style={{ display: "flex", gap: 6, alignItems: "center", fontSize: 13 }}>
+                            <span style={{ color: t.pass ? "#22c55e" : "#ef4444" }}>{t.pass ? "✓" : "✗"}</span>
+                            <span style={{ color: "#9898A6" }}>{t.label}</span>
+                          </div>
+                        ))}
+                      </div>
+                      <div style={{ fontSize: 12, color: "#F2F2F3" }}>{transportResult.firstPageTest.verdict}</div>
+                    </div>
+                  )}
+
+                  {/* Overall Score */}
+                  <div style={{ display: "flex", gap: 12, alignItems: "center", marginBottom: 14 }}>
+                    <span style={{ fontSize: 13, color: "#9898A6" }}>Immersion Score:</span>
+                    <span style={{ fontSize: 18, fontWeight: 700, color: transportResult.overallScore >= 7 ? "#22c55e" : transportResult.overallScore >= 4 ? "#f59e0b" : "#ef4444" }}>
+                      {transportResult.overallScore}/10
+                    </span>
+                  </div>
+
+                  {transportResult.summary && (
+                    <div style={{ padding: "10px 14px", background: "#111113", borderRadius: 8, fontSize: 13, color: "#9898A6", marginBottom: 14 }}>
+                      {transportResult.summary}
+                    </div>
+                  )}
+
+                  {/* Ejection mechanisms */}
+                  {transportResult.ejections?.length > 0 && (
+                    <div>
+                      <div style={{ fontSize: 11, fontWeight: 600, color: "#9898A6", marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                        Ejection Mechanisms ({transportResult.ejections.length})
+                      </div>
+                      {transportResult.ejections.map((e: any, i: number) => (
+                        <div key={i} style={{ padding: "12px 14px", background: "#111113", borderRadius: 8, marginBottom: 8, borderLeft: "3px solid #ef4444" }}>
+                          <div style={{ fontSize: 11, fontWeight: 700, color: "#ef4444", marginBottom: 4, textTransform: "uppercase" }}>{e.mechanism?.replace(/_/g, " ")}</div>
+                          {e.excerpt && (
+                            <div style={{ fontSize: 12, color: "#9898A6", fontStyle: "italic", marginBottom: 6, borderLeft: "2px solid #333", paddingLeft: 8 }}>"{e.excerpt}"</div>
+                          )}
+                          <div style={{ fontSize: 13, color: "#F2F2F3", marginBottom: 4 }}>{e.explanation}</div>
+                          {e.fix && (
+                            <div style={{ fontSize: 12, color: "#6366f1" }}>Fix: {e.fix}</div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {transportResult.ejections?.length === 0 && (
+                    <div style={{ padding: "14px", background: "rgba(34,197,94,0.08)", borderRadius: 8, fontSize: 13, color: "#22c55e" }}>
+                      ✓ No ejection mechanisms detected. The prose maintains transportation throughout.
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
           )}
         </div>
       </div>

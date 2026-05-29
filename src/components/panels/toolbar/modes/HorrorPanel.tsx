@@ -8,6 +8,9 @@ const HORROR_DESCRIPTIONS: Record<string, string> = {
   "Psychological": "Corruption of the perceiving self. Reader and character cannot determine if the horror is real or internal. Never fully resolve the ambiguity.",
   "Cosmic": "Scale and indifference, not malice. The entity does not notice the character. The human framework for meaning ceases to function. End in the failure of comprehension.",
   "Monster": "Carroll's art-horror: fear + disgust fused. Violates mental categories simultaneously. Partial reveal before the full picture. Leave the reader's curiosity unsatisfied.",
+  "Compulsion": "Freud's Thanatos — the body moves toward destruction against conscious will. Awareness makes it worse, not better. The character knows. They cannot stop. It was always going to end here.",
+  "Social Horror": "Girard's mimetic desire — the horror is social reality, not physical. The community turns. Mass hysteria is real (Dancing Plague 1518, Salem). The performance of normality collapses.",
+  "Existential Horror": "Becker's Terror Management Theory — strip the mortality buffer. Horror that makes death meaningless, not merely certain. The universe offers no response. Ligotti: consciousness is the mistake.",
 };
 
 interface Props {

@@ -34,7 +34,14 @@ export async function POST(req: Request, { params }: { params: { projectId: stri
     .map((c: any) => ({
       id: c.id,
       title: c.title || `Chapter ${c.sortOrder ?? ""}`,
-      excerpt: c.content.slice(0, 1000),
+      excerpt: (() => {
+        const content = c.content;
+        if (content.length <= 3000) return content;
+        const start  = content.slice(0, 1200);
+        const middle = content.slice(Math.floor(content.length / 2) - 400, Math.floor(content.length / 2) + 400);
+        const end    = content.slice(-800);
+        return `${start}\n\n[...]\n\n${middle}\n\n[...]\n\n${end}`;
+      })(),
     }));
 
   if (chapData.length < 2) {

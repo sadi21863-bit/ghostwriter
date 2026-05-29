@@ -22,7 +22,12 @@ export async function POST(_: Request, { params }: { params: { projectId: string
   if (!apiKey)
     return NextResponse.json({ error: "Add your Higgsfield API key in Settings to generate portraits." }, { status: 400 });
 
-  const char = await db.query.characters.findFirst({ where: eq(characters.id, params.characterId) });
+  const char = await db.query.characters.findFirst({
+    where: and(
+      eq(characters.id, params.characterId),
+      eq(characters.projectId, params.projectId)
+    ),
+  });
   if (!char) return NextResponse.json({ error: "Character not found" }, { status: 404 });
   const visualDesc = char.visualProfile || char.appearance || "";
   if (!visualDesc) return NextResponse.json({ error: "Add an appearance description first." }, { status: 400 });

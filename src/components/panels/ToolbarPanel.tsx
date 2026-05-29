@@ -26,6 +26,7 @@ import { SettingPanel } from "./toolbar/modes/SettingPanel";
 import { HistoricalPanel } from "./toolbar/modes/HistoricalPanel";
 import { ScitechPanel } from "./toolbar/modes/ScitechPanel";
 import { EthicsPanel } from "./toolbar/modes/EthicsPanel";
+import { EndingsPanel } from "./toolbar/modes/EndingsPanel";
 
 // Tool panels
 import { PipelinePanel } from "./toolbar/tools/PipelinePanel";
@@ -154,8 +155,12 @@ interface Props {
   ethicsArchetype: string;
   setEthicsArchetype: (v: string) => void;
   generateEthics: (archetypeName: string, prompt: string) => Promise<void>;
+  endingsArchetype: string;
+  setEndingsArchetype: (v: string) => void;
+  generateEndings: (archetypeName: string, prompt: string) => Promise<void>;
   setUpgradeRequired?: (feature: string) => void;
   onShowStoryHealth?: () => void;
+  onShowExport?: () => void;
 }
 
 const modeLabel = (m: string) => (
@@ -166,7 +171,7 @@ const modeLabel = (m: string) => (
     composition: "Composition", horror: "Horror", comedy: "Comedy",
     mystery: "Mystery", romance: "Romance", action: "Action",
     monologue: "Monologue", voice: "Voice", thriller: "Thriller", sports: "Sports",
-    setting: "Setting", historical: "Historical", scitech: "Sci/Tech", ethics: "Ethics",
+    setting: "Setting", historical: "Historical", scitech: "Sci/Tech", ethics: "Ethics", endings: "Endings",
   } as Record<string, string>)[m] ?? m
 );
 
@@ -202,8 +207,10 @@ export default function ToolbarPanel(props: Props) {
     historicalArchetype, setHistoricalArchetype, generateHistorical,
     scitechArchetype, setScitechArchetype, generateScitech,
     ethicsArchetype, setEthicsArchetype, generateEthics,
+    endingsArchetype, setEndingsArchetype, generateEndings,
     setUpgradeRequired,
     onShowStoryHealth,
+    onShowExport,
   } = props;
 
   // Local UI toggle (not business logic)
@@ -268,6 +275,13 @@ export default function ToolbarPanel(props: Props) {
           <button style={{ ...sBtnSm, background: co.surfaceAlt, color: co.muted, border: "1px solid " + co.border }}
             onClick={onShowStoryHealth}>
             📊 Story Health
+          </button>
+        )}
+
+        {isStoryFormat(project.format) && onShowExport && (
+          <button style={{ ...sBtnSm, background: co.surfaceAlt, color: co.muted, border: "1px solid " + co.border }}
+            onClick={onShowExport}>
+            📤 Export
           </button>
         )}
 
@@ -549,6 +563,14 @@ export default function ToolbarPanel(props: Props) {
             generating={generating} streamText={streamText} setStreamText={setStreamText}
             prompt={prompt} setPrompt={setPrompt}
             generateEthics={generateEthics}
+            updateChapter={updateChapter} activeChap={activeChap}
+          />
+        : mode === "endings"
+        ? <EndingsPanel
+            endingsArchetype={endingsArchetype} setEndingsArchetype={setEndingsArchetype}
+            generating={generating} streamText={streamText} setStreamText={setStreamText}
+            prompt={prompt} setPrompt={setPrompt}
+            generateEndings={generateEndings}
             updateChapter={updateChapter} activeChap={activeChap}
           />
         : <WritePanel

@@ -12,13 +12,14 @@ import { SETTING_SYSTEM_PROMPT } from "@/lib/setting";
 import { HISTORICAL_SYSTEM_PROMPT } from "@/lib/historical";
 import { SCITECH_SYSTEM_PROMPT } from "@/lib/scitech";
 import { ETHICS_SYSTEM_PROMPT } from "@/lib/ethics";
+import { ENDINGS_SYSTEM_PROMPT } from "@/lib/endings";
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! });
 
 function safeParseJson(raw: string) {
   const clean = raw.replace(/```json\n?|```/g, "").trim();
   try { return JSON.parse(clean); } catch { return {}; }
 }
-export type GenerationMode = "brainstorm" | "outline" | "write" | "dialogue" | "combat" | "emotional" | "atmosphere" | "tension" | "composition" | "horror" | "comedy" | "mystery" | "romance" | "action" | "monologue" | "voice" | "thriller" | "sports" | "setting" | "historical" | "scitech" | "ethics";
+export type GenerationMode = "brainstorm" | "outline" | "write" | "dialogue" | "combat" | "emotional" | "atmosphere" | "tension" | "composition" | "horror" | "comedy" | "mystery" | "romance" | "action" | "monologue" | "voice" | "thriller" | "sports" | "setting" | "historical" | "scitech" | "ethics" | "endings";
 
 const DIALOGUE_SYSTEM_PROMPT = `You are writing a scene driven by dialogue. Your work operates on three simultaneous levels: the verbal (what is said), the physical (what the body is doing), and the structural (the information management between reader and character).
 
@@ -64,6 +65,22 @@ THE FIVE VOICE DIFFERENTIATION AXES (blind test: cover attribution, can you iden
 3. Characteristic evasion — deflects with humor / counter-questions / silence / over-answers
 4. Reference system — sports metaphors / professional domain / film / literature / nothing
 5. Listening behavior — answers the question asked / the emotional content / doesn't listen at all
+
+MAMET'S WANT-ENGINE:
+Every character in every scene wants something specific from another character.
+The line of dialogue is the instrument chosen to get it.
+Diagnostic: is this line the most effective available instrument for getting that specific
+thing from this specific person right now? If not — it should be cut or replaced.
+Every line must pass this test: what does this character DO by saying this, and is it the
+most efficient available instrument for getting what they want from this specific person?
+
+THE MASKED EXPOSITION PROBLEM:
+Characters telling each other things they both already know is the cardinal dialogue sin.
+Four techniques for embedding necessary information:
+1. Conflict delivery: character reveals it while in argument — information as weapon
+2. Resistance delivery: one character tries to avoid the topic; another forces it
+3. Partial revelation: one character knows only part; the exchange completes it
+4. Subtext delivery: the information is present but never stated — the reader infers it
 
 ABSOLUTE RULES:
 • Never name the emotion — write the body, the voice, the face.
@@ -178,6 +195,7 @@ const MI = {
   historical:  (_f: string) => HISTORICAL_SYSTEM_PROMPT,
   scitech:     (_f: string) => SCITECH_SYSTEM_PROMPT,
   ethics:      (_f: string) => ETHICS_SYSTEM_PROMPT,
+  endings:     (_f: string) => ENDINGS_SYSTEM_PROMPT,
   composition: (_f: string) => `You are writing a scene that must operate simultaneously across multiple injected technique libraries. The composition context above specifies the active layers and their intersection directives.
 
 COMPOSITION RULES (non-negotiable):

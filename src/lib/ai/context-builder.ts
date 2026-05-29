@@ -120,6 +120,19 @@ export function buildContext(p: ContextProject): string {
       if ((c as any).voiceCompression && comp[(c as any).voiceCompression]) vParts.push(comp[(c as any).voiceCompression]);
       if ((c as any).verbalTic && (c as any).verbalTic !== "None" && tic[(c as any).verbalTic]) vParts.push(tic[(c as any).verbalTic]);
       if (vParts.length) parts.push("  Voice: " + vParts.join(", "));
+      // Antagonist profile injection
+      if ((c as any).antagonistToggle) {
+        const typeMap: Record<string, string> = {
+          Narcissist:    "ANTAGONIST PROFILE (Narcissist): This character genuinely believes in their own special status — not as performance but as fact. The small slight receives a disproportionate response. They need to be witnessed in their excellence. When challenged: contempt, not defensiveness. They are the protagonist of a story in which everyone else is an obstacle. Write them as internally coherent, not as a cartoon villain.",
+          Machiavellian: "ANTAGONIST PROFILE (Machiavellian): This character regards strategic manipulation as competent social navigation, not moral failing. They are charming, patient, and genuinely helpful to people who serve their long-term interests. Every favour has an implicit account being run. They plan 10 moves ahead. Their sincerity is real while useful — and ends precisely when it stops being useful.",
+          Psychopath:    "ANTAGONIST PROFILE (Psychopath): This character's primary characteristic is impulsivity combined with absent fear of consequences — not high intelligence. They do things that shock other characters because the ordinary brakes (social reproach, self-reproach, fear of punishment) do not apply. Their calm in genuinely dangerous situations is distinctive. They are not strategic — they are unrestrained.",
+          Ideological:   "ANTAGONIST PROFILE (Ideological): This character believes the harm they cause is justified — even necessary — by a larger good. Their self-justification is internally coherent and, in isolation, the goal they pursue is comprehensible. Write them as someone who is right about some things and wrong in ways they cannot see.",
+          Systemic:      "ANTAGONIST PROFILE (Systemic): There is no single face to this antagonist. The institution, the norm, the accumulated decisions of ordinary people — this is what the protagonist is fighting. Write the system through its effects on individuals rather than through a representative villain.",
+        };
+        const type = (c as any).antagonistType;
+        if (type && typeMap[type]) parts.push("  " + typeMap[type]);
+        parts.push("  VILLAIN PERSPECTIVE RULE: In any scene from this character's POV, the protagonist must appear as an obstacle to a comprehensible goal — not as the hero and this character as villain. The antagonist does not experience themselves as the antagonist.");
+      }
       r.push(parts.join("\n"));
     });
   }
