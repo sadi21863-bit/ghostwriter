@@ -1,5 +1,7 @@
 "use client";
+import { useRef } from "react";
 import { isCreatorFormat } from "@/lib/formats";
+import { getLoadingMessage } from "@/lib/loadingMessages";
 import { co, sInput, sTextarea, sBtn, sBtnSm } from "@/lib/styles";
 import { ProsePanel } from "../tools/ProsePanel";
 import { ScoreHookPanel } from "../tools/ScoreHookPanel";
@@ -46,6 +48,27 @@ export function WritePanel({
   hookScore, hookScoring, scoreHook,
   generate, cohostVoice, setCohostVoice, handleTextareaSelect, onUpgradeRequired,
 }: Props) {
+  const saveTimer = useRef<ReturnType<typeof setTimeout>>();
+
+  const handleContentChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const value = e.target.value;
+    updateChapter("content", value);
+    clearTimeout(saveTimer.current);
+    saveTimer.current = setTimeout(async () => {
+      if (!activeChap?.id || !project?.id) return;
+      try {
+        await fetch(
+          `/api/projects/${project.id}/chapters/${activeChap.id}`,
+          {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ content: value }),
+          }
+        );
+      } catch { /* silent — next save will catch it */ }
+    }, 1500);
+  };
+
   return (
     <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
       {/* Prose floating toolbar + modal */}
@@ -79,7 +102,7 @@ export function WritePanel({
           <textarea
             style={{ flex: 1, background: co.bg, padding: 24, overflow: "auto", fontSize: 15, lineHeight: 1.8, color: co.text, whiteSpace: "pre-wrap", outline: "none", fontFamily: "Georgia,serif", border: "none", resize: "none", boxSizing: "border-box" }}
             value={activeChap.content}
-            onChange={e => updateChapter("content", e.target.value)}
+            onChange={handleContentChange}
             onSelect={handleTextareaSelect}
             onMouseUp={handleTextareaSelect}
             placeholder="Start writing..."
@@ -173,7 +196,7 @@ export function WritePanel({
         {/* Generate button */}
         <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
           <button style={{ ...sBtn, opacity: generating ? 0.5 : 1 }} onClick={generate} disabled={generating}>
-            {genTarget === "main" ? "..." : "Generate"}
+            {generating && genTarget === "main" ? getLoadingMessage(mode) : "Generate"}
           </button>
           <button style={{ padding: "2px 8px", border: "none", borderRadius: 4, cursor: "pointer", fontSize: 10, background: "transparent", color: co.muted }} onClick={() => setExpandedPrompt(!expandedPrompt)}>
             {expandedPrompt ? "Less" : "More"}

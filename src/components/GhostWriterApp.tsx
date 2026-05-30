@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useProjectState } from "@/hooks/useProjectState";
 import { useAIActions } from "@/hooks/useAIActions";
 import { useWorldBible } from "@/hooks/useWorldBible";
@@ -9,6 +9,7 @@ import ChapterEditor from "@/components/panels/ChapterEditor";
 import { StoryHealthPanel } from "@/components/panels/StoryHealthPanel";
 import { ExportPanel } from "@/components/panels/ExportPanel";
 import { UpgradePrompt } from "@/components/upgrade/UpgradePrompt";
+import { CommandPalette } from "@/components/CommandPalette";
 import type { FeatureGate } from "@/types/subscription";
 import type { CompositionLayer } from "@/lib/ai/composer";
 import { co, sBtn, sBtnSm } from "@/lib/styles";
@@ -47,6 +48,22 @@ export default function GhostWriterApp({ projectId }: { projectId: string }) {
   const [upgradeRequired, setUpgradeRequired] = useState<FeatureGate | null>(null);
   const [showStoryHealth, setShowStoryHealth] = useState(false);
   const [showExport, setShowExport] = useState(false);
+
+  useEffect(() => {
+    const tintMap: Record<string, string> = {
+      horror: "var(--tint-horror)", romance: "var(--tint-romance)",
+      thriller: "var(--tint-thriller)", monologue: "var(--tint-monologue)",
+      combat: "var(--tint-combat)", comedy: "var(--tint-comedy)",
+      mystery: "var(--tint-mystery)", atmosphere: "var(--tint-atmosphere)",
+      tension: "var(--tint-tension)", emotional: "var(--tint-emotional)",
+      dialogue: "var(--tint-dialogue)", setting: "var(--tint-setting)",
+      historical: "var(--tint-historical)", scitech: "var(--tint-scitech)",
+      ethics: "var(--tint-ethics)", endings: "var(--tint-endings)",
+      sports: "var(--tint-sports)", action: "var(--tint-action)",
+    };
+    const tint = tintMap[mode] ?? "rgba(217,119,6,0.08)";
+    document.documentElement.style.setProperty("--library-tint", tint);
+  }, [mode]);
 
   const projectState = useProjectState(projectId);
   const {
@@ -289,6 +306,20 @@ export default function GhostWriterApp({ projectId }: { projectId: string }) {
       {upgradeRequired && (
         <UpgradePrompt feature={upgradeRequired} onClose={() => setUpgradeRequired(null)} />
       )}
+
+      <CommandPalette
+        chapters={(project.chapters || []).map((c: any) => ({ id: c.id, title: c.title }))}
+        characters={(project.characters || []).map((c: any) => ({ id: c.id, name: c.name }))}
+        modes={["brainstorm", "outline", "write", "horror", "romance", "thriller", "dialogue", "combat", "emotional", "atmosphere", "tension", "comedy", "mystery", "action", "monologue", "voice", "sports", "setting", "historical", "scitech", "ethics", "endings"]}
+        onNavigate={(target, _id) => {
+          if (target === "dashboard") window.location.href = "/dashboard";
+          else if (target === "settings") window.location.href = "/settings";
+          else if (target === "production") setShowProductionStudio(true);
+          else if (target === "world-bible") setLeftCollapsed(false);
+        }}
+        onSwitchMode={(m) => setMode(m)}
+        onRunCheck={() => setShowStoryHealth(true)}
+      />
 
       {confirmModal && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000 }}>
