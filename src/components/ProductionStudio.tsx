@@ -4,6 +4,7 @@ import type { CSSProperties } from "react";
 import { SHOT_TYPES, CAMERA_MOVEMENTS, LIGHTING_MOODS, TIME_OF_DAY, buildShotPromptFragment } from "@/lib/ai/shot-parameters";
 import { CAMERA_PRESETS, CAMERA_PRESET_GROUPS, VIRAL_PRESETS } from "@/lib/higgsfield/presets";
 import SeriesPipelinePanel from "@/components/panels/SeriesPipelinePanel";
+import { EmptyState } from "@/components/EmptyState";
 
 type Shot = {
   id: string;
@@ -394,6 +395,10 @@ export default function ProductionStudio({ project, higgsfieldKey }: { project: 
 
       {/* Shots */}
       <div style={{ flex: 1, overflow: "auto", padding: "16px" }}>
+        {shots.length === 0 && (
+          <EmptyState icon="🎬" title="No shots yet"
+            description="Generate a production package from your chapters to start directing." />
+        )}
         {scenes.map(scene => {
           const sceneShots = shots.filter(s => s.sceneNumber === scene);
           const chapterTitle = sceneShots[0]?.chapterId

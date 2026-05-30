@@ -120,6 +120,174 @@ export function buildContext(p: ContextProject): string {
       if ((c as any).voiceCompression && comp[(c as any).voiceCompression]) vParts.push(comp[(c as any).voiceCompression]);
       if ((c as any).verbalTic && (c as any).verbalTic !== "None" && tic[(c as any).verbalTic]) vParts.push(tic[(c as any).verbalTic]);
       if (vParts.length) parts.push("  Voice: " + vParts.join(", "));
+      // ── NVC CARD INJECTION ──────────────────────────────────────────────────
+      if ((c as any).kinesicsBaseline || (c as any).kinesicsIdiosyncrasy) {
+        const nvcParts: string[] = ["NVC DIRECTIVES:"];
+        if ((c as any).kinesicsBaseline) {
+          nvcParts.push(`Kinesics baseline: ${(c as any).kinesicsBaseline}`);
+          nvcParts.push("Generate behavior and physical leakage from this baseline, NOT emotion labels.");
+          nvcParts.push("When writing scenes with this character: their body communicates simultaneously with their words.");
+        }
+        if ((c as any).kinesicsMicro) {
+          nvcParts.push(`Microexpression map: ${(c as any).kinesicsMicro}`);
+          nvcParts.push("Deploy microexpressions sparingly (1-2 per scene max) only when actively concealing.");
+        }
+        if ((c as any).kinesicsIdiosyncrasy) {
+          nvcParts.push(`Signature physical habit: ${(c as any).kinesicsIdiosyncrasy}`);
+          nvcParts.push("This habit is their physical fingerprint — readers will recognize it.");
+        }
+        if ((c as any).proxemicsCulture) {
+          const zoneRules: Record<string, string> = {
+            "contact": "Contact culture — comfortable at 30-50cm conversational distance, touch during conversation normal.",
+            "non-contact": "Non-contact culture — comfortable at 60-90cm, minimal touch, closer proximity feels intrusive.",
+            "mixed": "Mixed cultural proxemics — shifts by context.",
+          };
+          nvcParts.push(`Proxemics: ${zoneRules[(c as any).proxemicsCulture] || (c as any).proxemicsCulture}`);
+        }
+        if ((c as any).proxemicsViolationResponse) nvcParts.push(`When intimate zone is breached without consent: ${(c as any).proxemicsViolationResponse}`);
+        if ((c as any).paralanguageBaseline) {
+          nvcParts.push(`Voice baseline: ${(c as any).paralanguageBaseline}`);
+          nvcParts.push("Any significant deviation from this baseline signals psychological state change — write the deviation, not the explanation.");
+        }
+        if ((c as any).paralanguageStressDegradation) nvcParts.push(`Under stress their voice: ${(c as any).paralanguageStressDegradation}`);
+        if ((c as any).paralanguageSignatureSound) nvcParts.push(`Signature vocal marker: ${(c as any).paralanguageSignatureSound}`);
+        if ((c as any).hapticsTouchLevel) {
+          const hapticMap: Record<string, string> = {
+            "averse": "Touch-averse — any uninvited contact is a violation; their body registers it before their mind.",
+            "reserved": "Touch-reserved — functional touch accepted, warmth-touch requires established trust.",
+            "normal": "Normal haptic range — follows cultural and relational norms.",
+            "initiating": "Touch-initiating — uses touch to connect, comfort, and manage social dynamics.",
+          };
+          nvcParts.push(hapticMap[(c as any).hapticsTouchLevel] || (c as any).hapticsTouchLevel);
+        }
+        if ((c as any).chronemicsTimeType) {
+          const timeMap: Record<string, string> = {
+            "monochronic": "Monochronic time — one thing at a time, punctuality carries moral weight, waiting is disrespect.",
+            "polychronic": "Polychronic time — time is relational and flexible, concurrent conversations natural, appointments are guidelines.",
+          };
+          nvcParts.push(timeMap[(c as any).chronemicsTimeType] || (c as any).chronemicsTimeType);
+        }
+        if ((c as any).oculesicsDefault) {
+          const eyeMap: Record<string, string> = {
+            "avoidant": "Default eye contact: avoidant — signals respect or processing, not deception (in their cultural context).",
+            "normal": "Default eye contact: normal conversational range (3-second Western norm).",
+            "sustained": "Default eye contact: sustained — reads as confidence, intensity, or challenge depending on context.",
+            "intense": "Default eye contact: intense, rarely blinks in high-focus states.",
+          };
+          nvcParts.push(eyeMap[(c as any).oculesicsDefault] || (c as any).oculesicsDefault);
+        }
+        if ((c as any).oculesicsDeception) nvcParts.push(`When hiding something, their eyes: ${(c as any).oculesicsDeception}`);
+        if ((c as any).objecticsSignature) nvcParts.push(`Signature object: ${(c as any).objecticsSignature} — losing it is an identity event.`);
+        if ((c as any).appearanceSignature) nvcParts.push(`Appearance signature: ${(c as any).appearanceSignature} — always present or always noticed.`);
+        if ((c as any).appearanceTrajectory) {
+          nvcParts.push(`Grooming/appearance trajectory: ${(c as any).appearanceTrajectory}`);
+          if ((c as any).appearanceTrajectory === "deteriorating") nvcParts.push("Deteriorating appearance signals psychological breakdown — write the specific changes, not the label.");
+        }
+        parts.push("  " + nvcParts.join(" "));
+      }
+
+      // ── LANGUAGE PROFILE INJECTION ───────────────────────────────────────────
+      if ((c as any).nativeLanguage || (c as any).accentProfile || (c as any).registerDefault || (c as any).idiolectFingerprint) {
+        const lParts: string[] = ["LANGUAGE DIRECTIVES:"];
+        if ((c as any).nativeLanguage) {
+          lParts.push(`Native language: ${(c as any).nativeLanguage}.`);
+          if ((c as any).acquiredLanguages) lParts.push(`Also speaks: ${(c as any).acquiredLanguages}.`);
+          if ((c as any).dominantLanguageContext) lParts.push(`Default by context: ${(c as any).dominantLanguageContext}.`);
+        }
+        if ((c as any).accentProfile) {
+          lParts.push(`Accent/dialect: ${(c as any).accentProfile}.`);
+          lParts.push("NEVER use phonetic spelling to convey accent. Use: syntax inversion, specific vocabulary markers, sentence rhythm, or observational filtering through the POV character.");
+        }
+        if ((c as any).reversionTrigger) lParts.push(`Reversion trigger: ${(c as any).reversionTrigger} — this is when native dialect/accent surfaces despite suppression.`);
+        if ((c as any).registerDefault) {
+          const regMap: Record<string, string> = {
+            "frozen": "Register default: frozen/ceremonial — speaks in fixed forms, ritualized language.",
+            "formal": "Register default: formal — full grammar, no contractions, precise vocabulary always.",
+            "consultative": "Register default: consultative — professional warmth, polite hedging.",
+            "casual": "Register default: casual — contractions, shared references, incomplete sentences with trusted people.",
+            "intimate": "Register default: intimate — private codes, unfinished thoughts, non-verbal completion.",
+          };
+          lParts.push(regMap[(c as any).registerDefault] || `Register default: ${(c as any).registerDefault}`);
+          if ((c as any).registerRange === "narrow") lParts.push("Narrow register range — uses nearly the same register regardless of context. This signals emotional distance or social anxiety.");
+        }
+        if ((c as any).codeSwitchingTriggers) lParts.push(`Code-switching triggers: ${(c as any).codeSwitchingTriggers}`);
+        if ((c as any).idiolectFingerprint) {
+          lParts.push(`VOICE FINGERPRINT: ${(c as any).idiolectFingerprint}`);
+          lParts.push("Apply this voice consistently in ALL dialogue and interior monologue for this character. Blind test: cover the attribution tag — the reader must be able to identify who is speaking.");
+        }
+        parts.push("  " + lParts.join(" "));
+      }
+
+      // ── FLAW-STRENGTH INJECTION ──────────────────────────────────────────────
+      if ((c as any).hamartia || (c as any).rootWound || (c as any).blindSpot) {
+        const fParts: string[] = ["CHARACTER PSYCHOLOGY:"];
+        if ((c as any).rootWound) {
+          fParts.push(`Root wound: ${(c as any).rootWound}`);
+          fParts.push("This wound is the architecture of their whole personality — their strength and their flaw are the same root, grown in different directions.");
+        }
+        if ((c as any).hamartia) {
+          fParts.push(`Fatal flaw (hamartia): ${(c as any).hamartia}`);
+          fParts.push("This must be DEMONSTRATED through behavior and consequence, not described. It should cost them something real in every scene that activates it.");
+        }
+        if ((c as any).significantFlaws?.length) fParts.push(`Active flaws: ${(c as any).significantFlaws.join(", ")}`);
+        if ((c as any).cognitiveBias) {
+          const biasMap: Record<string, string> = {
+            "confirmation_bias": "Confirmation bias — systematically sees only evidence supporting existing beliefs; filters contradictions as noise. They are NOT lying — their perception is distorted.",
+            "fundamental_attribution_error": "Fundamental attribution error — attributes others' bad behavior to character ('they're a bad person') but their own to circumstance ('I had no choice'). Cannot see their own hypocrisy.",
+            "sunk_cost_fallacy": "Sunk cost fallacy — cannot abandon wrong paths because of investment already made. Applies to relationships, missions, beliefs.",
+            "dunning_kruger": "Dunning-Kruger in their domain gap — overconfident in areas where they know least, unaware of the gap.",
+            "in_group_bias": "In-group bias — systematically applies different moral standards to their group vs. outsiders. Not consciously evil — different moral worlds.",
+          };
+          fParts.push(biasMap[(c as any).cognitiveBias] || `Cognitive bias: ${(c as any).cognitiveBias}`);
+        }
+        if ((c as any).blindSpot) {
+          fParts.push(`Blind spot: ${(c as any).blindSpot}`);
+          fParts.push("This is what they cannot see about themselves. The reader should be able to see it; other characters may see it; they cannot.");
+        }
+        if ((c as any).strengthBranch) {
+          fParts.push(`Strength (same root as flaw): ${(c as any).strengthBranch}`);
+          fParts.push("Look for moments where strength and flaw are simultaneously visible — these are peak characterization moments.");
+        }
+        if ((c as any).compensationBehavior) {
+          fParts.push(`Compensation behavior: ${(c as any).compensationBehavior}`);
+          if ((c as any).compensationTrigger) fParts.push(`Activated by: ${(c as any).compensationTrigger}`);
+        }
+        if ((c as any).flawArcMode) {
+          const arcMap: Record<string, string> = {
+            "overcome": "Flaw arc: this character is on a transformation trajectory — the flaw will eventually be transcended, at cost.",
+            "fail": "Flaw arc: the flaw will win. This is a tragedy architecture.",
+            "compensate": "Flaw arc: the character builds systems around the flaw that allow functional life — without resolving it.",
+            "accept": "Flaw arc: the character will make peace with this — not overcome it, not be destroyed by it. This is the most mature and underwritten resolution.",
+          };
+          if (arcMap[(c as any).flawArcMode]) fParts.push(arcMap[(c as any).flawArcMode]);
+        }
+        parts.push("  " + fParts.join(" "));
+      }
+
+      // ── SKILL CARD INJECTION ─────────────────────────────────────────────────
+      if ((c as any).skills && Array.isArray((c as any).skills) && (c as any).skills.length > 0) {
+        const skillLines: string[] = ["SKILL CARD:"];
+        const levelLabels = ["", "Novice", "Apprentice", "Competent", "Expert", "Master"];
+        for (const skill of (c as any).skills) {
+          let line = `${skill.name} (${skill.category}): ${levelLabels[skill.level] || skill.level}`;
+          if (skill.acquisitionPath) {
+            const pathLabel: Record<string, string> = {
+              "deliberate_practice": "learned through structured practice",
+              "trial_by_fire": "forged under extreme necessity",
+              "mentorship": "taught by a master (with their blind spots embedded)",
+              "observation": "self-taught through watching",
+              "incidental": "accumulated through life experience",
+            };
+            line += ` (${pathLabel[skill.acquisitionPath] || skill.acquisitionPath})`;
+          }
+          if (skill.traumaLinked && skill.traumaTrigger) line += ` — TRAUMA-LINKED: cannot demonstrate without risk of triggering ${skill.traumaTrigger}`;
+          if (skill.acquisitionCost) line += `. Cost: ${skill.acquisitionCost}`;
+          skillLines.push(line);
+        }
+        skillLines.push("SKILL GATE: Never generate this character succeeding at actions beyond their demonstrated skill level without narrative cost. Physical/cognitive/social skills do NOT transfer between domains.");
+        parts.push("  " + skillLines.join(" "));
+      }
+
       // Antagonist profile injection
       if ((c as any).antagonistToggle) {
         const typeMap: Record<string, string> = {

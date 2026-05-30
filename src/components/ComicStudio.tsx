@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect, useRef } from "react";
 import { ART_STYLES } from "@/lib/ai/panel-prompt-builder";
+import { EmptyState } from "@/components/EmptyState";
 
 export default function ComicStudio({ project, higgsfieldKey, onOpenStudio }: { project: any; higgsfieldKey: string; onOpenStudio?: () => void }) {
   const [view, setView] = useState<"generator" | "editor">("generator");
@@ -286,6 +287,13 @@ export default function ComicStudio({ project, higgsfieldKey, onOpenStudio }: { 
               ? <div style={{ textAlign: "center", padding: 20, color: co.muted, fontSize: 13 }}>⏳ {generationMsg}</div>
               : <button style={{ ...sBtn, width: "100%", fontSize: 15, padding: "12px 0", opacity: !higgsfieldKey ? 0.5 : 1 }} disabled={!higgsfieldKey || generating} onClick={generateComic}>🎨 Convert to Comic</button>}
           </>
+        )}
+
+        {pages.length === 0 && !generating && (
+          <div style={{ marginTop: 24 }}>
+            <EmptyState icon="🎨" title="No panels yet"
+              description="Select a chapter and generate comic panels from your writing." />
+          </div>
         )}
 
         {pages.length > 0 && (

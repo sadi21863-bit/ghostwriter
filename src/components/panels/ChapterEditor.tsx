@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { co, sBtnSm } from "@/lib/styles";
 import { getChapterLabel } from "@/lib/formats";
+import { EmptyState } from "@/components/EmptyState";
 import type { PassiveSuggestion } from "@/lib/suggestions/passive";
 import type { FeatureGate } from "@/types/subscription";
 
@@ -182,6 +183,11 @@ export default function ChapterEditor({
           </div>
         )}
         <div style={{ flex: 1, overflow: "auto", padding: 8 }}>
+          {visibleChapters.length === 0 && (
+            <EmptyState icon="📖" title="Begin writing"
+              description="Add your first chapter to start your story."
+              action={{ label: `Add ${getChapterLabel(project.format)}`, onClick: addChapter }} />
+          )}
           {visibleChapters.map((ch: any, i: number) => {
             const isActive = ch.id === project.activeChapter;
             return (

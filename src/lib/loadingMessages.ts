@@ -18,6 +18,7 @@ export const LOADING_MESSAGES: Record<string, string> = {
   scitech:     "Consulting Kuhn's paradigm map...",
   ethics:      "Weighing Haidt's six foundations...",
   endings:     "Applying Kermode's retroactive organizer...",
+  isekai:      "Consulting the System (genre compliance check)...",
   composition: "Blending library registers...",
   brainstorm:  "Generating story seeds...",
   outline:     "Building structural architecture...",

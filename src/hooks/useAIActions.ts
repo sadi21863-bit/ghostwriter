@@ -24,6 +24,7 @@ import { buildHistoricalContext } from "@/lib/historical";
 import { buildScitechContext } from "@/lib/scitech";
 import { buildEthicsContext } from "@/lib/ethics";
 import { buildEndingsContext } from "@/lib/endings";
+import { buildIsekaiContext } from "@/lib/isekai";
 
 export function useAIActions({
   project, mode, prompt, activeChap,
@@ -52,6 +53,7 @@ export function useAIActions({
   const [proseLoading, setProseLoading] = useState(false);
   const [hookScore, setHookScore] = useState<{ score: number; feedback: string } | null>(null);
   const [hookScoring, setHookScoring] = useState(false);
+  const [violationBanner, setViolationBanner] = useState<{ violationType: string; flagMessage: string; supportMode: string } | null>(null);
 
   const callAI = async (endpoint: string, body: any) => {
     const res = await fetch("/api/ai/" + endpoint, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
@@ -96,7 +98,8 @@ export function useAIActions({
         ? `${prompt}\n\nCo-host voice persona: ${cohostVoice}`
         : prompt;
       const r = await callAI("generate", { mode: effectiveMode, prompt: effectivePrompt, context: buildFullContext(), format: effectiveFormat, projectId: project.id, chapterId: activeChap.id });
-      if (r.error === "upgrade_required") { setUpgradeRequired?.(r.feature); }
+      if (r.requiresConfirmation) { setViolationBanner({ violationType: r.violationType, flagMessage: r.flagMessage, supportMode: r.supportMode }); }
+      else if (r.error === "upgrade_required") { setUpgradeRequired?.(r.feature); }
       else if (mode === "write") { setUndoStack(s => [...s.slice(-9), activeChap.content]); updateChapter("content", activeChap.content + (activeChap.content ? "\n\n" : "") + r.text); }
       else setStreamText(r.text);
     } catch (e) { setErrorMsg("Generation failed. Please try again."); }
@@ -504,6 +507,42 @@ export function useAIActions({
     setGenerating(false); setGenTarget("");
   };
 
+  const generateIsekai = async (archetypeName: string, isekaiPrompt: string) => {
+    if (!archetypeName) { setErrorMsg("Select an isekai subgenre."); return; }
+    setGenerating(true); setGenTarget("main"); setStreamText("");
+    try {
+      const ctx = buildIsekaiContext(archetypeName) + "\n---\n" + buildFullContext();
+      const res = await fetch("/api/ai/generate", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mode: "isekai", prompt: isekaiPrompt || `Write a ${archetypeName} isekai scene.`, context: ctx, format: project.format, projectId: project.id, chapterId: activeChap.id }),
+      });
+      const data = await res.json();
+      if (data.error === "upgrade_required") { setUpgradeRequired?.(data.feature); }
+      else if (data.text) setStreamText(data.text);
+    } catch { setErrorMsg("Isekai generation failed. Please try again."); }
+    setGenerating(false); setGenTarget("");
+  };
+
+  const confirmViolation = async (violationType: string, purpose: string) => {
+    setViolationBanner(null);
+    if (!project.id) return;
+    await fetch(`/api/projects/${project.id}/intentional-violation`, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ violationType, purpose }),
+    });
+    setGenerating(true); setGenTarget("main"); setStreamText("");
+    try {
+      const isCohost = mode === "cohost";
+      const effectiveMode = isCohost ? "write" : mode;
+      const effectiveFormat = isCohost ? "Podcast Episode (Co-host)" : project.format;
+      const r = await callAI("generate", { mode: effectiveMode, prompt, context: buildFullContext(), format: effectiveFormat, projectId: project.id, chapterId: activeChap.id, bypassViolationCheck: true });
+      if (r.error === "upgrade_required") { setUpgradeRequired?.(r.feature); }
+      else if (mode === "write") { setUndoStack(s => [...s.slice(-9), activeChap.content]); updateChapter("content", activeChap.content + (activeChap.content ? "\n\n" : "") + r.text); }
+      else setStreamText(r.text);
+    } catch { setErrorMsg("Generation failed. Please try again."); }
+    setGenerating(false); setGenTarget("");
+  };
+
   const scoreHook = async () => {
     if (!prompt.trim() || hookScoring) return;
     setHookScoring(true); setHookScore(null);
@@ -529,6 +568,8 @@ export function useAIActions({
     generateHorror, generateComedy, generateMystery, generateRomance, generateAction,
     generateMonologue, generateVoice, generateThriller, generateSports,
     generateSetting, generateHistorical, generateScitech, generateEthics, generateEndings,
+    generateIsekai,
+    violationBanner, setViolationBanner, confirmViolation,
     runPipeline, usePipelineOutput,
     handleTextareaSelect, runProse, replaceSelection, scoreHook,
   };

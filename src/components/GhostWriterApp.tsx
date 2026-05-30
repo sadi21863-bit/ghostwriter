@@ -44,6 +44,7 @@ export default function GhostWriterApp({ projectId }: { projectId: string }) {
   const [scitechArchetype, setScitechArchetype] = useState("Normal Science");
   const [ethicsArchetype, setEthicsArchetype] = useState("Moral Dumbfounding");
   const [endingsArchetype, setEndingsArchetype] = useState("Resolution");
+  const [isekaiArchetype, setIsekaiArchetype] = useState("Classic Isekai");
   const [compositionLayers, setCompositionLayers] = useState<CompositionLayer[]>([]);
   const [upgradeRequired, setUpgradeRequired] = useState<FeatureGate | null>(null);
   const [showStoryHealth, setShowStoryHealth] = useState(false);
@@ -116,6 +117,27 @@ export default function GhostWriterApp({ projectId }: { projectId: string }) {
         <div style={{ position: "fixed", top: 0, left: 0, right: 0, background: "#d94545", color: "#fff", padding: "10px 16px", display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 14, zIndex: 2000 }}>
           <span>{errorMsg}</span>
           <button onClick={() => setErrorMsg(null)} style={{ background: "none", border: "none", color: "#fff", cursor: "pointer", fontSize: 18, lineHeight: 1 }}>×</button>
+        </div>
+      )}
+
+      {aiActions.violationBanner && (
+        <div style={{ position: "fixed", top: errorMsg ? 44 : 0, left: 0, right: 0, background: "#92400e", color: "#fef3c7", padding: "12px 20px", zIndex: 1999, borderBottom: "1px solid #d97706" }}>
+          <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 6 }}>⚠ Craft Notice — Read before generating</div>
+          <div style={{ fontSize: 12, lineHeight: 1.6, marginBottom: 10 }}>{aiActions.violationBanner.flagMessage}</div>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button
+              onClick={() => aiActions.confirmViolation(aiActions.violationBanner!.violationType, "intentional choice")}
+              style={{ background: "#d97706", color: "#fff", border: "none", borderRadius: 6, padding: "6px 16px", fontSize: 12, fontWeight: 700, cursor: "pointer" }}
+            >
+              Confirm as intentional — Generate anyway
+            </button>
+            <button
+              onClick={() => aiActions.setViolationBanner(null)}
+              style={{ background: "none", border: "1px solid #d97706", color: "#fef3c7", borderRadius: 6, padding: "6px 16px", fontSize: 12, cursor: "pointer" }}
+            >
+              Dismiss — I'll revise the prompt
+            </button>
+          </div>
         </div>
       )}
 
@@ -266,6 +288,9 @@ export default function GhostWriterApp({ projectId }: { projectId: string }) {
         endingsArchetype={endingsArchetype}
         setEndingsArchetype={setEndingsArchetype}
         generateEndings={aiActions.generateEndings}
+        isekaiArchetype={isekaiArchetype}
+        setIsekaiArchetype={setIsekaiArchetype}
+        generateIsekai={aiActions.generateIsekai}
         compositionLayers={compositionLayers}
         setCompositionLayers={setCompositionLayers}
         generateComposition={aiActions.generateComposition}

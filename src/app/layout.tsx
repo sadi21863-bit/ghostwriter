@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import Providers from "@/components/Providers";
+import { GrowthBookClientProvider } from "@/components/GrowthBookClientProvider";
 import "./globals.css";
 
 export const metadata = { title: "GhostWriter AI", description: "AI-powered writing studio" };
@@ -14,7 +15,11 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         />
       </head>
       <body className="bg-surface-bg text-gray-900 antialiased">
-        <Providers>{children}</Providers>
+        <Providers>
+          <GrowthBookClientProvider>
+            {children}
+          </GrowthBookClientProvider>
+        </Providers>
       </body>
     </html>
   );

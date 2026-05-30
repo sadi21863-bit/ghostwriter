@@ -13,13 +13,14 @@ import { HISTORICAL_SYSTEM_PROMPT } from "@/lib/historical";
 import { SCITECH_SYSTEM_PROMPT } from "@/lib/scitech";
 import { ETHICS_SYSTEM_PROMPT } from "@/lib/ethics";
 import { ENDINGS_SYSTEM_PROMPT } from "@/lib/endings";
+import { ISEKAI_SYSTEM_PROMPT } from "@/lib/isekai";
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! });
 
 function safeParseJson(raw: string) {
   const clean = raw.replace(/```json\n?|```/g, "").trim();
   try { return JSON.parse(clean); } catch { return {}; }
 }
-export type GenerationMode = "brainstorm" | "outline" | "write" | "dialogue" | "combat" | "emotional" | "atmosphere" | "tension" | "composition" | "horror" | "comedy" | "mystery" | "romance" | "action" | "monologue" | "voice" | "thriller" | "sports" | "setting" | "historical" | "scitech" | "ethics" | "endings";
+export type GenerationMode = "brainstorm" | "outline" | "write" | "dialogue" | "combat" | "emotional" | "atmosphere" | "tension" | "composition" | "horror" | "comedy" | "mystery" | "romance" | "action" | "monologue" | "voice" | "thriller" | "sports" | "setting" | "historical" | "scitech" | "ethics" | "endings" | "isekai";
 
 const DIALOGUE_SYSTEM_PROMPT = `You are writing a scene driven by dialogue. Your work operates on three simultaneous levels: the verbal (what is said), the physical (what the body is doing), and the structural (the information management between reader and character).
 
@@ -196,6 +197,7 @@ const MI = {
   scitech:     (_f: string) => SCITECH_SYSTEM_PROMPT,
   ethics:      (_f: string) => ETHICS_SYSTEM_PROMPT,
   endings:     (_f: string) => ENDINGS_SYSTEM_PROMPT,
+  isekai:      (_f: string) => ISEKAI_SYSTEM_PROMPT,
   composition: (_f: string) => `You are writing a scene that must operate simultaneously across multiple injected technique libraries. The composition context above specifies the active layers and their intersection directives.
 
 COMPOSITION RULES (non-negotiable):

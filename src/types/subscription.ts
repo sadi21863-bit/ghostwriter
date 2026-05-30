@@ -68,6 +68,7 @@ export const GATED_MODES: Record<string, FeatureGate> = {
   scitech:     "story_modes_advanced",
   ethics:      "story_modes_advanced",
   endings:     "story_modes_advanced",
+  isekai:      "story_modes_advanced",
 };
 
 // ── Stripe price IDs (replace with real IDs from Stripe dashboard) ─────────

@@ -3,6 +3,7 @@ import { useState, useEffect, useRef } from "react";
 import { buildContext, buildCreatorContext } from "@/lib/ai/context-builder";
 import { co, sInput, sTextarea, sBtn, sBtnSm } from "@/lib/styles";
 import { isCreatorFormat, isStoryFormat, FORMATS, GENRES, STYLE_ATTRS, DEFAULT_CHAR, DEFAULT_LOC, DEFAULT_PLOT, CharFields, LocFields, PlotFields } from "@/lib/formats";
+import { EmptyState } from "@/components/EmptyState";
 
 const entityApiPath: Record<string, string> = { characters: "characters", locations: "locations", plotThreads: "plot-threads" };
 
@@ -686,6 +687,10 @@ export default function WorldBiblePanel(props: Props) {
                               <span style={{ fontSize: 10, fontWeight: 700, color: co.accent, textTransform: "uppercase" }}>{title} ({items.length})</span>
                               <button style={sBtnSm} onClick={onNew}>+ Add</button>
                             </div>
+                            {items.length === 0 && key === "characters" && (
+                              <EmptyState icon="👤" title="No characters yet"
+                                description="Add your first character to start building your World Bible." />
+                            )}
                             {items.map((item: any, i: number) => (
                               <div key={i} style={{ display: "flex", alignItems: "center", gap: 6, background: co.accentBg, borderRadius: 8, padding: "6px 10px", fontSize: 12, margin: "3px 0", cursor: "pointer" }} onClick={() => onEdit(i)}>
                                 {item.status && <span style={{ width: 7, height: 7, borderRadius: "50%", background: item.status === "Active" ? co.green : item.status === "Resolved" ? co.muted : co.orange, flexShrink: 0 }} />}
@@ -1050,7 +1055,145 @@ export default function WorldBiblePanel(props: Props) {
                   </div>
                 )}
               </div>
-              </div>
+
+              {/* ── NVC CARD ─────────────────────────────────────────── */}
+              <details style={{ marginTop: 16, borderTop: "1px solid " + co.border, paddingTop: 14 }}>
+                <summary style={{ fontSize: 12, fontWeight: 700, color: co.accent, cursor: "pointer", userSelect: "none", marginBottom: 10, listStyle: "none" }}>
+                  ▶ NVC Profile (Non-Verbal Communication)
+                </summary>
+                <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 8 }}>
+                  <details open={false}>
+                    <summary style={{ fontSize: 11, fontWeight: 700, color: co.muted, cursor: "pointer", userSelect: "none" }}>Kinesics</summary>
+                    <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 6 }}>
+                      <div><span style={{ fontSize: 10, color: co.muted, display: "block", marginBottom: 2 }}>Baseline (posture, gesture density, expressiveness)</span><textarea style={sTextarea} rows={2} value={data.kinesicsBaseline || ""} onChange={(e: any) => setData((d: any) => ({ ...d, kinesicsBaseline: e.target.value }))} placeholder="slight forward lean, medium gesture density, expressive face..." /></div>
+                      <div><span style={{ fontSize: 10, color: co.muted, display: "block", marginBottom: 2 }}>Microexpression map (what emotions they suppress + the leakage)</span><textarea style={sTextarea} rows={2} value={data.kinesicsMicro || ""} onChange={(e: any) => setData((d: any) => ({ ...d, kinesicsMicro: e.target.value }))} placeholder="suppresses grief → eyelid droop + inner brow raise..." /></div>
+                      <div><span style={{ fontSize: 10, color: co.muted, display: "block", marginBottom: 2 }}>Signature physical habit (idiosyncratic)</span><input style={sInput} value={data.kinesicsIdiosyncrasy || ""} onChange={(e: any) => setData((d: any) => ({ ...d, kinesicsIdiosyncrasy: e.target.value }))} placeholder="touches nose when lying; hand moves to hip where weapon was..." /></div>
+                    </div>
+                  </details>
+                  <details open={false}>
+                    <summary style={{ fontSize: 11, fontWeight: 700, color: co.muted, cursor: "pointer", userSelect: "none" }}>Proxemics & Haptics</summary>
+                    <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 6 }}>
+                      <div><span style={{ fontSize: 10, color: co.muted, display: "block", marginBottom: 2 }}>Proxemics culture</span><select style={sInput} value={data.proxemicsCulture || ""} onChange={(e: any) => setData((d: any) => ({ ...d, proxemicsCulture: e.target.value }))}><option value="">Not set</option><option value="contact">Contact</option><option value="non-contact">Non-contact</option><option value="mixed">Mixed</option></select></div>
+                      <div><span style={{ fontSize: 10, color: co.muted, display: "block", marginBottom: 2 }}>When intimate zone is breached</span><select style={sInput} value={data.proxemicsViolationResponse || ""} onChange={(e: any) => setData((d: any) => ({ ...d, proxemicsViolationResponse: e.target.value }))}><option value="">Not set</option><option value="freeze">Freeze</option><option value="retreat">Retreat</option><option value="reciprocate">Reciprocate</option><option value="confront">Confront</option></select></div>
+                      <div><span style={{ fontSize: 10, color: co.muted, display: "block", marginBottom: 2 }}>Touch level</span><select style={sInput} value={data.hapticsTouchLevel || ""} onChange={(e: any) => setData((d: any) => ({ ...d, hapticsTouchLevel: e.target.value }))}><option value="">Not set</option><option value="averse">Averse</option><option value="reserved">Reserved</option><option value="normal">Normal</option><option value="initiating">Initiating</option></select></div>
+                    </div>
+                  </details>
+                  <details open={false}>
+                    <summary style={{ fontSize: 11, fontWeight: 700, color: co.muted, cursor: "pointer", userSelect: "none" }}>Voice (Paralanguage)</summary>
+                    <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 6 }}>
+                      <div><span style={{ fontSize: 10, color: co.muted, display: "block", marginBottom: 2 }}>Baseline voice (pitch, rate, rhythm)</span><textarea style={sTextarea} rows={2} value={data.paralanguageBaseline || ""} onChange={(e: any) => setData((d: any) => ({ ...d, paralanguageBaseline: e.target.value }))} placeholder="low pitch, slow deliberate rate, smooth rhythm..." /></div>
+                      <div><span style={{ fontSize: 10, color: co.muted, display: "block", marginBottom: 2 }}>Under stress, voice becomes</span><textarea style={sTextarea} rows={2} value={data.paralanguageStressDegradation || ""} onChange={(e: any) => setData((d: any) => ({ ...d, paralanguageStressDegradation: e.target.value }))} placeholder="pitch rises, rate accelerates, fillers multiply..." /></div>
+                      <div><span style={{ fontSize: 10, color: co.muted, display: "block", marginBottom: 2 }}>Signature vocal marker</span><input style={sInput} value={data.paralanguageSignatureSound || ""} onChange={(e: any) => setData((d: any) => ({ ...d, paralanguageSignatureSound: e.target.value }))} placeholder="laugh that starts silent then arrives..." /></div>
+                    </div>
+                  </details>
+                  <details open={false}>
+                    <summary style={{ fontSize: 11, fontWeight: 700, color: co.muted, cursor: "pointer", userSelect: "none" }}>Environment (Time, Eyes, Objects)</summary>
+                    <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 6 }}>
+                      <div><span style={{ fontSize: 10, color: co.muted, display: "block", marginBottom: 2 }}>Chronemics</span><select style={sInput} value={data.chronemicsTimeType || ""} onChange={(e: any) => setData((d: any) => ({ ...d, chronemicsTimeType: e.target.value }))}><option value="">Not set</option><option value="monochronic">Monochronic (punctuality = moral weight)</option><option value="polychronic">Polychronic (time is relational)</option></select></div>
+                      <div><span style={{ fontSize: 10, color: co.muted, display: "block", marginBottom: 2 }}>Default eye contact</span><select style={sInput} value={data.oculesicsDefault || ""} onChange={(e: any) => setData((d: any) => ({ ...d, oculesicsDefault: e.target.value }))}><option value="">Not set</option><option value="avoidant">Avoidant</option><option value="normal">Normal</option><option value="sustained">Sustained</option><option value="intense">Intense</option></select></div>
+                      <div><span style={{ fontSize: 10, color: co.muted, display: "block", marginBottom: 2 }}>When hiding something, eyes</span><input style={sInput} value={data.oculesicsDeception || ""} onChange={(e: any) => setData((d: any) => ({ ...d, oculesicsDeception: e.target.value }))} placeholder="hold contact too long, never blinking..." /></div>
+                      <div><span style={{ fontSize: 10, color: co.muted, display: "block", marginBottom: 2 }}>Signature object (always carries)</span><input style={sInput} value={data.objecticsSignature || ""} onChange={(e: any) => setData((d: any) => ({ ...d, objecticsSignature: e.target.value }))} placeholder="worn watch, notebook, specific lighter..." /></div>
+                      <div><span style={{ fontSize: 10, color: co.muted, display: "block", marginBottom: 2 }}>Appearance signature (always present)</span><input style={sInput} value={data.appearanceSignature || ""} onChange={(e: any) => setData((d: any) => ({ ...d, appearanceSignature: e.target.value }))} placeholder="one specific color, never bare-handed..." /></div>
+                      <div><span style={{ fontSize: 10, color: co.muted, display: "block", marginBottom: 2 }}>Appearance trajectory</span><select style={sInput} value={data.appearanceTrajectory || ""} onChange={(e: any) => setData((d: any) => ({ ...d, appearanceTrajectory: e.target.value }))}><option value="">Not set</option><option value="meticulous">Meticulous</option><option value="average">Average</option><option value="minimal">Minimal</option><option value="deteriorating">Deteriorating (signals breakdown)</option></select></div>
+                    </div>
+                  </details>
+                </div>
+              </details>
+
+              {/* ── LANGUAGE PROFILE ─────────────────────────────────── */}
+              <details style={{ marginTop: 12, borderTop: "1px solid " + co.border, paddingTop: 12 }}>
+                <summary style={{ fontSize: 12, fontWeight: 700, color: co.accent, cursor: "pointer", userSelect: "none", marginBottom: 10, listStyle: "none" }}>
+                  ▶ Language & Voice Profile
+                </summary>
+                <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 8 }}>
+                  <div><span style={{ fontSize: 10, color: co.muted, display: "block", marginBottom: 2 }}>Native language</span><input style={sInput} value={data.nativeLanguage || ""} onChange={(e: any) => setData((d: any) => ({ ...d, nativeLanguage: e.target.value }))} placeholder="Hindi, English, Cantonese..." /></div>
+                  <div><span style={{ fontSize: 10, color: co.muted, display: "block", marginBottom: 2 }}>Acquired languages (with proficiency)</span><input style={sInput} value={data.acquiredLanguages || ""} onChange={(e: any) => setData((d: any) => ({ ...d, acquiredLanguages: e.target.value }))} placeholder="Mandarin (native), English (fluent), French (survival)" /></div>
+                  <div><span style={{ fontSize: 10, color: co.muted, display: "block", marginBottom: 2 }}>Accent / dialect profile</span><input style={sInput} value={data.accentProfile || ""} onChange={(e: any) => setData((d: any) => ({ ...d, accentProfile: e.target.value }))} placeholder="South London working class, heavily suppressed at work" /></div>
+                  <div><span style={{ fontSize: 10, color: co.muted, display: "block", marginBottom: 2 }}>Reversion trigger (when native accent/dialect surfaces)</span><input style={sInput} value={data.reversionTrigger || ""} onChange={(e: any) => setData((d: any) => ({ ...d, reversionTrigger: e.target.value }))} placeholder="extreme stress, alcohol, anger..." /></div>
+                  <div><span style={{ fontSize: 10, color: co.muted, display: "block", marginBottom: 2 }}>Default register</span><select style={sInput} value={data.registerDefault || ""} onChange={(e: any) => setData((d: any) => ({ ...d, registerDefault: e.target.value }))}><option value="">Not set</option><option value="frozen">Frozen / Ceremonial</option><option value="formal">Formal</option><option value="consultative">Consultative</option><option value="casual">Casual</option><option value="intimate">Intimate</option></select></div>
+                  <div><span style={{ fontSize: 10, color: co.muted, display: "block", marginBottom: 2 }}>Register range</span><select style={sInput} value={data.registerRange || ""} onChange={(e: any) => setData((d: any) => ({ ...d, registerRange: e.target.value }))}><option value="">Not set</option><option value="narrow">Narrow (same in all contexts)</option><option value="moderate">Moderate</option><option value="wide">Wide (switches fluidly)</option></select></div>
+                  <div><span style={{ fontSize: 10, color: co.muted, display: "block", marginBottom: 2 }}>Code-switching triggers</span><input style={sInput} value={data.codeSwitchingTriggers || ""} onChange={(e: any) => setData((d: any) => ({ ...d, codeSwitchingTriggers: e.target.value }))} placeholder="shifts to formal at work, intimate with family..." /></div>
+                  <div>
+                    <span style={{ fontSize: 10, color: co.muted, display: "block", marginBottom: 2 }}>Voice fingerprint (idiolect) — the most important field</span>
+                    <textarea style={{ ...sTextarea, minHeight: 80 }} rows={4} value={data.idiolectFingerprint || ""} onChange={(e: any) => setData((d: any) => ({ ...d, idiolectFingerprint: e.target.value }))} placeholder={'Latinate vocabulary, long subordinate clauses, hedges everything with qualifications... Blind test: cover the attribution tag — reader must identify who is speaking.'} />
+                  </div>
+                </div>
+              </details>
+
+              {/* ── FLAW & DEPTH ─────────────────────────────────────── */}
+              <details style={{ marginTop: 12, borderTop: "1px solid " + co.border, paddingTop: 12 }}>
+                <summary style={{ fontSize: 12, fontWeight: 700, color: co.accent, cursor: "pointer", userSelect: "none", marginBottom: 10, listStyle: "none" }}>
+                  ▶ Flaw & Psychological Depth
+                </summary>
+                <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 8 }}>
+                  <div><span style={{ fontSize: 10, color: co.muted, display: "block", marginBottom: 2 }}>Root wound (the event/absence that formed this character)</span><textarea style={sTextarea} rows={2} value={data.rootWound || ""} onChange={(e: any) => setData((d: any) => ({ ...d, rootWound: e.target.value }))} placeholder="What happened (or didn't happen) that built this personality?" /></div>
+                  <div><span style={{ fontSize: 10, color: co.muted, display: "block", marginBottom: 2 }}>Hamartia — fatal flaw</span><input style={sInput} value={data.hamartia || ""} onChange={(e: any) => setData((d: any) => ({ ...d, hamartia: e.target.value }))} placeholder="pride, inability to ask for help, compulsive dishonesty..." /></div>
+                  <div>
+                    <span style={{ fontSize: 10, color: co.muted, display: "block", marginBottom: 2 }}>Significant flaws (add one per line, Enter to add)</span>
+                    {(data.significantFlaws || []).map((f: string, fi: number) => (
+                      <div key={fi} style={{ display: "flex", gap: 4, marginBottom: 4 }}>
+                        <input style={{ ...sInput, flex: 1 }} value={f} onChange={(e: any) => { const arr = [...(data.significantFlaws || [])]; arr[fi] = e.target.value; setData((d: any) => ({ ...d, significantFlaws: arr })); }} />
+                        <button style={{ background: "none", border: "none", color: co.danger, cursor: "pointer", fontSize: 14, padding: "0 4px" }} onClick={() => { const arr = (data.significantFlaws || []).filter((_: any, i: number) => i !== fi); setData((d: any) => ({ ...d, significantFlaws: arr })); }}>×</button>
+                      </div>
+                    ))}
+                    <button style={{ ...sBtnSm, marginTop: 4 }} onClick={() => setData((d: any) => ({ ...d, significantFlaws: [...(d.significantFlaws || []), ""] }))}>+ Add Flaw</button>
+                  </div>
+                  <div><span style={{ fontSize: 10, color: co.muted, display: "block", marginBottom: 2 }}>Cognitive bias</span><select style={sInput} value={data.cognitiveBias || ""} onChange={(e: any) => setData((d: any) => ({ ...d, cognitiveBias: e.target.value }))}><option value="">None</option><option value="confirmation_bias">Confirmation Bias</option><option value="fundamental_attribution_error">Fundamental Attribution Error</option><option value="sunk_cost_fallacy">Sunk Cost Fallacy</option><option value="dunning_kruger">Dunning-Kruger</option><option value="in_group_bias">In-Group Bias</option></select></div>
+                  <div><span style={{ fontSize: 10, color: co.muted, display: "block", marginBottom: 2 }}>Blind spot (what they cannot see about themselves)</span><textarea style={sTextarea} rows={2} value={data.blindSpot || ""} onChange={(e: any) => setData((d: any) => ({ ...d, blindSpot: e.target.value }))} placeholder="Reader sees it; other characters may see it; they cannot." /></div>
+                  <div><span style={{ fontSize: 10, color: co.muted, display: "block", marginBottom: 2 }}>Strength branch (same root as flaw)</span><textarea style={sTextarea} rows={2} value={data.strengthBranch || ""} onChange={(e: any) => setData((d: any) => ({ ...d, strengthBranch: e.target.value }))} placeholder="What did the root wound make them excellent at?" /></div>
+                  <div><span style={{ fontSize: 10, color: co.muted, display: "block", marginBottom: 2 }}>Compensation mode</span><select style={sInput} value={data.compensationMode || ""} onChange={(e: any) => setData((d: any) => ({ ...d, compensationMode: e.target.value }))}><option value="">Not set</option><option value="positive">Positive</option><option value="overcompensation">Overcompensation</option><option value="undercompensation">Undercompensation</option></select></div>
+                  <div><span style={{ fontSize: 10, color: co.muted, display: "block", marginBottom: 2 }}>Compensation behavior + trigger</span><input style={sInput} value={data.compensationBehavior || ""} onChange={(e: any) => setData((d: any) => ({ ...d, compensationBehavior: e.target.value }))} placeholder="what they do to manage the flaw..." /></div>
+                  <div><span style={{ fontSize: 10, color: co.muted, display: "block", marginBottom: 2 }}>Flaw arc</span><select style={sInput} value={data.flawArcMode || ""} onChange={(e: any) => setData((d: any) => ({ ...d, flawArcMode: e.target.value }))}><option value="">Not set</option><option value="overcome">Overcome (transformation, at cost)</option><option value="fail">Fail (tragedy — the flaw wins)</option><option value="compensate">Compensate (builds systems around it)</option><option value="accept">Accept (makes peace without resolving)</option></select></div>
+                </div>
+              </details>
+
+              {/* ── SKILL CARD ───────────────────────────────────────── */}
+              <details style={{ marginTop: 12, borderTop: "1px solid " + co.border, paddingTop: 12 }}>
+                <summary style={{ fontSize: 12, fontWeight: 700, color: co.accent, cursor: "pointer", userSelect: "none", marginBottom: 10, listStyle: "none" }}>
+                  ▶ Skills
+                </summary>
+                <div style={{ marginTop: 10 }}>
+                  {(data.skills || []).map((skill: any, si: number) => {
+                    const SKILL_COLORS: Record<string, string> = { physical: "#f97316", cognitive: "#3b82f6", social: "#ec4899", perceptual: "#14b8a6", creative: "#a855f7", survival: "#22c55e", latent: "#6b7280" };
+                    return (
+                      <div key={si} style={{ background: co.surfaceAlt, borderRadius: 8, padding: "10px 12px", marginBottom: 8, border: "1px solid " + co.border }}>
+                        <div style={{ display: "flex", gap: 6, marginBottom: 6, alignItems: "center" }}>
+                          <input style={{ ...sInput, flex: 2 }} value={skill.name || ""} onChange={(e: any) => { const arr = [...(data.skills || [])]; arr[si] = { ...arr[si], name: e.target.value }; setData((d: any) => ({ ...d, skills: arr })); }} placeholder="Skill name" />
+                          <select style={{ ...sInput, flex: 1 }} value={skill.category || "physical"} onChange={(e: any) => { const arr = [...(data.skills || [])]; arr[si] = { ...arr[si], category: e.target.value }; setData((d: any) => ({ ...d, skills: arr })); }}>
+                            {["physical", "cognitive", "social", "perceptual", "creative", "survival", "latent"].map(c => <option key={c} value={c}>{c}</option>)}
+                          </select>
+                          <button style={{ background: "none", border: "none", color: co.danger, cursor: "pointer", fontSize: 14 }} onClick={() => { const arr = (data.skills || []).filter((_: any, i: number) => i !== si); setData((d: any) => ({ ...d, skills: arr })); }}>×</button>
+                        </div>
+                        <div style={{ display: "flex", gap: 4, alignItems: "center", marginBottom: 6 }}>
+                          <span style={{ fontSize: 10, color: co.muted, marginRight: 4 }}>Level</span>
+                          {[1, 2, 3, 4, 5].map(lvl => (
+                            <button key={lvl} onClick={() => { const arr = [...(data.skills || [])]; arr[si] = { ...arr[si], level: lvl }; setData((d: any) => ({ ...d, skills: arr })); }}
+                              style={{ width: 16, height: 16, borderRadius: "50%", border: "none", cursor: "pointer", background: (skill.level || 1) >= lvl ? (SKILL_COLORS[skill.category || "physical"] || co.accent) : co.border }}>
+                            </button>
+                          ))}
+                          <span style={{ fontSize: 10, color: co.muted, marginLeft: 4 }}>{["", "Novice", "Apprentice", "Competent", "Expert", "Master"][skill.level || 1]}</span>
+                        </div>
+                        <div style={{ display: "flex", gap: 6 }}>
+                          <select style={{ ...sInput, flex: 1, fontSize: 10 }} value={skill.acquisitionPath || "deliberate_practice"} onChange={(e: any) => { const arr = [...(data.skills || [])]; arr[si] = { ...arr[si], acquisitionPath: e.target.value }; setData((d: any) => ({ ...d, skills: arr })); }}>
+                            <option value="deliberate_practice">Deliberate practice</option>
+                            <option value="trial_by_fire">Trial by fire</option>
+                            <option value="mentorship">Mentorship</option>
+                            <option value="observation">Observation</option>
+                            <option value="incidental">Incidental</option>
+                          </select>
+                          <label style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 10, color: co.muted, cursor: "pointer" }}>
+                            <input type="checkbox" checked={skill.traumaLinked || false} onChange={(e: any) => { const arr = [...(data.skills || [])]; arr[si] = { ...arr[si], traumaLinked: e.target.checked }; setData((d: any) => ({ ...d, skills: arr })); }} />
+                            Trauma-linked
+                          </label>
+                        </div>
+                        {skill.traumaLinked && <input style={{ ...sInput, marginTop: 6, fontSize: 10 }} value={skill.traumaTrigger || ""} onChange={(e: any) => { const arr = [...(data.skills || [])]; arr[si] = { ...arr[si], traumaTrigger: e.target.value }; setData((d: any) => ({ ...d, skills: arr })); }} placeholder="Trauma trigger..." />}
+                      </div>
+                    );
+                  })}
+                  <button style={{ ...sBtnSm, width: "100%" }} onClick={() => setData((d: any) => ({ ...d, skills: [...(d.skills || []), { name: "", category: "physical", level: 1, acquisitionPath: "deliberate_practice", traumaLinked: false, notes: "" }] }))}>+ Add Skill</button>
+                </div>
+              </details>
+            </div>
             )}
             {tKey === "plot" && <div style={{ marginBottom: 8 }}><span style={{ fontSize: 11, color: co.muted, marginBottom: 2, display: "block", fontWeight: 600 }}>Status</span><select style={sInput} value={newPlot.status} onChange={e => setNewPlot((t: any) => ({ ...t, status: e.target.value }))}><option>Active</option><option>Simmering</option><option>Resolved</option></select></div>}
             <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 12 }}>

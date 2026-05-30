@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useSession, signOut } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Onboarding from "@/components/Onboarding";
+import { EmptyState } from "@/components/EmptyState";
 import { FORMATS } from "@/lib/formats";
 
 type Project = {
@@ -251,14 +252,13 @@ export default function Dashboard() {
         )}
 
         {projects.length === 0 ? (
-          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "96px 0", textAlign: "center" }}>
-            <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 64, color: "#e2ddd4", marginBottom: 20, lineHeight: 1 }}>✦</div>
-            <div style={{ fontSize: 18, fontWeight: 600, color: "#555", marginBottom: 8 }}>No projects yet</div>
-            <div style={{ fontSize: 14, color: "#aaa", marginBottom: 28 }}>Create your first project to begin writing.</div>
-            <button className="gw-gold-btn" onClick={() => setShowCreate(true)}
-              style={{ background: GW_GOLD, color: "#0d0d10", border: "none", borderRadius: 10, padding: "12px 28px", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "'Figtree', sans-serif" }}>
-              Create your first project
-            </button>
+          <div style={{ padding: "80px 0" }}>
+            <EmptyState
+              icon="✨"
+              title="Your stories live here"
+              description="Start a novel, screenplay, YouTube channel, or podcast project."
+              action={{ label: "New Project", onClick: () => setShowCreate(true) }}
+            />
           </div>
         ) : (
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: 16 }}>

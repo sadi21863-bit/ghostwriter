@@ -5,17 +5,58 @@ import { getUserTier, canAccessFeature } from "@/lib/subscription";
 import { GATED_MODES } from "@/types/subscription";
 import { generate } from "@/lib/ai/engine";
 import { db } from "@/db";
-import { generations } from "@/db/schema";
+import { generations, projects } from "@/db/schema";
+import { and, eq } from "drizzle-orm";
+
+const VIOLATION_PATTERNS: Record<string, {
+  detect: (prompt: string) => boolean;
+  flagMessage: string;
+  supportMode: string;
+}> = {
+  "op_protagonist": {
+    detect: (p) => /overpowered|(?<!\w)OP(?!\w)|perfect.*protagonist|no.*weakness|always win|never fail/i.test(p),
+    flagMessage: "This request appears to involve an overpowered/perfect protagonist. If intentional (power fantasy, isekai wish-fulfillment, parody), confirm below and I'll generate with full craft support for that specific mode. If unintentional, consider adding external constraints — who they care about, what they refuse to do, information gaps — to create tension without reducing their power.",
+    supportMode: "The OP character's tension is external: stakes come from who they love, what they won't do, and costs to others. I'll write with this in mind.",
+  },
+  "villain_accent": {
+    detect: (p) => /villain.*accent|evil.*accent|bad.*guy.*foreign/i.test(p),
+    flagMessage: "Assigning a foreign/non-standard accent to a villain activates a documented harmful trope. If intentional (the story is explicitly about this bias, or you're subverting it), confirm. Otherwise, consider: what if the villain speaks with the prestige accent, and the most trustworthy character has the stigmatized accent?",
+    supportMode: "Using accent subversion to challenge reader assumptions. The villain's prestige accent is their armor. I'll write this with full awareness.",
+  },
+  "supercrip_disability": {
+    detect: (p) => /blind.*radar|deaf.*super|disability.*superpower|disability.*gift/i.test(p),
+    flagMessage: "This appears to use a disability as a superpower source (the 'Supercrip' trope). If intentional subversion or genre-aware choice, confirm. Otherwise, consider: the disability is one dimension of a whole person, not the source of their extraordinary ability.",
+    supportMode: "Writing disability with full human complexity. The superpower, if present, comes from something other than the disability itself.",
+  },
+};
 
 export async function POST(req: Request) {
   const session = await getRequiredSession();
   const rl = await checkAiRateLimit(session.user.id);
   if (rl) return rl;
 
-  const { mode, prompt, context, format, projectId, chapterId } = await req.json();
+  const { mode, prompt, context, format, projectId, chapterId, bypassViolationCheck } = await req.json();
 
   if (!prompt?.trim()) return NextResponse.json({ error: "Prompt is required" }, { status: 400 });
   if (!mode) return NextResponse.json({ error: "Mode is required" }, { status: 400 });
+
+  // Violation detection: check prompt against known harmful patterns
+  if (!bypassViolationCheck && projectId) {
+    const project = await db.query.projects.findFirst({
+      where: and(eq(projects.id, projectId), eq(projects.userId, session.user.id)),
+    });
+    const confirmed = ((project as any)?.intentionalViolations || {}) as Record<string, any>;
+    for (const [violationType, pattern] of Object.entries(VIOLATION_PATTERNS)) {
+      if (pattern.detect(prompt) && !confirmed[violationType]?.confirmed) {
+        return NextResponse.json({
+          requiresConfirmation: true,
+          violationType,
+          flagMessage: pattern.flagMessage,
+          supportMode: pattern.supportMode,
+        });
+      }
+    }
+  }
 
   // Tier check: mode-gated features (dialogue, combat, emotional, atmosphere, tension, composition)
   const tier = await getUserTier(session.user.id);

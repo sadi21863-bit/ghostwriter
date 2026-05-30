@@ -14,6 +14,7 @@ import { TensionPanel } from "./toolbar/modes/TensionPanel";
 import { WritePanel } from "./toolbar/modes/WritePanel";
 import { CompositionPanel } from "./toolbar/modes/CompositionPanel";
 import { HorrorPanel } from "./toolbar/modes/HorrorPanel";
+import { IsekaiPanel } from "./toolbar/modes/IsekaiPanel";
 import { ComedyPanel } from "./toolbar/modes/ComedyPanel";
 import { MysteryPanel } from "./toolbar/modes/MysteryPanel";
 import { RomancePanel } from "./toolbar/modes/RomancePanel";
@@ -161,6 +162,9 @@ interface Props {
   endingsArchetype: string;
   setEndingsArchetype: (v: string) => void;
   generateEndings: (archetypeName: string, prompt: string) => Promise<void>;
+  isekaiArchetype: string;
+  setIsekaiArchetype: (v: string) => void;
+  generateIsekai: (archetypeName: string, prompt: string) => Promise<void>;
   setUpgradeRequired?: (feature: string) => void;
   onShowStoryHealth?: () => void;
   onShowExport?: () => void;
@@ -175,6 +179,7 @@ const modeLabel = (m: string) => (
     mystery: "Mystery", romance: "Romance", action: "Action",
     monologue: "Monologue", voice: "Voice", thriller: "Thriller", sports: "Sports",
     setting: "Setting", historical: "Historical", scitech: "Sci/Tech", ethics: "Ethics", endings: "Endings",
+    isekai: "Isekai ⚔️",
   } as Record<string, string>)[m] ?? m
 );
 
@@ -211,6 +216,7 @@ export default function ToolbarPanel(props: Props) {
     scitechArchetype, setScitechArchetype, generateScitech,
     ethicsArchetype, setEthicsArchetype, generateEthics,
     endingsArchetype, setEndingsArchetype, generateEndings,
+    isekaiArchetype, setIsekaiArchetype, generateIsekai,
     setUpgradeRequired,
     onShowStoryHealth,
     onShowExport,
@@ -226,7 +232,7 @@ export default function ToolbarPanel(props: Props) {
     ? PODCAST_MODES
     : isStoryFormat(project.format)
     ? MODES
-    : MODES.filter(m => m !== "dialogue" && m !== "combat" && m !== "horror" && m !== "comedy");
+    : MODES.filter(m => m !== "dialogue" && m !== "combat" && m !== "horror" && m !== "comedy" && m !== "isekai");
 
   const isCreator = isCreatorFormat(project.format);
 
@@ -585,6 +591,14 @@ export default function ToolbarPanel(props: Props) {
             generating={generating} streamText={streamText} setStreamText={setStreamText}
             prompt={prompt} setPrompt={setPrompt}
             generateEndings={generateEndings}
+            updateChapter={updateChapter} activeChap={activeChap}
+          />
+        : mode === "isekai"
+        ? <IsekaiPanel
+            isekaiArchetype={isekaiArchetype} setIsekaiArchetype={setIsekaiArchetype}
+            generating={generating} streamText={streamText} setStreamText={setStreamText}
+            prompt={prompt} setPrompt={setPrompt}
+            generateIsekai={generateIsekai}
             updateChapter={updateChapter} activeChap={activeChap}
           />
         : <WritePanel
