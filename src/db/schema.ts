@@ -106,6 +106,11 @@ export const productionShots = pgTable("production_shots", {
   higgsfieldJobId:    text("higgsfield_job_id").default(""),
   cameraPreset:       text("camera_preset").default(""),
   viralPreset:        text("viral_preset").default(""),
+  characterEmotion:   text("character_emotion").default(""),
+  focalLength:        text("focal_length").default(""),
+  duration:           integer("duration").default(5),
+  aspectRatio:        text("aspect_ratio").default("16:9"),
+  generatedVideoUrl:  text("generated_video_url").default(""),
   sortOrder:          integer("sort_order").default(0),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
@@ -120,6 +125,9 @@ export const audioExports = pgTable("audio_exports", {
   durationSeconds: integer("duration_seconds").default(0),
   characterCount: integer("character_count").default(0),
   estimatedCost: text("estimated_cost").default(""),
+  lipsyncVideoUrl: text("lipsync_video_url").default(""),
+  lipsyncJobId:    text("lipsync_job_id").default(""),
+  lipsyncStatus:   text("lipsync_status").default(""),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 

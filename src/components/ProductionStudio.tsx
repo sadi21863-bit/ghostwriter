@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import type { CSSProperties } from "react";
 import { SHOT_TYPES, CAMERA_MOVEMENTS, LIGHTING_MOODS, TIME_OF_DAY, buildShotPromptFragment } from "@/lib/ai/shot-parameters";
 import { CAMERA_PRESETS, CAMERA_PRESET_GROUPS, VIRAL_PRESETS } from "@/lib/higgsfield/presets";
+import SeriesPipelinePanel from "@/components/panels/SeriesPipelinePanel";
 
 type Shot = {
   id: string;
@@ -24,9 +25,14 @@ type Shot = {
   previewImageUrl: string;
   animatedVideoUrl: string;
   finalVideoUrl: string;
+  generatedVideoUrl: string;
   generationStatus: string;
   cameraPreset: string;
   viralPreset: string;
+  characterEmotion: string;
+  focalLength: string;
+  duration: number;
+  aspectRatio: string;
   primaryCharacter?: { name: string; portraitUrl?: string } | null;
 };
 
@@ -59,7 +65,7 @@ const STATUS_LABELS: Record<string, string> = {
 };
 
 export default function ProductionStudio({ project, higgsfieldKey }: { project: any; higgsfieldKey: string }) {
-  const [view, setView] = useState<"setup" | "shots" | "export">("setup");
+  const [view, setView] = useState<"setup" | "shots" | "export" | "pipeline">("setup");
   const [generating, setGenerating] = useState(false);
   const [generatingStep, setGeneratingStep] = useState("");
   const [shots, setShots] = useState<Shot[]>([]);
@@ -340,6 +346,25 @@ export default function ProductionStudio({ project, higgsfieldKey }: { project: 
     );
   }
 
+  // ── PIPELINE VIEW ────────────────────────────────────────────────────────────
+  if (view === "pipeline") {
+    return (
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+        <div style={{ padding: "10px 16px", borderBottom: "1px solid #e5e7eb", display: "flex", alignItems: "center", gap: 8, background: "#fff" }}>
+          <button onClick={() => setView("shots")} style={outBtn}>← Back</button>
+          <h2 style={{ fontSize: 15, fontWeight: 800, margin: 0, color: "#111827" }}>Series Pipeline</h2>
+        </div>
+        <div style={{ flex: 1, overflow: "auto" }}>
+          <SeriesPipelinePanel project={project} onNavigate={(route) => {
+            if (route === "production") setView("shots");
+            else if (route === "export") setView("export");
+            else if (route === "contest-export") setView("pipeline");
+          }} />
+        </div>
+      </div>
+    );
+  }
+
   // ── SHOT LIST VIEW ───────────────────────────────────────────────────────────
   const scenes = Array.from(new Set(shots.map(s => s.sceneNumber))).sort((a: number, b: number) => a - b);
 
@@ -355,6 +380,7 @@ export default function ProductionStudio({ project, higgsfieldKey }: { project: 
           {generating ? "Regenerating…" : "♻️ Regenerate Shot List"}
         </button>
         <button onClick={() => setView("export")} style={outBtn}>📥 Export</button>
+        <button onClick={() => setView("pipeline")} style={{ ...outBtn, color: "#6c47ff", borderColor: "#6c47ff" }}>🚀 Series Pipeline</button>
         <span style={{ marginLeft: "auto", fontSize: 12, color: "#6b7280", fontWeight: 600 }}>
           {shots.length} shots / {scenes.length} scenes
         </span>
@@ -385,6 +411,46 @@ export default function ProductionStudio({ project, higgsfieldKey }: { project: 
       </div>
       <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
     </div>
+  );
+}
+
+function WhatsNextButton({
+  shot, onUpdate,
+}: {
+  shot: Shot;
+  onUpdate: (id: string, updates: Partial<Shot>) => void;
+}) {
+  const [loading, setLoading] = useState(false);
+
+  async function handleWhatsNext() {
+    if (!shot.videoPrompt && !shot.soulPrompt) return;
+    setLoading(true);
+    try {
+      const res = await fetch("/api/ai/scene-to-video-prompt", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          sceneText: shot.videoPrompt || shot.soulPrompt || "",
+          shotNumber: shot.shotNumber + 1,
+          previousShot: shot.videoPrompt,
+        }),
+      });
+      if (!res.ok) return;
+      const data = await res.json();
+      if (data.videoPrompt) onUpdate(shot.id, { videoPrompt: data.videoPrompt } as any);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <button
+      onClick={handleWhatsNext}
+      disabled={loading}
+      style={{ fontSize: 11, fontWeight: 600, background: "#f0fdf4", color: "#166534", border: "1px solid #bbf7d0", borderRadius: 6, padding: "4px 10px", cursor: loading ? "not-allowed" : "pointer", opacity: loading ? 0.6 : 1 }}
+    >
+      {loading ? "Generating…" : "→ What's Next Shot"}
+    </button>
   );
 }
 
@@ -567,6 +633,60 @@ function ShotCard({
             <div style={{ fontSize: 9, color: "#6b7280", marginTop: 2 }}>{VIRAL_PRESETS.find(p => p.id === shot.viralPreset)!.description}</div>
           )}
         </div>
+
+        {/* Director fields */}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
+          <div>
+            <div style={{ fontSize: 10, fontWeight: 700, color: "#9ca3af", marginBottom: 2 }}>CHARACTER EMOTION</div>
+            <input
+              value={(shot as any).characterEmotion || ""}
+              onChange={e => onUpdate(shot.id, { characterEmotion: e.target.value } as any)}
+              placeholder="determined, afraid…"
+              style={{ width: "100%", border: "1px solid #e5e7eb", borderRadius: 6, padding: "3px 6px", fontSize: 11, background: "white" }}
+            />
+          </div>
+          <div>
+            <div style={{ fontSize: 10, fontWeight: 700, color: "#9ca3af", marginBottom: 2 }}>FOCAL LENGTH</div>
+            <select value={(shot as any).focalLength || ""} onChange={e => onUpdate(shot.id, { focalLength: e.target.value } as any)} style={sel}>
+              <option value="">Default</option>
+              {["35mm", "70mm", "85mm", "Wide"].map(f => <option key={f} value={f}>{f}</option>)}
+            </select>
+          </div>
+        </div>
+
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
+          <div>
+            <div style={{ fontSize: 10, fontWeight: 700, color: "#9ca3af", marginBottom: 4 }}>DURATION</div>
+            <div style={{ display: "flex", gap: 4 }}>
+              {[5, 10, 15].map(d => (
+                <button
+                  key={d}
+                  onClick={() => onUpdate(shot.id, { duration: d } as any)}
+                  style={{ flex: 1, padding: "3px 0", fontSize: 11, fontWeight: 600, border: `1px solid ${(shot as any).duration === d || (!((shot as any).duration) && d === 5) ? "#6c47ff" : "#e5e7eb"}`, borderRadius: 6, background: (shot as any).duration === d || (!((shot as any).duration) && d === 5) ? "#ede9fe" : "white", color: (shot as any).duration === d || (!((shot as any).duration) && d === 5) ? "#6c47ff" : "#374151", cursor: "pointer" }}
+                >
+                  {d}s
+                </button>
+              ))}
+            </div>
+          </div>
+          <div>
+            <div style={{ fontSize: 10, fontWeight: 700, color: "#9ca3af", marginBottom: 4 }}>ASPECT RATIO</div>
+            <div style={{ display: "flex", gap: 4 }}>
+              {["16:9", "9:16", "1:1"].map(ar => (
+                <button
+                  key={ar}
+                  onClick={() => onUpdate(shot.id, { aspectRatio: ar } as any)}
+                  style={{ flex: 1, padding: "3px 0", fontSize: 10, fontWeight: 600, border: `1px solid ${((shot as any).aspectRatio || "16:9") === ar ? "#6c47ff" : "#e5e7eb"}`, borderRadius: 6, background: ((shot as any).aspectRatio || "16:9") === ar ? "#ede9fe" : "white", color: ((shot as any).aspectRatio || "16:9") === ar ? "#6c47ff" : "#374151", cursor: "pointer" }}
+                >
+                  {ar}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* What's Next */}
+        <WhatsNextButton shot={shot} onUpdate={onUpdate} />
 
         {/* Dialogue */}
         {(shot.dialogue || shot.speaker) && (

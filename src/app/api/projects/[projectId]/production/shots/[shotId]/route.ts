@@ -15,6 +15,7 @@ const ALLOWED_FIELDS = new Set([
   "shotType", "cameraMovement", "lightingMood", "timeOfDay",
   "subject", "action", "location", "mood", "soulPrompt", "videoPrompt",
   "dialogue", "speaker", "cameraPreset", "viralPreset",
+  "characterEmotion", "focalLength", "duration", "aspectRatio", "generatedVideoUrl",
 ]);
 
 export async function PATCH(req: Request, { params }: { params: { projectId: string; shotId: string } }) {

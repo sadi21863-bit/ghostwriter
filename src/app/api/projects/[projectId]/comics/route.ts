@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getRequiredSession } from "@/lib/auth-helpers";
+import { getUserTier, canAccessFeature } from "@/lib/subscription";
 import { db } from "@/db";
 import { chapters, comicPages, comicPanels, projects, users } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
@@ -38,6 +39,10 @@ export async function GET(_: Request, { params }: { params: { projectId: string 
 
 export async function POST(req: Request, { params }: { params: { projectId: string } }) {
   const s = await getRequiredSession();
+  const tier = await getUserTier(s.user.id);
+  if (!canAccessFeature(tier, "comic_studio")) {
+    return NextResponse.json({ error: "upgrade_required", feature: "comic_studio" }, { status: 403 });
+  }
   if (!await verifyOwnership(params.projectId, s.user.id))
     return NextResponse.json({ error: "Not found" }, { status: 404 });
 

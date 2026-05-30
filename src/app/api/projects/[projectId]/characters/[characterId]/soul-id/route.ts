@@ -5,6 +5,7 @@
 
 import { NextResponse } from "next/server";
 import { getRequiredSession } from "@/lib/auth-helpers";
+import { getUserTier, canAccessFeature } from "@/lib/subscription";
 import { db } from "@/db";
 import { characters, projects, users } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
@@ -16,6 +17,10 @@ export async function POST(
   { params }: { params: { projectId: string; characterId: string } }
 ) {
   const session = await getRequiredSession();
+  const tier = await getUserTier(session.user.id);
+  if (!canAccessFeature(tier, "comic_studio")) {
+    return NextResponse.json({ error: "upgrade_required", feature: "comic_studio" }, { status: 403 });
+  }
 
   const project = await db.query.projects.findFirst({
     where: and(eq(projects.id, params.projectId), eq(projects.userId, session.user.id)),

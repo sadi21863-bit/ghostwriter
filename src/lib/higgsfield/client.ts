@@ -218,6 +218,42 @@ export async function generateTextVideo(params: {
   return { requestId: data.request_id, pollingUrl: data.polling_url };
 }
 
+// ── LIPSYNC (WAN 2.5) ────────────────────────────────────────────────────────
+
+export async function generateLipsync(params: {
+  apiKey: string;
+  prompt: string;
+  audioUrl: string;
+  characterImageUrl: string;
+  soulId?: string;
+  seed?: number;
+}): Promise<{ requestId: string; pollingUrl: string }> {
+  let finalPrompt = params.prompt;
+  if (params.soulId) {
+    finalPrompt += `. Maintain character consistency with Soul ID reference.`;
+  }
+
+  const res = await fetch(`${SEGMIND_BASE}/higgsfield-wan-text2video`, {
+    method: "POST",
+    headers: { "x-api-key": params.apiKey, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      prompt: finalPrompt,
+      audio_url: params.audioUrl,
+      reference_image_url: params.soulId ? undefined : params.characterImageUrl,
+      custom_reference_id: params.soulId || undefined,
+      aspect_ratio: "9:16",
+      duration: 10,
+      seed: params.seed ?? Math.floor(Math.random() * 999999),
+      enhance_prompt: true,
+      talking_head: true,
+    }),
+  });
+
+  if (!res.ok) throw new Error(`Lipsync failed (${res.status}): ${await res.text()}`);
+  const data = await res.json();
+  return { requestId: data.request_id, pollingUrl: data.polling_url };
+}
+
 // ── POLLING ───────────────────────────────────────────────────────────────────
 
 export type JobStatus = "QUEUED" | "PROCESSING" | "COMPLETED" | "FAILED" | "ERROR";

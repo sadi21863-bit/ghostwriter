@@ -8,6 +8,7 @@ export default function ComicStudio({ project, higgsfieldKey, onOpenStudio }: { 
   const [activePage, setActivePage] = useState<any | null>(null);
   const [activePageIndex, setActivePageIndex] = useState(0);
   const [selectedChapterId, setSelectedChapterId] = useState("");
+  const [exportingCbz, setExportingCbz] = useState(false);
   const [selectedArtStyleId, setSelectedArtStyleId] = useState("manga");
   const [generating, setGenerating] = useState(false);
   const [generationMsg, setGenerationMsg] = useState("");
@@ -104,6 +105,21 @@ export default function ComicStudio({ project, higgsfieldKey, onOpenStudio }: { 
     setActivePage(null);
   };
 
+  const exportCbz = async () => {
+    setExportingCbz(true);
+    try {
+      const res = await fetch(`/api/projects/${project.id}/comics/export`);
+      const data = await res.json();
+      if (data.downloadUrl) {
+        const a = document.createElement("a");
+        a.href = data.downloadUrl;
+        a.download = data.filename || "comic.cbz";
+        a.click();
+      }
+    } catch { /* silent */ }
+    setExportingCbz(false);
+  };
+
   const exportPng = async () => {
     if (!activePage?.panels?.length) return;
     const canvas = document.createElement("canvas");
@@ -175,6 +191,7 @@ export default function ComicStudio({ project, higgsfieldKey, onOpenStudio }: { 
           </div>
           <button style={{ ...sBtnSm, color: co.danger, borderColor: co.danger }} onClick={() => deletePage(activePage.id)}>🗑 Delete</button>
           <button style={sBtn} onClick={exportPng}>📤 Export PNG</button>
+          <button style={{ ...sBtn, opacity: exportingCbz ? 0.6 : 1 }} onClick={exportCbz} disabled={exportingCbz}>{exportingCbz ? "Exporting…" : "📚 Export CBZ"}</button>
           <button style={{ ...sBtnSm, color: co.accent, borderColor: co.accent }} onClick={() => onOpenStudio?.()}>🎬 Animate in Studio</button>
         </div>
         {/* 2×3 panel grid */}

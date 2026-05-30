@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getRequiredSession } from "@/lib/auth-helpers";
+import { checkAiRateLimit } from "@/lib/ratelimit";
 import { db } from "@/db";
 import { projects, productionShots, users } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
@@ -15,6 +16,8 @@ async function verifyOwnership(projectId: string, userId: string) {
 
 export async function POST(_: Request, { params }: { params: { projectId: string } }) {
   const s = await getRequiredSession();
+  const rl = await checkAiRateLimit(s.user.id);
+  if (rl) return rl;
   if (!await verifyOwnership(params.projectId, s.user.id))
     return NextResponse.json({ error: "Not found" }, { status: 404 });
 
