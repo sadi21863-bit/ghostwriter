@@ -1,6 +1,6 @@
 'use client';
 import { useState } from 'react';
-import { co, sBtn, sBtnSm } from '@/lib/styles';
+import { sBtn, sBtnSm } from '@/lib/styles';
 import { ALT_DRAFT_GOALS } from '@/lib/alt-draft/goals';
 import type { AltDraftGoal, AlternateDraft } from '@/types';
 
