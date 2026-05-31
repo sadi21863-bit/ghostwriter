@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { TensionCurve } from "@/components/TensionCurve";
 
 const SCENE_PURPOSES = [
@@ -32,7 +32,7 @@ interface StoryHealthPanelProps {
 }
 
 export function StoryHealthPanel({ project, projectId, activeChapContent, onClose }: StoryHealthPanelProps) {
-  const [tab, setTab] = useState<"validator" | "dead-scenes" | "theme" | "tension" | "transport">("validator");
+  const [tab, setTab] = useState<"validator" | "dead-scenes" | "theme" | "tension" | "transport" | "promises">("validator");
 
   // Scene Validator state
   const [selectedPurposes, setSelectedPurposes] = useState<string[]>([]);
@@ -51,19 +51,60 @@ export function StoryHealthPanel({ project, projectId, activeChapContent, onClos
   const [transportResult, setTransportResult] = useState<any>(null);
   const [transportError, setTransportError] = useState("");
 
+  // Story Promises state
+  const [threads, setThreads] = useState<any[]>([]);
+  const [showAddPromise, setShowAddPromise] = useState(false);
+  const [newPromiseSetup, setNewPromiseSetup] = useState('');
+  const [newPromisePriority, setNewPromisePriority] = useState<'A' | 'B' | 'C'>('B');
+
   // Theme Tracker state
   const [controllingIdea, setControllingIdea] = useState("");
   const [analysingTheme, setAnalysingTheme] = useState(false);
   const [themeResult, setThemeResult] = useState<any>(null);
   const [themeError, setThemeError] = useState("");
 
+  useEffect(() => {
+    fetch(`/api/projects/${projectId}/story-state`)
+      .then(r => r.json())
+      .then(d => setThreads(d.threads ?? []));
+  }, [projectId]);
+
   const healthScore = Math.max(0, 100
     - (project?.plotThreads?.filter((t: any) => t.starvationWarning).length ?? 0) * 5
     - (project?.chapters?.filter((c: any) => c.wordCount < 300 && c.content?.trim()).length ?? 0) * 3
     - (project?.characters?.filter((c: any) => !c.kinesicsBaseline).length ?? 0) * 5
     - (project?.referenceWorks?.length === 0 ? 10 : 0)
+    - (threads.flatMap(t => t.promises ?? []).filter((p: any) => p.priority === 'A' && p.status === 'open').length * 8)
   );
   const scoreColor = healthScore >= 80 ? "#4ade80" : healthScore >= 60 ? "#facc15" : "#f87171";
+
+  const markPromisePaid = async (promiseId: string) => {
+    await fetch(`/api/projects/${projectId}/story-state`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ promiseId, status: 'paid' }),
+    });
+    setThreads(prev => prev.map(t => ({
+      ...t,
+      promises: t.promises.map((p: any) => p.id === promiseId ? { ...p, status: 'paid' } : p),
+    })));
+  };
+
+  const addPromise = async () => {
+    if (!newPromiseSetup.trim()) return;
+    const res = await fetch(`/api/projects/${projectId}/story-state`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type: 'promise', setup: newPromiseSetup, priority: newPromisePriority }),
+    });
+    const promise = await res.json();
+    setThreads(prev => prev.length > 0
+      ? [{ ...prev[0], promises: [...(prev[0].promises ?? []), promise] }, ...prev.slice(1)]
+      : [{ id: 'default', name: 'General', promises: [promise] }]
+    );
+    setNewPromiseSetup('');
+    setShowAddPromise(false);
+  };
 
   const togglePurpose = (id: string) => {
     setSelectedPurposes(prev =>
@@ -185,6 +226,7 @@ export function StoryHealthPanel({ project, projectId, activeChapContent, onClos
             { id: "theme", label: "Theme Tracker" },
             { id: "tension", label: "Tension Curve" },
             { id: "transport", label: "Transportation" },
+            { id: "promises", label: "Story Promises" },
           ] as const).map(t => (
             <button key={t.id} onClick={() => setTab(t.id)} style={tabStyle(tab === t.id)}>{t.label}</button>
           ))}
@@ -427,6 +469,85 @@ export function StoryHealthPanel({ project, projectId, activeChapContent, onClos
           {/* ── Tension Curve ── */}
           {tab === "tension" && (
             <TensionCurve projectId={projectId} />
+          )}
+
+          {/* ── Story Promises ── */}
+          {tab === "promises" && (
+            <div style={{ padding: 16 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                <span style={{ fontSize: 13, fontWeight: 600, color: '#F2F2F3' }}>Open Story Promises</span>
+                <button
+                  onClick={() => setShowAddPromise(v => !v)}
+                  style={{ fontSize: 11, padding: '4px 10px', background: 'rgba(217,119,6,0.15)', border: '1px solid rgba(217,119,6,0.4)', borderRadius: 6, color: '#D97706', cursor: 'pointer' }}
+                >
+                  + Add
+                </button>
+              </div>
+
+              {showAddPromise && (
+                <div style={{ marginBottom: 12, padding: '10px 12px', background: '#111113', borderRadius: 8, border: '1px solid rgba(255,255,255,0.08)' }}>
+                  <input
+                    value={newPromiseSetup}
+                    onChange={e => setNewPromiseSetup(e.target.value)}
+                    placeholder="What promise/setup did you plant? (Chekhov's gun)"
+                    style={{ width: '100%', background: 'transparent', border: 'none', outline: 'none', color: '#F2F2F3', fontSize: 12, marginBottom: 8, boxSizing: 'border-box' as const }}
+                    onKeyDown={e => e.key === 'Enter' && addPromise()}
+                  />
+                  <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                    {(['A', 'B', 'C'] as const).map(p => (
+                      <button
+                        key={p}
+                        onClick={() => setNewPromisePriority(p)}
+                        style={{ fontSize: 10, padding: '2px 8px', borderRadius: 4, cursor: 'pointer', border: `1px solid ${newPromisePriority === p ? '#D97706' : 'rgba(255,255,255,0.1)'}`, background: newPromisePriority === p ? 'rgba(217,119,6,0.15)' : 'transparent', color: newPromisePriority === p ? '#D97706' : '#9898A6' }}
+                      >
+                        {p}
+                      </button>
+                    ))}
+                    <button
+                      onClick={addPromise}
+                      style={{ marginLeft: 'auto', fontSize: 11, padding: '4px 10px', background: '#D97706', border: 'none', borderRadius: 6, color: '#fff', cursor: 'pointer' }}
+                    >
+                      Add
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {threads.flatMap(t => (t.promises ?? []).filter((p: any) => p.status === 'open')).map((promise: any) => {
+                const thread = threads.find(t => (t.promises ?? []).some((p: any) => p.id === promise.id));
+                const isPriorityA = promise.priority === 'A';
+                return (
+                  <div key={promise.id} style={{ padding: '10px 12px', marginBottom: 8, border: `1px solid ${isPriorityA ? '#f87171' : 'rgba(255,255,255,0.08)'}`, borderRadius: 8, background: '#111113' }}>
+                    <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+                      <span style={{ fontSize: 10, padding: '2px 6px', borderRadius: 4, background: isPriorityA ? '#f87171' : 'rgba(255,255,255,0.08)', color: isPriorityA ? '#fff' : '#9898A6', flexShrink: 0, marginTop: 1 }}>
+                        {promise.priority}
+                      </span>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: 13, color: '#F2F2F3' }}>{promise.setup}</div>
+                        {thread && (
+                          <div style={{ fontSize: 11, color: '#9898A6', marginTop: 3 }}>Thread: {thread.name}</div>
+                        )}
+                        {promise.payoffIntent && (
+                          <div style={{ fontSize: 11, color: '#9898A6', marginTop: 3 }}>Intended payoff: {promise.payoffIntent}</div>
+                        )}
+                      </div>
+                      <button
+                        onClick={() => markPromisePaid(promise.id)}
+                        style={{ fontSize: 10, padding: '3px 8px', background: 'rgba(74,222,128,0.1)', border: '1px solid rgba(74,222,128,0.3)', borderRadius: 6, color: '#4ade80', cursor: 'pointer', flexShrink: 0 }}
+                      >
+                        Paid ✓
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+
+              {threads.flatMap(t => (t.promises ?? []).filter((p: any) => p.status === 'open')).length === 0 && !showAddPromise && (
+                <div style={{ fontSize: 13, color: '#9898A6', textAlign: 'center' as const, padding: 24 }}>
+                  No open promises. Add one when you plant a Chekhov&apos;s gun.
+                </div>
+              )}
+            </div>
           )}
 
           {/* ── Transportation Check ── */}

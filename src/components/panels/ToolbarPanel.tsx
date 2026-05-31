@@ -169,6 +169,10 @@ interface Props {
   onShowStoryHealth?: () => void;
   onShowExport?: () => void;
   onSlashCommand?: (id: string) => void;
+  skillSuggestion?: any;
+  onSkillSuggestionChange?: (s: any) => void;
+  onDismissSkillSuggestion?: () => void;
+  onAcceptSkillSuggestion?: (mode: string) => void;
 }
 
 const modeLabel = (m: string) => (
@@ -222,6 +226,10 @@ export default function ToolbarPanel(props: Props) {
     onShowStoryHealth,
     onShowExport,
     onSlashCommand,
+    skillSuggestion,
+    onSkillSuggestionChange,
+    onDismissSkillSuggestion,
+    onAcceptSkillSuggestion,
   } = props;
 
   // Local UI toggle (not business logic)
@@ -633,6 +641,10 @@ export default function ToolbarPanel(props: Props) {
             handleTextareaSelect={handleTextareaSelect}
             onUpgradeRequired={setUpgradeRequired}
             onSlashCommand={onSlashCommand}
+            skillSuggestion={skillSuggestion}
+            onSkillSuggestionChange={onSkillSuggestionChange}
+            onDismissSkillSuggestion={onDismissSkillSuggestion}
+            onAcceptSkillSuggestion={onAcceptSkillSuggestion}
           />
       }
     </div>

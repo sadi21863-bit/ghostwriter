@@ -74,3 +74,9 @@ export interface AlternateDraft {
   intent: string;
   createdAt: string;
 }
+
+export interface WorkPacketPrinciple {
+  principle: string;
+  example: string;
+  applicableTo: string[];
+}

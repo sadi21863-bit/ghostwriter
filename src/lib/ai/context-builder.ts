@@ -1,4 +1,5 @@
 import type { Project, Character, Location, PlotThread, Chapter, ReferenceWork } from "@/types";
+import { ARC_POSITION_DIRECTIVES } from "@/lib/arc";
 
 export interface CharacterRelationship {
   characterAId: string;
@@ -38,6 +39,7 @@ export interface ContextProject extends Project {
   activeChapter?: string;
   creatorBible?: CreatorBible;
   characterRelationships?: CharacterRelationship[];
+  storyPromises?: any[];
 }
 
 const CATEGORY_WEIGHTS: Record<string, number> = {
@@ -479,6 +481,32 @@ export function buildContext(p: ContextProject): string {
     const salient = scoredMemories(p.storyMemories, p.chapters ?? [], p.activeChapter ?? "");
     r.push("ESTABLISHED FACTS (do not contradict these):");
     salient.forEach((m) => r.push(`- [${m.category}] ${m.fact}`));
+  }
+
+  // ── OPEN STORY PROMISES ───────────────────────────────────────────────────
+  const openPromises = ((p as any).storyPromises ?? []).filter((sp: any) => sp.status === 'open');
+  if (openPromises.length > 0) {
+    r.push('OPEN STORY PROMISES (these must eventually be paid off — do not forget them):');
+    const priorityA = openPromises.filter((sp: any) => sp.priority === 'A');
+    const others    = openPromises.filter((sp: any) => sp.priority !== 'A');
+    priorityA.forEach((sp: any) => r.push(`★ [HIGH PRIORITY] ${sp.setup}${sp.payoffIntent ? ' — intended: ' + sp.payoffIntent : ''}`));
+    others.slice(0, 5).forEach((sp: any) => r.push(`- ${sp.setup}`));
+  }
+
+  // ── EMOTIONAL ARC CONTEXT ─────────────────────────────────────────────────
+  const activeChapForArc = p.chapters?.find((c: any) => c.id === p.activeChapter);
+  if (activeChapForArc) {
+    const arcParts: string[] = [];
+    if ((activeChapForArc as any).arcPosition) {
+      arcParts.push(`NARRATIVE POSITION: This chapter sits at "${(activeChapForArc as any).arcPosition}" in the story arc.`);
+      const directive = ARC_POSITION_DIRECTIVES[(activeChapForArc as any).arcPosition];
+      if (directive) arcParts.push(directive);
+    }
+    if ((activeChapForArc as any).emotionalTone) {
+      arcParts.push(`EMOTIONAL REGISTER: The dominant tone of this chapter is ${(activeChapForArc as any).emotionalTone}.`);
+      arcParts.push(`Write the emotional content through physical sensation and behavior — never name the emotion directly.`);
+    }
+    if (arcParts.length > 0) r.push(arcParts.join(' '));
   }
 
   return r.join("\n");

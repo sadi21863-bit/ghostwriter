@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
+import type { SkillSuggestion } from "@/lib/ai/skill-router";
 import { useProjectState } from "@/hooks/useProjectState";
 import { useAIActions } from "@/hooks/useAIActions";
 import { useWorldBible } from "@/hooks/useWorldBible";
@@ -9,6 +10,7 @@ import ChapterEditor from "@/components/panels/ChapterEditor";
 import { StoryHealthPanel } from "@/components/panels/StoryHealthPanel";
 import { ExportPanel } from "@/components/panels/ExportPanel";
 import { AltDraftPanel } from "@/components/panels/toolbar/tools/AltDraftPanel";
+import { SprintMode } from "@/components/SprintMode";
 import { UpgradePrompt } from "@/components/upgrade/UpgradePrompt";
 import { CommandPalette } from "@/components/CommandPalette";
 import type { FeatureGate } from "@/types/subscription";
@@ -51,6 +53,8 @@ export default function GhostWriterApp({ projectId }: { projectId: string }) {
   const [showStoryHealth, setShowStoryHealth] = useState(false);
   const [showExport, setShowExport] = useState(false);
   const [showAltDraft, setShowAltDraft] = useState(false);
+  const [showSprintMode, setShowSprintMode] = useState(false);
+  const [skillSuggestion, setSkillSuggestion] = useState<SkillSuggestion | null>(null);
 
   useEffect(() => {
     const tintMap: Record<string, string> = {
@@ -107,8 +111,32 @@ export default function GhostWriterApp({ projectId }: { projectId: string }) {
       case 'alt-draft':    setShowAltDraft(true); break;
       case 'story-health': setShowStoryHealth(true); break;
       case 'export':       setShowExport(true); break;
+      case 'sprint-mode':  setShowSprintMode(true); break;
     }
   };
+
+  const handleAcceptSkillSuggestion = (suggestedMode: string) => {
+    setMode(suggestedMode);
+    setSkillSuggestion(null);
+  };
+
+  useEffect(() => {
+    if (!activeChap?.emotionalTone) return;
+    const toneToMode: Record<string, string> = {
+      Grief: 'emotional', Rage: 'emotional', Fear: 'emotional',
+      Shame: 'emotional', Despair: 'emotional', Tenderness: 'emotional',
+      Dread: 'horror', Tension: 'tension', Wonder: 'atmosphere',
+    };
+    const suggested = toneToMode[activeChap.emotionalTone];
+    if (suggested && suggested !== mode) {
+      setSkillSuggestion({
+        mode: suggested,
+        label: `${suggested.charAt(0).toUpperCase() + suggested.slice(1)} Mode`,
+        confidence: 'medium',
+        reason: `This chapter is tagged "${activeChap.emotionalTone}" — ${suggested} mode is optimized for this register`,
+      });
+    }
+  }, [activeChap?.emotionalTone]);
 
   if (loadError) return (
     <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100vh", fontFamily: "system-ui", flexDirection: "column", gap: 12 }}>
@@ -308,6 +336,10 @@ export default function GhostWriterApp({ projectId }: { projectId: string }) {
         onShowStoryHealth={() => setShowStoryHealth(true)}
         onShowExport={() => setShowExport(true)}
         onSlashCommand={handleSlashCommand}
+        skillSuggestion={skillSuggestion}
+        onSkillSuggestionChange={setSkillSuggestion}
+        onDismissSkillSuggestion={() => setSkillSuggestion(null)}
+        onAcceptSkillSuggestion={handleAcceptSkillSuggestion}
       />
 
       <ChapterEditor
@@ -346,6 +378,16 @@ export default function GhostWriterApp({ projectId }: { projectId: string }) {
           activeChap={activeChap}
           updateChapter={projectState.updateChapter}
           onClose={() => setShowAltDraft(false)}
+        />
+      )}
+
+      {showSprintMode && (
+        <SprintMode
+          content={activeChap.content || ''}
+          chapterTitle={activeChap.title || 'Chapter'}
+          projectName={project.name || 'Project'}
+          onContentChange={(v) => projectState.updateChapter('content', v)}
+          onClose={() => setShowSprintMode(false)}
         />
       )}
 
