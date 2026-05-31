@@ -8,6 +8,7 @@ import ToolbarPanel from "@/components/panels/ToolbarPanel";
 import ChapterEditor from "@/components/panels/ChapterEditor";
 import { StoryHealthPanel } from "@/components/panels/StoryHealthPanel";
 import { ExportPanel } from "@/components/panels/ExportPanel";
+import { AltDraftPanel } from "@/components/panels/toolbar/tools/AltDraftPanel";
 import { UpgradePrompt } from "@/components/upgrade/UpgradePrompt";
 import { CommandPalette } from "@/components/CommandPalette";
 import type { FeatureGate } from "@/types/subscription";
@@ -336,6 +337,15 @@ export default function GhostWriterApp({ projectId }: { projectId: string }) {
         <ExportPanel
           projectId={project.id}
           onClose={() => setShowExport(false)}
+        />
+      )}
+
+      {showAltDraft && (
+        <AltDraftPanel
+          project={project}
+          activeChap={activeChap}
+          updateChapter={projectState.updateChapter}
+          onClose={() => setShowAltDraft(false)}
         />
       )}
 
