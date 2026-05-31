@@ -2,6 +2,7 @@
 import { useState, useEffect, useRef } from "react";
 import { buildContext, buildCreatorContext } from "@/lib/ai/context-builder";
 import { co, sInput, sTextarea, sBtn, sBtnSm } from "@/lib/styles";
+import { GENRE_DEFAULT_RULES } from "@/lib/ai/genre-rules";
 import { isCreatorFormat, isStoryFormat, FORMATS, GENRES, STYLE_ATTRS, DEFAULT_CHAR, DEFAULT_LOC, DEFAULT_PLOT, CharFields, LocFields, PlotFields } from "@/lib/formats";
 import { EmptyState } from "@/components/EmptyState";
 
@@ -112,6 +113,14 @@ export default function WorldBiblePanel(props: Props) {
   // Visual Profile generation state
   const [visualProfileLoading, setVisualProfileLoading] = useState(false);
 
+  // World Knowledge Matrix state
+  const [kmState, setKmState] = useState("IGNORANT");
+  const [kmEntity, setKmEntity] = useState("");
+  const [kmBelief, setKmBelief] = useState("");
+
+  // AI Rules state
+  const [newRuleText, setNewRuleText] = useState("");
+
   // World Bible inference state
   const [inferLoading, setInferLoading] = useState(false);
   const [inferResult, setInferResult] = useState<any>(null);
@@ -135,6 +144,27 @@ export default function WorldBiblePanel(props: Props) {
       setRelMapData(data);
     } catch (e) { setErrorMsg("Failed to load character connections. Please try again."); }
     setRelMapLoading(false);
+  };
+
+  const patchRelationship = async (charAId: string, charBId: string, fields: Record<string, any>) => {
+    await fetch(`/api/projects/${project.id}/relationship-map`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ characterAId: charAId, characterBId: charBId, ...fields }),
+    });
+    // Update local relMapData to reflect the change
+    setRelMapData(prev => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        edges: prev.edges.map((e: any) =>
+          e.charAId === charAId && e.charBId === charBId
+            ? { ...e, ...fields }
+            : e
+        ),
+      };
+    });
+    setSelectedMapEdge((prev: any) => prev ? { ...prev, ...fields } : prev);
   };
 
   const openEvolution = async (char: any) => {
@@ -420,6 +450,67 @@ export default function WorldBiblePanel(props: Props) {
                         e.target.value = "";
                       }
                     }} />
+
+                  {/* AI Writing Rules */}
+                  <div style={{ marginTop: 16, borderTop: "1px solid " + co.border, paddingTop: 14 }}>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: co.text, marginBottom: 4 }}>AI Writing Rules</div>
+                    <div style={{ fontSize: 11, color: co.muted, marginBottom: 10 }}>
+                      Rules the AI must follow in every generation for this project. Max 10.
+                    </div>
+                    {/* Genre defaults */}
+                    {(project.genres || []).flatMap((g: string) => GENRE_DEFAULT_RULES[g] || []).length > 0 && (
+                      <div style={{ marginBottom: 10 }}>
+                        <div style={{ fontSize: 10, color: co.muted, marginBottom: 4 }}>Genre defaults</div>
+                        {(project.genres || []).flatMap((g: string) => GENRE_DEFAULT_RULES[g] || []).map((text: string, i: number) => (
+                          <div key={i} style={{ padding: "5px 8px", background: co.surfaceAlt, borderRadius: 6, fontSize: 11, color: co.muted, marginBottom: 4 }}>{text}</div>
+                        ))}
+                      </div>
+                    )}
+                    {/* User rules */}
+                    {(project.aiRules || []).filter((r: any) => r.source === "user").map((rule: any) => (
+                      <div key={rule.id} style={{ display: "flex", gap: 6, alignItems: "flex-start", marginBottom: 6 }}>
+                        <span style={{ fontSize: 11, color: co.text, flex: 1 }}>{rule.text}</span>
+                        <button
+                          onClick={async () => {
+                            const updated = (project.aiRules || []).filter((r: any) => r.id !== rule.id);
+                            await fetch(`/api/projects/${project.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ aiRules: updated }) });
+                            updateProject((p: any) => ({ ...p, aiRules: updated }));
+                          }}
+                          style={{ background: "none", border: "none", color: co.muted, cursor: "pointer", fontSize: 14, lineHeight: 1, padding: 0, flexShrink: 0 }}>×</button>
+                      </div>
+                    ))}
+                    {/* Add rule */}
+                    {((project.aiRules || []).filter((r: any) => r.source === "user").length < 10) && (
+                      <div style={{ display: "flex", gap: 6, marginTop: 6 }}>
+                        <input
+                          value={newRuleText}
+                          onChange={e => setNewRuleText(e.target.value)}
+                          placeholder='e.g. "POV always stays on Mira." or "Magic requires blood."'
+                          onKeyDown={async e => {
+                            if (e.key === "Enter" && newRuleText.trim()) {
+                              const newRule = { id: crypto.randomUUID(), text: newRuleText.trim(), source: "user" };
+                              const updated = [...(project.aiRules || []), newRule];
+                              await fetch(`/api/projects/${project.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ aiRules: updated }) });
+                              updateProject((p: any) => ({ ...p, aiRules: updated }));
+                              setNewRuleText("");
+                            }
+                          }}
+                          style={{ ...sInput, flex: 1, fontSize: 11 }}
+                        />
+                        <button style={sBtnSm} onClick={async () => {
+                          if (!newRuleText.trim()) return;
+                          const newRule = { id: crypto.randomUUID(), text: newRuleText.trim(), source: "user" };
+                          const updated = [...(project.aiRules || []), newRule];
+                          await fetch(`/api/projects/${project.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ aiRules: updated }) });
+                          updateProject((p: any) => ({ ...p, aiRules: updated }));
+                          setNewRuleText("");
+                        }}>Add</button>
+                      </div>
+                    )}
+                    <span style={{ fontSize: 10, color: co.muted }}>
+                      {(project.aiRules || []).filter((r: any) => r.source === "user").length}/10 user rules
+                    </span>
+                  </div>
                 </div>
               );
             })()
@@ -615,6 +706,50 @@ export default function WorldBiblePanel(props: Props) {
                                 <div style={{ marginTop: 10, padding: "10px 12px", background: co.accentBg, borderRadius: 10, border: "1px solid " + co.accent }}>
                                   <div style={{ fontSize: 11, marginBottom: 8 }}><strong>{selectedMapEdge.charAName}</strong> × <strong>{selectedMapEdge.charBName}</strong> — {selectedMapEdge.sharedChapters} shared scene{selectedMapEdge.sharedChapters !== 1 ? "s" : ""}</div>
                                   <button style={{ ...sBtn, width: "100%", fontSize: 11 }} onClick={() => { setPrompt(`Write a scene where ${selectedMapEdge.charAName} and ${selectedMapEdge.charBName} interact.`); setMode("write"); setShowRelMap(false); setSelectedMapEdge(null); }}>✍️ Write scene together</button>
+                                  {/* 5D Relationship Editor */}
+                                  <div style={{ marginTop: 10, borderTop: "1px solid rgba(255,255,255,0.1)", paddingTop: 10, display: "flex", flexDirection: "column", gap: 8 }}>
+                                    <div>
+                                      <label style={{ fontSize: 10, color: co.muted, display: "block", marginBottom: 2 }}>
+                                        Power ({selectedMapEdge.charAName} over {selectedMapEdge.charBName}): {selectedMapEdge.powerDifferential ?? 0}
+                                      </label>
+                                      <input type="range" min={-5} max={5} value={selectedMapEdge.powerDifferential ?? 0}
+                                        onChange={e => patchRelationship(selectedMapEdge.charAId, selectedMapEdge.charBId, { powerDifferential: +e.target.value })}
+                                        style={{ width: "100%" }}
+                                      />
+                                    </div>
+                                    <div>
+                                      <label style={{ fontSize: 10, color: co.muted, display: "block", marginBottom: 2 }}>Emotional register</label>
+                                      <select value={selectedMapEdge.emotionalRegister ?? ""} style={{ ...sInput, fontSize: 11 }}
+                                        onChange={e => patchRelationship(selectedMapEdge.charAId, selectedMapEdge.charBId, { emotionalRegister: e.target.value })}>
+                                        <option value="">— select —</option>
+                                        {["warm","cold","volatile","detached","protective","transactional"].map(o => <option key={o} value={o}>{o}</option>)}
+                                      </select>
+                                    </div>
+                                    <div>
+                                      <label style={{ fontSize: 10, color: co.muted, display: "block", marginBottom: 2 }}>
+                                        What {selectedMapEdge.charAName} knows that {selectedMapEdge.charBName} doesn't
+                                      </label>
+                                      <textarea value={selectedMapEdge.knowledgeAsymmetry ?? ""} style={{ ...sTextarea, fontSize: 11, minHeight: 48 }}
+                                        onChange={e => patchRelationship(selectedMapEdge.charAId, selectedMapEdge.charBId, { knowledgeAsymmetry: e.target.value })}
+                                        placeholder="e.g. She knows he killed her father." />
+                                    </div>
+                                    <div>
+                                      <label style={{ fontSize: 10, color: co.muted, display: "block", marginBottom: 2 }}>{selectedMapEdge.charAName}'s attachment style</label>
+                                      <select value={selectedMapEdge.attachmentStyleA ?? ""} style={{ ...sInput, fontSize: 11 }}
+                                        onChange={e => patchRelationship(selectedMapEdge.charAId, selectedMapEdge.charBId, { attachmentStyleA: e.target.value })}>
+                                        <option value="">— select —</option>
+                                        {["secure","anxious","avoidant","disorganized"].map(o => <option key={o} value={o}>{o}</option>)}
+                                      </select>
+                                    </div>
+                                    <div>
+                                      <label style={{ fontSize: 10, color: co.muted, display: "block", marginBottom: 2 }}>Arc trajectory</label>
+                                      <select value={selectedMapEdge.arcTrajectory ?? ""} style={{ ...sInput, fontSize: 11 }}
+                                        onChange={e => patchRelationship(selectedMapEdge.charAId, selectedMapEdge.charBId, { arcTrajectory: e.target.value })}>
+                                        <option value="">— select —</option>
+                                        {["deepening","fracturing","stabilizing","transforming","ending"].map(o => <option key={o} value={o}>{o}</option>)}
+                                      </select>
+                                    </div>
+                                  </div>
                                 </div>
                               )}
                               {selectedMapNode && (
@@ -1191,6 +1326,109 @@ export default function WorldBiblePanel(props: Props) {
                     );
                   })}
                   <button style={{ ...sBtnSm, width: "100%" }} onClick={() => setData((d: any) => ({ ...d, skills: [...(d.skills || []), { name: "", category: "physical", level: 1, acquisitionPath: "deliberate_practice", traumaLinked: false, notes: "" }] }))}>+ Add Skill</button>
+                </div>
+              </details>
+
+              {/* ── WORLD KNOWLEDGE MATRIX ────────────────────────────── */}
+              <details style={{ marginTop: 12, borderTop: "1px solid " + co.border, paddingTop: 12 }}>
+                <summary style={{ fontSize: 12, fontWeight: 700, color: co.accent, cursor: "pointer", userSelect: "none", marginBottom: 10, listStyle: "none" }}>
+                  ▶ World Knowledge
+                </summary>
+                <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 8 }}>
+                  <div style={{ fontSize: 11, color: co.muted, marginBottom: 4 }}>
+                    What {data.name || "this character"} knows, believes, suspects, or is hiding.
+                    The AI uses this to prevent acting on information they don't have.
+                  </div>
+
+                  {/* Existing knowledge entries */}
+                  {Object.entries(data.knowledgeMap || {}).map(([entryId, entry]: [string, any]) => {
+                    const stateColors: Record<string, string> = {
+                      KNOWS: "#22c55e", BELIEVES: "#3b82f6", SUSPECTS: "#f59e0b",
+                      IGNORANT: "#6b7280", FALSELY_BELIEVES: "#f97316", ACTIVELY_HIDING: "#ef4444",
+                    };
+                    return (
+                      <div key={entryId} style={{ display: "flex", gap: 6, alignItems: "flex-start", padding: "6px 8px", background: co.surfaceAlt, borderRadius: 6 }}>
+                        <span style={{ padding: "2px 6px", borderRadius: 10, fontSize: 9, fontWeight: 700, flexShrink: 0, background: (stateColors[entry.state] || "#888") + "22", color: stateColors[entry.state] || "#888" }}>
+                          {(entry.state || "").replace("_", " ")}
+                        </span>
+                        <span style={{ fontSize: 11, color: co.text, flex: 1 }}>{entry.entityName}</span>
+                        {entry.belief && <span style={{ fontSize: 10, color: co.muted, fontStyle: "italic" }}>"{entry.belief}"</span>}
+                        <button
+                          onClick={() => {
+                            const km = { ...(data.knowledgeMap || {}) };
+                            delete km[entryId];
+                            setData((d: any) => ({ ...d, knowledgeMap: km }));
+                          }}
+                          style={{ background: "none", border: "none", color: co.muted, cursor: "pointer", fontSize: 14, lineHeight: 1, padding: 0 }}>×</button>
+                      </div>
+                    );
+                  })}
+
+                  {/* Add new knowledge entry */}
+                  <div style={{ display: "flex", flexDirection: "column", gap: 6, padding: "8px", background: co.surfaceAlt, borderRadius: 8, marginTop: 4 }}>
+                    <select style={{ ...sInput, fontSize: 11 }} value={kmState} onChange={e => setKmState(e.target.value)}>
+                      {["KNOWS","BELIEVES","SUSPECTS","IGNORANT","FALSELY_BELIEVES","ACTIVELY_HIDING"].map(s => <option key={s} value={s}>{s.replace(/_/g, " ")}</option>)}
+                    </select>
+                    <input style={{ ...sInput, fontSize: 11 }} value={kmEntity} onChange={e => setKmEntity(e.target.value)} placeholder="Entity name (character, location, plot thread)..." />
+                    {kmState === "FALSELY_BELIEVES" && (
+                      <input style={{ ...sInput, fontSize: 11 }} value={kmBelief} onChange={e => setKmBelief(e.target.value)} placeholder='The false belief (e.g. "He thinks she betrayed him")...' />
+                    )}
+                    <button style={sBtnSm} onClick={() => {
+                      if (!kmEntity.trim()) return;
+                      const id = crypto.randomUUID();
+                      const entry: any = { state: kmState, entityType: "character", entityName: kmEntity.trim() };
+                      if (kmState === "FALSELY_BELIEVES" && kmBelief.trim()) entry.belief = kmBelief.trim();
+                      setData((d: any) => ({ ...d, knowledgeMap: { ...(d.knowledgeMap || {}), [id]: entry } }));
+                      setKmEntity(""); setKmBelief("");
+                    }}>+ Add Knowledge Entry</button>
+                  </div>
+
+                  {/* Intelligence Profile */}
+                  <div style={{ marginTop: 8, borderTop: "1px solid " + co.border, paddingTop: 8 }}>
+                    <div style={{ fontSize: 11, fontWeight: 600, color: co.text, marginBottom: 6 }}>Intelligence Profile</div>
+                    <div style={{ fontSize: 10, color: co.muted, marginBottom: 4 }}>Dominant types</div>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginBottom: 8 }}>
+                      {(["logical","linguistic","spatial","kinesthetic","interpersonal","intrapersonal","practical"] as const).map(t => {
+                        const ip = data.intelligenceProfile || {};
+                        const isDom = (ip.dominant || []).includes(t);
+                        return (
+                          <button key={t} onClick={() => {
+                            const ip = data.intelligenceProfile || { dominant: [], weak: [] };
+                            const dom = isDom ? ip.dominant.filter((x: string) => x !== t) : [...(ip.dominant || []), t];
+                            setData((d: any) => ({ ...d, intelligenceProfile: { ...ip, dominant: dom } }));
+                          }}
+                            style={{ padding: "3px 8px", borderRadius: 20, fontSize: 10, cursor: "pointer", border: "1px solid", borderColor: isDom ? co.accent : "rgba(255,255,255,0.1)", background: isDom ? co.accentBg : "transparent", color: isDom ? co.accent : co.muted }}>
+                            {t}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <div style={{ fontSize: 10, color: co.muted, marginBottom: 4 }}>Weak types (errors here are realistic)</div>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+                      {(["logical","linguistic","spatial","kinesthetic","interpersonal","intrapersonal","practical"] as const).map(t => {
+                        const ip = data.intelligenceProfile || {};
+                        const isWeak = (ip.weak || []).includes(t);
+                        return (
+                          <button key={t} onClick={() => {
+                            const ip = data.intelligenceProfile || { dominant: [], weak: [] };
+                            const wk = isWeak ? ip.weak.filter((x: string) => x !== t) : [...(ip.weak || []), t];
+                            setData((d: any) => ({ ...d, intelligenceProfile: { ...ip, weak: wk } }));
+                          }}
+                            style={{ padding: "3px 8px", borderRadius: 20, fontSize: 10, cursor: "pointer", border: "1px solid", borderColor: isWeak ? "#ef4444" : "rgba(255,255,255,0.1)", background: isWeak ? "rgba(239,68,68,0.1)" : "transparent", color: isWeak ? "#ef4444" : co.muted }}>
+                            {t}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Cultural worldview */}
+                  <div style={{ marginTop: 8 }}>
+                    <div style={{ fontSize: 11, fontWeight: 600, color: co.text, marginBottom: 4 }}>Cultural Worldview</div>
+                    <textarea style={{ ...sTextarea, fontSize: 11 }} rows={3} value={data.culturalWorldview || ""}
+                      onChange={(e: any) => setData((d: any) => ({ ...d, culturalWorldview: e.target.value }))}
+                      placeholder="How does this character's background shape HOW they think? e.g. 'Grew up in a caste society. Assumes hierarchy is natural. Interprets resistance as personal offense.'" />
+                  </div>
                 </div>
               </details>
             </div>
