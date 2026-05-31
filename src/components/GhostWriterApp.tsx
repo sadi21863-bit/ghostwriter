@@ -315,6 +315,7 @@ export default function GhostWriterApp({ projectId }: { projectId: string }) {
 
       {showStoryHealth && (
         <StoryHealthPanel
+          project={project}
           projectId={project.id}
           activeChapContent={activeChap?.content || ""}
           onClose={() => setShowStoryHealth(false)}

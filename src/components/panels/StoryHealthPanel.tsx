@@ -25,12 +25,13 @@ const SCENE_VERDICT_COLORS: Record<string, string> = {
 };
 
 interface StoryHealthPanelProps {
+  project: any;
   projectId: string;
   activeChapContent: string;
   onClose: () => void;
 }
 
-export function StoryHealthPanel({ projectId, activeChapContent, onClose }: StoryHealthPanelProps) {
+export function StoryHealthPanel({ project, projectId, activeChapContent, onClose }: StoryHealthPanelProps) {
   const [tab, setTab] = useState<"validator" | "dead-scenes" | "theme" | "tension" | "transport">("validator");
 
   // Scene Validator state
@@ -55,6 +56,14 @@ export function StoryHealthPanel({ projectId, activeChapContent, onClose }: Stor
   const [analysingTheme, setAnalysingTheme] = useState(false);
   const [themeResult, setThemeResult] = useState<any>(null);
   const [themeError, setThemeError] = useState("");
+
+  const healthScore = Math.max(0, 100
+    - (project?.plotThreads?.filter((t: any) => t.starvationWarning).length ?? 0) * 5
+    - (project?.chapters?.filter((c: any) => c.wordCount < 300 && c.content?.trim()).length ?? 0) * 3
+    - (project?.characters?.filter((c: any) => !c.kinesicsBaseline).length ?? 0) * 5
+    - (project?.referenceWorks?.length === 0 ? 10 : 0)
+  );
+  const scoreColor = healthScore >= 80 ? "#4ade80" : healthScore >= 60 ? "#facc15" : "#f87171";
 
   const togglePurpose = (id: string) => {
     setSelectedPurposes(prev =>
@@ -153,6 +162,19 @@ export function StoryHealthPanel({ projectId, activeChapContent, onClose }: Stor
             <div style={{ fontSize: 12, color: "#9898A6", marginTop: 2 }}>Structure analysis & tension visualisation</div>
           </div>
           <button onClick={onClose} style={{ background: "none", border: "none", color: "#9898A6", cursor: "pointer", fontSize: 20, lineHeight: 1 }}>×</button>
+        </div>
+
+        {/* Health Score */}
+        <div style={{ padding: "12px 20px", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <span style={{ fontSize: 13, color: "#9898A6" }}>Story Health Score</span>
+            <span style={{ fontSize: 22, fontWeight: 700, color: scoreColor }}>{healthScore}/100</span>
+          </div>
+          <div style={{ display: "flex", gap: 16, marginTop: 4, fontSize: 11, color: "#9898A6" }}>
+            <span>{project?.plotThreads?.filter((t: any) => t.starvationWarning).length ?? 0} starving threads</span>
+            <span>{project?.chapters?.filter((c: any) => c.wordCount < 300 && c.content?.trim()).length ?? 0} thin chapters</span>
+            <span>{project?.characters?.filter((c: any) => !c.kinesicsBaseline).length ?? 0} shallow characters</span>
+          </div>
         </div>
 
         {/* Tabs */}
