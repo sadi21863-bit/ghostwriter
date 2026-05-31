@@ -1,5 +1,14 @@
-import { pgTable, text, timestamp, integer, jsonb, varchar, uuid, boolean } from "drizzle-orm/pg-core";
+import { pgTable, text, timestamp, integer, jsonb, varchar, uuid, boolean, customType } from "drizzle-orm/pg-core";
 import { relations, sql } from "drizzle-orm";
+
+// pgvector column type — requires: CREATE EXTENSION IF NOT EXISTS vector; on Neon first
+const vectorColumn = customType<{ data: number[]; driverData: string }>({
+  dataType() { return 'vector(1536)'; },
+  toDriver(value: number[]): string { return JSON.stringify(value); },
+  fromDriver(value: string): number[] {
+    try { return JSON.parse(value); } catch { return []; }
+  },
+});
 
 export const users = pgTable("users", { id: uuid("id").defaultRandom().primaryKey(), name: text("name"), email: text("email").notNull().unique(), emailVerified: timestamp("email_verified", { mode: "date" }), image: text("image"), hashedPassword: text("hashed_password"), higgsfieldApiKey: text("higgsfield_api_key").default(""), higgsfieldApiSecret: text("higgsfield_api_secret").default(""), openaiApiKey: text("openai_api_key").default(""), imageProviderId: text("image_provider_id").default("segmind_soul"), trendIntelligenceKey: text("trend_intelligence_key").default(""), createdAt: timestamp("created_at").defaultNow().notNull(), updatedAt: timestamp("updated_at").defaultNow().notNull() });
 export const accounts = pgTable("accounts", { id: uuid("id").defaultRandom().primaryKey(), userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }), type: text("type").notNull(), provider: text("provider").notNull(), providerAccountId: text("provider_account_id").notNull(), refresh_token: text("refresh_token"), access_token: text("access_token"), expires_at: integer("expires_at"), token_type: text("token_type"), scope: text("scope"), id_token: text("id_token"), session_state: text("session_state") });
@@ -274,7 +283,23 @@ export const workPackets = pgTable("work_packets", {
   dialogueNotes:    text("dialogue_notes").default(""),
   thematicCore:     text("thematic_core").default(""),
   isPublic:         boolean("is_public").default(false),
+  status:           varchar("status", { length: 20 }).default("seeded"),
+  embedding:        vectorColumn("embedding"),
   createdAt:        timestamp("created_at").defaultNow().notNull(),
+});
+
+export const workPatterns = pgTable("work_patterns", {
+  id:                   uuid("id").defaultRandom().primaryKey(),
+  name:                 text("name").notNull(),
+  description:          text("description").notNull(),
+  medium:               varchar("medium", { length: 30 }).default("cross-medium"),
+  genres:               jsonb("genres").$type<string[]>().default([]),
+  supportingPacketIds:  jsonb("supporting_packet_ids").$type<string[]>().default([]),
+  generationDirective:  text("generation_directive").notNull(),
+  applicableTo:         jsonb("applicable_to").$type<string[]>().default([]),
+  isPublic:             boolean("is_public").default(true),
+  embedding:            vectorColumn("embedding"),
+  createdAt:            timestamp("created_at").defaultNow().notNull(),
 });
 
 export const storyThreads = pgTable("story_threads", {
@@ -318,6 +343,7 @@ export const subscriptions = pgTable("subscriptions", {
 
 export const usersRelations = relations(users, ({ many, one }) => ({ projects: many(projects), videoAnalysisJobs: many(videoAnalysisJobs), subscription: one(subscriptions, { fields: [users.id], references: [subscriptions.userId] }), workPackets: many(workPackets) }));
 export const workPacketsRelations = relations(workPackets, ({ one }) => ({ user: one(users, { fields: [workPackets.userId], references: [users.id] }) }));
+export const workPatternsRelations = relations(workPatterns, ({ }) => ({}));
 export const subscriptionsRelations = relations(subscriptions, ({ one }) => ({ user: one(users, { fields: [subscriptions.userId], references: [users.id] }) }));
 export const videoAnalysisJobsRelations = relations(videoAnalysisJobs, ({ one }) => ({ user: one(users, { fields: [videoAnalysisJobs.userId], references: [users.id] }) }));
 export const projectsRelations = relations(projects, ({ one, many }) => ({ user: one(users, { fields: [projects.userId], references: [users.id] }), characters: many(characters), locations: many(locations), plotThreads: many(plotThreads), chapters: many(chapters), referenceWorks: many(referenceWorks), generations: many(generations), creatorBible: one(creatorBibles, { fields: [projects.id], references: [creatorBibles.projectId] }), storyMemories: many(storyMemories), comicPages: many(comicPages), productionShots: many(productionShots), characterEvolutionLogs: many(characterEvolutionLog), audioExports: many(audioExports), characterRelationships: many(characterRelationships), storyThreads: many(storyThreads), storyPromises: many(storyPromises) }));

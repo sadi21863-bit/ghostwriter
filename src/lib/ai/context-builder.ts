@@ -1,5 +1,8 @@
-import type { Project, Character, Location, PlotThread, Chapter, ReferenceWork } from "@/types";
+import type { Project, Character, Location, PlotThread, Chapter, ReferenceWork, WorkPattern } from "@/types";
 import { ARC_POSITION_DIRECTIVES } from "@/lib/arc";
+import { buildInfluenceContext } from "@/lib/ai/influence-context";
+import { buildAccuracyContext, detectAccuracyDomains } from "@/lib/accuracy";
+import { buildRealismContext, getRealismDomainsForMode } from "@/lib/realism";
 
 export interface CharacterRelationship {
   characterAId: string;
@@ -40,6 +43,11 @@ export interface ContextProject extends Project {
   creatorBible?: CreatorBible;
   characterRelationships?: CharacterRelationship[];
   storyPromises?: any[];
+  activeInfluence?: any;
+  activePatterns?: WorkPattern[];
+  activeMode?: string;
+  currentPrompt?: string;
+  activeRealismDomains?: string[];
 }
 
 const CATEGORY_WEIGHTS: Record<string, number> = {
@@ -72,6 +80,21 @@ function scoredMemories(
 
 export function buildContext(p: ContextProject): string {
   const r: string[] = [];
+
+  // ── ACTIVE INFLUENCE ───────────────────────────────────────────────────────
+  if (p.activeInfluence) {
+    const influenceCtx = buildInfluenceContext(p.activeInfluence, p.activeMode ?? 'write');
+    if (influenceCtx) r.push(influenceCtx);
+  }
+
+  // ── ACTIVE WORK PATTERNS ───────────────────────────────────────────────────
+  const patterns: WorkPattern[] = p.activePatterns ?? [];
+  if (patterns.length > 0) {
+    r.push('ACTIVE NARRATIVE PATTERNS (apply these structural techniques):');
+    for (const pat of patterns) {
+      r.push(`• ${pat.name}: ${pat.generationDirective}`);
+    }
+  }
 
   // AI Project Rules — injected first, highest priority
   const rules: any[] = (p as any).aiRules ?? [];
@@ -507,6 +530,23 @@ export function buildContext(p: ContextProject): string {
       arcParts.push(`Write the emotional content through physical sensation and behavior — never name the emotion directly.`);
     }
     if (arcParts.length > 0) r.push(arcParts.join(' '));
+  }
+
+  // ── PROFESSIONAL ACCURACY INJECTION ───────────────────────────────────────
+  const prompt = p.currentPrompt ?? '';
+  const genres: string[] = (p as any).genres ?? [];
+  const accuracyDomains = detectAccuracyDomains(prompt, genres);
+  for (const domain of accuracyDomains) {
+    r.push(buildAccuracyContext(domain));
+  }
+
+  // ── DOMAIN REALISM INJECTION ───────────────────────────────────────────────
+  const realismDomains = [
+    ...getRealismDomainsForMode(p.activeMode ?? ''),
+    ...((p.activeRealismDomains ?? []) as any),
+  ].filter((v, i, arr) => arr.indexOf(v) === i);
+  if (realismDomains.length > 0) {
+    r.push(buildRealismContext(realismDomains as any));
   }
 
   return r.join("\n");

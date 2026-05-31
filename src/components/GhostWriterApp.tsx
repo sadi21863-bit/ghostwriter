@@ -55,6 +55,8 @@ export default function GhostWriterApp({ projectId }: { projectId: string }) {
   const [showAltDraft, setShowAltDraft] = useState(false);
   const [showSprintMode, setShowSprintMode] = useState(false);
   const [skillSuggestion, setSkillSuggestion] = useState<SkillSuggestion | null>(null);
+  const [activeInfluence, setActiveInfluence] = useState<any | null>(null);
+  const [activePatterns, setActivePatterns] = useState<any[]>([]);
 
   useEffect(() => {
     const tintMap: Record<string, string> = {
@@ -97,6 +99,8 @@ export default function GhostWriterApp({ projectId }: { projectId: string }) {
     creatorBible: projectState.creatorBible,
     cohostVoice,
     setUpgradeRequired: (f) => setUpgradeRequired(f as FeatureGate),
+    activeInfluence,
+    activePatterns,
   });
 
   const worldBible = useWorldBible({
@@ -340,6 +344,10 @@ export default function GhostWriterApp({ projectId }: { projectId: string }) {
         onSkillSuggestionChange={setSkillSuggestion}
         onDismissSkillSuggestion={() => setSkillSuggestion(null)}
         onAcceptSkillSuggestion={handleAcceptSkillSuggestion}
+        activeInfluence={activeInfluence}
+        setActiveInfluence={setActiveInfluence}
+        activePatterns={activePatterns}
+        setActivePatterns={setActivePatterns}
       />
 
       <ChapterEditor

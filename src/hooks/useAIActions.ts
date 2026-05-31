@@ -30,6 +30,7 @@ export function useAIActions({
   project, mode, prompt, activeChap,
   updateChapter, setErrorMsg, setSavedMsg,
   creatorBible, cohostVoice, setUpgradeRequired,
+  activeInfluence, activePatterns,
 }: {
   project: any; mode: string; prompt: string; activeChap: any;
   updateChapter: (f: string, v: any) => void;
@@ -38,6 +39,8 @@ export function useAIActions({
   creatorBible: any;
   cohostVoice?: string;
   setUpgradeRequired?: (feature: string) => void;
+  activeInfluence?: any;
+  activePatterns?: any[];
 }) {
   const [generating, setGenerating] = useState(false);
   const [genTarget, setGenTarget] = useState("");
@@ -80,9 +83,10 @@ export function useAIActions({
   };
 
   const buildFullContext = (p = project) => {
+    const extended = { ...p, activeMode: mode, currentPrompt: prompt, activeInfluence, activePatterns };
     let base: string;
-    if (isCreatorFormat(p.format)) { base = buildCreatorContext({ ...p, creatorBible }); }
-    else { base = (p.skillLevel === "beginner" ? buildBeginnerContext : buildContext)(p); }
+    if (isCreatorFormat(p.format)) { base = buildCreatorContext({ ...extended, creatorBible }); }
+    else { base = (p.skillLevel === "beginner" ? buildBeginnerContext : buildContext)(extended); }
     const neighbourContext = buildNeighbourContext(p);
     return neighbourContext ? base + "\n\n" + neighbourContext : base;
   };

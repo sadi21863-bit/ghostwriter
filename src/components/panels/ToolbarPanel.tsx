@@ -30,6 +30,7 @@ import { EthicsPanel } from "./toolbar/modes/EthicsPanel";
 import { EndingsPanel } from "./toolbar/modes/EndingsPanel";
 
 // Tool panels
+import { InfluencePanel } from "@/components/panels/toolbar/tools/InfluencePanel";
 import { PipelinePanel } from "./toolbar/tools/PipelinePanel";
 import { DissectPanel } from "./toolbar/tools/DissectPanel";
 import { RetentionEditPanel } from "./toolbar/tools/RetentionEditPanel";
@@ -173,6 +174,10 @@ interface Props {
   onSkillSuggestionChange?: (s: any) => void;
   onDismissSkillSuggestion?: () => void;
   onAcceptSkillSuggestion?: (mode: string) => void;
+  activeInfluence?: any;
+  setActiveInfluence?: (p: any | null) => void;
+  activePatterns?: any[];
+  setActivePatterns?: (p: any[]) => void;
 }
 
 const modeLabel = (m: string) => (
@@ -230,6 +235,10 @@ export default function ToolbarPanel(props: Props) {
     onSkillSuggestionChange,
     onDismissSkillSuggestion,
     onAcceptSkillSuggestion,
+    activeInfluence,
+    setActiveInfluence,
+    activePatterns,
+    setActivePatterns,
   } = props;
 
   // Local UI toggle (not business logic)
@@ -302,6 +311,15 @@ export default function ToolbarPanel(props: Props) {
             onClick={onShowExport}>
             📤 Export
           </button>
+        )}
+
+        {isStoryFormat(project.format) && setActiveInfluence && setActivePatterns && (
+          <InfluencePanel
+            activeInfluence={activeInfluence ?? null}
+            setActiveInfluence={setActiveInfluence}
+            activePatterns={activePatterns ?? []}
+            setActivePatterns={setActivePatterns}
+          />
         )}
 
         <div style={{ flex: 1 }} />

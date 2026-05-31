@@ -80,3 +80,14 @@ export interface WorkPacketPrinciple {
   example: string;
   applicableTo: string[];
 }
+
+export interface WorkPattern {
+  id: string;
+  name: string;
+  description: string;
+  medium: string;
+  genres: string[];
+  supportingPacketIds: string[];
+  generationDirective: string;
+  applicableTo: string[];
+}
