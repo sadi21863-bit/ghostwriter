@@ -1,4 +1,4 @@
-export interface Project { id: string; name: string; format: string; skillLevel: "beginner" | "expert"; genres: string[]; notes: string; characters: Character[]; locations: Location[]; plotThreads: PlotThread[]; chapters: Chapter[]; referenceWorks: ReferenceWork[]; }
+export interface Project { id: string; name: string; format: string; skillLevel: "beginner" | "expert"; genres: string[]; notes: string; characters: Character[]; locations: Location[]; plotThreads: PlotThread[]; chapters: Chapter[]; referenceWorks: ReferenceWork[]; characterRelationships?: any[]; storyMemories?: any[]; aiRules?: any[]; }
 
 export interface Character {
   id: string; projectId: string; name: string; role: string; age: string;
@@ -32,3 +32,45 @@ export interface Chapter {
 }
 
 export interface ReferenceWork { id: string; projectId: string; title: string; attributes: Record<string, string>; }
+
+export type KnowledgeState =
+  | 'KNOWS' | 'BELIEVES' | 'SUSPECTS'
+  | 'IGNORANT' | 'FALSELY_BELIEVES' | 'ACTIVELY_HIDING';
+
+export interface KnowledgeEntry {
+  state: KnowledgeState;
+  entityType: 'character' | 'location' | 'plotThread';
+  entityName: string;
+  belief?: string;
+  notes?: string;
+}
+
+export type KnowledgeMap = Record<string, KnowledgeEntry>;
+
+export type IntelligenceType =
+  | 'logical' | 'linguistic' | 'spatial' | 'kinesthetic'
+  | 'interpersonal' | 'intrapersonal' | 'practical';
+
+export interface IntelligenceProfile {
+  dominant: IntelligenceType[];
+  weak: IntelligenceType[];
+}
+
+export interface ProjectAIRule {
+  id: string;
+  text: string;
+  source: 'user' | 'genre';
+}
+
+export type AltDraftGoal =
+  | 'tighter-prose' | 'more-emotional' | 'stronger-suspense'
+  | 'continuity-repair' | 'clearer-prose' | 'sharper-dialogue';
+
+export interface AlternateDraft {
+  id: string;
+  goal: AltDraftGoal;
+  content: string;
+  wordCount: number;
+  intent: string;
+  createdAt: string;
+}
