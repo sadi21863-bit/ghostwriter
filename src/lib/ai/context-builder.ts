@@ -1,5 +1,20 @@
 import type { Project, Character, Location, PlotThread, Chapter, ReferenceWork } from "@/types";
 
+export interface CharacterRelationship {
+  characterAId: string;
+  characterBId: string;
+  trustLevel: number;
+  relationshipType: string;
+  fourHorsemen: { criticism: number; contempt: number; defensiveness: number; stonewalling: number };
+  notes: string;
+  powerDifferential?: number;
+  emotionalRegister?: string;
+  knowledgeAsymmetry?: string;
+  dependencyStructure?: string;
+  attachmentStyleA?: string;
+  arcTrajectory?: string;
+}
+
 export interface StoryMemory {
   id: string;
   category: string;
@@ -22,6 +37,7 @@ export interface ContextProject extends Project {
   storyMemories?: StoryMemory[];
   activeChapter?: string;
   creatorBible?: CreatorBible;
+  characterRelationships?: CharacterRelationship[];
 }
 
 const CATEGORY_WEIGHTS: Record<string, number> = {
@@ -54,6 +70,15 @@ function scoredMemories(
 
 export function buildContext(p: ContextProject): string {
   const r: string[] = [];
+
+  // AI Project Rules — injected first, highest priority
+  const rules: any[] = (p as any).aiRules ?? [];
+  if (rules.length > 0) {
+    r.push('PROJECT WRITING RULES — THESE OVERRIDE ALL DEFAULTS. DO NOT VIOLATE THEM.');
+    rules.forEach((rule: any, i: number) => r.push(`${i + 1}. ${rule.text}`));
+    r.push('');
+  }
+
   r.push("PROJECT: " + p.name + " | " + p.format + " | " + (p.genres || []).join(", "));
 
   if (p.referenceWorks?.length) {
@@ -288,6 +313,61 @@ export function buildContext(p: ContextProject): string {
         parts.push("  " + skillLines.join(" "));
       }
 
+      // ── WORLD LOGIC KNOWLEDGE MATRIX ────────────────────────────────────────
+      const km: Record<string, any> = (c as any).knowledgeMap ?? {};
+      const kmEntries = Object.values(km);
+      if (kmEntries.length > 0) {
+        const wlParts: string[] = [`WORLD LOGIC — ${c.name.toUpperCase()}:`];
+        wlParts.push('(Do not have this character act on information they do not have.)');
+
+        const ignorant     = kmEntries.filter((e: any) => e.state === 'IGNORANT');
+        const falselyBel   = kmEntries.filter((e: any) => e.state === 'FALSELY_BELIEVES');
+        const activelyHide = kmEntries.filter((e: any) => e.state === 'ACTIVELY_HIDING');
+        const suspects     = kmEntries.filter((e: any) => e.state === 'SUSPECTS');
+        const knows        = kmEntries.filter((e: any) => e.state === 'KNOWS');
+        const believes     = kmEntries.filter((e: any) => e.state === 'BELIEVES');
+
+        if (ignorant.length)
+          wlParts.push(`DOES NOT KNOW (must not reference or act on): ${ignorant.map((e: any) => e.entityName).join(', ')}.`);
+        falselyBel.forEach((e: any) =>
+          wlParts.push(`FALSELY BELIEVES about ${e.entityName}: "${e.belief}" — this character acts on this false belief with full conviction.`)
+        );
+        activelyHide.forEach((e: any) =>
+          wlParts.push(`ACTIVELY HIDING knowledge of ${e.entityName}${e.notes ? ': ' + e.notes : ''} — will not reveal this under any circumstances, including direct questioning.`)
+        );
+        if (suspects.length)
+          wlParts.push(`SUSPECTS (intuition without proof): ${suspects.map((e: any) => e.entityName).join(', ')} — acts on these suspicions with caution, not certainty.`);
+        if (knows.length || believes.length) {
+          const confirmed = [...knows.map((e: any) => e.entityName), ...believes.map((e: any) => e.entityName)];
+          wlParts.push(`KNOWS/BELIEVES: ${confirmed.join(', ')}.`);
+        }
+        parts.push('  ' + wlParts.join(' '));
+      }
+
+      // Intelligence profile
+      const ip: Record<string, any> = (c as any).intelligenceProfile ?? {};
+      if (ip.dominant?.length) {
+        const intelligenceMap: Record<string, string> = {
+          logical:       'reasons through abstraction and pattern — follows chains of implication',
+          linguistic:    'reads subtext precisely, chooses words for effect, notices how things are said',
+          spatial:       'thinks in maps and systems — navigates and visualizes instinctively',
+          kinesthetic:   'trusts body knowledge, leads with action, understands through doing',
+          interpersonal: 'reads people accurately, tracks social dynamics and power shifts',
+          intrapersonal: 'high self-awareness, monitors internal state, reflects before acting',
+          practical:     'street-smart, improvises under constraint, reads situations not abstractions',
+        };
+        const dominantLines = ip.dominant.map((t: string) => `${t}: ${intelligenceMap[t] ?? t}`).join('; ');
+        parts.push(`  INTELLIGENCE: ${dominantLines}.`);
+        if (ip.weak?.length)
+          parts.push(`  INTELLIGENCE GAPS (errors here are realistic): ${ip.weak.join(', ')}.`);
+      }
+
+      // Cultural worldview
+      if ((c as any).culturalWorldview) {
+        parts.push(`  CULTURAL WORLDVIEW: ${(c as any).culturalWorldview}`);
+        parts.push("  Write this character's assumptions and moral reasoning through this cultural lens. Their \"common sense\" is culture-specific — do not universalize it.");
+      }
+
       // Antagonist profile injection
       if ((c as any).antagonistToggle) {
         const typeMap: Record<string, string> = {
@@ -303,6 +383,67 @@ export function buildContext(p: ContextProject): string {
       }
       r.push(parts.join("\n"));
     });
+  }
+
+  if (p.characterRelationships?.length) {
+    const charMap = new Map((p.characters ?? []).map((c: Character) => [c.id, c.name]));
+    const significantRels = p.characterRelationships.filter((rel: CharacterRelationship) =>
+      rel.relationshipType || rel.knowledgeAsymmetry || (rel.trustLevel !== undefined && rel.trustLevel !== 50)
+      || rel.powerDifferential || rel.emotionalRegister || rel.arcTrajectory
+    );
+
+    if (significantRels.length > 0) {
+      r.push('RELATIONSHIPS:');
+      for (const rel of significantRels) {
+        const nameA = charMap.get(rel.characterAId) ?? rel.characterAId;
+        const nameB = charMap.get(rel.characterBId) ?? rel.characterBId;
+        const parts: string[] = [`  ${nameA} ↔ ${nameB}`];
+
+        if (rel.relationshipType) parts.push(`type: ${rel.relationshipType}`);
+
+        if (rel.trustLevel !== undefined && rel.trustLevel !== 50) {
+          parts.push(rel.trustLevel >= 75 ? 'high trust' : rel.trustLevel <= 25 ? 'deep distrust' : 'strained trust');
+        }
+
+        if (rel.powerDifferential && rel.powerDifferential !== 0) {
+          const holder = rel.powerDifferential > 0 ? nameA : nameB;
+          const subject = rel.powerDifferential > 0 ? nameB : nameA;
+          parts.push(`${holder} holds power over ${subject} (${Math.abs(rel.powerDifferential)}/5)`);
+        }
+
+        if (rel.emotionalRegister) parts.push(`register: ${rel.emotionalRegister}`);
+
+        if (rel.knowledgeAsymmetry) {
+          parts.push(`KNOWLEDGE GAP: ${rel.knowledgeAsymmetry} — write dialogue and behavior that reflects this asymmetry; do not let the ignorant party act on information they do not have`);
+        }
+
+        if (rel.attachmentStyleA) {
+          const attachmentBehaviors: Record<string, string> = {
+            secure: `${nameA} communicates needs directly and tolerates disagreement without panic`,
+            anxious: `${nameA} reads abandonment into ambiguous signals, seeks reassurance`,
+            avoidant: `${nameA} withdraws under stress, resists intimacy, keeps emotional distance`,
+            disorganized: `${nameA} alternates between clinging and pushing away — unpredictable under stress`,
+          };
+          if (attachmentBehaviors[rel.attachmentStyleA]) parts.push(attachmentBehaviors[rel.attachmentStyleA]);
+        }
+
+        if (rel.arcTrajectory) parts.push(`arc: currently ${rel.arcTrajectory} — write consistent with this direction`);
+
+        const hf = rel.fourHorsemen;
+        if (hf) {
+          const horsemen: string[] = [];
+          if (hf.contempt >= 3)      horsemen.push('contempt present (most corrosive)');
+          if (hf.criticism >= 3)     horsemen.push('persistent criticism');
+          if (hf.defensiveness >= 3) horsemen.push('high defensiveness');
+          if (hf.stonewalling >= 3)  horsemen.push('stonewalling');
+          if (horsemen.length) parts.push(`relationship damage markers: ${horsemen.join(', ')}`);
+        }
+
+        if (rel.notes) parts.push(`notes: ${rel.notes}`);
+
+        r.push(parts.join(' | '));
+      }
+    }
   }
 
   if (p.locations?.length) {
