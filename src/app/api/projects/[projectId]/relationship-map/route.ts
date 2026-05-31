@@ -90,7 +90,9 @@ export async function PATCH(req: Request, { params }: { params: { projectId: str
   if (!await verifyOwnership(params.projectId, s.user.id))
     return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  const { characterAId, characterBId, trustLevel, relationshipType, notes, fourHorsemen } = await req.json();
+  const { characterAId, characterBId, trustLevel, relationshipType, notes, fourHorsemen,
+    powerDifferential, emotionalRegister, knowledgeAsymmetry, dependencyStructure, attachmentStyleA, arcTrajectory
+  } = await req.json();
   if (!characterAId || !characterBId)
     return NextResponse.json({ error: "characterAId and characterBId required" }, { status: 400 });
 
@@ -110,6 +112,12 @@ export async function PATCH(req: Request, { params }: { params: { projectId: str
   if (relationshipType !== undefined) updates.relationshipType = relationshipType;
   if (notes !== undefined) updates.notes = notes;
   if (fourHorsemen !== undefined) updates.fourHorsemen = fourHorsemen;
+  if (powerDifferential !== undefined) updates.powerDifferential = powerDifferential;
+  if (emotionalRegister !== undefined) updates.emotionalRegister = emotionalRegister;
+  if (knowledgeAsymmetry !== undefined) updates.knowledgeAsymmetry = knowledgeAsymmetry;
+  if (dependencyStructure !== undefined) updates.dependencyStructure = dependencyStructure;
+  if (attachmentStyleA !== undefined) updates.attachmentStyleA = attachmentStyleA;
+  if (arcTrajectory !== undefined) updates.arcTrajectory = arcTrajectory;
 
   if (existing) {
     const [updated] = await db.update(characterRelationships)
@@ -126,6 +134,12 @@ export async function PATCH(req: Request, { params }: { params: { projectId: str
       relationshipType: relationshipType ?? "",
       notes: notes ?? "",
       fourHorsemen: fourHorsemen ?? { criticism: 0, contempt: 0, defensiveness: 0, stonewalling: 0 },
+      powerDifferential: powerDifferential ?? 0,
+      emotionalRegister: emotionalRegister ?? "",
+      knowledgeAsymmetry: knowledgeAsymmetry ?? "",
+      dependencyStructure: dependencyStructure ?? "none",
+      attachmentStyleA: attachmentStyleA ?? "",
+      arcTrajectory: arcTrajectory ?? "",
     }).returning();
     return NextResponse.json(created);
   }
