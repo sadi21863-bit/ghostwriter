@@ -49,6 +49,7 @@ export default function GhostWriterApp({ projectId }: { projectId: string }) {
   const [upgradeRequired, setUpgradeRequired] = useState<FeatureGate | null>(null);
   const [showStoryHealth, setShowStoryHealth] = useState(false);
   const [showExport, setShowExport] = useState(false);
+  const [showAltDraft, setShowAltDraft] = useState(false);
 
   useEffect(() => {
     const tintMap: Record<string, string> = {
@@ -99,6 +100,14 @@ export default function GhostWriterApp({ projectId }: { projectId: string }) {
     setProject: projectState.setProject,
     setErrorMsg,
   });
+
+  const handleSlashCommand = (id: string) => {
+    switch (id) {
+      case 'alt-draft':    setShowAltDraft(true); break;
+      case 'story-health': setShowStoryHealth(true); break;
+      case 'export':       setShowExport(true); break;
+    }
+  };
 
   if (loadError) return (
     <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100vh", fontFamily: "system-ui", flexDirection: "column", gap: 12 }}>
@@ -297,6 +306,7 @@ export default function GhostWriterApp({ projectId }: { projectId: string }) {
         setUpgradeRequired={(f) => setUpgradeRequired(f as FeatureGate)}
         onShowStoryHealth={() => setShowStoryHealth(true)}
         onShowExport={() => setShowExport(true)}
+        onSlashCommand={handleSlashCommand}
       />
 
       <ChapterEditor

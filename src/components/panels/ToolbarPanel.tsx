@@ -168,6 +168,7 @@ interface Props {
   setUpgradeRequired?: (feature: string) => void;
   onShowStoryHealth?: () => void;
   onShowExport?: () => void;
+  onSlashCommand?: (id: string) => void;
 }
 
 const modeLabel = (m: string) => (
@@ -220,6 +221,7 @@ export default function ToolbarPanel(props: Props) {
     setUpgradeRequired,
     onShowStoryHealth,
     onShowExport,
+    onSlashCommand,
   } = props;
 
   // Local UI toggle (not business logic)
@@ -630,6 +632,7 @@ export default function ToolbarPanel(props: Props) {
             setCohostVoice={setCohostVoice}
             handleTextareaSelect={handleTextareaSelect}
             onUpgradeRequired={setUpgradeRequired}
+            onSlashCommand={onSlashCommand}
           />
       }
     </div>

@@ -1,5 +1,5 @@
 "use client";
-import { useRef } from "react";
+import { useRef, useState, useEffect } from "react";
 import { isCreatorFormat } from "@/lib/formats";
 import { getLoadingMessage } from "@/lib/loadingMessages";
 import { co, sInput, sTextarea, sBtn, sBtnSm } from "@/lib/styles";
@@ -7,6 +7,8 @@ import { ProsePanel } from "../tools/ProsePanel";
 import { ScoreHookPanel } from "../tools/ScoreHookPanel";
 import { TitleHookPanel } from "../tools/TitleHookPanel";
 import type { HookScore, ProseResult } from "../types";
+import { SlashCommandPalette } from "@/components/editor/SlashCommandPalette";
+import type { SlashCommandId } from "@/lib/slash-commands";
 
 interface Props {
   mode: string;
@@ -37,6 +39,7 @@ interface Props {
   setCohostVoice: (v: string) => void;
   handleTextareaSelect: (e: React.SyntheticEvent<HTMLTextAreaElement>) => void;
   onUpgradeRequired?: (feature: string) => void;
+  onSlashCommand?: (id: SlashCommandId) => void;
 }
 
 export function WritePanel({
@@ -46,13 +49,33 @@ export function WritePanel({
   selectedText, setSelectedText, setSelectedRange,
   proseLoading, proseResult, setProseResult, runProse, replaceSelection,
   hookScore, hookScoring, scoreHook,
-  generate, cohostVoice, setCohostVoice, handleTextareaSelect, onUpgradeRequired,
+  generate, cohostVoice, setCohostVoice, handleTextareaSelect, onUpgradeRequired, onSlashCommand,
 }: Props) {
   const saveTimer = useRef<ReturnType<typeof setTimeout>>();
+
+  const [slashOpen, setSlashOpen] = useState(false);
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault();
+        setSlashOpen(true);
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, []);
 
   const handleContentChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const value = e.target.value;
     updateChapter("content", value);
+    const lines = value.split('\n');
+    const lastLine = lines[lines.length - 1];
+    if (lastLine === '/') {
+      updateChapter('content', value.slice(0, -1));
+      setSlashOpen(true);
+      return;
+    }
     clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(async () => {
       if (!activeChap?.id || !project?.id) return;
@@ -148,6 +171,12 @@ export function WritePanel({
           }}>Insert into Chapter</button>
         </div>
       )}
+
+      <SlashCommandPalette
+        open={slashOpen}
+        onClose={() => setSlashOpen(false)}
+        onSelect={(id) => { onSlashCommand?.(id); setSlashOpen(false); }}
+      />
 
       {/* Prompt bar */}
       <div style={{ padding: "12px 16px", borderTop: "1px solid " + co.border, display: "flex", gap: 8, background: co.surface }}>
