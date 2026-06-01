@@ -33,6 +33,22 @@ export interface Chapter {
 
 export interface ReferenceWork { id: string; projectId: string; title: string; attributes: Record<string, string>; }
 
+export type ScenePurpose =
+  | 'plot-advance' | 'character-reveal' | 'relationship-shift'
+  | 'world-reveal' | 'tension-escalation' | 'emotional-payoff'
+  | 'thematic-beat' | 'transition';
+
+export interface Scene {
+  id: string;
+  content: string;
+  purpose: ScenePurpose;
+  pov: string;
+  emotionalTone: string;
+  sortOrder: number;
+  readTime?: number;
+  createdAt: string;
+}
+
 export type KnowledgeState =
   | 'KNOWS' | 'BELIEVES' | 'SUSPECTS'
   | 'IGNORANT' | 'FALSELY_BELIEVES' | 'ACTIVELY_HIDING';

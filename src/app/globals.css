@@ -78,3 +78,41 @@ body {
 ::-webkit-scrollbar { width: 6px; }
 ::-webkit-scrollbar-track { background: var(--color-bg-base); }
 ::-webkit-scrollbar-thumb { background: var(--color-border-default); border-radius: 3px; }
+
+/* ── TipTap Editor ──────────────────────────────────────── */
+.chapter-editor .ProseMirror {
+  outline: none;
+  min-height: calc(100vh - 200px);
+  padding: 48px max(48px, calc((100vw - 680px) / 2));
+  font-size: 17px;
+  line-height: 1.85;
+  font-family: Georgia, "Times New Roman", serif;
+  color: var(--color-text-primary);
+}
+.chapter-editor .ProseMirror p { margin: 0 0 1.2em 0; }
+.chapter-editor .ProseMirror h1,
+.chapter-editor .ProseMirror h2,
+.chapter-editor .ProseMirror h3 {
+  font-family: var(--font-sans, system-ui);
+  font-weight: 600;
+  margin: 1.8em 0 0.6em;
+}
+.chapter-editor .ProseMirror p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  color: var(--color-text-muted);
+  pointer-events: none;
+  height: 0;
+}
+.chapter-editor .ProseMirror .has-focus {
+  border-radius: 3px;
+  box-shadow: 0 0 0 2px rgba(217,119,6,0.2);
+}
+.chapter-editor .ProseMirror mark { background: rgba(217,119,6,0.25); border-radius: 2px; }
+
+/* Scene view */
+.scene-card { border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; margin-bottom: 16px; overflow: hidden; }
+.scene-meta-bar { display: flex; align-items: center; gap: 8px; padding: 8px 12px; background: rgba(255,255,255,0.03); border-bottom: 1px solid rgba(255,255,255,0.06); flex-wrap: wrap; }
+.scene-card .chapter-editor .ProseMirror { min-height: 160px; padding: 24px 32px; font-size: 15px; }
+.add-scene-btn { width: 100%; padding: 12px; border: 1px dashed rgba(255,255,255,0.15); border-radius: 10px; background: transparent; color: rgba(255,255,255,0.4); cursor: pointer; font-size: 13px; }
+.add-scene-btn:hover { border-color: rgba(255,255,255,0.3); color: rgba(255,255,255,0.7); }

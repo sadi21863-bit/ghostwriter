@@ -1,6 +1,5 @@
 "use client";
 import { useRef, useState, useEffect } from "react";
-import { isCreatorFormat } from "@/lib/formats";
 import { getLoadingMessage } from "@/lib/loadingMessages";
 import { co, sInput, sTextarea, sBtn, sBtnSm } from "@/lib/styles";
 import { ProsePanel } from "../tools/ProsePanel";
@@ -12,6 +11,9 @@ import type { SlashCommandId } from "@/lib/slash-commands";
 import { suggestSkill } from "@/lib/ai/skill-router";
 import type { SkillSuggestion } from "@/lib/ai/skill-router";
 import { EMOTIONAL_TONES, ARC_POSITIONS } from "@/lib/arc";
+import { ChapterEditor } from "@/components/editor/ChapterEditor";
+import { SceneView } from "@/components/editor/SceneView";
+import type { Scene } from "@/types";
 
 interface Props {
   mode: string;
@@ -40,7 +42,7 @@ interface Props {
   generate: () => Promise<void>;
   cohostVoice: string;
   setCohostVoice: (v: string) => void;
-  handleTextareaSelect: (e: React.SyntheticEvent<HTMLTextAreaElement>) => void;
+  handleTextareaSelect?: (e: React.SyntheticEvent<HTMLTextAreaElement>) => void;
   onUpgradeRequired?: (feature: string) => void;
   onSlashCommand?: (id: SlashCommandId) => void;
   skillSuggestion?: SkillSuggestion | null;
@@ -56,12 +58,12 @@ export function WritePanel({
   selectedText, setSelectedText, setSelectedRange,
   proseLoading, proseResult, setProseResult, runProse, replaceSelection,
   hookScore, hookScoring, scoreHook,
-  generate, cohostVoice, setCohostVoice, handleTextareaSelect, onUpgradeRequired, onSlashCommand,
+  generate, cohostVoice, setCohostVoice, onUpgradeRequired, onSlashCommand,
   skillSuggestion, onSkillSuggestionChange, onDismissSkillSuggestion, onAcceptSkillSuggestion,
 }: Props) {
   const saveTimer = useRef<ReturnType<typeof setTimeout>>();
-
   const [slashOpen, setSlashOpen] = useState(false);
+  const [viewMode, setViewMode] = useState<'document' | 'scenes'>('document');
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -74,32 +76,6 @@ export function WritePanel({
     return () => window.removeEventListener('keydown', handler);
   }, []);
 
-  const handleContentChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    const value = e.target.value;
-    updateChapter("content", value);
-    const lines = value.split('\n');
-    const lastLine = lines[lines.length - 1];
-    if (lastLine === '/') {
-      updateChapter('content', value.slice(0, -1));
-      setSlashOpen(true);
-      return;
-    }
-    clearTimeout(saveTimer.current);
-    saveTimer.current = setTimeout(async () => {
-      if (!activeChap?.id || !project?.id) return;
-      try {
-        await fetch(
-          `/api/projects/${project.id}/chapters/${activeChap.id}`,
-          {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ content: value }),
-          }
-        );
-      } catch { /* silent — next save will catch it */ }
-    }, 1500);
-  };
-
   const updateArcTag = async (field: 'arcPosition' | 'emotionalTone', value: string) => {
     updateChapter(field, value);
     if (!activeChap?.id || !project?.id) return;
@@ -111,6 +87,44 @@ export function WritePanel({
       });
     } catch { /* silent */ }
   };
+
+  const handleEditorChange = (json: string, wordCount: number) => {
+    updateChapter('content', json);
+    updateChapter('wordCount', wordCount);
+    clearTimeout(saveTimer.current);
+    saveTimer.current = setTimeout(async () => {
+      if (!activeChap?.id || !project?.id) return;
+      try {
+        await fetch(`/api/projects/${project.id}/chapters/${activeChap.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ content: json, wordCount }),
+        });
+      } catch { /* silent */ }
+    }, 1500);
+  };
+
+  const handleScenesChange = (scenes: Scene[]) => {
+    updateChapter('scenes', scenes);
+    clearTimeout(saveTimer.current);
+    saveTimer.current = setTimeout(async () => {
+      if (!activeChap?.id || !project?.id) return;
+      try {
+        await fetch(`/api/projects/${project.id}/chapters/${activeChap.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ scenes }),
+        });
+      } catch { /* silent */ }
+    }, 1500);
+  };
+
+  const viewToggleStyle = (active: boolean): React.CSSProperties => ({
+    padding: '3px 10px', border: 'none', borderRadius: 5, cursor: 'pointer', fontSize: 11,
+    background: active ? co.surface : 'transparent',
+    color: active ? co.text : co.muted,
+    fontWeight: active ? 600 : 400,
+  });
 
   return (
     <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
@@ -137,7 +151,9 @@ export function WritePanel({
               onChange={e => updateChapter("title", e.target.value)}
             />
           </div>
-          <div style={{ display: 'flex', gap: 8, padding: '6px 24px', flexShrink: 0 }}>
+
+          {/* Arc tags + view toggle */}
+          <div style={{ display: 'flex', gap: 8, padding: '6px 24px', flexShrink: 0, alignItems: 'center' }}>
             <select
               value={activeChap.arcPosition ?? ''}
               onChange={e => updateArcTag('arcPosition', e.target.value)}
@@ -154,20 +170,36 @@ export function WritePanel({
               <option value="">Emotional tone...</option>
               {EMOTIONAL_TONES.map(t => <option key={t} value={t}>{t}</option>)}
             </select>
+
+            {/* View toggle */}
+            <div style={{ marginLeft: 'auto', display: 'flex', background: co.surfaceAlt, borderRadius: 6, padding: 2 }}>
+              <button onClick={() => setViewMode('document')} style={viewToggleStyle(viewMode === 'document')}>Document</button>
+              <button onClick={() => setViewMode('scenes')} style={viewToggleStyle(viewMode === 'scenes')}>Scenes</button>
+            </div>
           </div>
+
           {activeChap.summary && (
             <div style={{ margin: "6px 24px", padding: "8px 12px", background: co.accentBg, borderRadius: 8, fontSize: 12, color: co.muted, borderLeft: "3px solid " + co.accent }}>
               <strong style={{ color: co.accent }}>Continuity:</strong> {activeChap.summary}
             </div>
           )}
-          <textarea
-            style={{ flex: 1, background: co.bg, padding: 24, overflow: "auto", fontSize: 15, lineHeight: 1.8, color: co.text, whiteSpace: "pre-wrap", outline: "none", fontFamily: "Georgia,serif", border: "none", resize: "none", boxSizing: "border-box" }}
-            value={activeChap.content}
-            onChange={handleContentChange}
-            onSelect={handleTextareaSelect}
-            onMouseUp={handleTextareaSelect}
-            placeholder="Start writing..."
-          />
+
+          {viewMode === 'document' ? (
+            <ChapterEditor
+              content={activeChap.content ?? ''}
+              onChange={handleEditorChange}
+              placeholder="Begin writing..."
+              autoFocus
+            />
+          ) : (
+            <div style={{ flex: 1, overflow: 'auto', padding: '16px 24px' }}>
+              <SceneView
+                scenes={activeChap.scenes ?? []}
+                characters={project.characters ?? []}
+                onScenesChange={handleScenesChange}
+              />
+            </div>
+          )}
         </div>
       ) : mode === "cohost" ? (
         <div style={{ flex: 1, overflow: "auto", padding: 24 }}>
@@ -273,7 +305,6 @@ export function WritePanel({
             />
         }
 
-        {/* Title Ideas (creator + has prompt + not cohost) */}
         <TitleHookPanel
           format={project.format}
           mode={mode}
@@ -283,7 +314,6 @@ export function WritePanel({
           onUpgradeRequired={onUpgradeRequired}
         />
 
-        {/* Score Hook */}
         <ScoreHookPanel
           format={project.format}
           prompt={prompt}
@@ -292,7 +322,6 @@ export function WritePanel({
           scoreHook={scoreHook}
         />
 
-        {/* Generate button */}
         <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
           <button style={{ ...sBtn, opacity: generating ? 0.5 : 1 }} onClick={generate} disabled={generating}>
             {generating && genTarget === "main" ? getLoadingMessage(mode) : "Generate"}

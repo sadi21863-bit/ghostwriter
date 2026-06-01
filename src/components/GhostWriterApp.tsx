@@ -376,6 +376,7 @@ export default function GhostWriterApp({ projectId }: { projectId: string }) {
       {showExport && (
         <ExportPanel
           projectId={project.id}
+          projectFormat={project.format}
           onClose={() => setShowExport(false)}
         />
       )}

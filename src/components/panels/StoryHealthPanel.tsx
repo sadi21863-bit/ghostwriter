@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import { TensionCurve } from "@/components/TensionCurve";
+import { ArcHeatMap } from "@/components/ArcHeatMap";
 
 const SCENE_PURPOSES = [
   { id: "plot-advance", label: "Plot Advance" },
@@ -32,7 +33,7 @@ interface StoryHealthPanelProps {
 }
 
 export function StoryHealthPanel({ project, projectId, activeChapContent, onClose }: StoryHealthPanelProps) {
-  const [tab, setTab] = useState<"validator" | "dead-scenes" | "theme" | "tension" | "transport" | "promises">("validator");
+  const [tab, setTab] = useState<"validator" | "dead-scenes" | "theme" | "tension" | "transport" | "promises" | "heatmap">("validator");
 
   // Scene Validator state
   const [selectedPurposes, setSelectedPurposes] = useState<string[]>([]);
@@ -227,6 +228,7 @@ export function StoryHealthPanel({ project, projectId, activeChapContent, onClos
             { id: "tension", label: "Tension Curve" },
             { id: "transport", label: "Transportation" },
             { id: "promises", label: "Story Promises" },
+            { id: "heatmap", label: "Arc Heat Map" },
           ] as const).map(t => (
             <button key={t.id} onClick={() => setTab(t.id)} style={tabStyle(tab === t.id)}>{t.label}</button>
           ))}
@@ -626,6 +628,11 @@ export function StoryHealthPanel({ project, projectId, activeChapContent, onClos
                 </div>
               )}
             </div>
+          )}
+
+          {/* ── Arc Heat Map ── */}
+          {tab === "heatmap" && (
+            <ArcHeatMap projectId={projectId} />
           )}
         </div>
       </div>

@@ -31,6 +31,11 @@ export default function Dashboard() {
   const [deleting, setDeleting] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [showImport, setShowImport] = useState(false);
+  const [importFile, setImportFile] = useState<File | null>(null);
+  const [importName, setImportName] = useState("");
+  const [importing, setImporting] = useState(false);
+  const [importMsg, setImportMsg] = useState("");
   const [higgsfieldKeySet, setHiggsfieldKeySet] = useState(false);
   const [higgsfieldKeyLast4, setHiggsfieldKeyLast4] = useState("");
   const [higgsfieldInput, setHiggsfieldInput] = useState("");
@@ -139,6 +144,26 @@ export default function Dashboard() {
     setSettingsSaving(false);
   };
 
+  const handleScrivenerImport = async () => {
+    if (!importFile) return;
+    setImporting(true); setImportMsg('');
+    try {
+      const form = new FormData();
+      form.append('file', importFile);
+      form.append('projectName', importName || importFile.name.replace(/\.(zip|scriv)$/i, ''));
+      const res = await fetch('/api/projects/import/scrivener', { method: 'POST', body: form });
+      const data = await res.json();
+      if (data.error) { setImportMsg(data.error); }
+      else {
+        setShowImport(false);
+        setImportFile(null);
+        setImportName('');
+        router.push('/project/' + data.project.id);
+      }
+    } catch { setImportMsg('Import failed. Try again.'); }
+    setImporting(false);
+  };
+
   const confirmDelete = async () => {
     if (!deleteTarget) return;
     setDeleting(true);
@@ -229,10 +254,16 @@ export default function Dashboard() {
               Your Projects
             </h1>
           </div>
-          <button className="gw-gold-btn" onClick={() => setShowCreate(true)}
-            style={{ background: GW_GOLD, color: "#0d0d10", border: "none", borderRadius: 10, padding: "11px 22px", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "'Figtree', sans-serif", letterSpacing: 0.3 }}>
-            + New Project
-          </button>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button onClick={() => setShowImport(true)}
+              style={{ background: "transparent", color: "#aaa", border: "1px solid " + GW_BORDER, borderRadius: 10, padding: "11px 22px", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "'Figtree', sans-serif" }}>
+              Import Scrivener
+            </button>
+            <button className="gw-gold-btn" onClick={() => setShowCreate(true)}
+              style={{ background: GW_GOLD, color: "#0d0d10", border: "none", borderRadius: 10, padding: "11px 22px", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "'Figtree', sans-serif", letterSpacing: 0.3 }}>
+              + New Project
+            </button>
+          </div>
         </div>
 
         {error && (
@@ -298,6 +329,57 @@ export default function Dashboard() {
       </main>
 
       {showOnboarding && <Onboarding onDismiss={() => setShowOnboarding(false)} />}
+
+      {/* Scrivener Import modal */}
+      {showImport && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 50, padding: "0 16px" }} onClick={() => setShowImport(false)}>
+          <div style={{ background: "#fff", borderRadius: 18, padding: "28px 28px 24px", width: "100%", maxWidth: 440, boxShadow: "0 24px 64px rgba(0,0,0,0.18)" }} onClick={e => e.stopPropagation()}>
+            <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 24, fontWeight: 600, marginBottom: 8, color: "#1a1a1a" }}>Import from Scrivener</div>
+            <p style={{ fontSize: 12, color: "#aaa", marginBottom: 20, lineHeight: 1.6 }}>
+              In Scrivener: <strong>File → Export → Files</strong> → select <strong>RTF</strong> → OK. Zip the exported folder and upload here.
+            </p>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+              <div>
+                <label style={{ display: "block", fontSize: 10, fontWeight: 700, color: "#aaa", textTransform: "uppercase", letterSpacing: 1.2, marginBottom: 6 }}>ZIP File</label>
+                <input
+                  type="file"
+                  accept=".zip"
+                  onChange={e => {
+                    const f = e.target.files?.[0] ?? null;
+                    setImportFile(f);
+                    if (f && !importName) setImportName(f.name.replace(/\.(zip|scriv)$/i, ''));
+                  }}
+                  style={{ fontSize: 12, color: "#888", width: "100%" }}
+                />
+              </div>
+              <div>
+                <label style={{ display: "block", fontSize: 10, fontWeight: 700, color: "#aaa", textTransform: "uppercase", letterSpacing: 1.2, marginBottom: 6 }}>Project Name</label>
+                <input
+                  type="text"
+                  value={importName}
+                  onChange={e => setImportName(e.target.value)}
+                  placeholder="My Novel"
+                  className="gw-modal-input"
+                  style={inputS}
+                />
+              </div>
+              {importMsg && <div style={{ fontSize: 12, color: "#ef4444" }}>{importMsg}</div>}
+            </div>
+
+            <div style={{ display: "flex", gap: 10, marginTop: 20 }}>
+              <button onClick={() => { setShowImport(false); setImportFile(null); setImportName(''); setImportMsg(''); }}
+                style={{ flex: 1, border: "1px solid " + GW_BORDER, background: "#fff", color: "#888", fontWeight: 600, padding: "10px 0", borderRadius: 10, fontSize: 13, cursor: "pointer", fontFamily: "'Figtree', sans-serif" }}>
+                Cancel
+              </button>
+              <button onClick={handleScrivenerImport} disabled={!importFile || importing} className="gw-gold-btn"
+                style={{ flex: 1, background: GW_GOLD, color: "#0d0d10", border: "none", fontWeight: 700, padding: "10px 0", borderRadius: 10, fontSize: 13, cursor: (!importFile || importing) ? "not-allowed" : "pointer", opacity: (!importFile || importing) ? 0.6 : 1, fontFamily: "'Figtree', sans-serif" }}>
+                {importing ? "Importing…" : "Import"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Overlay helper */}
       {(showCreate || showSettings || !!deleteTarget) && (

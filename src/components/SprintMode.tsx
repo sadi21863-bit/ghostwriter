@@ -1,5 +1,7 @@
 'use client';
 import { useState, useEffect, useRef } from 'react';
+import { ChapterEditor } from '@/components/editor/ChapterEditor';
+import { getWordCount } from '@/lib/editor/content-migration';
 
 interface Props {
   content: string;
@@ -10,18 +12,14 @@ interface Props {
 }
 
 export function SprintMode({ content, chapterTitle, projectName, onContentChange, onClose }: Props) {
-  const [localContent, setLocalContent] = useState(content);
   const [wordCount, setWordCount] = useState(0);
   const [sessionWords, setSessionWords] = useState(0);
   const [elapsed, setElapsed] = useState(0);
-  const baselineWords = useRef(content.split(/\s+/).filter(Boolean).length);
   const startTime = useRef(Date.now());
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const baselineWords = useRef(getWordCount(content));
 
   useEffect(() => {
-    textareaRef.current?.focus();
-    const wc = content.split(/\s+/).filter(Boolean).length;
-    setWordCount(wc);
+    setWordCount(getWordCount(content));
     const interval = setInterval(() => {
       setElapsed(Math.floor((Date.now() - startTime.current) / 1000));
     }, 1000);
@@ -36,13 +34,10 @@ export function SprintMode({ content, chapterTitle, projectName, onContentChange
     return () => window.removeEventListener('keydown', handler);
   }, [onClose]);
 
-  const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    const val = e.target.value;
-    setLocalContent(val);
-    const wc = val.split(/\s+/).filter(Boolean).length;
+  const handleChange = (json: string, wc: number) => {
     setWordCount(wc);
     setSessionWords(Math.max(0, wc - baselineWords.current));
-    onContentChange(val);
+    onContentChange(json);
   };
 
   const formatTime = (s: number) => {
@@ -83,26 +78,14 @@ export function SprintMode({ content, chapterTitle, projectName, onContentChange
       </div>
 
       {/* Writing surface */}
-      <textarea
-        ref={textareaRef}
-        value={localContent}
-        onChange={handleChange}
-        style={{
-          flex: 1,
-          resize: 'none',
-          border: 'none',
-          outline: 'none',
-          background: 'transparent',
-          color: '#F2F2F3',
-          fontSize: 17,
-          lineHeight: 1.85,
-          fontFamily: 'Georgia, "Times New Roman", serif',
-          padding: '48px max(48px, calc((100vw - 680px) / 2))',
-          overflowY: 'auto',
-        }}
-        placeholder="Begin writing..."
-        spellCheck
-      />
+      <div style={{ flex: 1, overflow: 'hidden' }}>
+        <ChapterEditor
+          content={content}
+          onChange={handleChange}
+          placeholder="Begin writing..."
+          autoFocus
+        />
+      </div>
     </div>
   );
 }

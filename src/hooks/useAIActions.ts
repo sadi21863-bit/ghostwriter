@@ -25,6 +25,18 @@ import { buildScitechContext } from "@/lib/scitech";
 import { buildEthicsContext } from "@/lib/ethics";
 import { buildEndingsContext } from "@/lib/endings";
 import { buildIsekaiContext } from "@/lib/isekai";
+import { plainTextToTipTap, isValidTipTapJson, getWordCount } from "@/lib/editor/content-migration";
+
+function appendToTipTap(existingContent: string, newText: string): string {
+  const existing = isValidTipTapJson(existingContent)
+    ? JSON.parse(existingContent)
+    : plainTextToTipTap(existingContent);
+  const newDoc = plainTextToTipTap(newText) as any;
+  return JSON.stringify({
+    type: 'doc',
+    content: [...((existing as any).content || []), ...(newDoc.content || [])],
+  });
+}
 
 export function useAIActions({
   project, mode, prompt, activeChap,
@@ -104,8 +116,12 @@ export function useAIActions({
       const r = await callAI("generate", { mode: effectiveMode, prompt: effectivePrompt, context: buildFullContext(), format: effectiveFormat, projectId: project.id, chapterId: activeChap.id });
       if (r.requiresConfirmation) { setViolationBanner({ violationType: r.violationType, flagMessage: r.flagMessage, supportMode: r.supportMode }); }
       else if (r.error === "upgrade_required") { setUpgradeRequired?.(r.feature); }
-      else if (mode === "write") { setUndoStack(s => [...s.slice(-9), activeChap.content]); updateChapter("content", activeChap.content + (activeChap.content ? "\n\n" : "") + r.text); }
-      else setStreamText(r.text);
+      else if (mode === "write") {
+        setUndoStack(s => [...s.slice(-9), activeChap.content]);
+        const merged = appendToTipTap(activeChap.content, r.text);
+        updateChapter("content", merged);
+        updateChapter("wordCount", getWordCount(merged));
+      } else setStreamText(r.text);
     } catch (e) { setErrorMsg("Generation failed. Please try again."); }
     setGenerating(false); setGenTarget("");
   };
@@ -141,7 +157,9 @@ export function useAIActions({
   const usePipelineOutput = (output: string) => {
     if (mode === "write") {
       setUndoStack(s => [...s.slice(-9), activeChap.content]);
-      updateChapter("content", activeChap.content + (activeChap.content ? "\n\n" : "") + output);
+      const merged = appendToTipTap(activeChap.content, output);
+      updateChapter("content", merged);
+      updateChapter("wordCount", getWordCount(merged));
     } else { setStreamText(output); }
     setPipelineResults([]);
   };
@@ -541,8 +559,12 @@ export function useAIActions({
       const effectiveFormat = isCohost ? "Podcast Episode (Co-host)" : project.format;
       const r = await callAI("generate", { mode: effectiveMode, prompt, context: buildFullContext(), format: effectiveFormat, projectId: project.id, chapterId: activeChap.id, bypassViolationCheck: true });
       if (r.error === "upgrade_required") { setUpgradeRequired?.(r.feature); }
-      else if (mode === "write") { setUndoStack(s => [...s.slice(-9), activeChap.content]); updateChapter("content", activeChap.content + (activeChap.content ? "\n\n" : "") + r.text); }
-      else setStreamText(r.text);
+      else if (mode === "write") {
+        setUndoStack(s => [...s.slice(-9), activeChap.content]);
+        const merged2 = appendToTipTap(activeChap.content, r.text);
+        updateChapter("content", merged2);
+        updateChapter("wordCount", getWordCount(merged2));
+      } else setStreamText(r.text);
     } catch { setErrorMsg("Generation failed. Please try again."); }
     setGenerating(false); setGenTarget("");
   };

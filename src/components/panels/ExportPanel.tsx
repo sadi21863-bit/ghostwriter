@@ -1,13 +1,29 @@
 "use client";
 import { useState } from "react";
+import { isStoryFormat } from "@/lib/formats";
 
 interface ExportPanelProps {
   projectId: string;
+  projectFormat?: string;
   onClose: () => void;
 }
 
-export function ExportPanel({ projectId, onClose }: ExportPanelProps) {
-  const [tab, setTab] = useState<"query-letter" | "blurb">("query-letter");
+type ManuscriptFormat = 'docx' | 'md' | 'txt';
+type SerialPlatform = 'generic' | 'wattpad' | 'royalroad' | 'substack';
+
+export function ExportPanel({ projectId, projectFormat = 'Novel', onClose }: ExportPanelProps) {
+  const isStory = isStoryFormat(projectFormat);
+  const [tab, setTab] = useState<"manuscript" | "query-letter" | "blurb" | "web-serial">("manuscript");
+
+  // Manuscript state
+  const [selectedFormats, setSelectedFormats] = useState<ManuscriptFormat[]>(['docx']);
+  const [exporting, setExporting] = useState(false);
+  const [exportError, setExportError] = useState("");
+
+  // Web serial state
+  const [serialPlatform, setSerialPlatform] = useState<SerialPlatform>('generic');
+  const [exportingSerial, setExportingSerial] = useState(false);
+  const [serialError, setSerialError] = useState("");
 
   // Query Letter state
   const [targetAgent, setTargetAgent] = useState("");
@@ -22,6 +38,48 @@ export function ExportPanel({ projectId, onClose }: ExportPanelProps) {
   const [taglines, setTaglines] = useState<string[]>([]);
   const [blurbError, setBlurbError] = useState("");
   const [blurbCopied, setBlurbCopied] = useState(false);
+
+  const handleExport = async () => {
+    setExporting(true); setExportError('');
+    try {
+      const res = await fetch(`/api/projects/${projectId}/export/manuscript`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ formats: selectedFormats }),
+      });
+      if (!res.ok) throw new Error('Export failed');
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = selectedFormats.length === 1
+        ? `manuscript.${selectedFormats[0]}`
+        : 'manuscript.zip';
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch { setExportError('Export failed. Try again.'); }
+    setExporting(false);
+  };
+
+  const handleEpisodePack = async () => {
+    setExportingSerial(true); setSerialError('');
+    try {
+      const res = await fetch(`/api/projects/${projectId}/export/episode-pack`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ platform: serialPlatform }),
+      });
+      if (!res.ok) throw new Error('Export failed');
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'episode_pack.zip';
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch { setSerialError('Export failed. Try again.'); }
+    setExportingSerial(false);
+  };
 
   const generateQueryLetter = async () => {
     setGeneratingQL(true); setQlError(""); setQueryLetter("");
@@ -72,7 +130,7 @@ export function ExportPanel({ projectId, onClose }: ExportPanelProps) {
     background: active ? "#2a2a30" : "transparent", color: active ? "#F2F2F3" : "#9898A6",
   });
 
-  const btn = (loading: boolean, color = "#5b4ccc"): React.CSSProperties => ({
+  const sBtnPrimary = (loading: boolean, color = "#5b4ccc"): React.CSSProperties => ({
     padding: "9px 18px", borderRadius: 8, border: "none", cursor: loading ? "not-allowed" : "pointer",
     background: loading ? "#333" : color, color: "#fff", fontSize: 13, fontWeight: 500,
   });
@@ -80,6 +138,13 @@ export function ExportPanel({ projectId, onClose }: ExportPanelProps) {
   const errorBox = (msg: string) => msg ? (
     <div style={{ padding: "10px 14px", background: "#2a1010", borderRadius: 8, color: "#f87171", fontSize: 13, marginTop: 12 }}>{msg}</div>
   ) : null;
+
+  const tabs = [
+    { id: "manuscript" as const, label: "Manuscript" },
+    { id: "query-letter" as const, label: "Query Letter" },
+    { id: "blurb" as const, label: "Back-Cover Blurb" },
+    ...(isStory && projectFormat === 'Web Series' ? [{ id: "web-serial" as const, label: "Web Serial" }] : []),
+  ];
 
   return (
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1200 }}>
@@ -95,13 +160,81 @@ export function ExportPanel({ projectId, onClose }: ExportPanelProps) {
 
         {/* Tabs */}
         <div style={{ display: "flex", gap: 4, padding: "14px 20px 0", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
-          <button onClick={() => setTab("query-letter")} style={tabStyle(tab === "query-letter")}>Query Letter</button>
-          <button onClick={() => setTab("blurb")} style={tabStyle(tab === "blurb")}>Back-Cover Blurb</button>
+          {tabs.map(t => (
+            <button key={t.id} onClick={() => setTab(t.id)} style={tabStyle(tab === t.id)}>{t.label}</button>
+          ))}
         </div>
 
         {/* Content */}
         <div style={{ flex: 1, overflowY: "auto", padding: "20px" }}>
 
+          {/* ── Manuscript ── */}
+          {tab === "manuscript" && (
+            <div>
+              <p style={{ fontSize: 12, color: '#9898A6', marginBottom: 16 }}>
+                Export your full manuscript. Select formats:
+              </p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 16 }}>
+                {([
+                  { id: 'docx' as const, label: 'Word Document (.docx)', desc: 'Standard manuscript format, double-spaced' },
+                  { id: 'md' as const,   label: 'Markdown (.md)',        desc: 'Clean prose, chapter headings, portable' },
+                  { id: 'txt' as const,  label: 'Plain text (.txt)',     desc: 'Maximum compatibility' },
+                ]).map(fmt => (
+                  <label key={fmt.id} style={{ display: 'flex', gap: 10, alignItems: 'flex-start', cursor: 'pointer' }}>
+                    <input
+                      type="checkbox"
+                      checked={selectedFormats.includes(fmt.id)}
+                      onChange={e => setSelectedFormats(prev =>
+                        e.target.checked ? [...prev, fmt.id] : prev.filter(f => f !== fmt.id)
+                      )}
+                      style={{ marginTop: 3 }}
+                    />
+                    <div>
+                      <div style={{ fontSize: 13, fontWeight: 500, color: '#F2F2F3' }}>{fmt.label}</div>
+                      <div style={{ fontSize: 11, color: '#9898A6' }}>{fmt.desc}</div>
+                    </div>
+                  </label>
+                ))}
+              </div>
+              <button
+                onClick={handleExport}
+                disabled={selectedFormats.length === 0 || exporting}
+                style={sBtnPrimary(exporting)}
+              >
+                {exporting ? 'Generating...' : `Export ${selectedFormats.length > 1 ? 'as ZIP' : selectedFormats[0]?.toUpperCase()}`}
+              </button>
+              {errorBox(exportError)}
+              <p style={{ fontSize: 11, color: '#9898A6', marginTop: 12 }}>
+                PDF: use your browser&apos;s Print → Save as PDF for formatted output.
+              </p>
+            </div>
+          )}
+
+          {/* ── Web Serial ── */}
+          {tab === "web-serial" && (
+            <div>
+              <p style={{ fontSize: 12, color: '#9898A6', marginBottom: 16 }}>
+                Export an episode pack for web serial publishing.
+              </p>
+              <label style={{ fontSize: 13, marginBottom: 8, display: 'block', color: '#F2F2F3' }}>Platform:</label>
+              <select
+                value={serialPlatform}
+                onChange={e => setSerialPlatform(e.target.value as SerialPlatform)}
+                style={{ ...darkInput, marginBottom: 12, cursor: 'pointer' }}
+              >
+                <option value="generic">Generic</option>
+                <option value="wattpad">Wattpad</option>
+                <option value="royalroad">Royal Road</option>
+                <option value="substack">Substack</option>
+              </select>
+              <button onClick={handleEpisodePack} disabled={exportingSerial} style={sBtnPrimary(exportingSerial)}>
+                {exportingSerial ? 'Generating...' : 'Export Episode Pack'}
+              </button>
+              {errorBox(serialError)}
+            </div>
+          )}
+
+          {/* ── Query Letter ── */}
           {tab === "query-letter" && (
             <div>
               <p style={{ fontSize: 13, color: "#9898A6", margin: "0 0 14px" }}>
@@ -113,7 +246,7 @@ export function ExportPanel({ projectId, onClose }: ExportPanelProps) {
                 placeholder="Target agent name (optional — e.g. Janet Reid, Joanna Volpe)"
                 style={{ ...darkInput, marginBottom: 12 }}
               />
-              <button onClick={generateQueryLetter} disabled={generatingQL} style={btn(generatingQL)}>
+              <button onClick={generateQueryLetter} disabled={generatingQL} style={sBtnPrimary(generatingQL)}>
                 {generatingQL ? "Generating…" : "Generate Query Letter"}
               </button>
               {errorBox(qlError)}
@@ -132,12 +265,13 @@ export function ExportPanel({ projectId, onClose }: ExportPanelProps) {
             </div>
           )}
 
+          {/* ── Blurb ── */}
           {tab === "blurb" && (
             <div>
               <p style={{ fontSize: 13, color: "#9898A6", margin: "0 0 14px" }}>
                 150-word back-cover blurb + 3 tagline variants using genre-specific blurb conventions.
               </p>
-              <button onClick={generateBlurb} disabled={generatingBlurb} style={btn(generatingBlurb)}>
+              <button onClick={generateBlurb} disabled={generatingBlurb} style={sBtnPrimary(generatingBlurb)}>
                 {generatingBlurb ? "Generating…" : "Generate Blurb & Taglines"}
               </button>
               {errorBox(blurbError)}

@@ -16,13 +16,14 @@ export interface ResearchResult {
 export async function researchWorkPacket(title: string, medium?: string): Promise<ResearchResult> {
   const client = new Anthropic();
 
-  // Step 1 — Identify and verify the work
+  // Step 1 — Identify and verify the work (with web search for obscure/recent works)
   const identifyResponse = await client.messages.create({
     model: 'claude-sonnet-4-20250514',
-    max_tokens: 800,
+    max_tokens: 1000,
+    tools: [{ type: 'web_search_20250305' as any, name: 'web_search' }],
     messages: [{
       role: 'user',
-      content: `Identify the creative work titled "${title}"${medium ? ` (${medium})` : ''}. Provide: creator name, year, medium/format, genres, and a one-sentence thematic core. Be specific — I need the actual work, not a description of similar works.`,
+      content: `Search for "${title}"${medium ? ` (${medium})` : ''} and identify: full title, creator/director/author, year of release, medium/format, primary genres, and a one-sentence thematic core. I need the actual creative work, not a description of similar works.`,
     }],
   });
 

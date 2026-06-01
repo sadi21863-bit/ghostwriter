@@ -16,6 +16,17 @@ export const ARC_POSITIONS = [
   'Denouement',
 ] as const;
 
+export const SCENE_PURPOSES: Record<string, string> = {
+  'plot-advance':       'Plot Advance',
+  'character-reveal':   'Character Reveal',
+  'relationship-shift': 'Relationship Shift',
+  'world-reveal':       'World Reveal',
+  'tension-escalation': 'Tension Escalation',
+  'emotional-payoff':   'Emotional Payoff',
+  'thematic-beat':      'Thematic Beat',
+  'transition':         'Transition',
+};
+
 export const ARC_POSITION_DIRECTIVES: Record<string, string> = {
   'Status Quo':              'The story has not yet broken. Write the world as it is — but seed the instability that will shatter it.',
   'Inciting Incident':       'Something irreversible just happened or is happening. The old normal is ending. The character does not yet know the full consequence.',

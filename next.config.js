@@ -1,6 +1,6 @@
 /** @type {import('next').NextConfig} */
 module.exports = {
-  experimental: {
-    serverComponentsExternalPackages: ['@neondatabase/serverless'],
-  },
+  // Prevent @neondatabase/serverless from being bundled
+  // Requires DATABASE_URL at build time — set in Vercel + use copy .env.local .env locally
+  serverExternalPackages: ['@neondatabase/serverless'],
 };
