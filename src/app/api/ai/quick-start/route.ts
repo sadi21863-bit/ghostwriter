@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getRequiredSession } from "@/lib/auth-helpers";
 import { checkAiRateLimit } from "@/lib/ratelimit";
-import { generateQuickStory, generateBeginnerCharacters, generateEntity } from "@/lib/ai/engine";
+import { generateQuickStory, generateBeginnerCharacters, generateEntity, bootstrapCharacterIntelligence } from "@/lib/ai/engine";
 import { db } from "@/db";
 import { projects, characters, locations, plotThreads } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
@@ -22,9 +22,10 @@ export async function POST(req: NextRequest) {
         const skeleton = await generateQuickStory(title, format, genres);
 
         // Create characters from skeleton
+        const createdCharacters: { id: string; name: string; role: string; age: string; personality: string }[] = [];
         if (skeleton.characters && Array.isArray(skeleton.characters)) {
             for (const char of skeleton.characters) {
-                await db.insert(characters).values({
+                const [inserted] = await db.insert(characters).values({
                     projectId,
                     name: char.name || "Unnamed Character",
                     role: char.role || "",
@@ -40,8 +41,22 @@ export async function POST(req: NextRequest) {
                     backstory: "",
                     arc: "",
                     sortOrder: 0,
-                });
+                }).returning();
+                if (inserted) createdCharacters.push({ id: inserted.id, name: char.name, role: char.role || "", age: char.age || "", personality: char.personality || "" });
             }
+        }
+
+        // Bootstrap intelligence async — fires in background, does not block response
+        const primaryGenre = (genres || [])[0] ?? '';
+        for (const char of createdCharacters) {
+            bootstrapCharacterIntelligence(char, primaryGenre, format)
+                .then(async (intelligence) => {
+                    if (Object.keys(intelligence).length === 0) return;
+                    await db.update(characters)
+                        .set(intelligence as any)
+                        .where(eq(characters.id, char.id));
+                })
+                .catch(err => console.error('[bootstrap] Failed for', char.name, err));
         }
 
         // Create locations from skeleton

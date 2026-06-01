@@ -586,6 +586,35 @@ export default function WorldBiblePanel(props: Props) {
                       </div>
                     </label>
                   )}
+                  {isStoryFormat(project.format) && (
+                    <div style={{ marginTop: 10 }}>
+                      <div style={{ marginBottom: 8 }}>
+                        <span style={{ fontSize: 10, color: co.muted, display: "block", marginBottom: 2 }}>Narrator Voice</span>
+                        <textarea
+                          value={(project as any).narratorVoice ?? ''}
+                          onChange={e => updateProject((p: any) => ({ ...p, narratorVoice: e.target.value }))}
+                          placeholder={"What does this narrator notice that others don't? What do they refuse to sentimentalize?\ne.g. 'The narrator finds comedy in failure, beauty in obstinacy, and is deeply suspicious of clean resolution.'"}
+                          rows={3}
+                          style={{ ...sTextarea, fontSize: 11 }}
+                        />
+                        <span style={{ fontSize: 10, color: co.muted }}>The authorial lens — distinct from character voice or style.</span>
+                      </div>
+                      <div>
+                        <span style={{ fontSize: 10, color: co.muted, display: "block", marginBottom: 2 }}>Narrative Structure</span>
+                        <select
+                          value={(project as any).narrativeStructure ?? 'linear'}
+                          onChange={e => updateProject((p: any) => ({ ...p, narrativeStructure: e.target.value }))}
+                          style={{ ...sInput, fontSize: 11 }}
+                        >
+                          <option value="linear">Linear — straightforward chronological narrative</option>
+                          <option value="frame">Frame Narrative — outer narrator telling inner story</option>
+                          <option value="stories-within-stories">Stories Within Stories — recursive, Mahabharata structure</option>
+                          <option value="multi-timeline">Multi-Timeline — parallel narratives that rhyme thematically</option>
+                          <option value="epistolary">Epistolary — letters, diaries, documents the reader assembles</option>
+                        </select>
+                      </div>
+                    </div>
+                  )}
                 </div>
                 {isCreatorFormat(project.format) ? (
                   <>
@@ -1449,6 +1478,38 @@ export default function WorldBiblePanel(props: Props) {
                     <textarea style={{ ...sTextarea, fontSize: 11 }} rows={3} value={data.culturalWorldview || ""}
                       onChange={(e: any) => setData((d: any) => ({ ...d, culturalWorldview: e.target.value }))}
                       placeholder="How does this character's background shape HOW they think? e.g. 'Grew up in a caste society. Assumes hierarchy is natural. Interprets resistance as personal offense.'" />
+                  </div>
+                </div>
+              </details>
+
+              {/* ── STORY ENGINE ──────────────────────────────────────── */}
+              <details style={{ marginTop: 12, borderTop: "1px solid " + co.border, paddingTop: 12 }}>
+                <summary style={{ fontSize: 12, fontWeight: 700, color: co.accent, cursor: "pointer", userSelect: "none", marginBottom: 10, listStyle: "none" }}>
+                  ▶ Story Engine
+                </summary>
+                <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 8 }}>
+                  <div style={{ fontSize: 11, color: co.muted, marginBottom: 4 }}>
+                    Want drives plot. Need drives theme. They must oppose each other.
+                  </div>
+                  <div>
+                    <span style={{ fontSize: 10, color: co.muted, display: "block", marginBottom: 2 }}>What they WANT</span>
+                    <input style={sInput} value={data.characterWant || ""} onChange={(e: any) => setData((d: any) => ({ ...d, characterWant: e.target.value }))} placeholder="External goal they consciously pursue. Plot engine." />
+                  </div>
+                  <div>
+                    <span style={{ fontSize: 10, color: co.muted, display: "block", marginBottom: 2 }}>What they NEED</span>
+                    <input style={sInput} value={data.characterNeed || ""} onChange={(e: any) => setData((d: any) => ({ ...d, characterNeed: e.target.value }))} placeholder="Internal truth they unconsciously resist. Theme engine." />
+                  </div>
+                  <div>
+                    <span style={{ fontSize: 10, color: co.muted, display: "block", marginBottom: 2 }}>Core Contradiction</span>
+                    <input style={sInput} value={data.contradiction || ""} onChange={(e: any) => setData((d: any) => ({ ...d, contradiction: e.target.value }))} placeholder="e.g. 'Wants control but is helpless against tenderness'" />
+                  </div>
+                  <div>
+                    <span style={{ fontSize: 10, color: co.muted, display: "block", marginBottom: 2 }}>Narrator Blind Spot</span>
+                    <textarea style={{ ...sTextarea, fontSize: 11 }} rows={2} value={data.narratorBlindSpot || ""} onChange={(e: any) => setData((d: any) => ({ ...d, narratorBlindSpot: e.target.value }))} placeholder="What can this character NOT see about themselves?" />
+                  </div>
+                  <div>
+                    <span style={{ fontSize: 10, color: co.muted, display: "block", marginBottom: 2 }}>First Impression</span>
+                    <textarea style={{ ...sTextarea, fontSize: 11 }} rows={2} value={data.firstImpressionNote || ""} onChange={(e: any) => setData((d: any) => ({ ...d, firstImpressionNote: e.target.value }))} placeholder="The small human moment in their first scene — not heroism, humanity." />
                   </div>
                 </div>
               </details>

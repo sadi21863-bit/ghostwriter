@@ -78,7 +78,25 @@ function scoredMemories(
     .slice(0, 8);
 }
 
-export function buildContext(p: ContextProject): string {
+const NARRATIVE_STRUCTURE_DIRECTIVES: Record<string, string> = {
+  'frame': `FRAME NARRATIVE: This story has an outer narrator and an inner story. These are two distinct voices with a specific temporal and emotional relationship. The outer narrator has survived the inner story — they know how it ends. Their intrusions, hesitations, selections, and omissions are meaningful. What they choose to tell and when reveals something about their present situation they cannot say directly.`,
+  'stories-within-stories': `NARRATIVE RECURSION (Mahabharata structure): This story contains stories within stories. The outer narrative and inner narratives are not decoration for each other — each inner story is chosen because it illuminates something about the outer narrative's situation that cannot be said directly. The selection of which inner story to tell, and the timing of its telling, is itself a narrative act. Write the frame and the inner stories as voices with different temporal relationships to the events. The meaning of the inner story changes depending on where in the outer frame it appears.`,
+  'multi-timeline': `MULTI-TIMELINE STRUCTURE: Parallel narrative threads that are thematically linked but temporally separate. Each timeline illuminates the others. What is mystery in one timeline becomes context in another. Write each timeline with its own voice and rhythm — they should feel like the same story told at different speeds or from different altitudes. The resonances between them are the meaning.`,
+  'epistolary': `EPISTOLARY STRUCTURE: This story emerges from accumulated documents — letters, diary entries, transcripts, records. Each document has a specific writer, a specific intended reader, and a specific context that shapes what is said and what is omitted. The gap between what each writer believes and what the reader can see from the accumulated record is where the story lives. Write each document as an act of communication, not as narration.`,
+};
+
+const GENRE_CONTRACTS: Partial<Record<string, string>> = {
+  'Horror': 'OPENING PROMISE (Horror): This is your first chapter. Establish the world as it should be — then crack it. Something must be wrong before this chapter ends. Not stated: felt. The character\'s body registers the wrongness before their mind does. Plant the specific unease that the rest of the story will make literal.',
+  'Romance': 'OPENING PROMISE (Romance): This is your first chapter. The protagonist is incomplete in a specific way that another person could fill — but show the absence, not the longing. Plant the emotional vacancy before introducing what could fill it. The reader must feel what is missing before they see who might provide it.',
+  'Mystery': 'OPENING PROMISE (Mystery): This is your first chapter. Create one question the reader cannot stop themselves from needing answered. The mystery does not have to be named — it must be felt. Plant a specific detail that will be significant later. Do not signal it.',
+  'Thriller': 'OPENING PROMISE (Thriller): This is your first chapter. Establish what the protagonist has to lose before any threat arrives. The threat only matters relative to what can be destroyed. Show us the thing they love before you endanger it.',
+  'Fantasy': 'OPENING PROMISE (Fantasy): This is your first chapter. Establish one rule of this world through action, not exposition. The reader should understand something about how this world works by what happens — not by what is explained.',
+  'Sci-Fi': 'OPENING PROMISE (Sci-Fi): This is your first chapter. Anchor the extraordinary in the specific ordinary. The technology or science must be felt through a human problem, not introduced as information.',
+  'Literary Fiction': 'OPENING PROMISE (Literary Fiction): This is your first chapter. The theme of this story should be gestured toward obliquely — through image, action, or a specific detail that will resonate differently when the reader reaches the end. Do not state the theme. Embody it.',
+  'Drama': 'OPENING PROMISE (Drama): This is your first chapter. Establish the specific tension in the protagonist\'s world — not the external conflict but the internal one they\'ve been living with. Something has been wrong for a long time. This chapter is where it becomes impossible to ignore.',
+};
+
+export function buildStaticContext(p: ContextProject): string {
   const r: string[] = [];
 
   // ── ACTIVE INFLUENCE ───────────────────────────────────────────────────────
@@ -113,6 +131,27 @@ export function buildContext(p: ContextProject): string {
     );
   }
 
+  // ── CONTROLLING IDEA ──────────────────────────────────────────────────────
+  if ((p as any).controllingIdea?.trim()) {
+    r.push(`CONTROLLING IDEA: This story argues — "${(p as any).controllingIdea}"`);
+    r.push('Every scene either advances this argument or deliberately complicates it before the resolution. Write consistent with this thematic spine. Do not resolve what the story intends to keep open. The antagonist challenges this argument — they should be right about parts of it.');
+    r.push('');
+  }
+
+  // ── NARRATOR VOICE ────────────────────────────────────────────────────────
+  if ((p as any).narratorVoice?.trim()) {
+    r.push(`NARRATOR VOICE: ${(p as any).narratorVoice}`);
+    r.push('Apply this lens to every sentence: what the narrator notices, what they find significant, what they refuse to sentimentalize, what they cannot help lingering on. This is not style — it is worldview. It should be present even in action scenes.');
+    r.push('');
+  }
+
+  // ── NARRATIVE STRUCTURE ───────────────────────────────────────────────────
+  const structure = (p as any).narrativeStructure;
+  if (structure && structure !== 'linear' && NARRATIVE_STRUCTURE_DIRECTIVES[structure]) {
+    r.push(NARRATIVE_STRUCTURE_DIRECTIVES[structure]);
+    r.push('');
+  }
+
   r.push("PROJECT: " + p.name + " | " + p.format + " | " + (p.genres || []).join(", "));
 
   if (p.referenceWorks?.length) {
@@ -132,6 +171,7 @@ export function buildContext(p: ContextProject): string {
 
   if (p.characters?.length) {
     r.push("CHARACTERS:");
+    const activeIdx = p.chapters?.findIndex((ch: any) => ch.id === p.activeChapter) ?? 0;
     p.characters.forEach((c: Character) => {
       if (c.alwaysInContext === false) {
         r.push("- " + c.name + (c.role ? " (" + c.role + ", minor)" : " (minor)"));
@@ -145,10 +185,29 @@ export function buildContext(p: ContextProject): string {
       if (c.behavior)      parts.push("  Behavior: " + c.behavior);
       if (c.habits)        parts.push("  Habits: " + c.habits);
       if (c.speechPattern) parts.push("  Speech: " + c.speechPattern);
-      if (c.fears)         parts.push("  Fears: " + c.fears);
-      if (c.desires)       parts.push("  Desires: " + c.desires);
       if (c.arc)           parts.push("  Arc: " + c.arc);
-      if (c.backstory)     parts.push("  Backstory: " + c.backstory);
+
+      // ── BACKSTORY AS BEHAVIOR ──────────────────────────────────────────────
+      if (c.backstory) {
+        parts.push(`  BACKSTORY (do not state — embody): ${c.backstory}`);
+        parts.push('  This is not information to be explained — it is the sediment that produces behavior. Show it through reflex, avoidance, the things this character does automatically without knowing why. The reader must sense the history, never be told it.');
+      }
+
+      // ── WANT / NEED STRUCTURAL ENGINE ─────────────────────────────────────
+      if ((c as any).characterWant && (c as any).characterNeed) {
+        parts.push(`  WANT: ${(c as any).characterWant} — this is what they actively pursue. Every scene, they are moving toward this, even obliquely.`);
+        parts.push(`  NEED: ${(c as any).characterNeed} — this is the truth they resist. The story is the collision between want and need. They cannot get what they want without confronting what they need.`);
+      } else {
+        if (c.fears)   parts.push(`  Fears: ${c.fears}`);
+        if (c.desires) parts.push(`  Desires: ${c.desires}`);
+      }
+
+      // ── CORE CONTRADICTION ────────────────────────────────────────────────
+      if ((c as any).contradiction?.trim()) {
+        parts.push(`  DEFINING CONTRADICTION: ${(c as any).contradiction}`);
+        parts.push('  Write behavior that expresses both sides of this tension — never resolving it cleanly. This contradiction is not a flaw to be overcome. It is what makes this character human.');
+      }
+
       if (c.linkedLocationIds?.length) {
         const linked = p.locations?.filter((l: Location) => c.linkedLocationIds.includes(l.id));
         if (linked?.length) parts.push("  Frequent locations: " + linked.map((l: Location) => l.name).join(", "));
@@ -378,6 +437,18 @@ export function buildContext(p: ContextProject): string {
         parts.push('  ' + wlParts.join(' '));
       }
 
+      // ── NARRATOR BLIND SPOT ──────────────────────────────────────────────────
+      if ((c as any).narratorBlindSpot?.trim()) {
+        parts.push(`  NARRATOR BLIND SPOT: ${(c as any).narratorBlindSpot}`);
+        parts.push(`  When narrating from ${c.name}'s perspective: they believe they understand their own motivations clearly. They are wrong about this specific thing. Write from inside their confidence while making the gap visible to the reader through what they don't mention, what they describe without understanding, what they explain away too quickly.`);
+      }
+
+      // ── FIRST IMPRESSION NOTE (Chapter 1 only) ────────────────────────────
+      if (activeIdx === 0 && (c as any).firstImpressionNote?.trim()) {
+        parts.push(`  FIRST APPEARANCE: ${(c as any).firstImpressionNote}`);
+        parts.push('  This is the first time the reader meets this character. Before plot, before conflict — show this specific moment. It must earn the reader\'s investment. Not heroism. Humanity.');
+      }
+
       // Intelligence profile
       const ip: Record<string, any> = (c as any).intelligenceProfile ?? {};
       if (ip.dominant?.length) {
@@ -414,6 +485,16 @@ export function buildContext(p: ContextProject): string {
         const type = (c as any).antagonistType;
         if (type && typeMap[type]) parts.push("  " + typeMap[type]);
         parts.push("  VILLAIN PERSPECTIVE RULE: In any scene from this character's POV, the protagonist must appear as an obstacle to a comprehensible goal — not as the hero and this character as villain. The antagonist does not experience themselves as the antagonist.");
+
+        if ((c as any).selfJustificationPattern?.trim()) {
+          parts.push(`  SELF-JUSTIFICATION: ${(c as any).selfJustificationPattern}`);
+          parts.push('  This is how this character explains their own actions to themselves. They are not lying — they genuinely believe this framing. Write their internal logic as coherent from inside their worldview.');
+        }
+        if ((c as any).moralFoundationProfile?.trim()) {
+          parts.push(`  MORAL FOUNDATION: ${(c as any).moralFoundationProfile}`);
+          parts.push('  This is the moral reasoning system they operate within. It has internal consistency. Where it conflicts with the protagonist\'s moral foundation is where the story\'s central argument lives.');
+        }
+        parts.push(`  COUNTER-ARGUMENT RULE: This character's worldview is a legitimate argument against what the protagonist believes. In every confrontation, they should be winning that argument until the moment they aren't. The protagonist's victory should cost something and require genuinely grappling with the antagonist's position.`);
       }
       r.push(parts.join("\n"));
     });
@@ -509,6 +590,12 @@ export function buildContext(p: ContextProject): string {
     });
   }
 
+  return r.join("\n");
+}
+
+export function buildDynamicContext(p: ContextProject): string {
+  const r: string[] = [];
+
   if (p.storyMemories?.length) {
     const salient = scoredMemories(p.storyMemories, p.chapters ?? [], p.activeChapter ?? "");
     r.push("ESTABLISHED FACTS (do not contradict these):");
@@ -541,6 +628,18 @@ export function buildContext(p: ContextProject): string {
     if (arcParts.length > 0) r.push(arcParts.join(' '));
   }
 
+  // ── GENRE CONTRACT — Chapter 1 only ──────────────────────────────────────
+  const activeIdx = p.chapters?.findIndex((ch: any) => ch.id === p.activeChapter) ?? 0;
+  if (activeIdx === 0) {
+    const primaryGenre = (p.genres as string[] ?? [])[0];
+    const contract = GENRE_CONTRACTS[primaryGenre];
+    if (contract) {
+      r.push('');
+      r.push(contract);
+    }
+    r.push('OPENING QUESTION: The first chapter must plant one question the reader needs answered. Not the plot question — the human question. Something about a person, not about what happens next.');
+  }
+
   // ── PROFESSIONAL ACCURACY INJECTION ───────────────────────────────────────
   const prompt = p.currentPrompt ?? '';
   const genres: string[] = (p as any).genres ?? [];
@@ -559,6 +658,10 @@ export function buildContext(p: ContextProject): string {
   }
 
   return r.join("\n");
+}
+
+export function buildContext(p: ContextProject): string {
+  return buildStaticContext(p) + "\n" + buildDynamicContext(p);
 }
 
 export function buildCreatorContext(p: ContextProject): string {

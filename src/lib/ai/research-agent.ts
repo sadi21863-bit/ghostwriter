@@ -17,8 +17,9 @@ export async function researchWorkPacket(title: string, medium?: string): Promis
   const client = new Anthropic();
 
   // Step 1 — Identify and verify the work (with web search for obscure/recent works)
+  const { MODELS } = await import('@/lib/ai/engine');
   const identifyResponse = await client.messages.create({
-    model: 'claude-sonnet-4-20250514',
+    model: MODELS.quality,
     max_tokens: 1000,
     tools: [{ type: 'web_search_20250305' as any, name: 'web_search' }],
     messages: [{
@@ -32,7 +33,7 @@ export async function researchWorkPacket(title: string, medium?: string): Promis
 
   // Step 2 — Craft analysis
   const craftResponse = await client.messages.create({
-    model: 'claude-sonnet-4-20250514',
+    model: MODELS.quality,
     max_tokens: 2000,
     system: `You are a craft analyst extracting actionable writing principles from creative works.
 Your output must be: specific, example-grounded, and applicable to fiction writing.

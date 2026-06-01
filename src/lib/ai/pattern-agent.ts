@@ -23,8 +23,9 @@ export async function generatePatterns(packets: PacketForPattern[]): Promise<{
     `WORK: ${p.title} (${p.medium}) — ${p.thematicCore}\nPRINCIPLES: ${p.craftPrinciples.map(c => c.principle).join('; ')}`
   ).join('\n\n');
 
+  const { MODELS } = await import('@/lib/ai/engine');
   const response = await client.messages.create({
-    model: 'claude-opus-4-20250514',
+    model: MODELS.quality,
     max_tokens: 3000,
     system: `You are a cross-media narrative analyst. Your job is to identify craft patterns
 that appear across multiple creative works — structures, techniques, and conventions

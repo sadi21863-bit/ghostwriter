@@ -16,6 +16,30 @@ import { ENDINGS_SYSTEM_PROMPT } from "@/lib/endings";
 import { ISEKAI_SYSTEM_PROMPT } from "@/lib/isekai";
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! });
 
+export const MODELS = {
+  fast:    'claude-haiku-4-5-20251001',
+  default: 'claude-sonnet-4-6',
+  quality: 'claude-opus-4-6',
+} as const;
+
+const QUALITY_MODES = new Set([
+  'write', 'dialogue', 'combat', 'emotional', 'atmosphere', 'tension',
+  'horror', 'comedy', 'mystery', 'romance', 'action', 'monologue',
+  'voice', 'thriller', 'sports', 'setting', 'historical', 'scitech',
+  'ethics', 'endings', 'isekai', 'composition',
+]);
+
+function getNarrativeStructureInstruction(structure?: string): string {
+  if (!structure || structure === 'linear') return '';
+  const instructions: Record<string, string> = {
+    'frame': '\n\nFRAME NARRATIVE MODE: Maintain awareness of both the outer narrator and the inner story. The outer narrator\'s voice should inflect even the inner story\'s prose — their temporal distance is audible.',
+    'stories-within-stories': '\n\nNARRATIVE RECURSION MODE: The inner story you are currently writing is being told by a teller with a specific situation. Write with awareness of what the teller is trying to work through by telling this story.',
+    'multi-timeline': '\n\nMULTI-TIMELINE MODE: This scene belongs to one timeline. Write its voice and rhythm distinctly. The thematic resonances with other timelines should operate beneath the surface — not referenced explicitly.',
+    'epistolary': '\n\nEPISTOLARY MODE: This is a document — a letter, diary entry, or record. Write it as communication to a specific recipient, with all the omissions, self-presentations, and asides that implies.',
+  };
+  return instructions[structure] ?? '';
+}
+
 function safeParseJson(raw: string) {
   const clean = raw.replace(/```json\n?|```/g, "").trim();
   try { return JSON.parse(clean); } catch { return {}; }
@@ -177,7 +201,23 @@ FAILURE MODES TO AVOID:
 const MI = {
   brainstorm: (_f: string) => `You are a creative brainstorming partner for writers. Generate specific, surprising, and vivid ideas. Avoid clichés. Every idea must be concrete and actionable — not "a mysterious stranger" but "a tax auditor who moonlights as a forger." Push beyond the obvious. Match the genre, tone, and style established in the project context — brainstorm ideas that fit this specific world, not generic ones.`,
   outline: (f: string) => `You are a structural editor for ${f} writing. Create tight, purposeful outlines where every scene advances character, plot, or both. Identify turning points explicitly. Show the cause-and-effect chain between events. Label each beat with its structural function (inciting incident, midpoint shift, dark night, climax). Match the established tone and genre from the project context. Be specific — no vague placeholders.`,
-  write: (f: string) => `You are a ghostwriter producing ${f} content. Match the established voice and style exactly. Every scene must open with orientation (who, where, when) within the first two sentences. Show character emotion through physical action and specific detail — never name emotions directly. Maintain continuity with all established facts. End scenes on tension, decision, or revelation — never neutral ground.`,
+  write: (f: string) => `You are a ghostwriter producing ${f} content.
+
+VOICE & STYLE: Match the established voice and style exactly. The narrator voice and controlling idea in the context are your compass — apply them to every sentence.
+
+SHOW, DON'T STATE: Show character emotion through physical action, specific detail, and NVC baselines — never name emotions directly. The reader arrives at the emotion through evidence.
+
+THE ICEBERG RULE: You have been given complete information about every character and the world. Use it to make choices — what they notice, how they move, what they avoid. Do not state it. One specific detail is worth more than ten explained ones. The reader senses depth without being given it.
+
+ENTER LATE, LEAVE EARLY: Enter each scene after it has already begun. Leave before full resolution. Cut on the decision or the action that implies outcome — let the reader's imagination supply the rest.
+
+THE ACTIVE PROTAGONIST: The protagonist makes choices they didn't have to make. The story is built from decisions, not events. What would the easier version of this character have done? Write the harder choice.
+
+THE LAST LINE: The final line of this output should not summarize or resolve. It should either plant a question without asking it, reframe what came before, or close emotion while opening narrative tension.
+
+TRUST THE READER: Be deliberately incomplete. Plant evidence; don't explain it. The reader assembles meaning — that assembly is the experience. Do not over-explain. Do not resolve what is better left resonant.
+
+CONTINUITY: Maintain all established facts. End scenes on tension, decision, or revelation — never neutral ground.`,
   dialogue:    (_f: string) => DIALOGUE_SYSTEM_PROMPT,
   combat:      (_f: string) => COMBAT_SYSTEM_PROMPT,
   emotional:   (_f: string) => EMOTIONAL_SYSTEM_PROMPT,
@@ -274,26 +314,92 @@ Co-host voice options:
   enthusiastic_newcomer — expresses surprise, asks for clarification`,
 };
 
-export async function generate({ mode, prompt, context, format, maxTokens = 4000 }: {
-  mode: string; prompt: string; context: string; format: string; maxTokens?: number;
+export async function generate({ mode, prompt, context, staticContext, dynamicContext, format, maxTokens = 4000, narrativeStructure }: {
+  mode: string; prompt: string;
+  context?: string;
+  staticContext?: string; dynamicContext?: string;
+  format: string; maxTokens?: number;
+  narrativeStructure?: string;
 }) {
+  const model = QUALITY_MODES.has(mode) ? MODELS.quality : MODELS.default;
   const formatRules = FORMAT_RULES[format]
     ? "\n\n" + FORMAT_RULES[format]
     : STORY_FORMAT_RULES[format]
     ? "\n\n" + STORY_FORMAT_RULES[format]
     : "";
-  const system = (MI as Record<string, (f: string) => string>)[mode](format) + formatRules + "\n---\n" + context;
+  const modeInstruction = (MI as Record<string, (f: string) => string>)[mode](format);
+  const narrativeNote = getNarrativeStructureInstruction(narrativeStructure);
+
+  let systemBlocks: any[];
+  if (staticContext !== undefined && dynamicContext !== undefined) {
+    systemBlocks = [
+      {
+        type: 'text',
+        text: modeInstruction + formatRules + narrativeNote + '\n---\n' + staticContext,
+        cache_control: { type: 'ephemeral' },
+      },
+      {
+        type: 'text',
+        text: dynamicContext,
+      },
+    ];
+  } else {
+    const fullContext = context ?? '';
+    systemBlocks = [{ type: 'text', text: modeInstruction + formatRules + narrativeNote + '\n---\n' + fullContext, cache_control: { type: 'ephemeral' } }];
+  }
+
   const msg = await client.messages.create({
-    model: "claude-sonnet-4-20250514",
+    model,
     max_tokens: maxTokens,
-    system: [{ type: "text", text: system, cache_control: { type: "ephemeral" } }],
-    messages: [{ role: "user", content: prompt }],
+    system: systemBlocks,
+    messages: [{ role: 'user', content: prompt }],
   });
-  const text = msg.content.filter(b => b.type === "text").map(b => (b as any).text).join("");
-  return { text, tokensUsed: msg.usage.input_tokens + msg.usage.output_tokens, model: "claude-sonnet-4-20250514" };
+  const text = msg.content.filter(b => b.type === 'text').map(b => (b as any).text).join('');
+  return { text, tokensUsed: msg.usage.input_tokens + msg.usage.output_tokens, model };
 }
-export async function analyzeWork(title: string) { const msg = await client.messages.create({ model: "claude-sonnet-4-20250514", max_tokens: 500, messages: [{ role: "user", content: 'Analyze "' + title + '". Return ONLY JSON: {"Pacing":"...","Tone":"...","POV Style":"...","Dialogue Style":"...","Sentence Structure":"...","Atmosphere":"..."}' }] }); return safeParseJson(msg.content.filter(b => b.type === "text").map(b => (b as any).text).join("").trim()); }
-export async function generateEntity(type: string, prompt: string, ctx: string, existing: any) { const schemas: Record<string, string> = { character: "name,role,age,appearance,personality,thinkingStyle,behavior,habits,fears,desires,speechPattern,backstory,arc", location: "name,description,atmosphere,history,sensoryDetails", plotThread: "name,description,status,stakes,connections", creatorBible: "channelName,niche,audienceAge,audienceInterests,audiencePainPoints,channelVoice,contentPillars,defaultCta,competitorNotes" }; const userMsg = existing ? "Improve:\n" + JSON.stringify(existing) + "\nReturn JSON: {" + schemas[type] + "}" : prompt + "\nReturn JSON: {" + schemas[type] + "}"; const msg = await client.messages.create({ model: "claude-sonnet-4-20250514", max_tokens: 1500, system: "Create " + type + "s. ONLY JSON. Context: " + ctx, messages: [{ role: "user", content: userMsg }] }); return safeParseJson(msg.content.filter(b => b.type === "text").map(b => (b as any).text).join("").trim()); }
-export async function summarizeChapter(content: string) { const msg = await client.messages.create({ model: "claude-sonnet-4-20250514", max_tokens: 500, messages: [{ role: "user", content: "Summarize in 2-3 sentences for continuity:\n\n" + content }] }); return msg.content.filter(b => b.type === "text").map(b => (b as any).text).join(""); }
-export async function generateQuickStory(title: string, format: string, genres: string[]) { const genreStr = (genres || []).join(", ") || "Drama"; const prompt = `Create a complete story skeleton for a ${format} titled "${title}" in ${genreStr}. Return ONLY valid JSON with: {characters:[{name,role,age,appearance,personality},...], locations:[{name,description,atmosphere},...], plotThreads:[{name,description,stakes},...], outline:"Brief 3-act outline"}. Generate 3-4 characters, 2-3 locations, 2-3 plot threads.`; const msg = await client.messages.create({ model: "claude-sonnet-4-20250514", max_tokens: 2000, messages: [{ role: "user", content: prompt }] }); const text = msg.content.filter(b => b.type === "text").map(b => (b as any).text).join("").trim(); try { return JSON.parse(text); } catch (e) { return { characters: [], locations: [], plotThreads: [], outline: "" }; } }
-export async function generateBeginnerCharacters(projectName: string, genres: string[], count = 3) { const genreStr = (genres || []).join(", ") || "General"; const prompt = `Create ${count} diverse characters for "${projectName}" (${genreStr}). For each, provide only: name, role (main/supporting/antagonist), age, appearance (1 sentence), and personality (1 sentence). Return JSON: [{name,role,age,appearance,personality},...]`; const msg = await client.messages.create({ model: "claude-sonnet-4-20250514", max_tokens: 1000, messages: [{ role: "user", content: prompt }] }); const text = msg.content.filter(b => b.type === "text").map(b => (b as any).text).join("").trim(); try { return JSON.parse(text); } catch (e) { return []; } }
+export async function analyzeWork(title: string) { const msg = await client.messages.create({ model: MODELS.fast, max_tokens: 500, messages: [{ role: "user", content: 'Analyze "' + title + '". Return ONLY JSON: {"Pacing":"...","Tone":"...","POV Style":"...","Dialogue Style":"...","Sentence Structure":"...","Atmosphere":"..."}' }] }); return safeParseJson(msg.content.filter(b => b.type === "text").map(b => (b as any).text).join("").trim()); }
+export async function generateEntity(type: string, prompt: string, ctx: string, existing: any) { const schemas: Record<string, string> = { character: "name,role,age,appearance,personality,thinkingStyle,behavior,habits,fears,desires,speechPattern,backstory,arc", location: "name,description,atmosphere,history,sensoryDetails", plotThread: "name,description,status,stakes,connections", creatorBible: "channelName,niche,audienceAge,audienceInterests,audiencePainPoints,channelVoice,contentPillars,defaultCta,competitorNotes" }; const userMsg = existing ? "Improve:\n" + JSON.stringify(existing) + "\nReturn JSON: {" + schemas[type] + "}" : prompt + "\nReturn JSON: {" + schemas[type] + "}"; const msg = await client.messages.create({ model: MODELS.default, max_tokens: 1500, system: "Create " + type + "s. ONLY JSON. Context: " + ctx, messages: [{ role: "user", content: userMsg }] }); return safeParseJson(msg.content.filter(b => b.type === "text").map(b => (b as any).text).join("").trim()); }
+export async function summarizeChapter(content: string) { const msg = await client.messages.create({ model: MODELS.fast, max_tokens: 500, messages: [{ role: "user", content: "Summarize in 2-3 sentences for continuity:\n\n" + content }] }); return msg.content.filter(b => b.type === "text").map(b => (b as any).text).join(""); }
+export async function generateQuickStory(title: string, format: string, genres: string[]) { const genreStr = (genres || []).join(", ") || "Drama"; const prompt = `Create a complete story skeleton for a ${format} titled "${title}" in ${genreStr}. Return ONLY valid JSON with: {characters:[{name,role,age,appearance,personality},...], locations:[{name,description,atmosphere},...], plotThreads:[{name,description,stakes},...], outline:"Brief 3-act outline"}. Generate 3-4 characters, 2-3 locations, 2-3 plot threads.`; const msg = await client.messages.create({ model: MODELS.default, max_tokens: 2000, messages: [{ role: "user", content: prompt }] }); const text = msg.content.filter(b => b.type === "text").map(b => (b as any).text).join("").trim(); try { return JSON.parse(text); } catch (e) { return { characters: [], locations: [], plotThreads: [], outline: "" }; } }
+export async function generateBeginnerCharacters(projectName: string, genres: string[], count = 3) { const genreStr = (genres || []).join(", ") || "General"; const prompt = `Create ${count} diverse characters for "${projectName}" (${genreStr}). For each, provide only: name, role (main/supporting/antagonist), age, appearance (1 sentence), and personality (1 sentence). Return JSON: [{name,role,age,appearance,personality},...]`; const msg = await client.messages.create({ model: MODELS.fast, max_tokens: 1000, messages: [{ role: "user", content: prompt }] }); const text = msg.content.filter(b => b.type === "text").map(b => (b as any).text).join("").trim(); try { return JSON.parse(text); } catch (e) { return []; } }
+
+export async function bootstrapCharacterIntelligence(
+  character: { name: string; role: string; age: string; personality: string; backstory?: string },
+  genre: string,
+  format: string
+): Promise<Partial<Record<string, string>>> {
+  const prompt = `You are building deep character intelligence for a ${format} in ${genre} genre.
+
+Character: ${character.name} (${character.role}, age ${character.age})
+Personality: ${character.personality}
+${character.backstory ? `Backstory: ${character.backstory}` : ''}
+
+Generate intelligence for this character. Return ONLY valid JSON with these exact keys:
+{
+  "kinesicsBaseline": "How this character holds and moves their body by default. Specific posture, gait, default hand position.",
+  "kinesicsMicro": "Micro-expressions and leakage under stress. What escapes their control.",
+  "paralanguageBaseline": "Voice quality, rate, default pitch. What changes under stress.",
+  "oculesicsDefault": "Default gaze pattern — where do their eyes go in conversation?",
+  "nativeLanguage": "Primary language and any secondary languages.",
+  "registerDefault": "Default register: formal/informal/professional/intimate. When does it shift?",
+  "idiolectFingerprint": "2-3 signature phrases, vocabulary tendencies, sentence structure patterns specific to this character.",
+  "rootWound": "The formative wound that shapes their core behavior.",
+  "hamartia": "Their specific fatal flaw — the thing that will cause their downfall if unchecked.",
+  "cognitiveBias": "The specific cognitive bias through which they interpret events.",
+  "blindSpot": "What they systematically fail to see about their situation.",
+  "strengthBranch": "The genuine strength that grew from the same root as their wound.",
+  "compensationBehavior": "How they compensate for the wound — the pattern that protects them.",
+  "characterWant": "External goal — what they consciously pursue.",
+  "characterNeed": "Internal truth — what they unconsciously resist.",
+  "contradiction": "The tension between two qualities that makes them human."
+}`;
+
+  const msg = await client.messages.create({
+    model: MODELS.default,
+    max_tokens: 1500,
+    messages: [{ role: 'user', content: prompt }],
+  });
+
+  const text = msg.content.filter(b => b.type === 'text').map(b => (b as any).text).join('').trim();
+  try { return JSON.parse(text.replace(/```json\n?|```/g, '').trim()); } catch { return {}; }
+}

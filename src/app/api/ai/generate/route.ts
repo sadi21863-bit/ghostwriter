@@ -36,7 +36,7 @@ export async function POST(req: Request) {
   const rl = await checkAiRateLimit(session.user.id);
   if (rl) return rl;
 
-  const { mode, prompt, context, format, projectId, chapterId, bypassViolationCheck } = await req.json();
+  const { mode, prompt, context, staticContext, dynamicContext, format, projectId, chapterId, bypassViolationCheck, narrativeStructure } = await req.json();
 
   if (!prompt?.trim()) return NextResponse.json({ error: "Prompt is required" }, { status: 400 });
   if (!mode) return NextResponse.json({ error: "Mode is required" }, { status: 400 });
@@ -85,7 +85,7 @@ export async function POST(req: Request) {
   }
 
   try {
-    const r = await generate({ mode, prompt, context, format });
+    const r = await generate({ mode, prompt, context, staticContext, dynamicContext, format, narrativeStructure });
     await db.insert(generations).values({
       projectId, chapterId: chapterId || null, mode, prompt,
       output: r.text, model: r.model, tokensUsed: r.tokensUsed,

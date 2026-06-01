@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import { buildContext, buildBeginnerContext, buildCreatorContext } from "@/lib/ai/context-builder";
+import { buildStaticContext, buildDynamicContext, buildBeginnerContext, buildCreatorContext } from "@/lib/ai/context-builder";
 import { getPipelines, type Pipeline } from "@/lib/ai/pipelines";
 import { isCreatorFormat } from "@/lib/formats";
 import { buildDialogueContext } from "@/lib/dialogue";
@@ -68,6 +68,7 @@ export function useAIActions({
   const [proseLoading, setProseLoading] = useState(false);
   const [hookScore, setHookScore] = useState<{ score: number; feedback: string } | null>(null);
   const [hookScoring, setHookScoring] = useState(false);
+  const [qualityReview, setQualityReview] = useState<any | null>(null);
   const [violationBanner, setViolationBanner] = useState<{ violationType: string; flagMessage: string; supportMode: string } | null>(null);
 
   const callAI = async (endpoint: string, body: any) => {
@@ -98,7 +99,7 @@ export function useAIActions({
     const extended = { ...p, activeMode: mode, currentPrompt: prompt, activeInfluence, activePatterns };
     let base: string;
     if (isCreatorFormat(p.format)) { base = buildCreatorContext({ ...extended, creatorBible }); }
-    else { base = (p.skillLevel === "beginner" ? buildBeginnerContext : buildContext)(extended); }
+    else { base = p.skillLevel === "beginner" ? buildBeginnerContext(extended) : (buildStaticContext(extended) + '\n' + buildDynamicContext(extended)); }
     const neighbourContext = buildNeighbourContext(p);
     return neighbourContext ? base + "\n\n" + neighbourContext : base;
   };
@@ -114,12 +115,27 @@ export function useAIActions({
         ? `${prompt}\n\nCo-host voice persona: ${cohostVoice}`
         : prompt;
 
-      let ctx = buildFullContext();
+      const extended = { ...project, activeMode: effectiveMode, currentPrompt: effectivePrompt, activeInfluence, activePatterns };
+      let staticCtx: string;
+      let dynamicCtx: string;
+      if (isCreatorFormat(project.format)) {
+        staticCtx = buildCreatorContext({ ...extended, creatorBible });
+        dynamicCtx = '';
+      } else if (project.skillLevel === 'beginner') {
+        staticCtx = buildBeginnerContext(extended);
+        dynamicCtx = '';
+      } else {
+        staticCtx = buildStaticContext(extended);
+        dynamicCtx = buildDynamicContext(extended);
+      }
+      const neighbourCtx = buildNeighbourContext(project);
+      if (neighbourCtx) dynamicCtx += '\n\n' + neighbourCtx;
+
       if (opts?.cameraPresetId) {
         const { CAMERA_PRESETS, VIRAL_PRESETS } = await import('@/lib/higgsfield/presets');
         const preset = CAMERA_PRESETS[opts.cameraPresetId] ?? VIRAL_PRESETS[opts.cameraPresetId];
         if (preset) {
-          ctx += [
+          dynamicCtx += [
             '',
             'CAMERA LANGUAGE MODE:',
             'Write this scene as prose that establishes clear visual grammar.',
@@ -131,7 +147,7 @@ export function useAIActions({
         }
       }
 
-      const r = await callAI("generate", { mode: effectiveMode, prompt: effectivePrompt, context: ctx, format: effectiveFormat, projectId: project.id, chapterId: activeChap.id });
+      const r = await callAI("generate", { mode: effectiveMode, prompt: effectivePrompt, staticContext: staticCtx, dynamicContext: dynamicCtx, format: effectiveFormat, projectId: project.id, chapterId: activeChap.id, narrativeStructure: (project as any).narrativeStructure });
       if (r.requiresConfirmation) { setViolationBanner({ violationType: r.violationType, flagMessage: r.flagMessage, supportMode: r.supportMode }); }
       else if (r.error === "upgrade_required") { setUpgradeRequired?.(r.feature); }
       else if (mode === "write") {
@@ -139,9 +155,37 @@ export function useAIActions({
         const merged = appendToTipTap(activeChap.content, r.text);
         updateChapter("content", merged);
         updateChapter("wordCount", getWordCount(merged));
+        const QUALITY_CHECK_MODES = new Set(['write', 'emotional', 'combat', 'atmosphere', 'tension', 'horror', 'mystery', 'romance', 'thriller', 'action', 'dialogue']);
+        if (QUALITY_CHECK_MODES.has(mode)) {
+          runQualityCheck(r.text, project.id);
+        }
       } else setStreamText(r.text);
     } catch (e) { setErrorMsg("Generation failed. Please try again."); }
     setGenerating(false); setGenTarget("");
+  };
+
+  const runQualityCheck = async (output: string, projectId: string) => {
+    try {
+      const res = await fetch(`/api/projects/${projectId}/quality-check`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          output,
+          projectRules: project.aiRules?.map((r: any) => r.text) ?? [],
+          involvedCharacters: project.characters
+            ?.filter((c: any) => c.alwaysInContext !== false)
+            ?.map((c: any) => ({
+              name: c.name,
+              knowledgeMap: c.knowledgeMap ?? {},
+              nvcBaseline: c.kinesicsBaseline,
+            })) ?? [],
+          emotionalTone: activeChap.emotionalTone,
+          arcPosition: activeChap.arcPosition,
+        }),
+      });
+      const result = await res.json();
+      if (result.hasIssues) setQualityReview(result);
+    } catch { /* quality check must never break writing flow */ }
   };
 
   const undoGeneration = () => {
@@ -606,6 +650,7 @@ export function useAIActions({
     selectedText, setSelectedText, selectedRange, setSelectedRange,
     proseResult, setProseResult, proseLoading,
     hookScore, hookScoring,
+    qualityReview, setQualityReview,
     callAI, buildNeighbourContext, buildFullContext,
     generate, undoGeneration, autoSummarize, generateDialogue, generateCombat,
     generateEmotionalScene, generateAtmosphere, generateTension, generateComposition,

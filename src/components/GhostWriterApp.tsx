@@ -13,6 +13,7 @@ import { AltDraftPanel } from "@/components/panels/toolbar/tools/AltDraftPanel";
 import { SprintMode } from "@/components/SprintMode";
 import { UpgradePrompt } from "@/components/upgrade/UpgradePrompt";
 import { CommandPalette } from "@/components/CommandPalette";
+import { QualityReviewPanel } from "@/components/panels/QualityReviewPanel";
 import type { FeatureGate } from "@/types/subscription";
 import type { CompositionLayer } from "@/lib/ai/composer";
 import { co, sBtn, sBtnSm } from "@/lib/styles";
@@ -437,6 +438,13 @@ export default function GhostWriterApp({ projectId }: { projectId: string }) {
         onSwitchMode={(m) => setMode(m)}
         onRunCheck={() => setShowStoryHealth(true)}
       />
+
+      {aiActions.qualityReview && (
+        <QualityReviewPanel
+          review={aiActions.qualityReview}
+          onDismiss={() => aiActions.setQualityReview(null)}
+        />
+      )}
 
       {confirmModal && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000 }}>

@@ -34,8 +34,9 @@ export async function POST(
   const baseContext = buildContext(project as any);
   const client = new Anthropic();
 
+  const { MODELS } = await import('@/lib/ai/engine');
   const response = await client.messages.create({
-    model: 'claude-opus-4-20250514',
+    model: MODELS.quality,
     max_tokens: 4000,
     system: `${baseContext}
 
