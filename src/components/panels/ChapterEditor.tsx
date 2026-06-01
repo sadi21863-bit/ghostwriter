@@ -2,6 +2,11 @@
 import { useState } from "react";
 import { co, sBtnSm } from "@/lib/styles";
 import { getChapterLabel } from "@/lib/formats";
+
+function getEffectiveChapterLabel(project: any): string {
+  if (project?.isHiggsfieldProject) return "Episode";
+  return getChapterLabel(project?.format ?? "Novel");
+}
 import { EmptyState } from "@/components/EmptyState";
 import type { PassiveSuggestion } from "@/lib/suggestions/passive";
 import type { FeatureGate } from "@/types/subscription";
@@ -186,7 +191,7 @@ export default function ChapterEditor({
           {visibleChapters.length === 0 && (
             <EmptyState icon="📖" title="Begin writing"
               description="Add your first chapter to start your story."
-              action={{ label: `Add ${getChapterLabel(project.format)}`, onClick: addChapter }} />
+              action={{ label: `Add ${getEffectiveChapterLabel(project)}`, onClick: addChapter }} />
           )}
           {visibleChapters.map((ch: any, i: number) => {
             const isActive = ch.id === project.activeChapter;
@@ -310,7 +315,7 @@ export default function ChapterEditor({
           <div style={{ padding: "4px 10px", fontSize: 10, color: co.muted }}>{audioMsg}</div>
         )}
         <div style={{ padding: 8, borderTop: "1px solid " + co.border, display: "flex", gap: 4 }}>
-          <button style={{ ...sBtnSm, flex: 1 }} onClick={addChapter}>+ Add {getChapterLabel(project.format)}</button>
+          <button style={{ ...sBtnSm, flex: 1 }} onClick={addChapter}>+ Add {getEffectiveChapterLabel(project)}</button>
           <button
             style={{ ...sBtnSm, flexShrink: 0, background: audioGenerating ? co.surfaceAlt : co.surface, border: "1px solid " + co.border, opacity: audioGenerating ? 0.7 : 1 }}
             onClick={async () => {

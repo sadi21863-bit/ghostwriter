@@ -10,10 +10,10 @@ const vectorColumn = customType<{ data: number[]; driverData: string }>({
   },
 });
 
-export const users = pgTable("users", { id: uuid("id").defaultRandom().primaryKey(), name: text("name"), email: text("email").notNull().unique(), emailVerified: timestamp("email_verified", { mode: "date" }), image: text("image"), hashedPassword: text("hashed_password"), higgsfieldApiKey: text("higgsfield_api_key").default(""), higgsfieldApiSecret: text("higgsfield_api_secret").default(""), openaiApiKey: text("openai_api_key").default(""), imageProviderId: text("image_provider_id").default("segmind_soul"), trendIntelligenceKey: text("trend_intelligence_key").default(""), createdAt: timestamp("created_at").defaultNow().notNull(), updatedAt: timestamp("updated_at").defaultNow().notNull() });
+export const users = pgTable("users", { id: uuid("id").defaultRandom().primaryKey(), name: text("name"), email: text("email").notNull().unique(), emailVerified: timestamp("email_verified", { mode: "date" }), image: text("image"), hashedPassword: text("hashed_password"), higgsfieldApiKey: text("higgsfield_api_key").default(""), higgsfieldApiSecret: text("higgsfield_api_secret").default(""), openaiApiKey: text("openai_api_key").default(""), imageProviderId: text("image_provider_id").default("segmind_soul"), trendIntelligenceKey: text("trend_intelligence_key").default(""), referralCode: varchar("referral_code", { length: 12 }), createdAt: timestamp("created_at").defaultNow().notNull(), updatedAt: timestamp("updated_at").defaultNow().notNull() });
 export const accounts = pgTable("accounts", { id: uuid("id").defaultRandom().primaryKey(), userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }), type: text("type").notNull(), provider: text("provider").notNull(), providerAccountId: text("provider_account_id").notNull(), refresh_token: text("refresh_token"), access_token: text("access_token"), expires_at: integer("expires_at"), token_type: text("token_type"), scope: text("scope"), id_token: text("id_token"), session_state: text("session_state") });
 export const sessions = pgTable("sessions", { id: uuid("id").defaultRandom().primaryKey(), sessionToken: text("session_token").notNull().unique(), userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }), expires: timestamp("expires", { mode: "date" }).notNull() });
-export const projects = pgTable("projects", { id: uuid("id").defaultRandom().primaryKey(), userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }), name: text("name").notNull().default("Untitled Project"), format: varchar("format", { length: 50 }).notNull().default("Novel"), genres: jsonb("genres").$type().default([]), skillLevel: varchar("skill_level", { length: 20 }).notNull().default("beginner"), notes: text("notes").default(""), controllingIdea: text("controlling_idea").default(""), intentionalViolations: jsonb("intentional_violations").$type<Record<string, { confirmed: boolean; purpose: string; timestamp: string }>>().default({}), aiRules: jsonb("ai_rules").$type<any[]>().default([]), createdAt: timestamp("created_at").defaultNow().notNull(), updatedAt: timestamp("updated_at").defaultNow().notNull() });
+export const projects = pgTable("projects", { id: uuid("id").defaultRandom().primaryKey(), userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }), name: text("name").notNull().default("Untitled Project"), format: varchar("format", { length: 50 }).notNull().default("Novel"), genres: jsonb("genres").$type().default([]), skillLevel: varchar("skill_level", { length: 20 }).notNull().default("beginner"), notes: text("notes").default(""), controllingIdea: text("controlling_idea").default(""), intentionalViolations: jsonb("intentional_violations").$type<Record<string, { confirmed: boolean; purpose: string; timestamp: string }>>().default({}), aiRules: jsonb("ai_rules").$type<any[]>().default([]), isHiggsfieldProject: boolean("is_higgsfield_project").default(false), createdAt: timestamp("created_at").defaultNow().notNull(), updatedAt: timestamp("updated_at").defaultNow().notNull() });
 export const characters = pgTable("characters", {
   id: uuid("id").defaultRandom().primaryKey(),
   projectId: uuid("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
@@ -376,6 +376,24 @@ export const seriesBibles = pgTable("series_bibles", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
+export const referrals = pgTable("referrals", {
+  id:            uuid("id").defaultRandom().primaryKey(),
+  referrerId:    uuid("referrer_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  refereeId:     uuid("referee_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  status:        varchar("status", { length: 20 }).default("pending"),
+  rewardApplied: boolean("reward_applied").default(false),
+  createdAt:     timestamp("created_at").defaultNow().notNull(),
+});
+
+export const passwordResetTokens = pgTable("password_reset_tokens", {
+  id:        uuid("id").defaultRandom().primaryKey(),
+  userId:    uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  token:     text("token").notNull().unique(),
+  expiresAt: timestamp("expires_at").notNull(),
+  usedAt:    timestamp("used_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 export const platformEvents = pgTable("platform_events", {
   id:         uuid("id").defaultRandom().primaryKey(),
   userId:     uuid("user_id").references(() => users.id, { onDelete: "set null" }),
@@ -384,7 +402,11 @@ export const platformEvents = pgTable("platform_events", {
   createdAt:  timestamp("created_at").defaultNow().notNull(),
 });
 
-export const usersRelations = relations(users, ({ many, one }) => ({ projects: many(projects), videoAnalysisJobs: many(videoAnalysisJobs), subscription: one(subscriptions, { fields: [users.id], references: [subscriptions.userId] }), workPackets: many(workPackets), seriesBibles: many(seriesBibles), platformEvents: many(platformEvents) }));
+export const referralsRelations = relations(referrals, ({ one }) => ({
+  referrer: one(users, { fields: [referrals.referrerId], references: [users.id] }),
+  referee:  one(users, { fields: [referrals.refereeId], references: [users.id] }),
+}));
+export const usersRelations = relations(users, ({ many, one }) => ({ projects: many(projects), videoAnalysisJobs: many(videoAnalysisJobs), subscription: one(subscriptions, { fields: [users.id], references: [subscriptions.userId] }), workPackets: many(workPackets), seriesBibles: many(seriesBibles), platformEvents: many(platformEvents), referrals: many(referrals) }));
 export const workPacketsRelations = relations(workPackets, ({ one }) => ({ user: one(users, { fields: [workPackets.userId], references: [users.id] }) }));
 export const workPatternsRelations = relations(workPatterns, ({ }) => ({}));
 export const subscriptionsRelations = relations(subscriptions, ({ one }) => ({ user: one(users, { fields: [subscriptions.userId], references: [users.id] }) }));

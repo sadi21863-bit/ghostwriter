@@ -6,14 +6,19 @@
 
 import { NextResponse } from "next/server";
 import { db } from "@/db";
-import { subscriptions } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { subscriptions, users, referrals } from "@/db/schema";
+import { eq, and } from "drizzle-orm";
 import { track } from "@/lib/analytics";
+import { sendEmail } from "@/lib/email";
+import { trialStartEmail } from "@/lib/email/templates";
 
 const TIER_MAP: Record<string, string> = {
-  [process.env.STRIPE_STORY_PRO_PRICE_ID   ?? "price_story_pro"]:   "story_pro",
-  [process.env.STRIPE_CREATOR_PRO_PRICE_ID ?? "price_creator_pro"]: "creator_pro",
-  [process.env.STRIPE_ALL_ACCESS_PRICE_ID  ?? "price_all_access"]:  "all_access",
+  [process.env.STRIPE_STORY_PRO_PRICE_ID          ?? "price_story_pro"]:          "story_pro",
+  [process.env.STRIPE_CREATOR_PRO_PRICE_ID        ?? "price_creator_pro"]:        "creator_pro",
+  [process.env.STRIPE_ALL_ACCESS_PRICE_ID         ?? "price_all_access"]:         "all_access",
+  [process.env.STRIPE_STORY_PRO_ANNUAL_PRICE_ID   ?? "price_story_pro_annual"]:   "story_pro",
+  [process.env.STRIPE_CREATOR_PRO_ANNUAL_PRICE_ID ?? "price_creator_pro_annual"]: "creator_pro",
+  [process.env.STRIPE_ALL_ACCESS_ANNUAL_PRICE_ID  ?? "price_all_access_annual"]:  "all_access",
 };
 
 export async function POST(req: Request) {
@@ -49,6 +54,34 @@ export async function POST(req: Request) {
         updatedAt: new Date(),
       }).where(eq(subscriptions.userId, userId));
       await track(userId, 'subscription_activated', { tier });
+
+      // Referral reward: extend referrer's subscription by 30 days
+      try {
+        const pendingReferral = await db.query.referrals.findFirst({
+          where: and(eq(referrals.refereeId, userId), eq(referrals.status, 'pending')),
+        });
+        if (pendingReferral) {
+          await db.update(referrals)
+            .set({ status: 'subscribed' })
+            .where(eq(referrals.id, pendingReferral.id));
+
+          const referrerSub = await db.query.subscriptions.findFirst({
+            where: eq(subscriptions.userId, pendingReferral.referrerId),
+          });
+          if (referrerSub?.stripeSubscriptionId && referrerSub.currentPeriodEnd) {
+            await stripe.subscriptions.update(referrerSub.stripeSubscriptionId, {
+              trial_end: Math.floor(
+                (new Date(referrerSub.currentPeriodEnd).getTime() + 30 * 24 * 60 * 60 * 1000) / 1000
+              ),
+            });
+            await db.update(referrals)
+              .set({ status: 'rewarded', rewardApplied: true })
+              .where(eq(referrals.id, pendingReferral.id));
+            await track(pendingReferral.referrerId, 'referral_rewarded');
+          }
+        }
+      } catch { /* referral reward failure must never break the main flow */ }
+
       break;
     }
 
@@ -61,6 +94,25 @@ export async function POST(req: Request) {
         currentPeriodEnd: new Date(sub.current_period_end * 1000),
         updatedAt: new Date(),
       }).where(eq(subscriptions.stripeSubscriptionId, sub.id));
+
+      // Send trial start email when subscription enters trialing status
+      if (sub.status === 'trialing') {
+        const dbSub = await db.query.subscriptions.findFirst({
+          where: eq(subscriptions.stripeSubscriptionId, sub.id),
+          columns: { userId: true },
+        });
+        if (dbSub) {
+          await track(dbSub.userId, 'trial_started', { tier });
+          const user = await db.query.users.findFirst({
+            where: eq(users.id, dbSub.userId),
+            columns: { email: true, name: true },
+          });
+          if (user) {
+            const { subject, html, text } = trialStartEmail(user.name ?? '');
+            sendEmail({ to: user.email, subject, html, text }).catch(() => {});
+          }
+        }
+      }
       break;
     }
 

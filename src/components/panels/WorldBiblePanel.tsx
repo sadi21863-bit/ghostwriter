@@ -565,6 +565,27 @@ export default function WorldBiblePanel(props: Props) {
                   <input style={{ ...sInput, marginTop: 4, fontWeight: 700 }} value={project.name} onChange={e => updateProject((p: any) => ({ ...p, name: e.target.value }))} />
                   <select style={{ ...sInput, marginTop: 6 }} value={project.format} onChange={e => updateProject((p: any) => ({ ...p, format: e.target.value }))}>{FORMATS.map(f => <option key={f}>{f}</option>)}</select>
                   <div style={{ marginTop: 8, display: "flex", flexWrap: "wrap" }}>{GENRES.map(g => <span key={g} onClick={() => updateProject((p: any) => ({ ...p, genres: p.genres.includes(g) ? p.genres.filter((x: any) => x !== g) : [...p.genres, g] }))} style={{ display: "inline-flex", padding: "3px 10px", borderRadius: 20, fontSize: 11, cursor: "pointer", border: "1px solid " + (project.genres.includes(g) ? co.accent : co.border), background: project.genres.includes(g) ? co.accentBg : "transparent", color: project.genres.includes(g) ? co.accent : co.muted, fontWeight: project.genres.includes(g) ? 600 : 400, margin: 2 }}>{g}</span>)}</div>
+                  {isStoryFormat(project.format) && (
+                    <label style={{ display: "flex", alignItems: "flex-start", gap: 10, cursor: "pointer", marginTop: 12, padding: "10px 12px", background: project.isHiggsfieldProject ? "rgba(79,70,229,0.08)" : co.surface, borderRadius: 8, border: "1px solid " + (project.isHiggsfieldProject ? "#4F46E5" : co.border) }}>
+                      <input
+                        type="checkbox"
+                        checked={project.isHiggsfieldProject ?? false}
+                        onChange={e => {
+                          updateProject((p: any) => ({ ...p, isHiggsfieldProject: e.target.checked }));
+                          fetch(`/api/projects/${project.id}`, {
+                            method: "PATCH",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ isHiggsfieldProject: e.target.checked }),
+                          }).catch(() => {});
+                        }}
+                        style={{ marginTop: 2, flexShrink: 0 }}
+                      />
+                      <div>
+                        <div style={{ fontWeight: 600, fontSize: 12, color: project.isHiggsfieldProject ? "#818cf8" : co.text }}>Optimized for Higgsfield Original Series</div>
+                        <div style={{ fontSize: 11, color: co.muted, marginTop: 2 }}>Episode structure, visual storytelling hints, contest package export as default.</div>
+                      </div>
+                    </label>
+                  )}
                 </div>
                 {isCreatorFormat(project.format) ? (
                   <>

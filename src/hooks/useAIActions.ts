@@ -103,7 +103,7 @@ export function useAIActions({
     return neighbourContext ? base + "\n\n" + neighbourContext : base;
   };
 
-  const generate = async () => {
+  const generate = async (opts?: { cameraPresetId?: string }) => {
     if (!prompt.trim()) return;
     setGenerating(true); setGenTarget("main"); setStreamText("");
     try {
@@ -113,7 +113,25 @@ export function useAIActions({
       const effectivePrompt = isCohost && cohostVoice
         ? `${prompt}\n\nCo-host voice persona: ${cohostVoice}`
         : prompt;
-      const r = await callAI("generate", { mode: effectiveMode, prompt: effectivePrompt, context: buildFullContext(), format: effectiveFormat, projectId: project.id, chapterId: activeChap.id });
+
+      let ctx = buildFullContext();
+      if (opts?.cameraPresetId) {
+        const { CAMERA_PRESETS, VIRAL_PRESETS } = await import('@/lib/higgsfield/presets');
+        const preset = CAMERA_PRESETS[opts.cameraPresetId] ?? VIRAL_PRESETS[opts.cameraPresetId];
+        if (preset) {
+          ctx += [
+            '',
+            'CAMERA LANGUAGE MODE:',
+            'Write this scene as prose that establishes clear visual grammar.',
+            `Apply this camera perspective: ${preset.label}`,
+            preset.promptInjection,
+            'Describe action and space in terms that translate directly to shot descriptions.',
+            'End each paragraph with a clear sense of where the camera is and what it sees.',
+          ].join('\n');
+        }
+      }
+
+      const r = await callAI("generate", { mode: effectiveMode, prompt: effectivePrompt, context: ctx, format: effectiveFormat, projectId: project.id, chapterId: activeChap.id });
       if (r.requiresConfirmation) { setViolationBanner({ violationType: r.violationType, flagMessage: r.flagMessage, supportMode: r.supportMode }); }
       else if (r.error === "upgrade_required") { setUpgradeRequired?.(r.feature); }
       else if (mode === "write") {

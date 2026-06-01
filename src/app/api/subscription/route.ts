@@ -32,17 +32,20 @@ export async function GET() {
 // POST — create Stripe Checkout session
 export async function POST(req: Request) {
   const session = await getRequiredSession();
-  const { tier, successUrl, cancelUrl } = await req.json() as {
+  const { tier, billingPeriod, successUrl, cancelUrl } = await req.json() as {
     tier: SubscriptionTier;
+    billingPeriod?: 'monthly' | 'annual';
     successUrl: string;
     cancelUrl: string;
   };
 
-  if (!["story_pro", "creator_pro", "all_access"].includes(tier)) {
+  const baseTiers = ["story_pro", "creator_pro", "all_access"];
+  if (!baseTiers.includes(tier)) {
     return NextResponse.json({ error: "Invalid tier" }, { status: 400 });
   }
 
-  const priceId = STRIPE_PRICES[tier as keyof typeof STRIPE_PRICES];
+  const priceKey = billingPeriod === 'annual' ? `${tier}_annual` : tier;
+  const priceId = STRIPE_PRICES[priceKey as keyof typeof STRIPE_PRICES];
   if (!priceId) {
     return NextResponse.json({ error: "Price not configured. Add STRIPE_*_PRICE_ID to environment variables." }, { status: 500 });
   }
@@ -62,7 +65,10 @@ export async function POST(req: Request) {
     success_url: successUrl,
     cancel_url: cancelUrl,
     metadata: { userId: session.user.id },
-    subscription_data: { metadata: { userId: session.user.id } },
+    subscription_data: {
+      trial_period_days: 7,
+      metadata: { userId: session.user.id },
+    },
     allow_promotion_codes: true,
   });
 

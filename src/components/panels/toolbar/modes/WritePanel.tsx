@@ -14,6 +14,8 @@ import { EMOTIONAL_TONES, ARC_POSITIONS } from "@/lib/arc";
 import { ChapterEditor } from "@/components/editor/ChapterEditor";
 import { SceneView } from "@/components/editor/SceneView";
 import type { Scene } from "@/types";
+import { isStoryFormat } from "@/lib/formats";
+import { CAMERA_PRESETS, VIRAL_PRESETS } from "@/lib/higgsfield/presets";
 
 interface Props {
   mode: string;
@@ -39,7 +41,7 @@ interface Props {
   hookScore: HookScore | null;
   hookScoring: boolean;
   scoreHook: () => Promise<void>;
-  generate: () => Promise<void>;
+  generate: (opts?: { cameraPresetId?: string }) => Promise<void>;
   cohostVoice: string;
   setCohostVoice: (v: string) => void;
   handleTextareaSelect?: (e: React.SyntheticEvent<HTMLTextAreaElement>) => void;
@@ -64,6 +66,8 @@ export function WritePanel({
   const saveTimer = useRef<ReturnType<typeof setTimeout>>();
   const [slashOpen, setSlashOpen] = useState(false);
   const [viewMode, setViewMode] = useState<'document' | 'scenes'>('document');
+  const [cameraMode, setCameraMode] = useState(false);
+  const [selectedPreset, setSelectedPreset] = useState("");
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -274,6 +278,35 @@ export function WritePanel({
         </div>
       )}
 
+      {/* Camera language section — story formats only */}
+      {isStoryFormat(project.format) && (
+        <div style={{ padding: "8px 16px", borderTop: "1px solid " + co.border, background: co.surfaceAlt }}>
+          <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
+            <input type="checkbox" checked={cameraMode} onChange={e => { setCameraMode(e.target.checked); if (!e.target.checked) setSelectedPreset(""); }} />
+            <span style={{ fontSize: 12, color: co.muted }}>Generate with camera language</span>
+          </label>
+          {cameraMode && (
+            <select
+              value={selectedPreset}
+              onChange={e => setSelectedPreset(e.target.value)}
+              style={{ marginTop: 6, fontSize: 11, width: "100%", ...sInput }}
+            >
+              <option value="">No specific preset</option>
+              <optgroup label="Camera Presets">
+                {Object.values(CAMERA_PRESETS).map(p => (
+                  <option key={p.id} value={p.id}>{p.label} — {p.description}</option>
+                ))}
+              </optgroup>
+              <optgroup label="Viral Presets">
+                {Object.values(VIRAL_PRESETS).map(p => (
+                  <option key={p.id} value={p.id}>{p.label} — {p.description}</option>
+                ))}
+              </optgroup>
+            </select>
+          )}
+        </div>
+      )}
+
       {/* Prompt bar */}
       <div style={{ padding: "12px 16px", borderTop: "1px solid " + co.border, display: "flex", gap: 8, background: co.surface }}>
         {mode === "cohost" && (
@@ -323,7 +356,7 @@ export function WritePanel({
         />
 
         <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-          <button style={{ ...sBtn, opacity: generating ? 0.5 : 1 }} onClick={generate} disabled={generating}>
+          <button style={{ ...sBtn, opacity: generating ? 0.5 : 1 }} onClick={() => generate(cameraMode && selectedPreset ? { cameraPresetId: selectedPreset } : undefined)} disabled={generating}>
             {generating && genTarget === "main" ? getLoadingMessage(mode) : "Generate"}
           </button>
           <button style={{ padding: "2px 8px", border: "none", borderRadius: 4, cursor: "pointer", fontSize: 10, background: "transparent", color: co.muted }} onClick={() => setExpandedPrompt(!expandedPrompt)}>

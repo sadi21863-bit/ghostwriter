@@ -83,7 +83,7 @@ export function buildContext(p: ContextProject): string {
 
   // ── ACTIVE INFLUENCE ───────────────────────────────────────────────────────
   if (p.activeInfluence) {
-    const influenceCtx = buildInfluenceContext(p.activeInfluence, p.activeMode ?? 'write');
+    const influenceCtx = buildInfluenceContext(p.activeInfluence, p.activeMode ?? 'write', (p as any).format);
     if (influenceCtx) r.push(influenceCtx);
   }
 
@@ -102,6 +102,15 @@ export function buildContext(p: ContextProject): string {
     r.push('PROJECT WRITING RULES — THESE OVERRIDE ALL DEFAULTS. DO NOT VIOLATE THEM.');
     rules.forEach((rule: any, i: number) => r.push(`${i + 1}. ${rule.text}`));
     r.push('');
+  }
+
+  if ((p as any).isHiggsfieldProject) {
+    r.push(
+      'HIGGSFIELD ORIGINAL SERIES MODE: This project will be adapted into a visual series.',
+      'Write with visual storytelling in mind: clear action beats, concrete spatial relationships,',
+      'dialogue that drives scene transitions, character physicality that translates to shot descriptions.',
+      'Each scene should have a clear visual identity — where we are, who is doing what, what changes.',
+    );
   }
 
   r.push("PROJECT: " + p.name + " | " + p.format + " | " + (p.genres || []).join(", "));

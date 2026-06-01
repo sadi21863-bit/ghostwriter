@@ -1,6 +1,6 @@
 "use client";
 import type { FormEvent } from "react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
 
@@ -17,15 +17,24 @@ export default function Login() {
 
   const switchTab = (t: Tab) => { setTab(t); setError(""); };
 
+  // Persist referral code from ?ref= query param into sessionStorage
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const ref = new URLSearchParams(window.location.search).get("ref");
+      if (ref) sessionStorage.setItem("referralCode", ref);
+    }
+  }, []);
+
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setError("");
     setLoading(true);
     if (tab === "register") {
+      const ref = typeof window !== "undefined" ? sessionStorage.getItem("referralCode") ?? undefined : undefined;
       const res = await fetch("/api/auth/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password, name }),
+        body: JSON.stringify({ email, password, name, ref }),
       });
       if (!res.ok) {
         const data = await res.json();
@@ -182,6 +191,14 @@ export default function Login() {
               >
                 {loading ? "Please wait…" : tab === "signin" ? "Sign In" : "Create Account"}
               </button>
+
+              {tab === "signin" && (
+                <div style={{ textAlign: "center" }}>
+                  <a href="/forgot-password" style={{ fontSize: 12, color: "#555", textDecoration: "none" }}>
+                    Forgot password?
+                  </a>
+                </div>
+              )}
             </form>
 
             <div style={{ textAlign: "center", marginTop: 28, fontSize: 12, color: "#333" }}>

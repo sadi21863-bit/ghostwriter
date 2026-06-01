@@ -22,6 +22,9 @@ export default function SettingsPage() {
   const [saved, setSaved] = useState(false);
   const [portalLoading, setPortalLoading] = useState(false);
   const [upgradeLoading, setUpgradeLoading] = useState(false);
+  const [billingPeriod, setBillingPeriod] = useState<'monthly' | 'annual'>('monthly');
+  const [referrals, setReferrals] = useState<any[]>([]);
+  const [user, setUser] = useState<any>(null);
 
   const [higgsfieldApiKey, setHiggsfieldApiKey] = useState("");
   const [higgsfieldApiSecret, setHiggsfieldApiSecret] = useState("");
@@ -31,6 +34,10 @@ export default function SettingsPage() {
   useEffect(() => {
     fetch("/api/user/settings").then(r => r.json()).then(setSettings);
     fetch("/api/subscription").then(r => r.json()).then(setSubscription);
+    fetch("/api/user/referrals").then(r => r.ok ? r.json() : { referrals: [], user: null }).then(data => {
+      if (data.referrals) setReferrals(data.referrals);
+      if (data.user) setUser(data.user);
+    }).catch(() => {});
   }, []);
 
   // Handle ?upgraded=1 query param
@@ -85,6 +92,7 @@ export default function SettingsPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         tier,
+        billingPeriod,
         successUrl: `${window.location.origin}/settings?upgraded=1`,
         cancelUrl: window.location.href,
       }),
@@ -145,6 +153,18 @@ export default function SettingsPage() {
 
         {subscription ? (
           <>
+            {subscription.status === 'past_due' && (
+              <div style={{ padding: '12px 16px', marginBottom: 16, background: '#451a1a', border: '1px solid #f87171', borderRadius: 8 }}>
+                <strong style={{ color: '#f87171' }}>Payment failed.</strong>
+                <span style={{ color: '#fca5a5', marginLeft: 8 }}>
+                  Update your payment method to keep your subscription active.
+                </span>
+                <button onClick={openBillingPortal} style={{ marginLeft: 12, fontSize: 12, padding: '4px 10px', background: 'transparent', border: '1px solid #f87171', color: '#f87171', borderRadius: 6, cursor: 'pointer' }}>
+                  Update payment →
+                </button>
+              </div>
+            )}
+
             <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16, flexWrap: "wrap" }}>
               <span style={{
                 padding: "4px 12px", borderRadius: 20, fontSize: 12, fontWeight: 700,
@@ -169,11 +189,29 @@ export default function SettingsPage() {
             </div>
 
             {subscription.tier === "free" ? (
+              <>
+                {/* Billing period toggle */}
+                <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+                  {(['monthly', 'annual'] as const).map(p => (
+                    <button
+                      key={p}
+                      onClick={() => setBillingPeriod(p)}
+                      style={{
+                        padding: '6px 16px', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer', border: 'none',
+                        background: billingPeriod === p ? 'var(--color-accent)' : 'var(--color-bg-elevated)',
+                        color: billingPeriod === p ? '#fff' : 'var(--color-text-secondary)',
+                      }}
+                    >
+                      {p === 'monthly' ? 'Monthly' : 'Annual'}{p === 'annual' && <span style={{ color: '#4ade80', fontSize: 10, marginLeft: 4 }}>save 20%</span>}
+                    </button>
+                  ))}
+                </div>
+
               <div className="subscription-plans" style={{ display: "flex", gap: 10 }}>
                 {[
-                  { tier: "story_pro",    label: "Story Pro",    price: "$12/mo", desc: "Advanced story modes, Style DNA, exports, unlimited AI" },
-                  { tier: "creator_pro",  label: "Creator Pro",  price: "$12/mo", desc: "Trend intelligence, video tools, Creator series pipeline" },
-                  { tier: "all_access",   label: "All Access",   price: "$19/mo", desc: "Everything in both plans + priority generation" },
+                  { tier: "story_pro",    label: "Story Pro",    price: billingPeriod === 'annual' ? "$10/mo" : "$12/mo", desc: "Advanced story modes, Style DNA, exports, unlimited AI" },
+                  { tier: "creator_pro",  label: "Creator Pro",  price: billingPeriod === 'annual' ? "$10/mo" : "$12/mo", desc: "Trend intelligence, video tools, Creator series pipeline" },
+                  { tier: "all_access",   label: "All Access",   price: billingPeriod === 'annual' ? "$15/mo" : "$19/mo", desc: "Everything in both plans + priority generation" },
                 ].map(plan => (
                   <div key={plan.tier} style={{
                     flex: 1, padding: "16px", borderRadius: 10,
@@ -198,6 +236,7 @@ export default function SettingsPage() {
                   </div>
                 ))}
               </div>
+              </>
             ) : (
               <button
                 onClick={openBillingPortal}
@@ -245,6 +284,37 @@ export default function SettingsPage() {
         <Field label="Trend API Key" isSet={settings?.trendIntelligenceKeySet ?? false} last4={settings?.trendIntelligenceKeyLast4 ?? ""}
           value={trendKey} onChange={setTrendKey} placeholder="Enter API key" />
       </section>
+
+      {/* ── Referrals ──────────────────────────────────────────────── */}
+      <div style={{ marginBottom: 40, paddingBottom: 40, borderBottom: "1px solid var(--color-border-default)" }}>
+        <h2 style={{ fontSize: 18, fontWeight: 700, marginBottom: 8, color: "var(--color-text-primary)" }}>Refer a writer</h2>
+        <p style={{ fontSize: 13, color: "var(--color-text-muted)", marginBottom: 16 }}>
+          Share your link. When someone subscribes using it, you get 1 month free.
+        </p>
+
+        {user?.referralCode && typeof window !== "undefined" && (
+          <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+            <input
+              readOnly
+              value={`${window.location.origin}/login?ref=${user.referralCode}`}
+              style={{ flex: 1, padding: "10px 14px", borderRadius: 8, background: "var(--color-bg-elevated)", border: "1px solid var(--color-border-default)", color: "var(--color-text-primary)", fontSize: 13, boxSizing: "border-box" }}
+            />
+            <button
+              onClick={() => navigator.clipboard.writeText(`${window.location.origin}/login?ref=${user.referralCode}`)}
+              style={{ padding: "10px 16px", borderRadius: 8, fontSize: 13, fontWeight: 600, background: "var(--color-accent)", color: "#fff", border: "none", cursor: "pointer" }}
+            >
+              Copy
+            </button>
+          </div>
+        )}
+
+        {referrals.length > 0 && (
+          <div style={{ fontSize: 12, color: "var(--color-text-muted)" }}>
+            {referrals.filter((r: any) => r.status === 'rewarded').length} rewards earned ·{' '}
+            {referrals.filter((r: any) => r.status === 'subscribed').length} pending
+          </div>
+        )}
+      </div>
 
       <button
         onClick={save}
