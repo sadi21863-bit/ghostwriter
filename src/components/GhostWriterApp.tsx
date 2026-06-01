@@ -57,6 +57,7 @@ export default function GhostWriterApp({ projectId }: { projectId: string }) {
   const [skillSuggestion, setSkillSuggestion] = useState<SkillSuggestion | null>(null);
   const [activeInfluence, setActiveInfluence] = useState<any | null>(null);
   const [activePatterns, setActivePatterns] = useState<any[]>([]);
+  const [mobileToolbarOpen, setMobileToolbarOpen] = useState(false);
 
   useEffect(() => {
     const tintMap: Record<string, string> = {
@@ -219,6 +220,7 @@ export default function GhostWriterApp({ projectId }: { projectId: string }) {
         setLeftCollapsed={setLeftCollapsed}
       />
 
+      <div className={`gw-toolbar-panel${mobileToolbarOpen ? " mobile-open" : ""}`}>
       <ToolbarPanel
         project={project}
         higgsfieldKey={higgsfieldKey}
@@ -349,6 +351,24 @@ export default function GhostWriterApp({ projectId }: { projectId: string }) {
         activePatterns={activePatterns}
         setActivePatterns={setActivePatterns}
       />
+      </div>
+
+      {/* Mobile toolbar toggle — hidden on desktop via CSS */}
+      <button
+        className="mobile-toolbar-toggle"
+        onClick={() => setMobileToolbarOpen(p => !p)}
+        style={{
+          display: 'none',
+          position: 'fixed', bottom: 24, right: 24, zIndex: 200,
+          width: 52, height: 52, borderRadius: '50%',
+          background: 'var(--color-accent)', color: '#fff', border: 'none',
+          cursor: 'pointer', fontSize: 22,
+          alignItems: 'center', justifyContent: 'center',
+          boxShadow: '0 4px 20px rgba(0,0,0,0.3)',
+        }}
+      >
+        {mobileToolbarOpen ? '✕' : '☰'}
+      </button>
 
       <ChapterEditor
         project={project}

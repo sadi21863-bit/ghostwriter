@@ -33,7 +33,14 @@ interface StoryHealthPanelProps {
 }
 
 export function StoryHealthPanel({ project, projectId, activeChapContent, onClose }: StoryHealthPanelProps) {
-  const [tab, setTab] = useState<"validator" | "dead-scenes" | "theme" | "tension" | "transport" | "promises" | "heatmap">("validator");
+  const [tab, setTab] = useState<"validator" | "dead-scenes" | "theme" | "tension" | "transport" | "promises" | "heatmap" | "checkpoints">("validator");
+
+  // Checkpoints state
+  const [checkpoints, setCheckpoints] = useState<any[]>([]);
+  const [showCreateCheckpoint, setShowCreateCheckpoint] = useState(false);
+  const [cpName, setCpName] = useState("");
+  const [cpNotes, setCpNotes] = useState("");
+  const [cpSaving, setCpSaving] = useState(false);
 
   // Scene Validator state
   const [selectedPurposes, setSelectedPurposes] = useState<string[]>([]);
@@ -68,7 +75,31 @@ export function StoryHealthPanel({ project, projectId, activeChapContent, onClos
     fetch(`/api/projects/${projectId}/story-state`)
       .then(r => r.json())
       .then(d => setThreads(d.threads ?? []));
+    fetch(`/api/projects/${projectId}/checkpoints`)
+      .then(r => r.json())
+      .then(d => setCheckpoints(d.checkpoints ?? []));
   }, [projectId]);
+
+  const saveCheckpoint = async () => {
+    setCpSaving(true);
+    const res = await fetch(`/api/projects/${projectId}/checkpoints`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: cpName, notes: cpNotes }),
+    });
+    const { checkpoint } = await res.json();
+    if (checkpoint) setCheckpoints(prev => [checkpoint, ...prev]);
+    setCpName(''); setCpNotes(''); setShowCreateCheckpoint(false); setCpSaving(false);
+  };
+
+  const deleteCheckpoint = async (checkpointId: string) => {
+    await fetch(`/api/projects/${projectId}/checkpoints`, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ checkpointId }),
+    });
+    setCheckpoints(prev => prev.filter(c => c.id !== checkpointId));
+  };
 
   const healthScore = Math.max(0, 100
     - (project?.plotThreads?.filter((t: any) => t.starvationWarning).length ?? 0) * 5
@@ -229,6 +260,7 @@ export function StoryHealthPanel({ project, projectId, activeChapContent, onClos
             { id: "transport", label: "Transportation" },
             { id: "promises", label: "Story Promises" },
             { id: "heatmap", label: "Arc Heat Map" },
+            { id: "checkpoints", label: "Checkpoints" },
           ] as const).map(t => (
             <button key={t.id} onClick={() => setTab(t.id)} style={tabStyle(tab === t.id)}>{t.label}</button>
           ))}
@@ -633,6 +665,83 @@ export function StoryHealthPanel({ project, projectId, activeChapContent, onClos
           {/* ── Arc Heat Map ── */}
           {tab === "heatmap" && (
             <ArcHeatMap projectId={projectId} />
+          )}
+
+          {/* ── Checkpoints ── */}
+          {tab === "checkpoints" && (
+            <div>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+                <span style={{ fontSize: 13, fontWeight: 600, color: "var(--color-text-primary)" }}>Story Checkpoints</span>
+                <button
+                  onClick={() => setShowCreateCheckpoint(v => !v)}
+                  style={{ padding: "5px 12px", borderRadius: 6, fontSize: 12, border: "1px solid rgba(255,255,255,0.12)", background: "rgba(255,255,255,0.06)", color: "#e2e2e9", cursor: "pointer" }}
+                >
+                  + Save checkpoint
+                </button>
+              </div>
+
+              {showCreateCheckpoint && (
+                <div style={{ padding: 14, borderRadius: 8, background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", marginBottom: 12 }}>
+                  <input
+                    value={cpName}
+                    onChange={e => setCpName(e.target.value)}
+                    placeholder={`Checkpoint — ${new Date().toLocaleDateString()}`}
+                    style={{ width: "100%", padding: "8px 10px", borderRadius: 6, fontSize: 13, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)", color: "#e2e2e9", boxSizing: "border-box", marginBottom: 8 }}
+                  />
+                  <textarea
+                    value={cpNotes}
+                    onChange={e => setCpNotes(e.target.value)}
+                    placeholder="Notes (optional)"
+                    rows={2}
+                    style={{ width: "100%", padding: "8px 10px", borderRadius: 6, fontSize: 12, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)", color: "#e2e2e9", boxSizing: "border-box", resize: "none", marginBottom: 8 }}
+                  />
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <button onClick={saveCheckpoint} disabled={cpSaving} style={{ padding: "6px 14px", borderRadius: 6, fontSize: 12, background: "var(--color-accent)", color: "#fff", border: "none", cursor: cpSaving ? "not-allowed" : "pointer", opacity: cpSaving ? 0.7 : 1 }}>
+                      {cpSaving ? "Saving..." : "Save"}
+                    </button>
+                    <button onClick={() => setShowCreateCheckpoint(false)} style={{ padding: "6px 12px", borderRadius: 6, fontSize: 12, background: "none", border: "1px solid rgba(255,255,255,0.12)", color: "#9898A6", cursor: "pointer" }}>
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {checkpoints.length === 0 && !showCreateCheckpoint && (
+                <p style={{ fontSize: 12, color: "#9898A6", textAlign: "center", padding: "24px 0" }}>
+                  No checkpoints yet. Save one when the story is working well.
+                </p>
+              )}
+
+              {checkpoints.map((cp: any) => (
+                <div key={cp.id} style={{ padding: "12px", marginBottom: 8, borderRadius: 8, border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.03)" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                    <div>
+                      <div style={{ fontWeight: 600, fontSize: 13, color: "#e2e2e9" }}>{cp.name}</div>
+                      <div style={{ fontSize: 11, color: "#9898A6", marginTop: 3 }}>
+                        {new Date(cp.createdAt).toLocaleDateString()} ·{" "}
+                        {cp.snapshot.chapterCount} ch ·{" "}
+                        {cp.snapshot.totalWordCount.toLocaleString()} words ·{" "}
+                        Health: {cp.snapshot.healthScore}/100
+                      </div>
+                      {cp.notes && (
+                        <div style={{ fontSize: 11, color: "#9898A6", marginTop: 4, fontStyle: "italic" }}>{cp.notes}</div>
+                      )}
+                    </div>
+                    <button onClick={() => deleteCheckpoint(cp.id)} style={{ fontSize: 11, background: "none", border: "none", color: "#9898A6", cursor: "pointer", padding: "0 4px" }}>✕</button>
+                  </div>
+                  <div style={{ marginTop: 8, display: "flex", flexWrap: "wrap", gap: 4 }}>
+                    {cp.snapshot.chapters.slice(0, 8).map((c: any) => (
+                      <span key={c.id} style={{ fontSize: 10, padding: "2px 6px", borderRadius: 4, background: "rgba(255,255,255,0.08)", color: "#9898A6" }}>
+                        {c.title} ({c.wordCount.toLocaleString()}w)
+                      </span>
+                    ))}
+                    {cp.snapshot.chapters.length > 8 && (
+                      <span style={{ fontSize: 10, color: "#9898A6" }}>+{cp.snapshot.chapters.length - 8} more</span>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
           )}
         </div>
       </div>

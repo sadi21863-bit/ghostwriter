@@ -54,6 +54,13 @@ export default function Dashboard() {
   const [settingsMsg, setSettingsMsg] = useState("");
   const [search, setSearch] = useState("");
   const [filterFormat, setFilterFormat] = useState("All");
+  const [seriesBibles, setSeriesBibles] = useState<{ id: string; name: string; premise: string; projectIds: string[]; updatedAt: string }[]>([]);
+  const [seriesExpanded, setSeriesExpanded] = useState(false);
+  const [showCreateBible, setShowCreateBible] = useState(false);
+  const [newBibleName, setNewBibleName] = useState("");
+  const [newBiblePremise, setNewBiblePremise] = useState("");
+  const [newBibleProjectIds, setNewBibleProjectIds] = useState<string[]>([]);
+  const [creatingBible, setCreatingBible] = useState(false);
 
   useEffect(() => {
     if (status === "unauthenticated") router.push("/login");
@@ -89,7 +96,30 @@ export default function Dashboard() {
       .then(setProjects)
       .catch(() => setError("Failed to load projects"))
       .finally(() => setLoading(false));
+    fetch("/api/series-bibles")
+      .then(r => r.json())
+      .then(d => setSeriesBibles(d.bibles ?? []))
+      .catch(() => {});
   }, [status]);
+
+  const createBible = async () => {
+    if (!newBibleName.trim()) return;
+    setCreatingBible(true);
+    const res = await fetch("/api/series-bibles", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: newBibleName.trim(), premise: newBiblePremise, projectIds: newBibleProjectIds }),
+    });
+    const { bible } = await res.json();
+    if (bible) setSeriesBibles(prev => [bible, ...prev]);
+    setNewBibleName(""); setNewBiblePremise(""); setNewBibleProjectIds([]);
+    setShowCreateBible(false); setCreatingBible(false);
+  };
+
+  const deleteBible = async (id: string) => {
+    await fetch(`/api/series-bibles/${id}`, { method: "DELETE" });
+    setSeriesBibles(prev => prev.filter(b => b.id !== id));
+  };
 
   const createProject = async (e: FormEvent) => {
     e.preventDefault();
@@ -326,6 +356,102 @@ export default function Dashboard() {
             })}
           </div>
         )}
+      {/* ── Series Bibles ───────────────────────────────────────────── */}
+      <section style={{ marginTop: 40, paddingTop: 32, borderTop: "1px solid " + GW_BORDER }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16, cursor: "pointer" }} onClick={() => setSeriesExpanded(v => !v)}>
+          <span style={{ fontSize: 15, fontWeight: 700, color: "#1a1a1a" }}>Series Bibles</span>
+          <span style={{ fontSize: 11, color: "#aaa", background: "#f5f4f0", padding: "2px 8px", borderRadius: 10 }}>{seriesBibles.length}</span>
+          <span style={{ marginLeft: "auto", fontSize: 12, color: "#aaa" }}>{seriesExpanded ? "▲" : "▼"}</span>
+        </div>
+
+        {seriesExpanded && (
+          <>
+            <div style={{ marginBottom: 16 }}>
+              <button
+                onClick={() => setShowCreateBible(v => !v)}
+                style={{ padding: "8px 16px", borderRadius: 8, fontSize: 12, fontWeight: 600, background: GW_GOLD, color: "#0d0d10", border: "none", cursor: "pointer" }}
+              >
+                + New Series Bible
+              </button>
+            </div>
+
+            {showCreateBible && (
+              <div style={{ padding: 20, borderRadius: 12, background: "#fff", border: "1px solid " + GW_BORDER, marginBottom: 16, boxShadow: "0 2px 8px rgba(0,0,0,0.06)" }}>
+                <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 12, color: "#1a1a1a" }}>New Series Bible</div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                  <input
+                    value={newBibleName}
+                    onChange={e => setNewBibleName(e.target.value)}
+                    placeholder="Series name (e.g. The Ember Chronicles)"
+                    style={inputS}
+                  />
+                  <textarea
+                    value={newBiblePremise}
+                    onChange={e => setNewBiblePremise(e.target.value)}
+                    placeholder="Premise — 2-3 sentences about what this series is about"
+                    rows={3}
+                    style={{ ...inputS, resize: "vertical", fontFamily: "'Figtree', sans-serif" }}
+                  />
+                  {projects.length > 0 && (
+                    <div>
+                      <div style={{ fontSize: 11, fontWeight: 700, color: "#aaa", textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>Link Projects</div>
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                        {projects.map(p => (
+                          <button
+                            key={p.id}
+                            type="button"
+                            onClick={() => setNewBibleProjectIds(prev =>
+                              prev.includes(p.id) ? prev.filter(id => id !== p.id) : [...prev, p.id]
+                            )}
+                            style={{
+                              padding: "4px 12px", borderRadius: 20, fontSize: 12, cursor: "pointer",
+                              background: newBibleProjectIds.includes(p.id) ? GW_GOLD : "#f5f4f0",
+                              color: newBibleProjectIds.includes(p.id) ? "#0d0d10" : "#555",
+                              border: "1px solid " + (newBibleProjectIds.includes(p.id) ? GW_GOLD : GW_BORDER),
+                              fontWeight: newBibleProjectIds.includes(p.id) ? 600 : 400,
+                            }}
+                          >
+                            {p.name}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  <div style={{ display: "flex", gap: 10 }}>
+                    <button onClick={createBible} disabled={creatingBible || !newBibleName.trim()} style={{ padding: "8px 20px", borderRadius: 8, fontSize: 13, fontWeight: 700, background: GW_GOLD, color: "#0d0d10", border: "none", cursor: (creatingBible || !newBibleName.trim()) ? "not-allowed" : "pointer", opacity: (creatingBible || !newBibleName.trim()) ? 0.6 : 1 }}>
+                      {creatingBible ? "Creating…" : "Create"}
+                    </button>
+                    <button onClick={() => { setShowCreateBible(false); setNewBibleName(""); setNewBiblePremise(""); setNewBibleProjectIds([]); }} style={{ padding: "8px 16px", borderRadius: 8, fontSize: 13, border: "1px solid " + GW_BORDER, background: "#fff", color: "#888", cursor: "pointer" }}>
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {seriesBibles.length === 0 && !showCreateBible && (
+              <p style={{ fontSize: 13, color: "#aaa", padding: "16px 0" }}>No series bibles yet. Create one to track elements that span multiple books.</p>
+            )}
+
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 12 }}>
+              {seriesBibles.map(b => (
+                <div key={b.id} style={{ background: "#fff", borderRadius: 12, border: "1px solid " + GW_BORDER, padding: "16px 18px", position: "relative" }}>
+                  <div style={{ fontWeight: 700, fontSize: 14, color: "#1a1a1a", marginBottom: 6 }}>{b.name}</div>
+                  {b.premise && (
+                    <div style={{ fontSize: 12, color: "#888", lineHeight: 1.5, marginBottom: 8, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>
+                      {b.premise}
+                    </div>
+                  )}
+                  <div style={{ fontSize: 11, color: "#bbb" }}>
+                    {(b.projectIds as string[]).length} linked project{(b.projectIds as string[]).length !== 1 ? "s" : ""} · {new Date(b.updatedAt).toLocaleDateString()}
+                  </div>
+                  <button onClick={() => deleteBible(b.id)} style={{ position: "absolute", top: 10, right: 10, background: "none", border: "none", cursor: "pointer", color: "#ccc", fontSize: 13 }}>✕</button>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+      </section>
       </main>
 
       {showOnboarding && <Onboarding onDismiss={() => setShowOnboarding(false)} />}

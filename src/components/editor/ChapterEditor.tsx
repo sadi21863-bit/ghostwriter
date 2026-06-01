@@ -9,6 +9,7 @@ import Highlight from '@tiptap/extension-highlight';
 import Underline from '@tiptap/extension-underline';
 import { useEffect, useRef } from 'react';
 import { isValidTipTapJson, plainTextToTipTap, getWordCount } from '@/lib/editor/content-migration';
+import { FormatToolbar } from './FormatToolbar';
 
 interface Props {
   content: string;
@@ -70,7 +71,8 @@ export function ChapterEditor({ content, onChange, placeholder, readOnly, autoFo
   useEffect(() => () => clearTimeout(saveTimer.current), []);
 
   return (
-    <div className="chapter-editor" style={{ flex: 1, overflow: 'auto' }}>
+    <div className="chapter-editor" style={{ flex: 1, overflow: 'auto', position: 'relative' }}>
+      <FormatToolbar editor={editor} />
       <EditorContent editor={editor} />
     </div>
   );

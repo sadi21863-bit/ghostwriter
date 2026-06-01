@@ -6,6 +6,7 @@ import { and, eq } from 'drizzle-orm';
 import JSZip from 'jszip';
 import { Document, Packer, Paragraph, TextRun, HeadingLevel, PageBreak } from 'docx';
 import { tiptapToPlainText, isValidTipTapJson } from '@/lib/editor/content-migration';
+import { track } from '@/lib/analytics';
 
 export async function POST(req: Request, { params }: { params: { projectId: string } }) {
   const session = await getRequiredSession();
@@ -84,6 +85,7 @@ export async function POST(req: Request, { params }: { params: { projectId: stri
   }
 
   const zipBuffer = await zip.generateAsync({ type: 'nodebuffer' });
+  await track(session.user.id, 'manuscript_export', { formats: formats.join(',') });
   return new Response(zipBuffer as any, {
     headers: {
       'Content-Type': 'application/zip',

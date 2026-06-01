@@ -8,6 +8,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { subscriptions } from "@/db/schema";
 import { eq } from "drizzle-orm";
+import { track } from "@/lib/analytics";
 
 const TIER_MAP: Record<string, string> = {
   [process.env.STRIPE_STORY_PRO_PRICE_ID   ?? "price_story_pro"]:   "story_pro",
@@ -47,6 +48,7 @@ export async function POST(req: Request) {
         currentPeriodEnd: new Date(stripeSub.current_period_end * 1000),
         updatedAt: new Date(),
       }).where(eq(subscriptions.userId, userId));
+      await track(userId, 'subscription_activated', { tier });
       break;
     }
 

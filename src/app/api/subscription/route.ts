@@ -5,15 +5,28 @@
 
 import { NextResponse } from "next/server";
 import { getRequiredSession } from "@/lib/auth-helpers";
-import { getUserTier, getOrCreateStripeCustomer } from "@/lib/subscription";
+import { getOrCreateStripeCustomer } from "@/lib/subscription";
 import { STRIPE_PRICES } from "@/types/subscription";
 import type { SubscriptionTier } from "@/types/subscription";
+import { track } from "@/lib/analytics";
 
-// GET — current subscription info
+// GET — current subscription info (returns tier, status, currentPeriodEnd for settings UI)
 export async function GET() {
   const session = await getRequiredSession();
-  const tier = await getUserTier(session.user.id);
-  return NextResponse.json({ tier });
+  const { db } = await import('@/db');
+  const { subscriptions } = await import('@/db/schema');
+  const { eq } = await import('drizzle-orm');
+
+  const sub = await db.query.subscriptions.findFirst({
+    where: eq(subscriptions.userId, session.user.id),
+    columns: { tier: true, status: true, currentPeriodEnd: true },
+  });
+
+  return NextResponse.json({
+    tier: sub?.tier ?? 'free',
+    status: sub?.status ?? 'active',
+    currentPeriodEnd: sub?.currentPeriodEnd?.toISOString() ?? null,
+  });
 }
 
 // POST — create Stripe Checkout session
@@ -53,6 +66,7 @@ export async function POST(req: Request) {
     allow_promotion_codes: true,
   });
 
+  await track(session.user.id, 'checkout_started', { tier });
   return NextResponse.json({ url: checkoutSession.url });
 }
 

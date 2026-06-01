@@ -341,12 +341,64 @@ export const subscriptions = pgTable("subscriptions", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
-export const usersRelations = relations(users, ({ many, one }) => ({ projects: many(projects), videoAnalysisJobs: many(videoAnalysisJobs), subscription: one(subscriptions, { fields: [users.id], references: [subscriptions.userId] }), workPackets: many(workPackets) }));
+export const storyCheckpoints = pgTable("story_checkpoints", {
+  id:        uuid("id").defaultRandom().primaryKey(),
+  projectId: uuid("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
+  name:      text("name").notNull(),
+  notes:     text("notes").default(""),
+  snapshot:  jsonb("snapshot").$type<{
+    totalWordCount:  number;
+    chapterCount:    number;
+    chapters:        { id: string; title: string; wordCount: number; arcPosition: string }[];
+    openThreadCount: number;
+    openPromises:    number;
+    healthScore:     number;
+  }>().notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const seriesBibles = pgTable("series_bibles", {
+  id:                  uuid("id").defaultRandom().primaryKey(),
+  userId:              uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  name:                text("name").notNull(),
+  premise:             text("premise").default(""),
+  tone:                text("tone").default(""),
+  worldRules:          jsonb("world_rules").$type<string[]>().default([]),
+  seriesCharacterArcs: jsonb("series_character_arcs").$type<{
+    characterName: string; arcSummary: string; booksInvolved: string[];
+  }[]>().default([]),
+  continuityNotes:     text("continuity_notes").default(""),
+  projectIds:          jsonb("project_ids").$type<string[]>().default([]),
+  timeline:            jsonb("timeline").$type<{
+    event: string; period: string; projectId?: string;
+  }[]>().default([]),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const platformEvents = pgTable("platform_events", {
+  id:         uuid("id").defaultRandom().primaryKey(),
+  userId:     uuid("user_id").references(() => users.id, { onDelete: "set null" }),
+  event:      varchar("event", { length: 60 }).notNull(),
+  properties: jsonb("properties").$type<Record<string, string | number | boolean>>().default({}),
+  createdAt:  timestamp("created_at").defaultNow().notNull(),
+});
+
+export const usersRelations = relations(users, ({ many, one }) => ({ projects: many(projects), videoAnalysisJobs: many(videoAnalysisJobs), subscription: one(subscriptions, { fields: [users.id], references: [subscriptions.userId] }), workPackets: many(workPackets), seriesBibles: many(seriesBibles), platformEvents: many(platformEvents) }));
 export const workPacketsRelations = relations(workPackets, ({ one }) => ({ user: one(users, { fields: [workPackets.userId], references: [users.id] }) }));
 export const workPatternsRelations = relations(workPatterns, ({ }) => ({}));
 export const subscriptionsRelations = relations(subscriptions, ({ one }) => ({ user: one(users, { fields: [subscriptions.userId], references: [users.id] }) }));
 export const videoAnalysisJobsRelations = relations(videoAnalysisJobs, ({ one }) => ({ user: one(users, { fields: [videoAnalysisJobs.userId], references: [users.id] }) }));
-export const projectsRelations = relations(projects, ({ one, many }) => ({ user: one(users, { fields: [projects.userId], references: [users.id] }), characters: many(characters), locations: many(locations), plotThreads: many(plotThreads), chapters: many(chapters), referenceWorks: many(referenceWorks), generations: many(generations), creatorBible: one(creatorBibles, { fields: [projects.id], references: [creatorBibles.projectId] }), storyMemories: many(storyMemories), comicPages: many(comicPages), productionShots: many(productionShots), characterEvolutionLogs: many(characterEvolutionLog), audioExports: many(audioExports), characterRelationships: many(characterRelationships), storyThreads: many(storyThreads), storyPromises: many(storyPromises) }));
+export const storyCheckpointsRelations = relations(storyCheckpoints, ({ one }) => ({
+  project: one(projects, { fields: [storyCheckpoints.projectId], references: [projects.id] }),
+}));
+export const seriesBiblesRelations = relations(seriesBibles, ({ one }) => ({
+  user: one(users, { fields: [seriesBibles.userId], references: [users.id] }),
+}));
+export const platformEventsRelations = relations(platformEvents, ({ one }) => ({
+  user: one(users, { fields: [platformEvents.userId], references: [users.id] }),
+}));
+export const projectsRelations = relations(projects, ({ one, many }) => ({ user: one(users, { fields: [projects.userId], references: [users.id] }), characters: many(characters), locations: many(locations), plotThreads: many(plotThreads), chapters: many(chapters), referenceWorks: many(referenceWorks), generations: many(generations), creatorBible: one(creatorBibles, { fields: [projects.id], references: [creatorBibles.projectId] }), storyMemories: many(storyMemories), comicPages: many(comicPages), productionShots: many(productionShots), characterEvolutionLogs: many(characterEvolutionLog), audioExports: many(audioExports), characterRelationships: many(characterRelationships), storyThreads: many(storyThreads), storyPromises: many(storyPromises), storyCheckpoints: many(storyCheckpoints) }));
 export const storyThreadsRelations = relations(storyThreads, ({ one, many }) => ({ project: one(projects, { fields: [storyThreads.projectId], references: [projects.id] }), promises: many(storyPromises) }));
 export const storyPromisesRelations = relations(storyPromises, ({ one }) => ({ project: one(projects, { fields: [storyPromises.projectId], references: [projects.id] }), thread: one(storyThreads, { fields: [storyPromises.threadId], references: [storyThreads.id] }) }));
 export const audioExportsRelations = relations(audioExports, ({ one }) => ({ project: one(projects, { fields: [audioExports.projectId], references: [projects.id] }) }));

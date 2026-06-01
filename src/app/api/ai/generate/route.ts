@@ -7,6 +7,7 @@ import { generate } from "@/lib/ai/engine";
 import { db } from "@/db";
 import { generations, projects } from "@/db/schema";
 import { and, eq } from "drizzle-orm";
+import { track } from "@/lib/analytics";
 
 const VIOLATION_PATTERNS: Record<string, {
   detect: (prompt: string) => boolean;
@@ -89,6 +90,7 @@ export async function POST(req: Request) {
       projectId, chapterId: chapterId || null, mode, prompt,
       output: r.text, model: r.model, tokensUsed: r.tokensUsed,
     });
+    await track(session.user.id, 'ai_generation', { mode, format: format ?? '' });
     return NextResponse.json(r);
   } catch (e: any) {
     const msg = e?.message || "";
