@@ -86,7 +86,8 @@ export async function POST(req: Request) {
       await db.update(audioExports)
         .set({ status: "failed" })
         .where(eq(audioExports.id, exportRecord.id));
-      return NextResponse.json({ error: `TTS failed: ${err.message}` }, { status: 500 });
+      console.error('[audio] TTS error:', err);
+      return NextResponse.json({ error: "Audio generation failed. Please try again." }, { status: 500 });
     }
   }
 

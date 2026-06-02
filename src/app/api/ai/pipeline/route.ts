@@ -1,17 +1,19 @@
 import { NextResponse } from "next/server";
 import { getRequiredSession } from "@/lib/auth-helpers";
 import { checkAiRateLimit } from "@/lib/ratelimit";
+import { getUserTier, canAccessFeature } from "@/lib/subscription";
 import Anthropic from "@anthropic-ai/sdk";
+import { MODELS } from "@/lib/ai/engine";
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! });
 
 const AGENT_MODELS: Record<string, string> = {
-  story_architect:   "claude-haiku-4-5-20251001",
-  scene_writer:      "claude-sonnet-4-20250514",
-  character_voice:   "claude-sonnet-4-20250514",
-  continuity_editor: "claude-sonnet-4-20250514",
-  hook_writer:       "claude-sonnet-4-20250514",
-  seo_optimizer:     "claude-haiku-4-5-20251001",
+  story_architect:   MODELS.fast,
+  scene_writer:      MODELS.default,
+  character_voice:   MODELS.default,
+  continuity_editor: MODELS.default,
+  hook_writer:       MODELS.default,
+  seo_optimizer:     MODELS.fast,
 };
 
 const AGENT_SYSTEM: Record<string, (ctx: string, fmt: string) => string> = {
@@ -38,6 +40,10 @@ export async function POST(req: Request) {
   const session = await getRequiredSession();
   const rl = await checkAiRateLimit(session.user.id);
   if (rl) return rl;
+  const tier = await getUserTier(session.user.id);
+  if (!canAccessFeature(tier, 'story_modes_advanced')) {
+    return NextResponse.json({ error: 'upgrade_required', feature: 'pipeline' }, { status: 403 });
+  }
   const { agents, prompt, context, format } = await req.json();
 
   if (!agents?.length || !prompt)
@@ -55,7 +61,7 @@ export async function POST(req: Request) {
       if (!systemFn) continue;
 
       const msg = await client.messages.create({
-        model: AGENT_MODELS[agentKey] || "claude-sonnet-4-20250514",
+        model: AGENT_MODELS[agentKey] || MODELS.default,
         max_tokens: 2000,
         system: systemFn(accumulatedContext, format || ""),
         messages: [{ role: "user", content: currentInput }],

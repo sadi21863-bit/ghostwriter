@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getRequiredSession } from "@/lib/auth-helpers";
 import { checkAiRateLimit } from "@/lib/ratelimit";
+import { getUserTier, canAccessFeature } from "@/lib/subscription";
 import Anthropic from "@anthropic-ai/sdk";
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! });
@@ -102,6 +103,10 @@ export async function POST(req: Request) {
   const session = await getRequiredSession();
   const rl = await checkAiRateLimit(session.user.id);
   if (rl) return rl;
+  const tier = await getUserTier(session.user.id);
+  if (!canAccessFeature(tier, 'story_modes_advanced')) {
+    return NextResponse.json({ error: 'upgrade_required', feature: 'prose_tools' }, { status: 403 });
+  }
   const { text, mode, projectContext, activeMode } = await req.json();
 
   if (!text?.trim() || !mode)

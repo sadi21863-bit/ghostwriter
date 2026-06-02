@@ -11,6 +11,7 @@ import { db } from "@/db";
 import { projects, creatorBibles } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import Anthropic from "@anthropic-ai/sdk";
+import { MODELS } from "@/lib/ai/engine";
 
 const anthropic = new Anthropic();
 
@@ -98,7 +99,7 @@ Return ONLY valid JSON:
 }`;
 
   const trendResponse = await anthropic.messages.create({
-    model: "claude-sonnet-4-20250514",
+    model: MODELS.default,
     max_tokens: 2000,
     messages: [{ role: "user", content: trendPrompt }],
   });
@@ -136,7 +137,7 @@ Return ONLY valid JSON:
 }`;
 
     const perfResponse = await anthropic.messages.create({
-      model: "claude-sonnet-4-20250514",
+      model: MODELS.default,
       max_tokens: 800,
       messages: [{ role: "user", content: perfPrompt }],
     });

@@ -1,5 +1,10 @@
 "use client";
 import { useState, useRef } from "react";
+
+const QUALITY_CHECK_MODES = new Set([
+  'write', 'emotional', 'combat', 'atmosphere', 'tension',
+  'horror', 'mystery', 'romance', 'thriller', 'action', 'dialogue',
+]);
 import { toast } from "@/lib/toast";
 import { buildStaticContext, buildDynamicContext, buildBeginnerContext, buildCreatorContext } from "@/lib/ai/context-builder";
 import { getPipelines, type Pipeline } from "@/lib/ai/pipelines";
@@ -56,7 +61,8 @@ export function useAIActions({
   activePatterns?: any[];
 }) {
   const lastGenRef = useRef<{ fn: () => Promise<void> } | null>(null);
-  const retryLastGeneration = () => lastGenRef.current?.fn();
+  const retryCountRef = useRef(0);
+  const MAX_RETRIES = 2;
 
   const [generating, setGenerating] = useState(false);
   const [genTarget, setGenTarget] = useState("");
@@ -110,6 +116,7 @@ export function useAIActions({
 
   const generate = async (opts?: { cameraPresetId?: string }) => {
     if (!prompt.trim()) return;
+    retryCountRef.current = 0;
     lastGenRef.current = { fn: () => generate(opts) };
     setGenerating(true); setGenTarget("main"); setStreamText("");
     try {
@@ -154,28 +161,46 @@ export function useAIActions({
 
       const r = await callAI("generate", { mode: effectiveMode, prompt: effectivePrompt, staticContext: staticCtx, dynamicContext: dynamicCtx, format: effectiveFormat, projectId: project.id, chapterId: activeChap.id, narrativeStructure: (project as any).narrativeStructure });
       if (r.retryable) {
-        toast.error('AI is busy — retrying in 5 seconds...', { label: 'Retry now', onClick: () => retryLastGeneration() });
-        setTimeout(() => retryLastGeneration(), 5000);
+        if (retryCountRef.current < MAX_RETRIES) {
+          retryCountRef.current += 1;
+          const retryFn = lastGenRef.current?.fn;
+          toast.error(`AI is busy — retrying in 5 seconds... (${retryCountRef.current}/${MAX_RETRIES})`, {
+            label: 'Retry now', onClick: () => { retryCountRef.current = MAX_RETRIES; retryFn?.(); },
+          });
+          setTimeout(() => retryFn?.(), 5000);
+        } else {
+          retryCountRef.current = 0;
+          toast.error('AI rate limit reached. Please wait a moment before generating again.');
+        }
       } else if (r.requiresConfirmation) { setViolationBanner({ violationType: r.violationType, flagMessage: r.flagMessage, supportMode: r.supportMode }); }
       else if (r.error === "upgrade_required") { setUpgradeRequired?.(r.feature); }
-      else if (mode === "write") {
-        setUndoStack(s => [...s.slice(-9), activeChap.content]);
-        const merged = appendToTipTap(activeChap.content, r.text);
-        updateChapter("content", merged);
-        updateChapter("wordCount", getWordCount(merged));
-        const QUALITY_CHECK_MODES = new Set(['write', 'emotional', 'combat', 'atmosphere', 'tension', 'horror', 'mystery', 'romance', 'thriller', 'action', 'dialogue']);
-        if (QUALITY_CHECK_MODES.has(mode)) {
+      else {
+        if (mode === "write") {
+          setUndoStack(s => [...s.slice(-9), activeChap.content]);
+          const merged = appendToTipTap(activeChap.content, r.text);
+          updateChapter("content", merged);
+          updateChapter("wordCount", getWordCount(merged));
+        } else {
+          setStreamText(r.text);
+        }
+        if (QUALITY_CHECK_MODES.has(mode) && (project as any).qualityGradingEnabled) {
           runQualityCheck(r.text, project.id);
         }
-      } else setStreamText(r.text);
+      }
     } catch (e: any) {
       const msg = e?.message ?? '';
       if (msg.includes('rate') || msg.includes('429') || msg.includes('529')) {
-        toast.error('AI is busy — retrying in 5 seconds...', {
-          label: 'Retry now',
-          onClick: () => retryLastGeneration(),
-        });
-        setTimeout(() => retryLastGeneration(), 5000);
+        if (retryCountRef.current < MAX_RETRIES) {
+          retryCountRef.current += 1;
+          const retryFn = lastGenRef.current?.fn;
+          toast.error(`AI is busy — retrying in 5 seconds... (${retryCountRef.current}/${MAX_RETRIES})`, {
+            label: 'Retry now', onClick: () => { retryCountRef.current = MAX_RETRIES; retryFn?.(); },
+          });
+          setTimeout(() => retryFn?.(), 5000);
+        } else {
+          retryCountRef.current = 0;
+          toast.error('AI rate limit reached. Please wait a moment before generating again.');
+        }
       } else if (msg.includes('network') || msg.includes('fetch')) {
         toast.error('Connection lost. Check your internet and try again.');
       } else {
@@ -284,10 +309,13 @@ export function useAIActions({
     if (!charA || !charB) return;
     setGenerating(true); setGenTarget("main"); setStreamText("");
     try {
-      const dialogueContext = buildDialogueContext(charA, charB, archetypeName) + "\n---\n" + buildFullContext(p);
+      const extended = { ...p, activeMode: 'dialogue', currentPrompt: dialoguePrompt, activeInfluence, activePatterns };
+      const libraryPrefix = buildDialogueContext(charA, charB, archetypeName) + "\n---\n";
+      const staticCtx = libraryPrefix + buildStaticContext(extended);
+      const dynamicCtx = buildDynamicContext(extended);
       const res = await fetch("/api/ai/generate", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mode: "dialogue", prompt: dialoguePrompt || `Write a ${archetypeName.toLowerCase()} scene between ${charA.name} and ${charB.name}.`, context: dialogueContext, format: p.format }),
+        body: JSON.stringify({ mode: "dialogue", prompt: dialoguePrompt || `Write a ${archetypeName.toLowerCase()} scene between ${charA.name} and ${charB.name}.`, staticContext: staticCtx, dynamicContext: dynamicCtx, format: p.format }),
       });
       const data = await res.json();
       if (data.error === "upgrade_required") { setUpgradeRequired?.(data.feature); }
@@ -303,10 +331,12 @@ export function useAIActions({
     if (!styleA || !styleB) { toast.error("Select both fighting styles before generating."); return; }
     setGenerating(true); setGenTarget("main"); setStreamText("");
     try {
-      const combatCtx = buildCombatContext(styleA, styleB) + "\n---\n" + buildFullContext();
+      const extended = { ...project, activeMode: 'combat', currentPrompt: combatPrompt, activeInfluence, activePatterns };
+      const staticCtx = buildCombatContext(styleA, styleB) + "\n---\n" + buildStaticContext(extended);
+      const dynamicCtx = buildDynamicContext(extended);
       const res = await fetch("/api/ai/generate", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mode: "combat", prompt: combatPrompt || `Write a fight scene between a ${styleA} fighter and a ${styleB} fighter.`, context: combatCtx, format: project.format }),
+        body: JSON.stringify({ mode: "combat", prompt: combatPrompt || `Write a fight scene between a ${styleA} fighter and a ${styleB} fighter.`, staticContext: staticCtx, dynamicContext: dynamicCtx, format: project.format }),
       });
       const data = await res.json();
       if (data.error === "upgrade_required") { setUpgradeRequired?.(data.feature); }
@@ -319,10 +349,12 @@ export function useAIActions({
     if (!emotionName) { toast.error("Select an emotion before generating."); return; }
     setGenerating(true); setGenTarget("main"); setStreamText("");
     try {
-      const ctx = buildEmotionalContext(emotionName) + "\n---\n" + buildFullContext();
+      const extended = { ...project, activeMode: 'emotional', currentPrompt: emotionalPrompt, activeInfluence, activePatterns };
+      const staticCtx = buildEmotionalContext(emotionName) + "\n---\n" + buildStaticContext(extended);
+      const dynamicCtx = buildDynamicContext(extended);
       const res = await fetch("/api/ai/generate", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mode: "emotional", prompt: emotionalPrompt || `Write a scene that physicalizes ${emotionName}.`, context: ctx, format: project.format }),
+        body: JSON.stringify({ mode: "emotional", prompt: emotionalPrompt || `Write a scene that physicalizes ${emotionName}.`, staticContext: staticCtx, dynamicContext: dynamicCtx, format: project.format }),
       });
       const data = await res.json();
       if (data.error === "upgrade_required") { setUpgradeRequired?.(data.feature); }
@@ -335,10 +367,12 @@ export function useAIActions({
     if (!environmentName) { toast.error("Select an environment before generating."); return; }
     setGenerating(true); setGenTarget("main"); setStreamText("");
     try {
-      const ctx = buildAtmosphereContext(environmentName) + "\n---\n" + buildFullContext();
+      const extended = { ...project, activeMode: 'atmosphere', currentPrompt: atmospherePrompt, activeInfluence, activePatterns };
+      const staticCtx = buildAtmosphereContext(environmentName) + "\n---\n" + buildStaticContext(extended);
+      const dynamicCtx = buildDynamicContext(extended);
       const res = await fetch("/api/ai/generate", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mode: "atmosphere", prompt: atmospherePrompt || `Write a scene set in a ${environmentName.toLowerCase()} environment.`, context: ctx, format: project.format }),
+        body: JSON.stringify({ mode: "atmosphere", prompt: atmospherePrompt || `Write a scene set in a ${environmentName.toLowerCase()} environment.`, staticContext: staticCtx, dynamicContext: dynamicCtx, format: project.format }),
       });
       const data = await res.json();
       if (data.error === "upgrade_required") { setUpgradeRequired?.(data.feature); }
@@ -351,10 +385,12 @@ export function useAIActions({
     if (!tensionType) { toast.error("Select a tension type before generating."); return; }
     setGenerating(true); setGenTarget("main"); setStreamText("");
     try {
-      const ctx = buildTensionContext(tensionType) + "\n---\n" + buildFullContext();
+      const extended = { ...project, activeMode: 'tension', currentPrompt: tensionPrompt, activeInfluence, activePatterns };
+      const staticCtx = buildTensionContext(tensionType) + "\n---\n" + buildStaticContext(extended);
+      const dynamicCtx = buildDynamicContext(extended);
       const res = await fetch("/api/ai/generate", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mode: "tension", prompt: tensionPrompt || `Write a scene using ${tensionType.toLowerCase()} tension structure.`, context: ctx, format: project.format }),
+        body: JSON.stringify({ mode: "tension", prompt: tensionPrompt || `Write a scene using ${tensionType.toLowerCase()} tension structure.`, staticContext: staticCtx, dynamicContext: dynamicCtx, format: project.format }),
       });
       const data = await res.json();
       if (data.error === "upgrade_required") { setUpgradeRequired?.(data.feature); }
@@ -367,10 +403,12 @@ export function useAIActions({
     if (!archetypeName) { toast.error("Select a horror archetype."); return; }
     setGenerating(true); setGenTarget("main"); setStreamText("");
     try {
-      const ctx = buildHorrorContext(archetypeName) + "\n---\n" + buildFullContext();
+      const extended = { ...project, activeMode: 'horror', currentPrompt: horrorPrompt, activeInfluence, activePatterns };
+      const staticCtx = buildHorrorContext(archetypeName) + "\n---\n" + buildStaticContext(extended);
+      const dynamicCtx = buildDynamicContext(extended);
       const res = await fetch("/api/ai/generate", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mode: "horror", prompt: horrorPrompt || `Write a ${archetypeName.toLowerCase()} horror scene.`, context: ctx, format: project.format, projectId: project.id, chapterId: activeChap.id }),
+        body: JSON.stringify({ mode: "horror", prompt: horrorPrompt || `Write a ${archetypeName.toLowerCase()} horror scene.`, staticContext: staticCtx, dynamicContext: dynamicCtx, format: project.format, projectId: project.id, chapterId: activeChap.id }),
       });
       const data = await res.json();
       if (data.error === "upgrade_required") { setUpgradeRequired?.(data.feature); }
@@ -383,10 +421,12 @@ export function useAIActions({
     if (!archetypeName) { toast.error("Select a comedy archetype."); return; }
     setGenerating(true); setGenTarget("main"); setStreamText("");
     try {
-      const ctx = buildComedyContext(archetypeName) + "\n---\n" + buildFullContext();
+      const extended = { ...project, activeMode: 'comedy', currentPrompt: comedyPrompt, activeInfluence, activePatterns };
+      const staticCtx = buildComedyContext(archetypeName) + "\n---\n" + buildStaticContext(extended);
+      const dynamicCtx = buildDynamicContext(extended);
       const res = await fetch("/api/ai/generate", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mode: "comedy", prompt: comedyPrompt || `Write a ${archetypeName.toLowerCase()} comedy scene.`, context: ctx, format: project.format, projectId: project.id, chapterId: activeChap.id }),
+        body: JSON.stringify({ mode: "comedy", prompt: comedyPrompt || `Write a ${archetypeName.toLowerCase()} comedy scene.`, staticContext: staticCtx, dynamicContext: dynamicCtx, format: project.format, projectId: project.id, chapterId: activeChap.id }),
       });
       const data = await res.json();
       if (data.error === "upgrade_required") { setUpgradeRequired?.(data.feature); }
@@ -399,10 +439,12 @@ export function useAIActions({
     if (!archetypeName) { toast.error("Select a mystery archetype."); return; }
     setGenerating(true); setGenTarget("main"); setStreamText("");
     try {
-      const ctx = buildMysteryContext(archetypeName) + "\n---\n" + buildFullContext();
+      const extended = { ...project, activeMode: 'mystery', currentPrompt: mysteryPrompt, activeInfluence, activePatterns };
+      const staticCtx = buildMysteryContext(archetypeName) + "\n---\n" + buildStaticContext(extended);
+      const dynamicCtx = buildDynamicContext(extended);
       const res = await fetch("/api/ai/generate", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mode: "mystery", prompt: mysteryPrompt || `Write a ${archetypeName.toLowerCase()} mystery scene.`, context: ctx, format: project.format, projectId: project.id, chapterId: activeChap.id }),
+        body: JSON.stringify({ mode: "mystery", prompt: mysteryPrompt || `Write a ${archetypeName.toLowerCase()} mystery scene.`, staticContext: staticCtx, dynamicContext: dynamicCtx, format: project.format, projectId: project.id, chapterId: activeChap.id }),
       });
       const data = await res.json();
       if (data.error === "upgrade_required") { setUpgradeRequired?.(data.feature); }
@@ -415,10 +457,12 @@ export function useAIActions({
     if (!archetypeName) { toast.error("Select a romance archetype."); return; }
     setGenerating(true); setGenTarget("main"); setStreamText("");
     try {
-      const ctx = buildRomanceContext(archetypeName) + "\n---\n" + buildFullContext();
+      const extended = { ...project, activeMode: 'romance', currentPrompt: romancePrompt, activeInfluence, activePatterns };
+      const staticCtx = buildRomanceContext(archetypeName) + "\n---\n" + buildStaticContext(extended);
+      const dynamicCtx = buildDynamicContext(extended);
       const res = await fetch("/api/ai/generate", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mode: "romance", prompt: romancePrompt || `Write a ${archetypeName.toLowerCase()} romance scene.`, context: ctx, format: project.format, projectId: project.id, chapterId: activeChap.id }),
+        body: JSON.stringify({ mode: "romance", prompt: romancePrompt || `Write a ${archetypeName.toLowerCase()} romance scene.`, staticContext: staticCtx, dynamicContext: dynamicCtx, format: project.format, projectId: project.id, chapterId: activeChap.id }),
       });
       const data = await res.json();
       if (data.error === "upgrade_required") { setUpgradeRequired?.(data.feature); }
@@ -431,10 +475,12 @@ export function useAIActions({
     if (!archetypeName) { toast.error("Select a monologue archetype."); return; }
     setGenerating(true); setGenTarget("main"); setStreamText("");
     try {
-      const ctx = buildMonologueContext(archetypeName) + "\n---\n" + buildFullContext();
+      const extended = { ...project, activeMode: 'monologue', currentPrompt: monologuePrompt, activeInfluence, activePatterns };
+      const staticCtx = buildMonologueContext(archetypeName) + "\n---\n" + buildStaticContext(extended);
+      const dynamicCtx = buildDynamicContext(extended);
       const res = await fetch("/api/ai/generate", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mode: "monologue", prompt: monologuePrompt || `Write a ${archetypeName.toLowerCase()} interior monologue.`, context: ctx, format: project.format, projectId: project.id, chapterId: activeChap.id }),
+        body: JSON.stringify({ mode: "monologue", prompt: monologuePrompt || `Write a ${archetypeName.toLowerCase()} interior monologue.`, staticContext: staticCtx, dynamicContext: dynamicCtx, format: project.format, projectId: project.id, chapterId: activeChap.id }),
       });
       const data = await res.json();
       if (data.error === "upgrade_required") { setUpgradeRequired?.(data.feature); }
@@ -447,10 +493,12 @@ export function useAIActions({
     if (!profileName) { toast.error("Select a voice profile."); return; }
     setGenerating(true); setGenTarget("main"); setStreamText("");
     try {
-      const ctx = buildVoiceContext(profileName) + "\n---\n" + buildFullContext();
+      const extended = { ...project, activeMode: 'voice', currentPrompt: voicePrompt, activeInfluence, activePatterns };
+      const staticCtx = buildVoiceContext(profileName) + "\n---\n" + buildStaticContext(extended);
+      const dynamicCtx = buildDynamicContext(extended);
       const res = await fetch("/api/ai/generate", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mode: "voice", prompt: voicePrompt || `Write a scene using the ${profileName} voice profile.`, context: ctx, format: project.format, projectId: project.id, chapterId: activeChap.id }),
+        body: JSON.stringify({ mode: "voice", prompt: voicePrompt || `Write a scene using the ${profileName} voice profile.`, staticContext: staticCtx, dynamicContext: dynamicCtx, format: project.format, projectId: project.id, chapterId: activeChap.id }),
       });
       const data = await res.json();
       if (data.error === "upgrade_required") { setUpgradeRequired?.(data.feature); }
@@ -463,10 +511,12 @@ export function useAIActions({
     if (!archetypeName) { toast.error("Select a thriller archetype."); return; }
     setGenerating(true); setGenTarget("main"); setStreamText("");
     try {
-      const ctx = buildThrillerContext(archetypeName) + "\n---\n" + buildFullContext();
+      const extended = { ...project, activeMode: 'thriller', currentPrompt: thrillerPrompt, activeInfluence, activePatterns };
+      const staticCtx = buildThrillerContext(archetypeName) + "\n---\n" + buildStaticContext(extended);
+      const dynamicCtx = buildDynamicContext(extended);
       const res = await fetch("/api/ai/generate", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mode: "thriller", prompt: thrillerPrompt || `Write a ${archetypeName.toLowerCase()} thriller scene.`, context: ctx, format: project.format, projectId: project.id, chapterId: activeChap.id }),
+        body: JSON.stringify({ mode: "thriller", prompt: thrillerPrompt || `Write a ${archetypeName.toLowerCase()} thriller scene.`, staticContext: staticCtx, dynamicContext: dynamicCtx, format: project.format, projectId: project.id, chapterId: activeChap.id }),
       });
       const data = await res.json();
       if (data.error === "upgrade_required") { setUpgradeRequired?.(data.feature); }
@@ -479,10 +529,12 @@ export function useAIActions({
     if (!archetypeName) { toast.error("Select a sports archetype."); return; }
     setGenerating(true); setGenTarget("main"); setStreamText("");
     try {
-      const ctx = buildSportsContext(archetypeName) + "\n---\n" + buildFullContext();
+      const extended = { ...project, activeMode: 'sports', currentPrompt: sportsPrompt, activeInfluence, activePatterns };
+      const staticCtx = buildSportsContext(archetypeName) + "\n---\n" + buildStaticContext(extended);
+      const dynamicCtx = buildDynamicContext(extended);
       const res = await fetch("/api/ai/generate", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mode: "sports", prompt: sportsPrompt || `Write a ${archetypeName.toLowerCase()} sports scene.`, context: ctx, format: project.format, projectId: project.id, chapterId: activeChap.id }),
+        body: JSON.stringify({ mode: "sports", prompt: sportsPrompt || `Write a ${archetypeName.toLowerCase()} sports scene.`, staticContext: staticCtx, dynamicContext: dynamicCtx, format: project.format, projectId: project.id, chapterId: activeChap.id }),
       });
       const data = await res.json();
       if (data.error === "upgrade_required") { setUpgradeRequired?.(data.feature); }
@@ -495,10 +547,12 @@ export function useAIActions({
     if (!archetypeName) { toast.error("Select an action archetype."); return; }
     setGenerating(true); setGenTarget("main"); setStreamText("");
     try {
-      const ctx = buildActionContext(archetypeName) + "\n---\n" + buildFullContext();
+      const extended = { ...project, activeMode: 'action', currentPrompt: actionPrompt, activeInfluence, activePatterns };
+      const staticCtx = buildActionContext(archetypeName) + "\n---\n" + buildStaticContext(extended);
+      const dynamicCtx = buildDynamicContext(extended);
       const res = await fetch("/api/ai/generate", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mode: "action", prompt: actionPrompt || `Write a ${archetypeName.toLowerCase()} action scene.`, context: ctx, format: project.format, projectId: project.id, chapterId: activeChap.id }),
+        body: JSON.stringify({ mode: "action", prompt: actionPrompt || `Write a ${archetypeName.toLowerCase()} action scene.`, staticContext: staticCtx, dynamicContext: dynamicCtx, format: project.format, projectId: project.id, chapterId: activeChap.id }),
       });
       const data = await res.json();
       if (data.error === "upgrade_required") { setUpgradeRequired?.(data.feature); }
@@ -536,10 +590,12 @@ export function useAIActions({
     if (!archetypeName) { toast.error("Select a setting archetype."); return; }
     setGenerating(true); setGenTarget("main"); setStreamText("");
     try {
-      const ctx = buildSettingContext(archetypeName) + "\n---\n" + buildFullContext();
+      const extended = { ...project, activeMode: 'setting', currentPrompt: settingPrompt, activeInfluence, activePatterns };
+      const staticCtx = buildSettingContext(archetypeName) + "\n---\n" + buildStaticContext(extended);
+      const dynamicCtx = buildDynamicContext(extended);
       const res = await fetch("/api/ai/generate", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mode: "setting", prompt: settingPrompt || `Write a scene using the ${archetypeName} setting archetype.`, context: ctx, format: project.format, projectId: project.id, chapterId: activeChap.id }),
+        body: JSON.stringify({ mode: "setting", prompt: settingPrompt || `Write a scene using the ${archetypeName} setting archetype.`, staticContext: staticCtx, dynamicContext: dynamicCtx, format: project.format, projectId: project.id, chapterId: activeChap.id }),
       });
       const data = await res.json();
       if (data.error === "upgrade_required") { setUpgradeRequired?.(data.feature); }
@@ -552,10 +608,12 @@ export function useAIActions({
     if (!archetypeName) { toast.error("Select a historical archetype."); return; }
     setGenerating(true); setGenTarget("main"); setStreamText("");
     try {
-      const ctx = buildHistoricalContext(archetypeName) + "\n---\n" + buildFullContext();
+      const extended = { ...project, activeMode: 'historical', currentPrompt: historicalPrompt, activeInfluence, activePatterns };
+      const staticCtx = buildHistoricalContext(archetypeName) + "\n---\n" + buildStaticContext(extended);
+      const dynamicCtx = buildDynamicContext(extended);
       const res = await fetch("/api/ai/generate", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mode: "historical", prompt: historicalPrompt || `Write a scene using the ${archetypeName} historical texture.`, context: ctx, format: project.format, projectId: project.id, chapterId: activeChap.id }),
+        body: JSON.stringify({ mode: "historical", prompt: historicalPrompt || `Write a scene using the ${archetypeName} historical texture.`, staticContext: staticCtx, dynamicContext: dynamicCtx, format: project.format, projectId: project.id, chapterId: activeChap.id }),
       });
       const data = await res.json();
       if (data.error === "upgrade_required") { setUpgradeRequired?.(data.feature); }
@@ -568,10 +626,12 @@ export function useAIActions({
     if (!archetypeName) { toast.error("Select a science/technology archetype."); return; }
     setGenerating(true); setGenTarget("main"); setStreamText("");
     try {
-      const ctx = buildScitechContext(archetypeName) + "\n---\n" + buildFullContext();
+      const extended = { ...project, activeMode: 'scitech', currentPrompt: scitechPrompt, activeInfluence, activePatterns };
+      const staticCtx = buildScitechContext(archetypeName) + "\n---\n" + buildStaticContext(extended);
+      const dynamicCtx = buildDynamicContext(extended);
       const res = await fetch("/api/ai/generate", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mode: "scitech", prompt: scitechPrompt || `Write a scene using the ${archetypeName} science/technology archetype.`, context: ctx, format: project.format, projectId: project.id, chapterId: activeChap.id }),
+        body: JSON.stringify({ mode: "scitech", prompt: scitechPrompt || `Write a scene using the ${archetypeName} science/technology archetype.`, staticContext: staticCtx, dynamicContext: dynamicCtx, format: project.format, projectId: project.id, chapterId: activeChap.id }),
       });
       const data = await res.json();
       if (data.error === "upgrade_required") { setUpgradeRequired?.(data.feature); }
@@ -584,10 +644,12 @@ export function useAIActions({
     if (!archetypeName) { toast.error("Select an ethics archetype."); return; }
     setGenerating(true); setGenTarget("main"); setStreamText("");
     try {
-      const ctx = buildEthicsContext(archetypeName) + "\n---\n" + buildFullContext();
+      const extended = { ...project, activeMode: 'ethics', currentPrompt: ethicsPrompt, activeInfluence, activePatterns };
+      const staticCtx = buildEthicsContext(archetypeName) + "\n---\n" + buildStaticContext(extended);
+      const dynamicCtx = buildDynamicContext(extended);
       const res = await fetch("/api/ai/generate", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mode: "ethics", prompt: ethicsPrompt || `Write a scene using the ${archetypeName} moral archetype.`, context: ctx, format: project.format, projectId: project.id, chapterId: activeChap.id }),
+        body: JSON.stringify({ mode: "ethics", prompt: ethicsPrompt || `Write a scene using the ${archetypeName} moral archetype.`, staticContext: staticCtx, dynamicContext: dynamicCtx, format: project.format, projectId: project.id, chapterId: activeChap.id }),
       });
       const data = await res.json();
       if (data.error === "upgrade_required") { setUpgradeRequired?.(data.feature); }
@@ -600,10 +662,12 @@ export function useAIActions({
     if (!archetypeName) { toast.error("Select an endings archetype."); return; }
     setGenerating(true); setGenTarget("main"); setStreamText("");
     try {
-      const ctx = buildEndingsContext(archetypeName) + "\n---\n" + buildFullContext();
+      const extended = { ...project, activeMode: 'endings', currentPrompt: endingsPrompt, activeInfluence, activePatterns };
+      const staticCtx = buildEndingsContext(archetypeName) + "\n---\n" + buildStaticContext(extended);
+      const dynamicCtx = buildDynamicContext(extended);
       const res = await fetch("/api/ai/generate", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mode: "endings", prompt: endingsPrompt || `Write a scene using the ${archetypeName} ending archetype.`, context: ctx, format: project.format, projectId: project.id, chapterId: activeChap.id }),
+        body: JSON.stringify({ mode: "endings", prompt: endingsPrompt || `Write a scene using the ${archetypeName} ending archetype.`, staticContext: staticCtx, dynamicContext: dynamicCtx, format: project.format, projectId: project.id, chapterId: activeChap.id }),
       });
       const data = await res.json();
       if (data.error === "upgrade_required") { setUpgradeRequired?.(data.feature); }
@@ -616,10 +680,12 @@ export function useAIActions({
     if (!archetypeName) { toast.error("Select an isekai subgenre."); return; }
     setGenerating(true); setGenTarget("main"); setStreamText("");
     try {
-      const ctx = buildIsekaiContext(archetypeName) + "\n---\n" + buildFullContext();
+      const extended = { ...project, activeMode: 'isekai', currentPrompt: isekaiPrompt, activeInfluence, activePatterns };
+      const staticCtx = buildIsekaiContext(archetypeName) + "\n---\n" + buildStaticContext(extended);
+      const dynamicCtx = buildDynamicContext(extended);
       const res = await fetch("/api/ai/generate", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mode: "isekai", prompt: isekaiPrompt || `Write a ${archetypeName} isekai scene.`, context: ctx, format: project.format, projectId: project.id, chapterId: activeChap.id }),
+        body: JSON.stringify({ mode: "isekai", prompt: isekaiPrompt || `Write a ${archetypeName} isekai scene.`, staticContext: staticCtx, dynamicContext: dynamicCtx, format: project.format, projectId: project.id, chapterId: activeChap.id }),
       });
       const data = await res.json();
       if (data.error === "upgrade_required") { setUpgradeRequired?.(data.feature); }

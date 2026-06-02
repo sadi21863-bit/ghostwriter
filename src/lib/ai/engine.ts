@@ -23,10 +23,13 @@ export const MODELS = {
 } as const;
 
 const QUALITY_MODES = new Set([
-  'write', 'dialogue', 'combat', 'emotional', 'atmosphere', 'tension',
-  'horror', 'comedy', 'mystery', 'romance', 'action', 'monologue',
-  'voice', 'thriller', 'sports', 'setting', 'historical', 'scitech',
-  'ethics', 'endings', 'isekai', 'composition',
+  // Only modes with specialized research-depth libraries justify Opus
+  'combat', 'emotional', 'atmosphere', 'tension', 'horror',
+  'comedy', 'mystery', 'romance', 'action', 'monologue',
+  'voice', 'thriller', 'sports', 'setting', 'historical',
+  'scitech', 'ethics', 'endings', 'isekai', 'composition',
+  // write → MODELS.default (Sonnet — 18K context does the heavy lifting)
+  // dialogue → MODELS.default (character profiles in context are sufficient)
 ]);
 
 function getNarrativeStructureInstruction(structure?: string): string {
@@ -40,9 +43,15 @@ function getNarrativeStructureInstruction(structure?: string): string {
   return instructions[structure] ?? '';
 }
 
-function safeParseJson(raw: string) {
-  const clean = raw.replace(/```json\n?|```/g, "").trim();
-  try { return JSON.parse(clean); } catch { return {}; }
+function safeParseJson(raw: string): Record<string, unknown> | null {
+  let clean = raw.replace(/```(?:json|typescript)?\n?|```/g, "").trim();
+  try { return JSON.parse(clean); } catch { /* fall through */ }
+  const objMatch = clean.match(/\{[\s\S]*\}/);
+  if (objMatch) { try { return JSON.parse(objMatch[0]); } catch { /* fall through */ } }
+  const arrMatch = clean.match(/\[[\s\S]*\]/);
+  if (arrMatch) { try { return JSON.parse(arrMatch[0]); } catch { /* fall through */ } }
+  console.error('[safeParseJson] Failed to parse model response:', clean.slice(0, 200));
+  return null;
 }
 export type GenerationMode = "brainstorm" | "outline" | "write" | "dialogue" | "combat" | "emotional" | "atmosphere" | "tension" | "composition" | "horror" | "comedy" | "mystery" | "romance" | "action" | "monologue" | "voice" | "thriller" | "sports" | "setting" | "historical" | "scitech" | "ethics" | "endings" | "isekai";
 
@@ -357,8 +366,8 @@ export async function generate({ mode, prompt, context, staticContext, dynamicCo
   const text = msg.content.filter(b => b.type === 'text').map(b => (b as any).text).join('');
   return { text, tokensUsed: msg.usage.input_tokens + msg.usage.output_tokens, model };
 }
-export async function analyzeWork(title: string) { const msg = await client.messages.create({ model: MODELS.fast, max_tokens: 500, messages: [{ role: "user", content: 'Analyze "' + title + '". Return ONLY JSON: {"Pacing":"...","Tone":"...","POV Style":"...","Dialogue Style":"...","Sentence Structure":"...","Atmosphere":"..."}' }] }); return safeParseJson(msg.content.filter(b => b.type === "text").map(b => (b as any).text).join("").trim()); }
-export async function generateEntity(type: string, prompt: string, ctx: string, existing: any) { const schemas: Record<string, string> = { character: "name,role,age,appearance,personality,thinkingStyle,behavior,habits,fears,desires,speechPattern,backstory,arc", location: "name,description,atmosphere,history,sensoryDetails", plotThread: "name,description,status,stakes,connections", creatorBible: "channelName,niche,audienceAge,audienceInterests,audiencePainPoints,channelVoice,contentPillars,defaultCta,competitorNotes" }; const userMsg = existing ? "Improve:\n" + JSON.stringify(existing) + "\nReturn JSON: {" + schemas[type] + "}" : prompt + "\nReturn JSON: {" + schemas[type] + "}"; const msg = await client.messages.create({ model: MODELS.default, max_tokens: 1500, system: "Create " + type + "s. ONLY JSON. Context: " + ctx, messages: [{ role: "user", content: userMsg }] }); return safeParseJson(msg.content.filter(b => b.type === "text").map(b => (b as any).text).join("").trim()); }
+export async function analyzeWork(title: string) { const msg = await client.messages.create({ model: MODELS.fast, max_tokens: 500, messages: [{ role: "user", content: 'Analyze "' + title + '". Return ONLY JSON: {"Pacing":"...","Tone":"...","POV Style":"...","Dialogue Style":"...","Sentence Structure":"...","Atmosphere":"..."}' }] }); const result = safeParseJson(msg.content.filter(b => b.type === "text").map(b => (b as any).text).join("").trim()); return result ?? {}; }
+export async function generateEntity(type: string, prompt: string, ctx: string, existing: any) { const schemas: Record<string, string> = { character: "name,role,age,appearance,personality,thinkingStyle,behavior,habits,fears,desires,speechPattern,backstory,arc", location: "name,description,atmosphere,history,sensoryDetails", plotThread: "name,description,status,stakes,connections", creatorBible: "channelName,niche,audienceAge,audienceInterests,audiencePainPoints,channelVoice,contentPillars,defaultCta,competitorNotes" }; const userMsg = existing ? "Improve:\n" + JSON.stringify(existing) + "\nReturn JSON: {" + schemas[type] + "}" : prompt + "\nReturn JSON: {" + schemas[type] + "}"; const msg = await client.messages.create({ model: MODELS.default, max_tokens: 1500, system: "Create " + type + "s. ONLY JSON. Context: " + ctx, messages: [{ role: "user", content: userMsg }] }); const result = safeParseJson(msg.content.filter(b => b.type === "text").map(b => (b as any).text).join("").trim()); if (!result) { console.error('[generateEntity] Invalid JSON from model for type:', type); return {}; } return result; }
 export async function summarizeChapter(content: string) { const msg = await client.messages.create({ model: MODELS.fast, max_tokens: 500, messages: [{ role: "user", content: "Summarize in 2-3 sentences for continuity:\n\n" + content }] }); return msg.content.filter(b => b.type === "text").map(b => (b as any).text).join(""); }
 export async function generateQuickStory(title: string, format: string, genres: string[]) { const genreStr = (genres || []).join(", ") || "Drama"; const prompt = `Create a complete story skeleton for a ${format} titled "${title}" in ${genreStr}. Return ONLY valid JSON with: {characters:[{name,role,age,appearance,personality},...], locations:[{name,description,atmosphere},...], plotThreads:[{name,description,stakes},...], outline:"Brief 3-act outline"}. Generate 3-4 characters, 2-3 locations, 2-3 plot threads.`; const msg = await client.messages.create({ model: MODELS.default, max_tokens: 2000, messages: [{ role: "user", content: prompt }] }); const text = msg.content.filter(b => b.type === "text").map(b => (b as any).text).join("").trim(); try { return JSON.parse(text); } catch (e) { return { characters: [], locations: [], plotThreads: [], outline: "" }; } }
 export async function generateBeginnerCharacters(projectName: string, genres: string[], count = 3) { const genreStr = (genres || []).join(", ") || "General"; const prompt = `Create ${count} diverse characters for "${projectName}" (${genreStr}). For each, provide only: name, role (main/supporting/antagonist), age, appearance (1 sentence), and personality (1 sentence). Return JSON: [{name,role,age,appearance,personality},...]`; const msg = await client.messages.create({ model: MODELS.fast, max_tokens: 1000, messages: [{ role: "user", content: prompt }] }); const text = msg.content.filter(b => b.type === "text").map(b => (b as any).text).join("").trim(); try { return JSON.parse(text); } catch (e) { return []; } }
@@ -401,5 +410,6 @@ Generate intelligence for this character. Return ONLY valid JSON with these exac
   });
 
   const text = msg.content.filter(b => b.type === 'text').map(b => (b as any).text).join('').trim();
-  try { return JSON.parse(text.replace(/```json\n?|```/g, '').trim()); } catch { return {}; }
+  const result = safeParseJson(text);
+  return (result as Partial<Record<string, string>>) ?? {};
 }

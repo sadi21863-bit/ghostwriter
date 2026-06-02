@@ -10,6 +10,7 @@ import { subscriptions, users, referrals } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { track } from "@/lib/analytics";
 import { sendEmail } from "@/lib/email";
+import { invalidateTierCache } from "@/lib/subscription";
 import { trialStartEmail } from "@/lib/email/templates";
 
 const TIER_MAP: Record<string, string> = {
@@ -53,6 +54,7 @@ export async function POST(req: Request) {
         currentPeriodEnd: new Date(stripeSub.current_period_end * 1000),
         updatedAt: new Date(),
       }).where(eq(subscriptions.userId, userId));
+      invalidateTierCache(userId);
       await track(userId, 'subscription_activated', { tier });
 
       // Referral reward: extend referrer's subscription by 30 days
@@ -95,6 +97,12 @@ export async function POST(req: Request) {
         updatedAt: new Date(),
       }).where(eq(subscriptions.stripeSubscriptionId, sub.id));
 
+      const dbSubForCache = await db.query.subscriptions.findFirst({
+        where: eq(subscriptions.stripeSubscriptionId, sub.id),
+        columns: { userId: true },
+      });
+      if (dbSubForCache) invalidateTierCache(dbSubForCache.userId);
+
       // Send trial start email when subscription enters trialing status
       if (sub.status === 'trialing') {
         const dbSub = await db.query.subscriptions.findFirst({
@@ -122,6 +130,11 @@ export async function POST(req: Request) {
         tier: "free",
         updatedAt: new Date(),
       }).where(eq(subscriptions.stripeSubscriptionId, sub.id));
+      const dbSubDel = await db.query.subscriptions.findFirst({
+        where: eq(subscriptions.stripeSubscriptionId, sub.id),
+        columns: { userId: true },
+      });
+      if (dbSubDel) invalidateTierCache(dbSubDel.userId);
       break;
     }
 

@@ -3,6 +3,7 @@ import { getRequiredSession } from "@/lib/auth-helpers";
 import { checkAiRateLimit } from "@/lib/ratelimit";
 import { getUserTier, canAccessFeature } from "@/lib/subscription";
 import Anthropic from "@anthropic-ai/sdk";
+import { MODELS } from "@/lib/ai/engine";
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! });
 
 export async function POST(req: Request) {
@@ -17,7 +18,7 @@ export async function POST(req: Request) {
   if (!hook?.trim()) return NextResponse.json({ error: "hook required" }, { status: 400 });
   try {
     const msg = await client.messages.create({
-      model: "claude-haiku-4-5-20251001", max_tokens: 600,
+      model: MODELS.fast, max_tokens: 600,
       system: `You are a title strategist for ${format || "YouTube"} content. Return ONLY JSON.`,
       messages: [{ role: "user", content: `Hook: "${hook}"\nTopic: "${topic || ""}"\n\nGenerate 5 title variants. For each, state how it sets up the hook.\nReturn JSON: { "titles": [{ "title": "string", "alignment": "string", "ctrScore": 1 }] }` }],
     });

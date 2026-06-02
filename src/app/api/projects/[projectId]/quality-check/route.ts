@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getRequiredSession } from '@/lib/auth-helpers';
+import { getUserTier, canAccessFeature } from '@/lib/subscription';
 import { db } from '@/db';
 import { projects } from '@/db/schema';
 import { and, eq } from 'drizzle-orm';
@@ -20,6 +21,11 @@ interface QualityCheckRequest {
 
 export async function POST(req: NextRequest, { params }: { params: { projectId: string } }) {
   const session = await getRequiredSession();
+
+  const tier = await getUserTier(session.user.id);
+  if (!canAccessFeature(tier, 'story_modes_advanced')) {
+    return NextResponse.json({ error: 'upgrade_required', feature: 'quality_grading' }, { status: 403 });
+  }
 
   const owned = await db.query.projects.findFirst({
     where: and(eq(projects.id, params.projectId), eq(projects.userId, session.user.id)),

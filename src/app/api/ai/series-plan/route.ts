@@ -6,6 +6,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { db } from "@/db";
 import { projects } from "@/db/schema";
 import { eq } from "drizzle-orm";
+import { MODELS } from "@/lib/ai/engine";
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! });
 
 export async function POST(req: Request) {
@@ -21,7 +22,15 @@ export async function POST(req: Request) {
 
   const pastProjects = await db.query.projects.findMany({
     where: eq(projects.userId, s.user.id),
-    with: { chapters: true },
+    columns: { id: true, name: true, format: true },
+    with: {
+      chapters: {
+        columns: { title: true },
+        limit: 20,
+      },
+    },
+    limit: 20,
+    orderBy: (p, { desc }) => [desc(p.updatedAt)],
   });
   const pastTitles = pastProjects
     .filter((p: any) => p.format === format && p.id !== currentProjectId)
@@ -30,7 +39,7 @@ export async function POST(req: Request) {
 
   try {
     const msg = await client.messages.create({
-      model: "claude-sonnet-4-20250514", max_tokens: 2000,
+      model: MODELS.default, max_tokens: 2000,
       system: `You are a content strategist for ${format} creators. Return ONLY JSON.`,
       messages: [{ role: "user", content: `Channel: ${creatorBible?.channelName || ""}\nNiche: ${creatorBible?.niche || ""}\nAudience: ${creatorBible?.audienceAge || ""}, interests: ${creatorBible?.audienceInterests || ""}\nPillars: ${(creatorBible?.contentPillars || []).join(", ")}\nVoice: ${creatorBible?.channelVoice || ""}\n\nPast content (already covered):\n${pastTitles.map((t: string) => "- " + t).join("\n") || "None yet"}\n\nGenerate a 4-week content plan. Avoid repeating past angles.\nReturn JSON: { "gaps": ["string"], "weeks": [{ "week": 1, "videos": [{ "title": "string", "hook": "string", "pillar": "string", "angle": "string", "seriesConnection": null }] }] }` }],
     });

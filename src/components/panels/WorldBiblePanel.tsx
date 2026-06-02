@@ -613,6 +613,17 @@ export default function WorldBiblePanel(props: Props) {
                           <option value="epistolary">Epistolary — letters, diaries, documents the reader assembles</option>
                         </select>
                       </div>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', marginTop: 10 }}>
+                        <input
+                          type="checkbox"
+                          checked={(project as any).qualityGradingEnabled ?? false}
+                          onChange={e => updateProject((p: any) => ({ ...p, qualityGradingEnabled: e.target.checked }))}
+                        />
+                        <div>
+                          <div style={{ fontSize: 12, fontWeight: 500, color: co.text }}>AI Quality Review (Story Pro)</div>
+                          <div style={{ fontSize: 10, color: co.muted }}>After each generation, checks for rule violations and slop markers. Off by default. Adds ~1s.</div>
+                        </div>
+                      </label>
                     </div>
                   )}
                 </div>

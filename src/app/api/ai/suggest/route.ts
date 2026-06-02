@@ -10,6 +10,7 @@ import { db } from "@/db";
 import { projects, characters, storyMemories } from "@/db/schema";
 import { eq, and, desc } from "drizzle-orm";
 import Anthropic from "@anthropic-ai/sdk";
+import { MODELS } from "@/lib/ai/engine";
 
 const anthropic = new Anthropic();
 
@@ -85,7 +86,7 @@ Rules for suggestions:
 - If the chapter is good, return an empty suggestions array`;
 
   const response = await anthropic.messages.create({
-    model: "claude-sonnet-4-20250514",
+    model: MODELS.default,
     max_tokens: 1000,
     messages: [{ role: "user", content: prompt }],
   });

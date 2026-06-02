@@ -64,6 +64,7 @@ export async function POST(_: Request, { params }: { params: { projectId: string
     await db.update(productionShots)
       .set({ generationStatus: "error", updatedAt: new Date() })
       .where(eq(productionShots.id, params.shotId));
-    return NextResponse.json({ error: err.message ?? "Preview generation failed" }, { status: 500 });
+    console.error('[preview] Error:', err);
+    return NextResponse.json({ error: "Preview generation failed. Please try again." }, { status: 500 });
   }
 }

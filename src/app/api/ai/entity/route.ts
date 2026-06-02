@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getRequiredSession } from "@/lib/auth-helpers";
 import { checkAiRateLimit } from "@/lib/ratelimit";
-import { generateEntity } from "@/lib/ai/engine";
+import { generateEntity, MODELS } from "@/lib/ai/engine";
 import Anthropic from "@anthropic-ai/sdk";
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! });
@@ -22,7 +22,7 @@ Output ONLY this format (under 80 words):
 "[gender], [approximate age], [hair: length + colour + texture], [eyes: colour + shape], [build], [skin tone], [1-2 distinguishing features], [typical clothing style]."`;
 
     const response = await anthropic.messages.create({
-      model: "claude-sonnet-4-20250514",
+      model: MODELS.fast,
       max_tokens: 150,
       messages: [{ role: "user", content: userPrompt }],
     });

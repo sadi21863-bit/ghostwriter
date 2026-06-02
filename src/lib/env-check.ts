@@ -27,6 +27,7 @@ const REQUIRED_ENV_VARS = [
   'STRIPE_ALL_ACCESS_PRICE_ID',
   'RESEND_API_KEY',
   'CRON_SECRET',
+  'ADMIN_SECRET',
 ];
 
 export function checkEnvVars(): { missing: string[]; ok: boolean } {
