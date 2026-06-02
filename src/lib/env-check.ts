@@ -14,3 +14,22 @@ export function checkAnthropicKey(): string | null {
   }
   return null;
 }
+
+const REQUIRED_ENV_VARS = [
+  'DATABASE_URL',
+  'NEXTAUTH_SECRET',
+  'NEXTAUTH_URL',
+  'ANTHROPIC_API_KEY',
+  'STRIPE_SECRET_KEY',
+  'STRIPE_WEBHOOK_SECRET',
+  'STRIPE_STORY_PRO_PRICE_ID',
+  'STRIPE_CREATOR_PRO_PRICE_ID',
+  'STRIPE_ALL_ACCESS_PRICE_ID',
+  'RESEND_API_KEY',
+  'CRON_SECRET',
+];
+
+export function checkEnvVars(): { missing: string[]; ok: boolean } {
+  const missing = REQUIRED_ENV_VARS.filter(key => !process.env[key]);
+  return { missing, ok: missing.length === 0 };
+}

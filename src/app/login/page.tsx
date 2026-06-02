@@ -211,6 +211,13 @@ export default function Login() {
                 {tab === "signin" ? "Create one →" : "Sign in →"}
               </button>
             </div>
+
+            <p style={{ textAlign: "center", fontSize: 11, color: "#333", marginTop: 16 }}>
+              By continuing, you agree to our{' '}
+              <a href="/terms" style={{ color: "#555", textDecoration: "underline" }}>Terms</a>
+              {' '}and{' '}
+              <a href="/privacy" style={{ color: "#555", textDecoration: "underline" }}>Privacy Policy</a>.
+            </p>
           </div>
         </div>
       </div>

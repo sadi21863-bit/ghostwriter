@@ -96,9 +96,38 @@ export async function POST(req: NextRequest) {
                 .where(eq(projects.id, projectId));
         }
 
+        // Generate a sample opening paragraph to show the writer immediately
+        let sampleGeneration = '';
+        try {
+            const { buildStaticContext, buildDynamicContext } = await import('@/lib/ai/context-builder');
+            const { generate } = await import('@/lib/ai/engine');
+            const contextProject = {
+                ...owned,
+                characters: createdCharacters,
+                locations: [],
+                plotThreads: [],
+                chapters: [],
+                referenceWorks: [],
+                storyMemories: [],
+                activeChapter: undefined,
+            };
+            const result = await generate({
+                mode: 'write',
+                format: owned.format,
+                staticContext: buildStaticContext(contextProject as any),
+                dynamicContext: buildDynamicContext(contextProject as any),
+                prompt: `Write the opening paragraph of this story. One paragraph. This is the reader's first moment in this world — make it specific, grounded, and purposeful. Show us where we are and give us a reason to keep reading.`,
+                maxTokens: 400,
+            });
+            sampleGeneration = result.text ?? '';
+        } catch {
+            // Sample generation failure must never block project creation
+        }
+
         return NextResponse.json({
             success: true,
-            message: "Story skeleton generated",
+            projectId: owned.id,
+            sampleGeneration,
             outline: skeleton.outline,
         });
     } catch (error) {

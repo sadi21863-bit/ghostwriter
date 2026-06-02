@@ -46,6 +46,12 @@
   --radius-xl:  16px;
 }
 
+/* ── Toast animation ─────────────────────────────────────── */
+@keyframes slideInRight {
+  from { transform: translateX(100%); opacity: 0; }
+  to   { transform: translateX(0);   opacity: 1; }
+}
+
 /* ── Base ────────────────────────────────────────────────── */
 body {
   font-family: 'Inter', system-ui, sans-serif;

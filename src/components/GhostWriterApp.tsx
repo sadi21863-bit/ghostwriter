@@ -14,6 +14,7 @@ import { SprintMode } from "@/components/SprintMode";
 import { UpgradePrompt } from "@/components/upgrade/UpgradePrompt";
 import { CommandPalette } from "@/components/CommandPalette";
 import { QualityReviewPanel } from "@/components/panels/QualityReviewPanel";
+import { ToastContainer } from "@/components/ToastContainer";
 import type { FeatureGate } from "@/types/subscription";
 import type { CompositionLayer } from "@/lib/ai/composer";
 import { co, sBtn, sBtnSm } from "@/lib/styles";
@@ -79,7 +80,7 @@ export default function GhostWriterApp({ projectId }: { projectId: string }) {
   const projectState = useProjectState(projectId);
   const {
     project, loadError,
-    errorMsg, setErrorMsg,
+    setErrorMsg,
     confirmModal, setConfirmModal,
     higgsfieldKey, savedMsg, setSavedMsg,
     dialogueCharA, setDialogueCharA,
@@ -157,15 +158,8 @@ export default function GhostWriterApp({ projectId }: { projectId: string }) {
 
   return (
     <div style={{ display: "flex", height: "100vh", fontFamily: "'Inter',system-ui,sans-serif", background: co.bg, color: co.text, overflow: "hidden" }}>
-      {errorMsg && (
-        <div style={{ position: "fixed", top: 0, left: 0, right: 0, background: "#d94545", color: "#fff", padding: "10px 16px", display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 14, zIndex: 2000 }}>
-          <span>{errorMsg}</span>
-          <button onClick={() => setErrorMsg(null)} style={{ background: "none", border: "none", color: "#fff", cursor: "pointer", fontSize: 18, lineHeight: 1 }}>×</button>
-        </div>
-      )}
-
       {aiActions.violationBanner && (
-        <div style={{ position: "fixed", top: errorMsg ? 44 : 0, left: 0, right: 0, background: "#92400e", color: "#fef3c7", padding: "12px 20px", zIndex: 1999, borderBottom: "1px solid #d97706" }}>
+        <div style={{ position: "fixed", top: 0, left: 0, right: 0, background: "#92400e", color: "#fef3c7", padding: "12px 20px", zIndex: 1999, borderBottom: "1px solid #d97706" }}>
           <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 6 }}>⚠ Craft Notice — Read before generating</div>
           <div style={{ fontSize: 12, lineHeight: 1.6, marginBottom: 10 }}>{aiActions.violationBanner.flagMessage}</div>
           <div style={{ display: "flex", gap: 8 }}>
@@ -457,6 +451,8 @@ export default function GhostWriterApp({ projectId }: { projectId: string }) {
           </div>
         </div>
       )}
+
+      <ToastContainer />
     </div>
   );
 }

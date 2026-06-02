@@ -1,5 +1,6 @@
 "use client";
-import { useState } from "react";
+import { useState, useRef } from "react";
+import { toast } from "@/lib/toast";
 import { buildStaticContext, buildDynamicContext, buildBeginnerContext, buildCreatorContext } from "@/lib/ai/context-builder";
 import { getPipelines, type Pipeline } from "@/lib/ai/pipelines";
 import { isCreatorFormat } from "@/lib/formats";
@@ -54,6 +55,9 @@ export function useAIActions({
   activeInfluence?: any;
   activePatterns?: any[];
 }) {
+  const lastGenRef = useRef<{ fn: () => Promise<void> } | null>(null);
+  const retryLastGeneration = () => lastGenRef.current?.fn();
+
   const [generating, setGenerating] = useState(false);
   const [genTarget, setGenTarget] = useState("");
   const [streamText, setStreamText] = useState("");
@@ -106,6 +110,7 @@ export function useAIActions({
 
   const generate = async (opts?: { cameraPresetId?: string }) => {
     if (!prompt.trim()) return;
+    lastGenRef.current = { fn: () => generate(opts) };
     setGenerating(true); setGenTarget("main"); setStreamText("");
     try {
       const isCohost = mode === "cohost";
@@ -148,7 +153,10 @@ export function useAIActions({
       }
 
       const r = await callAI("generate", { mode: effectiveMode, prompt: effectivePrompt, staticContext: staticCtx, dynamicContext: dynamicCtx, format: effectiveFormat, projectId: project.id, chapterId: activeChap.id, narrativeStructure: (project as any).narrativeStructure });
-      if (r.requiresConfirmation) { setViolationBanner({ violationType: r.violationType, flagMessage: r.flagMessage, supportMode: r.supportMode }); }
+      if (r.retryable) {
+        toast.error('AI is busy — retrying in 5 seconds...', { label: 'Retry now', onClick: () => retryLastGeneration() });
+        setTimeout(() => retryLastGeneration(), 5000);
+      } else if (r.requiresConfirmation) { setViolationBanner({ violationType: r.violationType, flagMessage: r.flagMessage, supportMode: r.supportMode }); }
       else if (r.error === "upgrade_required") { setUpgradeRequired?.(r.feature); }
       else if (mode === "write") {
         setUndoStack(s => [...s.slice(-9), activeChap.content]);
@@ -160,7 +168,20 @@ export function useAIActions({
           runQualityCheck(r.text, project.id);
         }
       } else setStreamText(r.text);
-    } catch (e) { setErrorMsg("Generation failed. Please try again."); }
+    } catch (e: any) {
+      const msg = e?.message ?? '';
+      if (msg.includes('rate') || msg.includes('429') || msg.includes('529')) {
+        toast.error('AI is busy — retrying in 5 seconds...', {
+          label: 'Retry now',
+          onClick: () => retryLastGeneration(),
+        });
+        setTimeout(() => retryLastGeneration(), 5000);
+      } else if (msg.includes('network') || msg.includes('fetch')) {
+        toast.error('Connection lost. Check your internet and try again.');
+      } else {
+        toast.error('Generation failed. Your work is safe — try again.');
+      }
+    }
     setGenerating(false); setGenTarget("");
   };
 
@@ -198,7 +219,7 @@ export function useAIActions({
     if (!activeChap.content) return;
     setGenerating(true); setGenTarget("summary");
     try { const r = await callAI("summarize", { content: activeChap.content }); updateChapter("summary", r.summary); }
-    catch (e) { setErrorMsg("Failed to summarize chapter. Please try again."); }
+    catch (e) { toast.error("Failed to summarize chapter. Please try again."); }
     setGenerating(false); setGenTarget("");
   };
 
@@ -212,7 +233,7 @@ export function useAIActions({
       });
       const data = await res.json();
       if (data.results?.length) { setPipelineResults(data.results); setExpandedAgent(data.results[data.results.length - 1].agent); }
-    } catch (e) { setErrorMsg("Agent pipeline failed. Please try again."); }
+    } catch (e) { toast.error("Agent pipeline failed. Please try again."); }
     setPipelineRunning(false);
   };
 
@@ -243,7 +264,7 @@ export function useAIActions({
       });
       const data = await res.json();
       setProseResult({ mode: proseMode, ...data, chosen: 0 });
-    } catch (e) { setErrorMsg("Prose tool failed. Please try again."); }
+    } catch (e) { toast.error("Prose tool failed. Please try again."); }
     setProseLoading(false);
   };
 
@@ -256,7 +277,7 @@ export function useAIActions({
   };
 
   const generateDialogue = async (charAId: string, charBId: string, dialoguePrompt: string, archetypeName = "Argument") => {
-    if (!charAId || !charBId) { setErrorMsg("Select both characters before generating dialogue."); return; }
+    if (!charAId || !charBId) { toast.error("Select both characters before generating dialogue."); return; }
     const p = project;
     const charA = p.characters?.find((c: any) => c.id === charAId);
     const charB = p.characters?.find((c: any) => c.id === charBId);
@@ -274,12 +295,12 @@ export function useAIActions({
         setUndoStack(prev => [...prev.slice(-4), activeChap?.content || ""]);
         setStreamText(data.text);
       }
-    } catch (e) { setErrorMsg("Dialogue generation failed. Please try again."); }
+    } catch (e) { toast.error("Dialogue generation failed. Please try again."); }
     setGenerating(false); setGenTarget("");
   };
 
   const generateCombat = async (styleA: string, styleB: string, combatPrompt: string) => {
-    if (!styleA || !styleB) { setErrorMsg("Select both fighting styles before generating."); return; }
+    if (!styleA || !styleB) { toast.error("Select both fighting styles before generating."); return; }
     setGenerating(true); setGenTarget("main"); setStreamText("");
     try {
       const combatCtx = buildCombatContext(styleA, styleB) + "\n---\n" + buildFullContext();
@@ -290,12 +311,12 @@ export function useAIActions({
       const data = await res.json();
       if (data.error === "upgrade_required") { setUpgradeRequired?.(data.feature); }
       else if (data.text) setStreamText(data.text);
-    } catch (e) { setErrorMsg("Combat generation failed. Please try again."); }
+    } catch (e) { toast.error("Combat generation failed. Please try again."); }
     setGenerating(false); setGenTarget("");
   };
 
   const generateEmotionalScene = async (emotionName: string, emotionalPrompt: string) => {
-    if (!emotionName) { setErrorMsg("Select an emotion before generating."); return; }
+    if (!emotionName) { toast.error("Select an emotion before generating."); return; }
     setGenerating(true); setGenTarget("main"); setStreamText("");
     try {
       const ctx = buildEmotionalContext(emotionName) + "\n---\n" + buildFullContext();
@@ -306,12 +327,12 @@ export function useAIActions({
       const data = await res.json();
       if (data.error === "upgrade_required") { setUpgradeRequired?.(data.feature); }
       else if (data.text) setStreamText(data.text);
-    } catch (e) { setErrorMsg("Emotional scene generation failed. Please try again."); }
+    } catch (e) { toast.error("Emotional scene generation failed. Please try again."); }
     setGenerating(false); setGenTarget("");
   };
 
   const generateAtmosphere = async (environmentName: string, atmospherePrompt: string) => {
-    if (!environmentName) { setErrorMsg("Select an environment before generating."); return; }
+    if (!environmentName) { toast.error("Select an environment before generating."); return; }
     setGenerating(true); setGenTarget("main"); setStreamText("");
     try {
       const ctx = buildAtmosphereContext(environmentName) + "\n---\n" + buildFullContext();
@@ -322,12 +343,12 @@ export function useAIActions({
       const data = await res.json();
       if (data.error === "upgrade_required") { setUpgradeRequired?.(data.feature); }
       else if (data.text) setStreamText(data.text);
-    } catch (e) { setErrorMsg("Atmosphere generation failed. Please try again."); }
+    } catch (e) { toast.error("Atmosphere generation failed. Please try again."); }
     setGenerating(false); setGenTarget("");
   };
 
   const generateTension = async (tensionType: string, tensionPrompt: string) => {
-    if (!tensionType) { setErrorMsg("Select a tension type before generating."); return; }
+    if (!tensionType) { toast.error("Select a tension type before generating."); return; }
     setGenerating(true); setGenTarget("main"); setStreamText("");
     try {
       const ctx = buildTensionContext(tensionType) + "\n---\n" + buildFullContext();
@@ -338,12 +359,12 @@ export function useAIActions({
       const data = await res.json();
       if (data.error === "upgrade_required") { setUpgradeRequired?.(data.feature); }
       else if (data.text) setStreamText(data.text);
-    } catch (e) { setErrorMsg("Tension generation failed. Please try again."); }
+    } catch (e) { toast.error("Tension generation failed. Please try again."); }
     setGenerating(false); setGenTarget("");
   };
 
   const generateHorror = async (archetypeName: string, horrorPrompt: string) => {
-    if (!archetypeName) { setErrorMsg("Select a horror archetype."); return; }
+    if (!archetypeName) { toast.error("Select a horror archetype."); return; }
     setGenerating(true); setGenTarget("main"); setStreamText("");
     try {
       const ctx = buildHorrorContext(archetypeName) + "\n---\n" + buildFullContext();
@@ -354,12 +375,12 @@ export function useAIActions({
       const data = await res.json();
       if (data.error === "upgrade_required") { setUpgradeRequired?.(data.feature); }
       else if (data.text) setStreamText(data.text);
-    } catch { setErrorMsg("Horror generation failed. Please try again."); }
+    } catch { toast.error("Horror generation failed. Please try again."); }
     setGenerating(false); setGenTarget("");
   };
 
   const generateComedy = async (archetypeName: string, comedyPrompt: string) => {
-    if (!archetypeName) { setErrorMsg("Select a comedy archetype."); return; }
+    if (!archetypeName) { toast.error("Select a comedy archetype."); return; }
     setGenerating(true); setGenTarget("main"); setStreamText("");
     try {
       const ctx = buildComedyContext(archetypeName) + "\n---\n" + buildFullContext();
@@ -370,12 +391,12 @@ export function useAIActions({
       const data = await res.json();
       if (data.error === "upgrade_required") { setUpgradeRequired?.(data.feature); }
       else if (data.text) setStreamText(data.text);
-    } catch { setErrorMsg("Comedy generation failed. Please try again."); }
+    } catch { toast.error("Comedy generation failed. Please try again."); }
     setGenerating(false); setGenTarget("");
   };
 
   const generateMystery = async (archetypeName: string, mysteryPrompt: string) => {
-    if (!archetypeName) { setErrorMsg("Select a mystery archetype."); return; }
+    if (!archetypeName) { toast.error("Select a mystery archetype."); return; }
     setGenerating(true); setGenTarget("main"); setStreamText("");
     try {
       const ctx = buildMysteryContext(archetypeName) + "\n---\n" + buildFullContext();
@@ -386,12 +407,12 @@ export function useAIActions({
       const data = await res.json();
       if (data.error === "upgrade_required") { setUpgradeRequired?.(data.feature); }
       else if (data.text) setStreamText(data.text);
-    } catch { setErrorMsg("Mystery generation failed. Please try again."); }
+    } catch { toast.error("Mystery generation failed. Please try again."); }
     setGenerating(false); setGenTarget("");
   };
 
   const generateRomance = async (archetypeName: string, romancePrompt: string) => {
-    if (!archetypeName) { setErrorMsg("Select a romance archetype."); return; }
+    if (!archetypeName) { toast.error("Select a romance archetype."); return; }
     setGenerating(true); setGenTarget("main"); setStreamText("");
     try {
       const ctx = buildRomanceContext(archetypeName) + "\n---\n" + buildFullContext();
@@ -402,12 +423,12 @@ export function useAIActions({
       const data = await res.json();
       if (data.error === "upgrade_required") { setUpgradeRequired?.(data.feature); }
       else if (data.text) setStreamText(data.text);
-    } catch { setErrorMsg("Romance generation failed. Please try again."); }
+    } catch { toast.error("Romance generation failed. Please try again."); }
     setGenerating(false); setGenTarget("");
   };
 
   const generateMonologue = async (archetypeName: string, monologuePrompt: string) => {
-    if (!archetypeName) { setErrorMsg("Select a monologue archetype."); return; }
+    if (!archetypeName) { toast.error("Select a monologue archetype."); return; }
     setGenerating(true); setGenTarget("main"); setStreamText("");
     try {
       const ctx = buildMonologueContext(archetypeName) + "\n---\n" + buildFullContext();
@@ -418,12 +439,12 @@ export function useAIActions({
       const data = await res.json();
       if (data.error === "upgrade_required") { setUpgradeRequired?.(data.feature); }
       else if (data.text) setStreamText(data.text);
-    } catch { setErrorMsg("Monologue generation failed. Please try again."); }
+    } catch { toast.error("Monologue generation failed. Please try again."); }
     setGenerating(false); setGenTarget("");
   };
 
   const generateVoice = async (profileName: string, voicePrompt: string) => {
-    if (!profileName) { setErrorMsg("Select a voice profile."); return; }
+    if (!profileName) { toast.error("Select a voice profile."); return; }
     setGenerating(true); setGenTarget("main"); setStreamText("");
     try {
       const ctx = buildVoiceContext(profileName) + "\n---\n" + buildFullContext();
@@ -434,12 +455,12 @@ export function useAIActions({
       const data = await res.json();
       if (data.error === "upgrade_required") { setUpgradeRequired?.(data.feature); }
       else if (data.text) setStreamText(data.text);
-    } catch { setErrorMsg("Voice generation failed. Please try again."); }
+    } catch { toast.error("Voice generation failed. Please try again."); }
     setGenerating(false); setGenTarget("");
   };
 
   const generateThriller = async (archetypeName: string, thrillerPrompt: string) => {
-    if (!archetypeName) { setErrorMsg("Select a thriller archetype."); return; }
+    if (!archetypeName) { toast.error("Select a thriller archetype."); return; }
     setGenerating(true); setGenTarget("main"); setStreamText("");
     try {
       const ctx = buildThrillerContext(archetypeName) + "\n---\n" + buildFullContext();
@@ -450,12 +471,12 @@ export function useAIActions({
       const data = await res.json();
       if (data.error === "upgrade_required") { setUpgradeRequired?.(data.feature); }
       else if (data.text) setStreamText(data.text);
-    } catch { setErrorMsg("Thriller generation failed. Please try again."); }
+    } catch { toast.error("Thriller generation failed. Please try again."); }
     setGenerating(false); setGenTarget("");
   };
 
   const generateSports = async (archetypeName: string, sportsPrompt: string) => {
-    if (!archetypeName) { setErrorMsg("Select a sports archetype."); return; }
+    if (!archetypeName) { toast.error("Select a sports archetype."); return; }
     setGenerating(true); setGenTarget("main"); setStreamText("");
     try {
       const ctx = buildSportsContext(archetypeName) + "\n---\n" + buildFullContext();
@@ -466,12 +487,12 @@ export function useAIActions({
       const data = await res.json();
       if (data.error === "upgrade_required") { setUpgradeRequired?.(data.feature); }
       else if (data.text) setStreamText(data.text);
-    } catch { setErrorMsg("Sports generation failed. Please try again."); }
+    } catch { toast.error("Sports generation failed. Please try again."); }
     setGenerating(false); setGenTarget("");
   };
 
   const generateAction = async (archetypeName: string, actionPrompt: string) => {
-    if (!archetypeName) { setErrorMsg("Select an action archetype."); return; }
+    if (!archetypeName) { toast.error("Select an action archetype."); return; }
     setGenerating(true); setGenTarget("main"); setStreamText("");
     try {
       const ctx = buildActionContext(archetypeName) + "\n---\n" + buildFullContext();
@@ -482,12 +503,12 @@ export function useAIActions({
       const data = await res.json();
       if (data.error === "upgrade_required") { setUpgradeRequired?.(data.feature); }
       else if (data.text) setStreamText(data.text);
-    } catch { setErrorMsg("Action generation failed. Please try again."); }
+    } catch { toast.error("Action generation failed. Please try again."); }
     setGenerating(false); setGenTarget("");
   };
 
   const generateComposition = async (layers: CompositionLayer[], compositionPrompt: string) => {
-    if (!layers.length) { setErrorMsg("Select at least one layer before generating."); return; }
+    if (!layers.length) { toast.error("Select at least one layer before generating."); return; }
     setGenerating(true); setGenTarget("main"); setStreamText("");
     try {
       const libraryCtx = buildCompositionContext(layers);
@@ -507,12 +528,12 @@ export function useAIActions({
       const data = await res.json();
       if (data.error === "upgrade_required") { setUpgradeRequired?.(data.feature); }
       else if (data.text) setStreamText(data.text);
-    } catch (e) { setErrorMsg("Composition generation failed. Please try again."); }
+    } catch (e) { toast.error("Composition generation failed. Please try again."); }
     setGenerating(false); setGenTarget("");
   };
 
   const generateSetting = async (archetypeName: string, settingPrompt: string) => {
-    if (!archetypeName) { setErrorMsg("Select a setting archetype."); return; }
+    if (!archetypeName) { toast.error("Select a setting archetype."); return; }
     setGenerating(true); setGenTarget("main"); setStreamText("");
     try {
       const ctx = buildSettingContext(archetypeName) + "\n---\n" + buildFullContext();
@@ -523,12 +544,12 @@ export function useAIActions({
       const data = await res.json();
       if (data.error === "upgrade_required") { setUpgradeRequired?.(data.feature); }
       else if (data.text) setStreamText(data.text);
-    } catch { setErrorMsg("Setting generation failed. Please try again."); }
+    } catch { toast.error("Setting generation failed. Please try again."); }
     setGenerating(false); setGenTarget("");
   };
 
   const generateHistorical = async (archetypeName: string, historicalPrompt: string) => {
-    if (!archetypeName) { setErrorMsg("Select a historical archetype."); return; }
+    if (!archetypeName) { toast.error("Select a historical archetype."); return; }
     setGenerating(true); setGenTarget("main"); setStreamText("");
     try {
       const ctx = buildHistoricalContext(archetypeName) + "\n---\n" + buildFullContext();
@@ -539,12 +560,12 @@ export function useAIActions({
       const data = await res.json();
       if (data.error === "upgrade_required") { setUpgradeRequired?.(data.feature); }
       else if (data.text) setStreamText(data.text);
-    } catch { setErrorMsg("Historical generation failed. Please try again."); }
+    } catch { toast.error("Historical generation failed. Please try again."); }
     setGenerating(false); setGenTarget("");
   };
 
   const generateScitech = async (archetypeName: string, scitechPrompt: string) => {
-    if (!archetypeName) { setErrorMsg("Select a science/technology archetype."); return; }
+    if (!archetypeName) { toast.error("Select a science/technology archetype."); return; }
     setGenerating(true); setGenTarget("main"); setStreamText("");
     try {
       const ctx = buildScitechContext(archetypeName) + "\n---\n" + buildFullContext();
@@ -555,12 +576,12 @@ export function useAIActions({
       const data = await res.json();
       if (data.error === "upgrade_required") { setUpgradeRequired?.(data.feature); }
       else if (data.text) setStreamText(data.text);
-    } catch { setErrorMsg("Scitech generation failed. Please try again."); }
+    } catch { toast.error("Scitech generation failed. Please try again."); }
     setGenerating(false); setGenTarget("");
   };
 
   const generateEthics = async (archetypeName: string, ethicsPrompt: string) => {
-    if (!archetypeName) { setErrorMsg("Select an ethics archetype."); return; }
+    if (!archetypeName) { toast.error("Select an ethics archetype."); return; }
     setGenerating(true); setGenTarget("main"); setStreamText("");
     try {
       const ctx = buildEthicsContext(archetypeName) + "\n---\n" + buildFullContext();
@@ -571,12 +592,12 @@ export function useAIActions({
       const data = await res.json();
       if (data.error === "upgrade_required") { setUpgradeRequired?.(data.feature); }
       else if (data.text) setStreamText(data.text);
-    } catch { setErrorMsg("Ethics generation failed. Please try again."); }
+    } catch { toast.error("Ethics generation failed. Please try again."); }
     setGenerating(false); setGenTarget("");
   };
 
   const generateEndings = async (archetypeName: string, endingsPrompt: string) => {
-    if (!archetypeName) { setErrorMsg("Select an endings archetype."); return; }
+    if (!archetypeName) { toast.error("Select an endings archetype."); return; }
     setGenerating(true); setGenTarget("main"); setStreamText("");
     try {
       const ctx = buildEndingsContext(archetypeName) + "\n---\n" + buildFullContext();
@@ -587,12 +608,12 @@ export function useAIActions({
       const data = await res.json();
       if (data.error === "upgrade_required") { setUpgradeRequired?.(data.feature); }
       else if (data.text) setStreamText(data.text);
-    } catch { setErrorMsg("Endings generation failed. Please try again."); }
+    } catch { toast.error("Endings generation failed. Please try again."); }
     setGenerating(false); setGenTarget("");
   };
 
   const generateIsekai = async (archetypeName: string, isekaiPrompt: string) => {
-    if (!archetypeName) { setErrorMsg("Select an isekai subgenre."); return; }
+    if (!archetypeName) { toast.error("Select an isekai subgenre."); return; }
     setGenerating(true); setGenTarget("main"); setStreamText("");
     try {
       const ctx = buildIsekaiContext(archetypeName) + "\n---\n" + buildFullContext();
@@ -603,7 +624,7 @@ export function useAIActions({
       const data = await res.json();
       if (data.error === "upgrade_required") { setUpgradeRequired?.(data.feature); }
       else if (data.text) setStreamText(data.text);
-    } catch { setErrorMsg("Isekai generation failed. Please try again."); }
+    } catch { toast.error("Isekai generation failed. Please try again."); }
     setGenerating(false); setGenTarget("");
   };
 
@@ -627,7 +648,7 @@ export function useAIActions({
         updateChapter("content", merged2);
         updateChapter("wordCount", getWordCount(merged2));
       } else setStreamText(r.text);
-    } catch { setErrorMsg("Generation failed. Please try again."); }
+    } catch { toast.error("Generation failed. Please try again."); }
     setGenerating(false); setGenTarget("");
   };
 
@@ -638,7 +659,7 @@ export function useAIActions({
       const res = await fetch("/api/ai/score-hook", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ hook: prompt, format: project.format }) });
       const data = await res.json();
       if (data.score != null) setHookScore(data);
-    } catch (e) { setErrorMsg("Hook scoring failed. Please try again."); }
+    } catch (e) { toast.error("Hook scoring failed. Please try again."); }
     setHookScoring(false);
   };
 

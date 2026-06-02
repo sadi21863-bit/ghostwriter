@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect, useRef } from "react";
+import { toast } from "@/lib/toast";
 import { isCreatorFormat, getChapterLabel } from "@/lib/formats";
 import { runPassiveChecks } from "@/lib/suggestions/passive";
 import type { PassiveSuggestion } from "@/lib/suggestions/passive";
@@ -105,7 +106,7 @@ export function useProjectState(projectId: string) {
               }).catch(() => {});
           }, 8000);
         }
-      }).catch(() => { setErrorMsg("Auto-save failed. Your changes may not be saved."); });
+      }).catch(() => { toast.warning("Chapter save failed — your work is in memory but not saved. Retrying..."); });
     }, 1500);
   };
 
@@ -115,7 +116,7 @@ export function useProjectState(projectId: string) {
     bibleSaveTimer.current = setTimeout(() => {
       fetch(`/api/projects/${project.id}/creator-bible`, {
         method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ [field]: value }),
-      }).catch(() => { setErrorMsg("Failed to save Creator Bible changes."); });
+      }).catch(() => { toast.warning("Changes not saved. Check your connection."); });
     }, 1500);
   };
 
@@ -193,7 +194,7 @@ export function useProjectState(projectId: string) {
     const newVal = item.alwaysInContext === false;
     fetch(`/api/projects/${project.id}/${apiPath[key]}/${item.id}`, {
       method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ alwaysInContext: newVal }),
-    }).catch(() => { setErrorMsg("Failed to update context priority."); });
+    }).catch(() => { toast.warning("Changes not saved. Check your connection."); });
     updateProject((p: any) => ({ ...p, [key]: p[key].map((e: any, j: number) => j === i ? { ...e, alwaysInContext: newVal } : e) }));
   };
 
