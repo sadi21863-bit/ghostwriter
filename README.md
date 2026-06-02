@@ -1,216 +1,253 @@
 # GhostWriter AI
 
-An AI-powered ghostwriting platform built with Next.js 14, Drizzle ORM, Neon PostgreSQL, and Anthropic Claude. Write novels, screenplays, YouTube scripts, and podcasts with a full continuity engine, character world-bible, and AI generation pipeline.
+An AI-powered writing platform for novelists, screenwriters, and content creators. Write fiction across 25 specialized modes, generate video production packages, analyse YouTube trends, and repurpose content for TikTok and Instagram — all within a single continuity-aware workspace.
+
+Built with Next.js 14 App Router, Drizzle ORM, Neon PostgreSQL, and Anthropic Claude.
 
 ---
 
-## Features
+## What This Is
 
-- **Multi-format writing** — Novel, Screenplay, YouTube Long-form, YouTube Short, Podcast
-- **AI generation modes** — Brainstorm, Outline, Write (powered by Claude claude-sonnet-4-6)
-- **Style DNA** — Analyse reference works and apply their style in every generated sentence
-- **World Bible** — Characters, locations, plot threads with full detail and cross-linking
-- **Continuity engine** — Per-chapter summaries injected into context; story memories with priority scoring
-- **Production Studio** — Shot lists, scene breakdowns, and Higgsfield video generation
-- **Trend Intelligence** — YouTube and Instagram trend search; video dissection via GitHub Actions + Gemini
-- **Rate limiting** — 20 AI requests/minute per user via Upstash Redis (fail-open when not configured)
-- **Creator Bible** — Channel niche, voice, content pillars for YouTube/podcast creators
+GhostWriter is a full-stack SaaS writing studio. The core idea: every AI generation call carries the full context of the project — characters, locations, style DNA from reference books, story memories, and chapter summaries — so the model never contradicts what was already written.
+
+On top of that continuity engine sit two product surfaces:
+
+**Fiction writing** — 25 specialized modes (dialogue, combat, atmosphere, tension, emotional, horror, romance, mystery, etc.), each backed by academic research in their system prompts. A Style DNA system reads your reference novels and applies their voice fingerprint to every generation.
+
+**Creator tools** — YouTube trend dissection, TikTok script generation, hook A/B testing, channel autopsy, SEO optimization, virality prediction, guest intelligence, and content repurposing.
 
 ---
 
-## Prerequisites
+## Feature Overview
 
-| Tool | Version |
-|------|---------|
-| Node.js | 18.x or 20.x |
-| npm | 9+ |
-| PostgreSQL | Neon serverless (or any Postgres) |
+| Surface | Features |
+|---|---|
+| Writing modes | Brainstorm, Outline, Write + 20 library modes (action, atmosphere, combat, comedy, composition, dialogue, emotional, endings, ethics, historical, horror, isekai, monologue, mystery, romance, sci-tech, setting, sports, tension, thriller, voice) |
+| Continuity engine | Per-chapter summarization, story memory extraction, character evolution log, chapter forking |
+| World Bible | Characters (personality, desires, NVC profile, language patterns), locations, plot threads — all injected into every prompt |
+| Style DNA | Upload reference works → 6-attribute style fingerprint → applied to all generations |
+| Creator tools | Video dissection, trend search (YouTube + Instagram), TikTok script + hook generation, hook A/B test, retention editing, channel autopsy, guest intelligence, creator SEO, virality predictor, content repurposing |
+| Comic Studio | AI-generated comic panels with character consistency |
+| Production Studio | Shot lists, scene breakdowns, Higgsfield video generation (image-to-video, text-to-video, lipsync) |
+| Export | DOCX manuscript, book blurb, query letter, episode pack |
+| Subscription | Free / Story Pro / Creator Pro / All Access — enforced per-feature gate |
 
 ---
 
 ## Quick Start
 
-```bash
-# 1. Clone
+```powershell
+# 1. Clone and install
 git clone https://github.com/sadi21863-bit/ghostwriter.git
 cd ghostwriter
-
-# 2. Install dependencies
 npm install
 
-# 3. Configure environment
-cp .env.local.example .env.local
-# Edit .env.local — see Environment Variables section below
+# 2. Configure environment
+copy .env.local.example .env.local
+# Edit .env.local — fill in at minimum: DATABASE_URL, NEXTAUTH_SECRET, NEXTAUTH_URL, ANTHROPIC_API_KEY, ENCRYPTION_KEY
 
-# 4. Push the database schema (Windows: copy .env.local to .env first)
-copy .env.local .env
-npm run db:push
+# 3. Push the schema (Windows: drizzle-kit reads .env, not .env.local)
+Copy-Item .env.local .env -Force
+npx drizzle-kit push
 
-# 5. Start the dev server (port 3001)
+# 4. Start the dev server
 npm run dev
+# Open http://localhost:3001
 ```
-
-Open [http://localhost:3001](http://localhost:3001).
 
 ---
 
 ## Environment Variables
 
-Copy `.env.local.example` to `.env.local` and fill in:
+### Required (app will not start without these)
 
-### Required
-
-| Variable | Description |
-|----------|-------------|
-| `DATABASE_URL` | Neon (or any Postgres) connection string — include `?sslmode=require` for Neon |
-| `NEXTAUTH_SECRET` | Random secret: `openssl rand -base64 32` |
-| `NEXTAUTH_URL` | App base URL (`http://localhost:3001` in dev) |
+| Variable | How to get it |
+|---|---|
+| `DATABASE_URL` | Neon console → Connection string. Append `?sslmode=require`. |
+| `NEXTAUTH_SECRET` | `openssl rand -base64 32` |
+| `NEXTAUTH_URL` | `http://localhost:3001` in dev; full public URL in prod |
 | `NEXT_PUBLIC_APP_URL` | Same as `NEXTAUTH_URL` |
-| `ANTHROPIC_API_KEY` | [console.anthropic.com](https://console.anthropic.com) — powers all AI generation |
-| `ENCRYPTION_KEY` | 64-char hex for encrypting stored API keys: `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"` |
+| `ANTHROPIC_API_KEY` | console.anthropic.com |
+| `ENCRYPTION_KEY` | `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"` — 64-char hex; encrypts stored Higgsfield keys at rest |
 
-### Optional — Rate Limiting (recommended for production)
+### Required for Payments
 
-| Variable | Description |
-|----------|-------------|
-| `UPSTASH_REDIS_REST_URL` | Upstash Redis REST URL — create a free DB at [upstash.com](https://upstash.com) |
-| `UPSTASH_REDIS_REST_TOKEN` | Upstash Redis REST token |
+| Variable | How to get it |
+|---|---|
+| `STRIPE_SECRET_KEY` | Stripe dashboard → Developers → API keys |
+| `STRIPE_WEBHOOK_SECRET` | Stripe dashboard → Webhooks → signing secret |
+| `STRIPE_STORY_PRO_PRICE_ID` | Stripe product price ID (price_xxx) |
+| `STRIPE_CREATOR_PRO_PRICE_ID` | Stripe product price ID |
+| `STRIPE_ALL_ACCESS_PRICE_ID` | Stripe product price ID |
 
-When `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN` are absent the app runs without rate limiting (fail-open). In production these should always be set.
+### Required for Email
 
-### Optional — Cron Security
+| Variable | How to get it |
+|---|---|
+| `RESEND_API_KEY` | resend.com → API keys |
 
-| Variable | Description |
-|----------|-------------|
-| `CRON_SECRET` | Bearer token for the cleanup cron: `openssl rand -base64 32` |
+### Required for Cron Security
+
+| Variable | Value |
+|---|---|
+| `CRON_SECRET` | `openssl rand -base64 32` — validated as Bearer token on `/api/cron/cleanup` |
+
+### Optional — Rate Limiting (strongly recommended in production)
+
+| Variable | Notes |
+|---|---|
+| `UPSTASH_REDIS_REST_URL` | upstash.com → free Redis DB |
+| `UPSTASH_REDIS_REST_TOKEN` | Same DB |
+
+When absent, rate limiting is **fail-open** — the app works, just unmetered. Always set in production.
 
 ### Optional — Video Dissection
 
-| Variable | Description |
-|----------|-------------|
-| `GEMINI_API_KEY` | Google AI Studio key — required for the Dissect Video feature |
-| `YOUTUBE_DATA_API_KEY` | YouTube Data API v3 key — required for trend search |
-| `GITHUB_PAT` | GitHub personal access token with `repo` scope — dispatches the analysis workflow |
-| `GITHUB_REPO_OWNER` | GitHub username/org that owns the workflow repo |
-| `GITHUB_REPO_NAME` | Repository name that contains the `dissect-video` workflow |
+| Variable | Notes |
+|---|---|
+| `GEMINI_API_KEY` | Google AI Studio — required for Dissect Video feature |
+| `YOUTUBE_DATA_API_KEY` | YouTube Data API v3 — required for trend search |
+| `GITHUB_PAT` | Personal access token with `repo` scope — dispatches the analysis workflow |
+| `GITHUB_REPO_OWNER` | GitHub username that owns the workflow repo |
+| `GITHUB_REPO_NAME` | Repo with the `dissect-video` GitHub Actions workflow |
 
----
+### Optional — OpenAI (Embeddings Only)
 
-## Database
+| Variable | Notes |
+|---|---|
+| `OPENAI_API_KEY` | Used **only** for `text-embedding-3-small` in `/api/work-packets/embed`. Not used for any generation. |
 
-GhostWriter uses [Drizzle ORM](https://orm.drizzle.team/) with Neon PostgreSQL.
+### Optional — Video Generation
 
-```bash
-# Push schema changes to the database
-copy .env.local .env   # drizzle-kit reads .env, not .env.local
-npm run db:push
+| Variable | Notes |
+|---|---|
+| `HIGGSFIELD_API_KEY` | Higgsfield native API — Soul ID training |
+| `SEGMIND_API_KEY` | Segmind proxy — Soul 2.0 images, DoP video, text-to-video |
 
-# Open Drizzle Studio (visual DB browser)
-npm run db:studio
-```
+### Optional — Monitoring
 
-> **Why `copy .env.local .env`?** `drizzle-kit` does not read `.env.local` — it reads `.env`. Always sync before running DB commands.
+| Variable | Notes |
+|---|---|
+| `NEXT_PUBLIC_SENTRY_DSN` | Sentry project DSN — client error tracking |
+| `SENTRY_AUTH_TOKEN` | Sentry — upload source maps |
+| `NEXT_PUBLIC_GROWTHBOOK_CLIENT_KEY` | GrowthBook — feature flags |
 
 ---
 
 ## Scripts
 
-| Command | Description |
-|---------|-------------|
-| `npm run dev` | Start dev server on port 3001 |
+| Command | What it does |
+|---|---|
+| `npm run dev` | Dev server on port 3001 |
 | `npm run build` | Production build |
-| `npm run start` | Start production server |
-| `npm test` | Run Vitest unit tests (single run) |
-| `npm run test:watch` | Run Vitest in watch mode |
-| `npm run db:push` | Push Drizzle schema to the database |
-| `npm run db:studio` | Open Drizzle Studio |
+| `npm run start` | Production server |
+| `npm test` | Vitest unit tests (single run) |
+| `npm run test:watch` | Vitest in watch mode |
+| `npm run db:push` | Push Drizzle schema to Neon |
+| `npm run db:studio` | Drizzle Studio — visual DB browser |
 
 ---
 
-## Architecture
+## Architecture Overview
 
 ```
+Request
+  │
+  ▼
+Next.js 14 App Router
+  │
+  ├─ Pages (src/app/)
+  │   ├─ / (landing)
+  │   ├─ /dashboard (project list)
+  │   ├─ /project/[projectId] (editor)
+  │   └─ /reader/[token] (public read-only)
+  │
+  └─ API Routes (src/app/api/)
+      ├─ /ai/*           — AI generation (all Anthropic calls here)
+      ├─ /projects/*     — CRUD + per-project AI features
+      ├─ /audio/*        — TTS + lipsync (Higgsfield)
+      ├─ /webhooks/*     — Stripe events
+      └─ /cron/*         — Scheduled cleanup
+
 src/
-├── app/
-│   ├── api/
-│   │   ├── ai/           # AI generation routes (generate, prose, pipeline, …)
-│   │   ├── projects/     # CRUD for projects, chapters, characters, locations, …
-│   │   └── cron/         # Scheduled cleanup (runs daily at 02:00 UTC on Vercel)
-│   ├── project/[projectId]/  # Editor page
-│   └── dashboard/        # Project list
-├── components/
-│   ├── panels/           # Left panel tabs: Chapters, Characters, Trends, …
-│   ├── ProductionStudio  # Shot list UI
-│   └── …
-├── lib/
-│   ├── ai/
-│   │   ├── context-builder.ts   # Builds project context strings for AI prompts
-│   │   └── engine.ts            # Claude API wrapper, generation pipelines
-│   ├── dialogue/         # Dialogue archetype library (8 archetypes + psychological layer)
-│   ├── emotional/        # Emotional arc engine
-│   ├── atmosphere/       # Atmosphere rendering library
-│   ├── tension/          # Tension escalation library
-│   ├── auth-helpers.ts   # getRequiredSession() — throws 401 if unauthenticated
-│   ├── env-check.ts      # Runtime env-var guards (Gemini, Anthropic keys)
-│   └── ratelimit.ts      # Upstash rate-limit helpers (fail-open)
-└── db/
-    ├── schema.ts         # Drizzle schema (projects, chapters, characters, …)
-    └── index.ts          # Drizzle client (Neon serverless)
+├─ lib/
+│   ├─ ai/
+│   │   ├─ engine.ts           — MODELS constants, all 21 generation modes, system prompts
+│   │   ├─ context-builder.ts  — Assembles project context string from DB data
+│   │   ├─ composer.ts         — Multi-layer composition mixing
+│   │   ├─ embeddings.ts       — OpenAI embedding calls
+│   │   └─ [genre]/            — 20 genre libraries (each: archetypes, context, types)
+│   ├─ auth-helpers.ts         — getRequiredSession() — throws 401 if unauthenticated
+│   ├─ ratelimit.ts            — Upstash rate limiting (fail-open)
+│   ├─ subscription.ts         — Tier lookup + feature gate enforcement
+│   ├─ higgsfield/             — Video/image generation client
+│   └─ formats.ts              — Story format rules (Novel, Screenplay, YouTube, etc.)
+│
+├─ db/
+│   ├─ schema.ts               — All 23+ Drizzle tables
+│   └─ index.ts                — Neon serverless DB client
+│
+└─ components/
+    ├─ GhostWriterApp.tsx       — Root app shell
+    ├─ panels/toolbar/modes/    — 25 writing mode panels
+    ├─ panels/toolbar/tools/    — 19 creator tool panels
+    └─ ProductionStudio.tsx     — Video production UI
 ```
 
 ### Key Design Decisions
 
-| Decision | Rationale |
-|----------|-----------|
-| All Claude calls in route handlers | Keeps API key server-side; components never touch the SDK |
-| `getRequiredSession()` throws a 401 response | Eliminates boilerplate null-checks in every route |
-| `alwaysInContext` flag on characters/locations/threads | Lets users demote minor entities to one-liners, keeping prompts lean |
-| Memory priority scoring | `character_decision` (weight 3) > `event` (weight 2) > `general` (weight 1) + recency — most relevant facts survive the 8-memory cap |
-| Upstash fail-open | Rate limiting is a nice-to-have in dev; missing env vars don't break the app |
-| Video dissection via GitHub Actions | Long-running Gemini video analysis exceeds Vercel's 60 s function limit; offloaded to a workflow |
+| Decision | Why |
+|---|---|
+| All Anthropic/OpenAI calls in route handlers | API keys never reach the browser; components only call fetch |
+| Application-level ownership checks, no RLS | Every route queries `WHERE userId = session.user.id`; simpler than Supabase RLS and works with any Postgres |
+| `getRequiredSession()` throws 401 response | Eliminates null-check boilerplate in every protected route handler |
+| MODELS constants in `engine.ts` | Single source of truth — all 28 route files import `MODELS.default` / `MODELS.fast`; changing models means editing one file |
+| Rate limiter fail-open | Dev and demo environments work without Redis configured; missing env vars don't crash the app |
+| Video dissection via GitHub Actions | Gemini video analysis takes 2-4 minutes, far exceeding Vercel's 60s function limit |
+| Upstash Redis for rate limiting | Serverless-native; no persistent connections; free tier covers development |
+| Prompt caching (ephemeral blocks) | Static context (mode instructions + genre rules) is cached per-conversation, cutting latency and token cost on repeated generations |
+| pgvector for work-packet search | Semantic search over craft library principles without a dedicated vector DB service |
 
 ---
 
-## Vercel Deployment
+## Subscription Tiers
 
-1. Import the repository in the [Vercel dashboard](https://vercel.com/new).
-2. Set all required environment variables (see table above).
-3. Add these **additional** variables for production:
-   - `GITHUB_PAT`, `GITHUB_REPO_OWNER=sadi21863-bit`, `GITHUB_REPO_NAME=ghostwriter`
-   - `ENCRYPTION_KEY` (64-char hex)
-   - `UPSTASH_REDIS_REST_URL` + `UPSTASH_REDIS_REST_TOKEN`
-   - `CRON_SECRET`
-4. Deploy. Vercel will automatically run the cleanup cron at 02:00 UTC daily (configured in `vercel.json`).
+| Tier | Monthly | Unlocks |
+|---|---|---|
+| Free | — | 10 AI generations/day, 1 project, basic modes |
+| Story Pro | ₹799 | Unlimited generations, all 20 library modes, Style DNA, Story Memory, Comic Studio, Production Studio |
+| Creator Pro | ₹399 | Creator tools (trend search, dissection, hook A/B, retention, guest intel, TikTok, repurpose) |
+| All Access | ₹999 | Everything |
 
-> **Note:** Never commit `.env.local` to git — it is listed in `.gitignore`.
+Feature gates are enforced server-side in every route via `canAccessFeature(tier, featureName)`.
 
 ---
 
-## Security
+## Security Notes
 
-- Every API route verifies that the requesting user owns the project (`projects.userId === session.user.id`) before any database operation.
-- API keys stored by users (e.g. Higgsfield) are AES-256 encrypted at rest using `ENCRYPTION_KEY`. Keys are never returned in full from GET routes — only `keySet: boolean` and `keyLast4: string`.
-- Image data is never stored in the database. Files are uploaded to Vercel Blob and the URL is stored.
-- The cron endpoint is secured with a bearer token (`CRON_SECRET`).
+- Every project route checks `projects.userId === session.user.id` before any DB operation or AI call.
+- Higgsfield API keys supplied by users are AES-256 encrypted at rest using `ENCRYPTION_KEY`. GET routes return only `keySet: boolean` and `keyLast4: string`.
+- The cleanup cron (`/api/cron/cleanup`) requires `Authorization: Bearer CRON_SECRET`.
+- Image data is never stored in the database — URLs to Vercel Blob storage are stored instead.
 
 ---
 
-## Testing
+## Detailed Documentation
 
-```bash
-npm test
-```
+See the [docs/](docs/) folder for deep-dives:
 
-Unit tests live in `src/lib/ai/__tests__/`. The suite covers:
-
-- Project header (name, format, genres)
-- Full character detail injection (`alwaysInContext: true`)
-- Minor character compression (`alwaysInContext: false`)
-- 8-memory hard cap
-- Category-weight priority scoring (`character_decision` beats `general`)
-- Recency scoring (recent chapter facts beat stale ones)
-- Style directive generation from reference works
-- Empty-attribute reference work (no spurious STYLE DIRECTIVE block)
+| File | Covers |
+|---|---|
+| [docs/architecture.md](docs/architecture.md) | Full request lifecycle, data flow, how all layers connect |
+| [docs/ai-engine.md](docs/ai-engine.md) | MODELS constants, all 25 modes, prompt caching, context assembly |
+| [docs/database.md](docs/database.md) | All 23 tables, relationships, schema decisions |
+| [docs/auth-and-security.md](docs/auth-and-security.md) | Auth flow, rate limiting, ownership checks, encryption |
+| [docs/subscription.md](docs/subscription.md) | Tier system, feature gates, Stripe integration |
+| [docs/api-routes.md](docs/api-routes.md) | All API endpoints with auth requirements and descriptions |
+| [docs/components.md](docs/components.md) | Component hierarchy, panel system, how modes connect to routes |
+| [docs/video-and-media.md](docs/video-and-media.md) | Higgsfield, Segmind, Soul ID, video generation pipeline |
+| [docs/deployment.md](docs/deployment.md) | Vercel setup, env vars, DB migrations, pre-launch checklist |
+| [docs/gotchas.md](docs/gotchas.md) | Known quirks, Windows-specific steps, LSP false positives |
 
 ---
 
