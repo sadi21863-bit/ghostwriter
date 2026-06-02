@@ -6,6 +6,7 @@ import { db } from "@/db";
 import { videoAnalysisJobs } from "@/db/schema";
 import { eq, and, inArray } from "drizzle-orm";
 import Anthropic from "@anthropic-ai/sdk";
+import { MODELS } from "@/lib/ai/engine";
 
 const anthropic = new Anthropic();
 
@@ -49,7 +50,7 @@ export async function POST(req: Request) {
   }).join("\n\n---\n\n");
 
   const response = await anthropic.messages.create({
-    model: "claude-sonnet-4-20250514",
+    model: MODELS.default,
     max_tokens: 3000,
     system: [{
       type: "text",

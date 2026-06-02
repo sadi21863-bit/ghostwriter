@@ -6,6 +6,7 @@ import { db } from "@/db";
 import { projects } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import Anthropic from "@anthropic-ai/sdk";
+import { MODELS } from "@/lib/ai/engine";
 
 const anthropic = new Anthropic();
 
@@ -30,7 +31,7 @@ export async function POST(req: Request, { params }: { params: { projectId: stri
   }
 
   const response = await anthropic.messages.create({
-    model: "claude-sonnet-4-20250514",
+    model: MODELS.fast,
     max_tokens: 2000,
     system: [{
       type: "text",

@@ -3,6 +3,7 @@ import { getRequiredSession } from "@/lib/auth-helpers";
 import { checkAiRateLimit } from "@/lib/ratelimit";
 import { getUserTier, canAccessFeature } from "@/lib/subscription";
 import Anthropic from "@anthropic-ai/sdk";
+import { MODELS } from "@/lib/ai/engine";
 
 const anthropic = new Anthropic();
 
@@ -19,7 +20,7 @@ export async function POST(req: Request) {
   if (!script?.trim()) return NextResponse.json({ error: "script required" }, { status: 400 });
 
   const response = await anthropic.messages.create({
-    model: "claude-sonnet-4-20250514",
+    model: MODELS.default,
     max_tokens: 3000,
     system: [{
       type: "text",

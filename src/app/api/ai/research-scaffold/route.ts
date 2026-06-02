@@ -3,6 +3,7 @@ import { getRequiredSession } from "@/lib/auth-helpers";
 import { checkAiRateLimit } from "@/lib/ratelimit";
 import { getUserTier, canAccessFeature } from "@/lib/subscription";
 import Anthropic from "@anthropic-ai/sdk";
+import { MODELS } from "@/lib/ai/engine";
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! });
 
@@ -22,7 +23,7 @@ export async function POST(req: Request) {
     const searchQuery = angle ? `${topic} ${angle} research statistics arguments` : `${topic} research statistics arguments evidence`;
 
     const msg = await client.messages.create({
-      model: "claude-sonnet-4-20250514",
+      model: MODELS.default,
       max_tokens: 2000,
       tools: [{ type: "web_search_20250305", name: "web_search" } as any],
       system: `You are a research assistant for YouTube creators. Search for current, credible information to support long-form video content. Always prioritize:

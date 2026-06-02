@@ -6,6 +6,7 @@ import { db } from "@/db";
 import { creatorBibles } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import Anthropic from "@anthropic-ai/sdk";
+import { MODELS } from "@/lib/ai/engine";
 
 const anthropic = new Anthropic();
 
@@ -98,7 +99,7 @@ Return ONLY valid JSON:
 }`;
 
   const response = await anthropic.messages.create({
-    model: "claude-sonnet-4-20250514",
+    model: MODELS.default,
     max_tokens: 1500,
     system: [{ type: "text", text: "You are a hook strategist. Return only valid JSON.", cache_control: { type: "ephemeral" } }],
     messages: [{ role: "user", content: prompt }],

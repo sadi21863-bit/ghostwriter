@@ -11,6 +11,7 @@ import { db } from "@/db";
 import { projects, characters, storyMemories, characterEvolutionLog } from "@/db/schema";
 import { eq, and, inArray } from "drizzle-orm";
 import Anthropic from "@anthropic-ai/sdk";
+import { MODELS } from "@/lib/ai/engine";
 
 const anthropic = new Anthropic();
 
@@ -96,7 +97,7 @@ Respond ONLY with valid JSON (no markdown, no explanation):
 
     try {
       const response = await anthropic.messages.create({
-        model: "claude-sonnet-4-20250514",
+        model: MODELS.default,
         max_tokens: 800,
         messages: [{ role: "user", content: prompt }],
       });

@@ -5,6 +5,7 @@ import { db } from "@/db";
 import { projects, productionShots } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import Anthropic from "@anthropic-ai/sdk";
+import { MODELS } from "@/lib/ai/engine";
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! });
 
@@ -114,7 +115,7 @@ Generate a production package as JSON:
 Generate 3-6 shots per chapter. Focus on visually interesting moments. Make prompts Higgsfield-ready.`;
 
   const msg = await client.messages.create({
-    model: "claude-sonnet-4-20250514",
+    model: MODELS.default,
     max_tokens: 8000,
     system: systemPrompt,
     messages: [{ role: "user", content: userPrompt }],

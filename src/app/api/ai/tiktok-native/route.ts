@@ -3,6 +3,7 @@ import { getRequiredSession } from "@/lib/auth-helpers";
 import { checkAiRateLimit } from "@/lib/ratelimit";
 import { getUserTier, canAccessFeature } from "@/lib/subscription";
 import Anthropic from "@anthropic-ai/sdk";
+import { MODELS } from "@/lib/ai/engine";
 
 const anthropic = new Anthropic();
 
@@ -37,7 +38,7 @@ export async function POST(req: Request) {
 
   if (mode === "hooks") {
     const response = await anthropic.messages.create({
-      model: "claude-sonnet-4-20250514",
+      model: MODELS.default,
       max_tokens: 1000,
       messages: [{
         role: "user",
@@ -61,7 +62,7 @@ Return ONLY valid JSON: { "hooks": [{ "hook": "string", "pattern": "pattern used
   }
 
   const response = await anthropic.messages.create({
-    model: "claude-sonnet-4-20250514",
+    model: MODELS.default,
     max_tokens: 1500,
     system: [{ type: "text", text: "You are a TikTok scriptwriter. Write for the sound-first, attention-fragmented TikTok environment. Return only valid JSON.", cache_control: { type: "ephemeral" } }],
     messages: [{

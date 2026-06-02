@@ -6,6 +6,7 @@ import { db } from "@/db";
 import { creatorBibles } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import Anthropic from "@anthropic-ai/sdk";
+import { MODELS } from "@/lib/ai/engine";
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! });
 
@@ -33,7 +34,7 @@ export async function POST(req: Request) {
 
   try {
     const msg = await client.messages.create({
-      model: "claude-haiku-4-5-20251001",
+      model: MODELS.fast,
       max_tokens: 1200,
       tools: [{ type: "web_search_20250305", name: "web_search" } as any],
       system: `You are a short-form content strategist. Search for what's currently trending around a topic, then identify 5 unique angles for ${format || "short-form"} content. Each angle must:

@@ -6,6 +6,7 @@ import { db } from "@/db";
 import { projects, characters } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import Anthropic from "@anthropic-ai/sdk";
+import { MODELS } from "@/lib/ai/engine";
 
 const anthropic = new Anthropic();
 
@@ -47,7 +48,7 @@ export async function POST(req: Request, { params }: { params: { projectId: stri
     : "This character believes they are acting correctly. The protagonist appears as an obstacle to something they genuinely want.";
 
   const response = await anthropic.messages.create({
-    model: "claude-sonnet-4-20250514",
+    model: MODELS.default,
     max_tokens: 2000,
     system: `You are writing a scene from the antagonist's point of view. In this scene, the antagonist is correct and the protagonist is an obstacle.
 

@@ -4,6 +4,7 @@ import { db } from "@/db";
 import { storyMemories, chapters, projects } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import Anthropic from "@anthropic-ai/sdk";
+import { MODELS } from "@/lib/ai/engine";
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! });
 
@@ -29,7 +30,7 @@ export async function POST(_: Request, { params }: { params: { projectId: string
   if (!chapter?.content?.trim()) return NextResponse.json({ memories: [] });
 
   const msg = await client.messages.create({
-    model: "claude-haiku-4-5-20251001",
+    model: MODELS.fast,
     max_tokens: 800,
     system: `Extract established facts from this chapter. Return ONLY a JSON array:
 [{ "fact": string, "category": "character_decision|world_rule|relationship|event|general" }]

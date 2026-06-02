@@ -5,6 +5,7 @@ import { db } from "@/db";
 import { chapters, comicPages, comicPanels, projects, users } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import Anthropic from "@anthropic-ai/sdk";
+import { MODELS } from "@/lib/ai/engine";
 import { put } from "@vercel/blob";
 import { generateSoulImage } from "@/lib/higgsfield/client";
 import { ART_STYLES, PanelSpec, buildBreakdownPrompt, buildPanelPrompt } from "@/lib/ai/panel-prompt-builder";
@@ -72,7 +73,7 @@ export async function POST(req: Request, { params }: { params: { projectId: stri
   // Call Claude to break scene into panel specs
   const { prompt: breakdownPrompt, wasTruncated } = buildBreakdownPrompt(chapter.content, project.characters);
   const msg = await client.messages.create({
-    model: "claude-haiku-4-5-20251001",
+    model: MODELS.fast,
     max_tokens: 1200,
     messages: [{ role: "user", content: breakdownPrompt }],
   });

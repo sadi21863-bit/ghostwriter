@@ -6,6 +6,7 @@ import { db } from "@/db";
 import { users } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import Anthropic from "@anthropic-ai/sdk";
+import { MODELS } from "@/lib/ai/engine";
 import { decrypt } from "@/lib/crypto";
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! });
@@ -79,7 +80,7 @@ export async function POST(req: Request) {
       : "";
 
     const msg = await client.messages.create({
-      model: "claude-sonnet-4-20250514",
+      model: MODELS.default,
       max_tokens: 1200,
       system: `You are a content strategist specialising in Instagram Reels for Indian creators. Analyse real reel data and identify what's saturated vs what angles nobody has taken yet. Return ONLY valid JSON.`,
       messages: [{
