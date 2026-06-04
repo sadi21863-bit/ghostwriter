@@ -1,9 +1,22 @@
 import { neon } from "@neondatabase/serverless";
 import { drizzle } from "drizzle-orm/neon-http";
 import * as schema from "./schema";
-// During Next.js static build Vercel injects a non-URL placeholder; fall back
-// to a dummy so neon() doesn't throw at module load. Real queries fail fast
-// with a clear error instead of crashing the build.
-const url = process.env.DATABASE_URL ?? "";
-const sql = neon(url.startsWith("postgres") ? url : "postgresql://localhost/placeholder");
-export const db = drizzle(sql, { schema });
+
+type DrizzleDb = ReturnType<typeof drizzle<typeof schema>>;
+
+// Lazy singleton — neon() is called only on first DB access (inside a request
+// handler), never at module-import time. This prevents Vercel's build-time
+// page-data collection from crashing when DATABASE_URL is a placeholder.
+let _db: DrizzleDb | null = null;
+function getDb(): DrizzleDb {
+  if (!_db) {
+    _db = drizzle(neon(process.env.DATABASE_URL!), { schema });
+  }
+  return _db;
+}
+
+export const db = new Proxy({} as DrizzleDb, {
+  get(_t, prop, receiver) {
+    return Reflect.get(getDb(), prop, receiver);
+  },
+});
