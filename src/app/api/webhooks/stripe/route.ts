@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 // src/app/api/webhooks/stripe/route.ts
 // Handles Stripe webhook events to keep subscription state in sync.
 // Endpoint URL to configure in Stripe dashboard: https://yourdomain.com/api/webhooks/stripe

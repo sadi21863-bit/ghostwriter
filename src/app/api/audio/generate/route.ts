@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 // src/app/api/audio/generate/route.ts
 // Converts a chapter to audio using OpenAI TTS.
 // Characters speak in their assigned voices; narration uses the narrator voice.

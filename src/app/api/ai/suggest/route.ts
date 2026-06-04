@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 // src/app/api/ai/suggest/route.ts
 // Active AI suggestion — user-triggered, Pro only.
 // One AI call returning structured JSON covering 4 check categories.

@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 // src/app/api/projects/[projectId]/characters/[characterId]/soul-id/route.ts
 // Trains a Higgsfield Soul ID from reference photos for consistent panel generation.
 // POST: starts training, returns jobId for polling

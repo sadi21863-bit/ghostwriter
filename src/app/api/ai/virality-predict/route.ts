@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 // src/app/api/ai/virality-predict/route.ts
 // Predicts engagement/virality of a video prompt using Claude analysis.
 // Gate: creator_pro or all_access only.

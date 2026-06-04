@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 // src/app/api/ai/trend-niche/route.ts
 // Niche-specific trend intelligence.
 // Filters trending content through the Creator Bible niche, audience, and

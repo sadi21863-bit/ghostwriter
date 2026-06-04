@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 // src/app/api/ai/thumbnail-concepts/route.ts
 // Generates 3 thumbnail concept descriptions per video.
 // Creator Pro feature.

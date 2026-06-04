@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 // src/app/api/projects/[projectId]/characters/[characterId]/evolution/route.ts
 import { NextResponse } from "next/server";
 import { getRequiredSession } from "@/lib/auth-helpers";

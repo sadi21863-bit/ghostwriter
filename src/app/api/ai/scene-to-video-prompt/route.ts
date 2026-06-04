@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 // src/app/api/ai/scene-to-video-prompt/route.ts
 // Converts story scene text into optimised Higgsfield video generation prompts.
 

@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 // src/app/api/ai/character-evolution/route.ts
 // Analyses story memories for a project's main characters and generates
 // evolution updates showing how each character has changed and why.

@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 // src/app/api/subscription/route.ts
 // GET  — returns current subscription tier
 // POST — creates a Stripe Checkout session and returns the URL

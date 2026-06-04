@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 import { NextRequest, NextResponse } from 'next/server';
 import { getRequiredSession } from '@/lib/auth-helpers';
 import { getUserTier, canAccessFeature } from '@/lib/subscription';
