@@ -14,6 +14,9 @@ import { SCITECH_SYSTEM_PROMPT } from "@/lib/scitech";
 import { ETHICS_SYSTEM_PROMPT } from "@/lib/ethics";
 import { ENDINGS_SYSTEM_PROMPT } from "@/lib/endings";
 import { ISEKAI_SYSTEM_PROMPT } from "@/lib/isekai";
+import { INTERROGATION_SYSTEM_PROMPT } from "@/lib/modes/interrogation";
+import { CHASE_SYSTEM_PROMPT } from "@/lib/modes/chase";
+import { checkSemanticCache, writeSemanticCache } from "@/lib/semantic-cache";
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! });
 
 export const MODELS = {
@@ -28,6 +31,7 @@ const QUALITY_MODES = new Set([
   'comedy', 'mystery', 'romance', 'action', 'monologue',
   'voice', 'thriller', 'sports', 'setting', 'historical',
   'scitech', 'ethics', 'endings', 'isekai', 'composition',
+  'interrogation', 'chase',
   // write → MODELS.default (Sonnet — 18K context does the heavy lifting)
   // dialogue → MODELS.default (character profiles in context are sufficient)
 ]);
@@ -53,7 +57,7 @@ function safeParseJson(raw: string): Record<string, unknown> | null {
   console.error('[safeParseJson] Failed to parse model response:', clean.slice(0, 200));
   return null;
 }
-export type GenerationMode = "brainstorm" | "outline" | "write" | "dialogue" | "combat" | "emotional" | "atmosphere" | "tension" | "composition" | "horror" | "comedy" | "mystery" | "romance" | "action" | "monologue" | "voice" | "thriller" | "sports" | "setting" | "historical" | "scitech" | "ethics" | "endings" | "isekai";
+export type GenerationMode = "brainstorm" | "outline" | "write" | "dialogue" | "combat" | "emotional" | "atmosphere" | "tension" | "composition" | "horror" | "comedy" | "mystery" | "romance" | "action" | "monologue" | "voice" | "thriller" | "sports" | "setting" | "historical" | "scitech" | "ethics" | "endings" | "isekai" | "interrogation" | "chase";
 
 const DIALOGUE_SYSTEM_PROMPT = `You are writing a scene driven by dialogue. Your work operates on three simultaneous levels: the verbal (what is said), the physical (what the body is doing), and the structural (the information management between reader and character).
 
@@ -246,8 +250,10 @@ CONTINUITY: Maintain all established facts. End scenes on tension, decision, or 
   scitech:     (_f: string) => SCITECH_SYSTEM_PROMPT,
   ethics:      (_f: string) => ETHICS_SYSTEM_PROMPT,
   endings:     (_f: string) => ENDINGS_SYSTEM_PROMPT,
-  isekai:      (_f: string) => ISEKAI_SYSTEM_PROMPT,
-  composition: (_f: string) => `You are writing a scene that must operate simultaneously across multiple injected technique libraries. The composition context above specifies the active layers and their intersection directives.
+  isekai:        (_f: string) => ISEKAI_SYSTEM_PROMPT,
+  interrogation: (_f: string) => INTERROGATION_SYSTEM_PROMPT,
+  chase:         (_f: string) => CHASE_SYSTEM_PROMPT,
+  composition:   (_f: string) => `You are writing a scene that must operate simultaneously across multiple injected technique libraries. The composition context above specifies the active layers and their intersection directives.
 
 COMPOSITION RULES (non-negotiable):
 • Every paragraph must contain active elements from at least two injected layers.
@@ -366,9 +372,59 @@ export async function generate({ mode, prompt, context, staticContext, dynamicCo
   const text = msg.content.filter(b => b.type === 'text').map(b => (b as any).text).join('');
   return { text, tokensUsed: msg.usage.input_tokens + msg.usage.output_tokens, model };
 }
-export async function analyzeWork(title: string) { const msg = await client.messages.create({ model: MODELS.fast, max_tokens: 500, messages: [{ role: "user", content: 'Analyze "' + title + '". Return ONLY JSON: {"Pacing":"...","Tone":"...","POV Style":"...","Dialogue Style":"...","Sentence Structure":"...","Atmosphere":"..."}' }] }); const result = safeParseJson(msg.content.filter(b => b.type === "text").map(b => (b as any).text).join("").trim()); return result ?? {}; }
+export async function analyzeWork(title: string) {
+  const semanticKey = title.trim();
+  const cached = await checkSemanticCache('style_dna', semanticKey);
+  if (cached) return cached;
+
+  const msg = await client.messages.create({ model: MODELS.fast, max_tokens: 500, messages: [{ role: "user", content: 'Analyze "' + title + '". Return ONLY JSON: {"Pacing":"...","Tone":"...","POV Style":"...","Dialogue Style":"...","Sentence Structure":"...","Atmosphere":"..."}' }] });
+  const result = safeParseJson(msg.content.filter(b => b.type === "text").map(b => (b as any).text).join("").trim()) ?? {};
+
+  if (Object.keys(result).length > 0) { writeSemanticCache('style_dna', semanticKey, result as Record<string, unknown>); }
+  return result;
+}
 export async function generateEntity(type: string, prompt: string, ctx: string, existing: any) { const schemas: Record<string, string> = { character: "name,role,age,appearance,personality,thinkingStyle,behavior,habits,fears,desires,speechPattern,backstory,arc", location: "name,description,atmosphere,history,sensoryDetails", plotThread: "name,description,status,stakes,connections", creatorBible: "channelName,niche,audienceAge,audienceInterests,audiencePainPoints,channelVoice,contentPillars,defaultCta,competitorNotes" }; const userMsg = existing ? "Improve:\n" + JSON.stringify(existing) + "\nReturn JSON: {" + schemas[type] + "}" : prompt + "\nReturn JSON: {" + schemas[type] + "}"; const msg = await client.messages.create({ model: MODELS.default, max_tokens: 1500, system: "Create " + type + "s. ONLY JSON. Context: " + ctx, messages: [{ role: "user", content: userMsg }] }); const result = safeParseJson(msg.content.filter(b => b.type === "text").map(b => (b as any).text).join("").trim()); if (!result) { console.error('[generateEntity] Invalid JSON from model for type:', type); return {}; } return result; }
-export async function summarizeChapter(content: string) { const msg = await client.messages.create({ model: MODELS.fast, max_tokens: 500, messages: [{ role: "user", content: "Summarize in 2-3 sentences for continuity:\n\n" + content }] }); return msg.content.filter(b => b.type === "text").map(b => (b as any).text).join(""); }
+export async function summarizeChapter(
+  content: string,
+  chapterTitle?: string,
+  arcPosition?: string,
+  characters?: { name: string }[],
+  previousMemories?: string
+): Promise<{ fact: string; structuredData: object }> {
+  const charNames = characters?.map(c => c.name).join(', ') ?? '';
+  const prompt = `Analyze this chapter and return ONLY valid JSON with no preamble:
+{
+  "fact": "2-3 sentence summary of the most important thing that happened",
+  "chapterTitle": "${chapterTitle ?? 'Chapter'}",
+  "arcPosition": "${arcPosition ?? ''}",
+  "charactersPresent": ["name1"],
+  "keyEvents": ["event 1"],
+  "objectsIntroduced": ["any significant object that could matter later"],
+  "knowledgeShifts": [{"character":"name","learned":"what they learned","from":"IGNORANT","to":"KNOWS"}],
+  "decisionsAndConsequences": ["Character X decided Y, which means Z"],
+  "emotionalStateEnd": {"CharName": "emotional state at chapter end"},
+  "openPromisesCreated": ["any story promise planted in this chapter"],
+  "openPromisesResolved": ["any earlier story promise resolved in this chapter"]
+}
+${charNames ? `Known characters: ${charNames}` : ''}
+${previousMemories ? `Previous context: ${previousMemories}` : ''}
+
+CHAPTER CONTENT:
+${content.slice(0, 8000)}`;
+
+  const msg = await client.messages.create({
+    model: MODELS.fast,
+    max_tokens: 600,
+    messages: [{ role: 'user', content: prompt }],
+  });
+  const text = msg.content.filter(b => b.type === 'text').map(b => (b as any).text).join('');
+  const parsed = safeParseJson(text);
+  if (!parsed) return { fact: chapterTitle ? `Chapter: ${chapterTitle}` : 'Chapter summary', structuredData: {} };
+  return {
+    fact: (parsed as any).fact ?? (chapterTitle ? `Chapter: ${chapterTitle}` : 'Chapter summary'),
+    structuredData: parsed,
+  };
+}
 export async function generateQuickStory(title: string, format: string, genres: string[]) { const genreStr = (genres || []).join(", ") || "Drama"; const prompt = `Create a complete story skeleton for a ${format} titled "${title}" in ${genreStr}. Return ONLY valid JSON with: {characters:[{name,role,age,appearance,personality},...], locations:[{name,description,atmosphere},...], plotThreads:[{name,description,stakes},...], outline:"Brief 3-act outline"}. Generate 3-4 characters, 2-3 locations, 2-3 plot threads.`; const msg = await client.messages.create({ model: MODELS.default, max_tokens: 2000, messages: [{ role: "user", content: prompt }] }); const text = msg.content.filter(b => b.type === "text").map(b => (b as any).text).join("").trim(); try { return JSON.parse(text); } catch (e) { return { characters: [], locations: [], plotThreads: [], outline: "" }; } }
 export async function generateBeginnerCharacters(projectName: string, genres: string[], count = 3) { const genreStr = (genres || []).join(", ") || "General"; const prompt = `Create ${count} diverse characters for "${projectName}" (${genreStr}). For each, provide only: name, role (main/supporting/antagonist), age, appearance (1 sentence), and personality (1 sentence). Return JSON: [{name,role,age,appearance,personality},...]`; const msg = await client.messages.create({ model: MODELS.fast, max_tokens: 1000, messages: [{ role: "user", content: prompt }] }); const text = msg.content.filter(b => b.type === "text").map(b => (b as any).text).join("").trim(); try { return JSON.parse(text); } catch (e) { return []; } }
 
@@ -377,6 +433,10 @@ export async function bootstrapCharacterIntelligence(
   genre: string,
   format: string
 ): Promise<Partial<Record<string, string>>> {
+  const semanticKey = `${genre} ${format}: ${character.role}, ${character.personality}${character.backstory ? ', ' + character.backstory.slice(0, 100) : ''}`;
+  const cached = await checkSemanticCache('bootstrap_character', semanticKey);
+  if (cached) return cached as Partial<Record<string, string>>;
+
   const prompt = `You are building deep character intelligence for a ${format} in ${genre} genre.
 
 Character: ${character.name} (${character.role}, age ${character.age})
@@ -410,6 +470,7 @@ Generate intelligence for this character. Return ONLY valid JSON with these exac
   });
 
   const text = msg.content.filter(b => b.type === 'text').map(b => (b as any).text).join('').trim();
-  const result = safeParseJson(text);
-  return (result as Partial<Record<string, string>>) ?? {};
+  const result = safeParseJson(text) ?? {};
+  if (Object.keys(result).length > 0) { writeSemanticCache('bootstrap_character', semanticKey, result as Record<string, unknown>); }
+  return (result as Partial<Record<string, string>>);
 }

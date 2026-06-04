@@ -330,6 +330,8 @@ export default function GhostWriterApp({ projectId }: { projectId: string }) {
         isekaiArchetype={isekaiArchetype}
         setIsekaiArchetype={setIsekaiArchetype}
         generateIsekai={aiActions.generateIsekai}
+        generateInterrogation={aiActions.generateInterrogation}
+        generateChase={aiActions.generateChase}
         compositionLayers={compositionLayers}
         setCompositionLayers={setCompositionLayers}
         generateComposition={aiActions.generateComposition}

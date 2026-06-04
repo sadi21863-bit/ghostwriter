@@ -24,6 +24,18 @@ export interface StoryMemory {
   category: string;
   fact: string;
   chapterIndex?: number;
+  structuredData?: {
+    chapterTitle?: string;
+    arcPosition?: string;
+    charactersPresent?: string[];
+    keyEvents?: string[];
+    objectsIntroduced?: string[];
+    knowledgeShifts?: { character: string; learned: string; from: string; to: string }[];
+    decisionsAndConsequences?: string[];
+    emotionalStateEnd?: Record<string, string>;
+    openPromisesCreated?: string[];
+    openPromisesResolved?: string[];
+  } | null;
 }
 
 export interface CreatorBible {
@@ -598,8 +610,24 @@ export function buildDynamicContext(p: ContextProject): string {
 
   if (p.storyMemories?.length) {
     const salient = scoredMemories(p.storyMemories, p.chapters ?? [], p.activeChapter ?? "");
-    r.push("ESTABLISHED FACTS (do not contradict these):");
-    salient.forEach((m) => r.push(`- [${m.category}] ${m.fact}`));
+    r.push("STORY MEMORY — key facts from previous chapters:");
+    salient.forEach((m) => {
+      const sd = (m as any).structuredData;
+      if (sd && sd.keyEvents?.length) {
+        r.push(`[${sd.chapterTitle ?? 'Chapter'}${sd.arcPosition ? ' — ' + sd.arcPosition : ''}]`);
+        if (sd.charactersPresent?.length) r.push(`  Present: ${sd.charactersPresent.join(', ')}`);
+        if (sd.keyEvents?.length) r.push(`  Events: ${sd.keyEvents.join(' | ')}`);
+        if (sd.knowledgeShifts?.length) sd.knowledgeShifts.forEach((ks: any) =>
+          r.push(`  Knowledge: ${ks.character} now ${ks.to} about "${ks.learned}"`)
+        );
+        if (sd.decisionsAndConsequences?.length) r.push(`  Decision: ${sd.decisionsAndConsequences[0]}`);
+        if (sd.emotionalStateEnd && Object.keys(sd.emotionalStateEnd).length)
+          r.push(`  Emotional end: ${Object.entries(sd.emotionalStateEnd).map(([k, v]) => `${k}→${v}`).join(', ')}`);
+        if (sd.openPromisesCreated?.length) r.push(`  Promises planted: ${sd.openPromisesCreated.join(', ')}`);
+      } else {
+        r.push(`- [${m.category}] ${m.fact}`);
+      }
+    });
   }
 
   // ── OPEN STORY PROMISES ───────────────────────────────────────────────────

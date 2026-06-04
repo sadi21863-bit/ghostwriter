@@ -114,7 +114,7 @@ export function useAIActions({
     return neighbourContext ? base + "\n\n" + neighbourContext : base;
   };
 
-  const generate = async (opts?: { cameraPresetId?: string }) => {
+  const generate = async (opts?: { cameraPresetId?: string; referencePassage?: string; additionalContext?: string }) => {
     if (!prompt.trim()) return;
     retryCountRef.current = 0;
     lastGenRef.current = { fn: () => generate(opts) };
@@ -159,7 +159,21 @@ export function useAIActions({
         }
       }
 
-      const r = await callAI("generate", { mode: effectiveMode, prompt: effectivePrompt, staticContext: staticCtx, dynamicContext: dynamicCtx, format: effectiveFormat, projectId: project.id, chapterId: activeChap.id, narrativeStructure: (project as any).narrativeStructure });
+      // Reference passage analysis — extract craft techniques before generation
+      let additionalContext = opts?.additionalContext ?? '';
+      if (opts?.referencePassage?.trim() && opts.referencePassage.length > 50) {
+        try {
+          const passageRes = await fetch('/api/ai/analyze-passage', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ passage: opts.referencePassage }),
+          });
+          const passageData = await passageRes.json();
+          if (passageData.directives) additionalContext = additionalContext ? additionalContext + '\n\n' + passageData.directives : passageData.directives;
+        } catch { /* passage analysis must never block generation */ }
+      }
+
+      const r = await callAI("generate", { mode: effectiveMode, prompt: effectivePrompt, staticContext: staticCtx, dynamicContext: dynamicCtx, format: effectiveFormat, projectId: project.id, chapterId: activeChap.id, narrativeStructure: (project as any).narrativeStructure, additionalContext: additionalContext || undefined });
       if (r.retryable) {
         if (retryCountRef.current < MAX_RETRIES) {
           retryCountRef.current += 1;
@@ -324,6 +338,54 @@ export function useAIActions({
         setStreamText(data.text);
       }
     } catch (e) { toast.error("Dialogue generation failed. Please try again."); }
+    setGenerating(false); setGenTarget("");
+  };
+
+  const generateInterrogation = async (interrogatorId: string, subjectId: string, goal: string, interrogationPrompt: string) => {
+    if (!interrogatorId || !subjectId) { toast.error("Select both characters before generating."); return; }
+    const p = project;
+    const interrogator = p.characters?.find((c: any) => c.id === interrogatorId);
+    const subject = p.characters?.find((c: any) => c.id === subjectId);
+    if (!interrogator || !subject) return;
+    setGenerating(true); setGenTarget("main"); setStreamText("");
+    try {
+      const extended = { ...p, activeMode: 'interrogation', currentPrompt: interrogationPrompt, activeInfluence, activePatterns };
+      const { buildInterrogationContext } = await import('@/lib/modes/interrogation');
+      const libraryPrefix = buildInterrogationContext(interrogator.name, subject.name, '', '', goal || '') + "\n---\n";
+      const staticCtx = libraryPrefix + buildStaticContext(extended);
+      const dynamicCtx = buildDynamicContext(extended);
+      const res = await fetch("/api/ai/generate", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mode: "interrogation", prompt: interrogationPrompt || `Write an interrogation scene where ${interrogator.name} interrogates ${subject.name}.`, staticContext: staticCtx, dynamicContext: dynamicCtx, format: p.format }),
+      });
+      const data = await res.json();
+      if (data.error === "upgrade_required") { setUpgradeRequired?.(data.feature); }
+      else if (data.text) { setUndoStack(prev => [...prev.slice(-4), activeChap?.content || ""]); setStreamText(data.text); }
+    } catch (e) { toast.error("Interrogation generation failed. Please try again."); }
+    setGenerating(false); setGenTarget("");
+  };
+
+  const generateChase = async (pursuedId: string, pursuerId: string, terrain: string, stakes: string, chasePrompt: string) => {
+    if (!pursuedId || !pursuerId) { toast.error("Select both characters before generating."); return; }
+    const p = project;
+    const pursued = p.characters?.find((c: any) => c.id === pursuedId);
+    const pursuer = p.characters?.find((c: any) => c.id === pursuerId);
+    if (!pursued || !pursuer) return;
+    setGenerating(true); setGenTarget("main"); setStreamText("");
+    try {
+      const extended = { ...p, activeMode: 'chase', currentPrompt: chasePrompt, activeInfluence, activePatterns };
+      const { buildChaseContext } = await import('@/lib/modes/chase');
+      const libraryPrefix = buildChaseContext(pursued.name, pursuer.name, terrain || 'unknown terrain', 'unknown', 'unknown', stakes || 'capture') + "\n---\n";
+      const staticCtx = libraryPrefix + buildStaticContext(extended);
+      const dynamicCtx = buildDynamicContext(extended);
+      const res = await fetch("/api/ai/generate", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mode: "chase", prompt: chasePrompt || `Write a chase scene where ${pursuer.name} pursues ${pursued.name}.`, staticContext: staticCtx, dynamicContext: dynamicCtx, format: p.format }),
+      });
+      const data = await res.json();
+      if (data.error === "upgrade_required") { setUpgradeRequired?.(data.feature); }
+      else if (data.text) { setUndoStack(prev => [...prev.slice(-4), activeChap?.content || ""]); setStreamText(data.text); }
+    } catch (e) { toast.error("Chase generation failed. Please try again."); }
     setGenerating(false); setGenTarget("");
   };
 
@@ -745,6 +807,7 @@ export function useAIActions({
     generateMonologue, generateVoice, generateThriller, generateSports,
     generateSetting, generateHistorical, generateScitech, generateEthics, generateEndings,
     generateIsekai,
+    generateInterrogation, generateChase,
     violationBanner, setViolationBanner, confirmViolation,
     runPipeline, usePipelineOutput,
     handleTextareaSelect, runProse, replaceSelection, scoreHook,

@@ -7,6 +7,13 @@ import { eq } from "drizzle-orm";
 import type { FeatureGate, SubscriptionTier } from "@/types/subscription";
 import { FEATURE_ACCESS } from "@/types/subscription";
 
+export const MONTHLY_GENERATION_LIMITS: Record<string, number> = {
+  free:        30,
+  story_pro:   500,
+  creator_pro: 500,
+  all_access:  -1, // unlimited
+};
+
 const tierCache = new Map<string, { tier: SubscriptionTier; expiresAt: number }>();
 
 export function invalidateTierCache(userId: string) {

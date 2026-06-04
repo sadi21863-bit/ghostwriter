@@ -27,13 +27,14 @@ export async function POST(req: Request, { params }: { params: { projectId: stri
   if (!await verifyOwnership(params.projectId, s.user.id))
     return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  const { fact, category = "general" } = await req.json();
+  const { fact, category = "general", structuredData } = await req.json();
   if (!fact?.trim()) return NextResponse.json({ error: "fact required" }, { status: 400 });
 
   const [memory] = await db.insert(storyMemories).values({
     projectId: params.projectId,
     fact: fact.trim(),
     category,
+    structuredData: structuredData ?? null,
     autoExtracted: false,
   }).returning();
 

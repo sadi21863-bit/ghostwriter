@@ -1,12 +1,12 @@
 import { NextResponse } from "next/server";
 import { getRequiredSession } from "@/lib/auth-helpers";
 import { checkAiRateLimit, freeGenerationLimit } from "@/lib/ratelimit";
-import { getUserTier, canAccessFeature } from "@/lib/subscription";
+import { getUserTier, canAccessFeature, MONTHLY_GENERATION_LIMITS } from "@/lib/subscription";
 import { GATED_MODES } from "@/types/subscription";
 import { generate } from "@/lib/ai/engine";
 import { db } from "@/db";
-import { generations, projects } from "@/db/schema";
-import { and, eq } from "drizzle-orm";
+import { generations, projects, users } from "@/db/schema";
+import { and, eq, sql } from "drizzle-orm";
 import { track } from "@/lib/analytics";
 
 const VIOLATION_PATTERNS: Record<string, {
@@ -36,7 +36,7 @@ export async function POST(req: Request) {
   const rl = await checkAiRateLimit(session.user.id);
   if (rl) return rl;
 
-  const { mode, prompt, context, staticContext, dynamicContext, format, projectId, chapterId, bypassViolationCheck, narrativeStructure } = await req.json();
+  const { mode, prompt, context, staticContext, dynamicContext, format, projectId, chapterId, bypassViolationCheck, narrativeStructure, additionalContext } = await req.json();
 
   if (!prompt?.trim()) return NextResponse.json({ error: "Prompt is required" }, { status: 400 });
   if (!mode) return NextResponse.json({ error: "Mode is required" }, { status: 400 });
@@ -79,17 +79,54 @@ export async function POST(req: Request) {
     }
   }
 
+  // Monthly generation cap
+  const monthlyLimit = MONTHLY_GENERATION_LIMITS[tier] ?? 30;
+  if (monthlyLimit !== -1) {
+    const user = await db.query.users.findFirst({
+      where: eq(users.id, session.user.id),
+      columns: { monthlyGenerations: true, monthlyGenerationsResetAt: true },
+    });
+    const now = new Date();
+    const resetAt = user?.monthlyGenerationsResetAt;
+    const isNewMonth = !resetAt ||
+      resetAt.getMonth() !== now.getMonth() ||
+      resetAt.getFullYear() !== now.getFullYear();
+
+    if (isNewMonth) {
+      await db.update(users).set({
+        monthlyGenerations: 0,
+        monthlyGenerationsResetAt: now,
+      }).where(eq(users.id, session.user.id));
+    } else if ((user?.monthlyGenerations ?? 0) >= monthlyLimit) {
+      const resetsAt = new Date(now.getFullYear(), now.getMonth() + 1, 1).toISOString();
+      return NextResponse.json({
+        error: "upgrade_required",
+        feature: "monthly_limit",
+        tier,
+        message: `You've used your ${monthlyLimit} generations this month. Upgrade for more.`,
+        resetsAt,
+      }, { status: 403 });
+    }
+  }
+
   const totalLength = (context || "").length + (prompt || "").length;
   if (totalLength > 150000) {
     return NextResponse.json({ error: "Context too large. Try reducing your World Bible or clearing old memories." }, { status: 400 });
   }
 
   try {
-    const r = await generate({ mode, prompt, context, staticContext, dynamicContext, format, narrativeStructure });
+    const effectiveDynamic = additionalContext ? `${dynamicContext}\n\n${additionalContext}` : dynamicContext;
+    const r = await generate({ mode, prompt, context, staticContext, dynamicContext: effectiveDynamic, format, narrativeStructure });
     await db.insert(generations).values({
       projectId, chapterId: chapterId || null, mode, prompt,
       output: r.text, model: r.model, tokensUsed: r.tokensUsed,
     });
+    // Increment monthly generation counter
+    if (monthlyLimit !== -1) {
+      await db.update(users)
+        .set({ monthlyGenerations: sql`${users.monthlyGenerations} + 1` })
+        .where(eq(users.id, session.user.id));
+    }
     await track(session.user.id, 'ai_generation', { mode, format: format ?? '' });
     return NextResponse.json(r);
   } catch (e: any) {

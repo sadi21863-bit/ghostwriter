@@ -10,7 +10,7 @@ const vectorColumn = customType<{ data: number[]; driverData: string }>({
   },
 });
 
-export const users = pgTable("users", { id: uuid("id").defaultRandom().primaryKey(), name: text("name"), email: text("email").notNull().unique(), emailVerified: timestamp("email_verified", { mode: "date" }), image: text("image"), hashedPassword: text("hashed_password"), higgsfieldApiKey: text("higgsfield_api_key").default(""), higgsfieldApiSecret: text("higgsfield_api_secret").default(""), openaiApiKey: text("openai_api_key").default(""), imageProviderId: text("image_provider_id").default("segmind_soul"), trendIntelligenceKey: text("trend_intelligence_key").default(""), referralCode: varchar("referral_code", { length: 12 }), createdAt: timestamp("created_at").defaultNow().notNull(), updatedAt: timestamp("updated_at").defaultNow().notNull() });
+export const users = pgTable("users", { id: uuid("id").defaultRandom().primaryKey(), name: text("name"), email: text("email").notNull().unique(), emailVerified: timestamp("email_verified", { mode: "date" }), image: text("image"), hashedPassword: text("hashed_password"), higgsfieldApiKey: text("higgsfield_api_key").default(""), higgsfieldApiSecret: text("higgsfield_api_secret").default(""), openaiApiKey: text("openai_api_key").default(""), imageProviderId: text("image_provider_id").default("segmind_soul"), trendIntelligenceKey: text("trend_intelligence_key").default(""), referralCode: varchar("referral_code", { length: 12 }), monthlyGenerations: integer("monthly_generations").default(0), monthlyGenerationsResetAt: timestamp("monthly_generations_reset_at"), createdAt: timestamp("created_at").defaultNow().notNull(), updatedAt: timestamp("updated_at").defaultNow().notNull() });
 export const accounts = pgTable("accounts", { id: uuid("id").defaultRandom().primaryKey(), userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }), type: text("type").notNull(), provider: text("provider").notNull(), providerAccountId: text("provider_account_id").notNull(), refresh_token: text("refresh_token"), access_token: text("access_token"), expires_at: integer("expires_at"), token_type: text("token_type"), scope: text("scope"), id_token: text("id_token"), session_state: text("session_state") });
 export const sessions = pgTable("sessions", { id: uuid("id").defaultRandom().primaryKey(), sessionToken: text("session_token").notNull().unique(), userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }), expires: timestamp("expires", { mode: "date" }).notNull() });
 export const projects = pgTable("projects", { id: uuid("id").defaultRandom().primaryKey(), userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }), name: text("name").notNull().default("Untitled Project"), format: varchar("format", { length: 50 }).notNull().default("Novel"), genres: jsonb("genres").$type().default([]), skillLevel: varchar("skill_level", { length: 20 }).notNull().default("beginner"), notes: text("notes").default(""), controllingIdea: text("controlling_idea").default(""), intentionalViolations: jsonb("intentional_violations").$type<Record<string, { confirmed: boolean; purpose: string; timestamp: string }>>().default({}), aiRules: jsonb("ai_rules").$type<any[]>().default([]), isHiggsfieldProject: boolean("is_higgsfield_project").default(false), narratorVoice: text("narrator_voice").default(""), narrativeStructure: varchar("narrative_structure", { length: 30 }).default("linear"), qualityGradingEnabled: boolean("quality_grading_enabled").default(false), createdAt: timestamp("created_at").defaultNow().notNull(), updatedAt: timestamp("updated_at").defaultNow().notNull() });
@@ -137,6 +137,18 @@ export const storyMemories = pgTable("story_memories", {
   category: varchar("category", { length: 30 }).default("general"),
   autoExtracted: boolean("auto_extracted").default(true),
   chapterIndex: integer("chapter_index").default(0),
+  structuredData: jsonb("structured_data").$type<{
+    chapterTitle?: string;
+    arcPosition?: string;
+    charactersPresent?: string[];
+    keyEvents?: string[];
+    objectsIntroduced?: string[];
+    knowledgeShifts?: { character: string; learned: string; from: string; to: string }[];
+    decisionsAndConsequences?: string[];
+    emotionalStateEnd?: Record<string, string>;
+    openPromisesCreated?: string[];
+    openPromisesResolved?: string[];
+  }>(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -415,6 +427,19 @@ export const usersRelations = relations(users, ({ many, one }) => ({ projects: m
 export const workPacketsRelations = relations(workPackets, ({ one }) => ({ user: one(users, { fields: [workPackets.userId], references: [users.id] }) }));
 export const workPatternsRelations = relations(workPatterns, ({ }) => ({}));
 export const subscriptionsRelations = relations(subscriptions, ({ one }) => ({ user: one(users, { fields: [subscriptions.userId], references: [users.id] }) }));
+export const semanticCache = pgTable("semantic_cache", {
+  id:           uuid("id").defaultRandom().primaryKey(),
+  cacheType:    varchar("cache_type", { length: 40 }).notNull(),
+  inputKey:     text("input_key").notNull(),
+  embedding:    vectorColumn("embedding"),
+  cachedOutput: jsonb("cached_output").$type<Record<string, unknown>>().notNull(),
+  hitCount:     integer("hit_count").default(0),
+  createdAt:    timestamp("created_at").defaultNow().notNull(),
+  lastHitAt:    timestamp("last_hit_at"),
+});
+
+export const semanticCacheTypeIdx = index("semantic_cache_type_idx").on(semanticCache.cacheType);
+
 export const videoAnalysisJobsRelations = relations(videoAnalysisJobs, ({ one }) => ({ user: one(users, { fields: [videoAnalysisJobs.userId], references: [users.id] }) }));
 export const storyCheckpointsRelations = relations(storyCheckpoints, ({ one }) => ({
   project: one(projects, { fields: [storyCheckpoints.projectId], references: [projects.id] }),

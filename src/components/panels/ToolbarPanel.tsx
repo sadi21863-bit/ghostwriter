@@ -28,6 +28,8 @@ import { HistoricalPanel } from "./toolbar/modes/HistoricalPanel";
 import { ScitechPanel } from "./toolbar/modes/ScitechPanel";
 import { EthicsPanel } from "./toolbar/modes/EthicsPanel";
 import { EndingsPanel } from "./toolbar/modes/EndingsPanel";
+import { InterrogationPanel } from "./toolbar/modes/InterrogationPanel";
+import { ChasePanel } from "./toolbar/modes/ChasePanel";
 
 // Tool panels
 import { InfluencePanel } from "@/components/panels/toolbar/tools/InfluencePanel";
@@ -166,6 +168,8 @@ interface Props {
   isekaiArchetype: string;
   setIsekaiArchetype: (v: string) => void;
   generateIsekai: (archetypeName: string, prompt: string) => Promise<void>;
+  generateInterrogation: (interrogatorId: string, subjectId: string, goal: string, prompt: string) => Promise<void>;
+  generateChase: (pursuedId: string, pursuerId: string, terrain: string, stakes: string, prompt: string) => Promise<void>;
   setUpgradeRequired?: (feature: string) => void;
   onShowStoryHealth?: () => void;
   onShowExport?: () => void;
@@ -189,7 +193,7 @@ const modeLabel = (m: string) => (
     mystery: "Mystery", romance: "Romance", action: "Action",
     monologue: "Monologue", voice: "Voice", thriller: "Thriller", sports: "Sports",
     setting: "Setting", historical: "Historical", scitech: "Sci/Tech", ethics: "Ethics", endings: "Endings",
-    isekai: "Isekai ⚔️",
+    isekai: "Isekai ⚔️", interrogation: "Interrogation", chase: "Chase",
   } as Record<string, string>)[m] ?? m
 );
 
@@ -227,6 +231,7 @@ export default function ToolbarPanel(props: Props) {
     ethicsArchetype, setEthicsArchetype, generateEthics,
     endingsArchetype, setEndingsArchetype, generateEndings,
     isekaiArchetype, setIsekaiArchetype, generateIsekai,
+    generateInterrogation, generateChase,
     setUpgradeRequired,
     onShowStoryHealth,
     onShowExport,
@@ -627,6 +632,22 @@ export default function ToolbarPanel(props: Props) {
             generating={generating} streamText={streamText} setStreamText={setStreamText}
             prompt={prompt} setPrompt={setPrompt}
             generateIsekai={generateIsekai}
+            updateChapter={updateChapter} activeChap={activeChap}
+          />
+        : mode === "interrogation"
+        ? <InterrogationPanel
+            project={project}
+            generating={generating} streamText={streamText} setStreamText={setStreamText}
+            prompt={prompt} setPrompt={setPrompt}
+            generateInterrogation={generateInterrogation}
+            updateChapter={updateChapter} activeChap={activeChap}
+          />
+        : mode === "chase"
+        ? <ChasePanel
+            project={project}
+            generating={generating} streamText={streamText} setStreamText={setStreamText}
+            prompt={prompt} setPrompt={setPrompt}
+            generateChase={generateChase}
             updateChapter={updateChapter} activeChap={activeChap}
           />
         : <WritePanel

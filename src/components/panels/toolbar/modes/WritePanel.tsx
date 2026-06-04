@@ -14,7 +14,7 @@ import { EMOTIONAL_TONES, ARC_POSITIONS } from "@/lib/arc";
 import { ChapterEditor } from "@/components/editor/ChapterEditor";
 import { SceneView } from "@/components/editor/SceneView";
 import type { Scene } from "@/types";
-import { isStoryFormat } from "@/lib/formats";
+import { isStoryFormat, isCreatorFormat } from "@/lib/formats";
 import { CAMERA_PRESETS, VIRAL_PRESETS } from "@/lib/higgsfield/presets";
 
 interface Props {
@@ -41,7 +41,7 @@ interface Props {
   hookScore: HookScore | null;
   hookScoring: boolean;
   scoreHook: () => Promise<void>;
-  generate: (opts?: { cameraPresetId?: string }) => Promise<void>;
+  generate: (opts?: { cameraPresetId?: string; referencePassage?: string; additionalContext?: string }) => Promise<void>;
   cohostVoice: string;
   setCohostVoice: (v: string) => void;
   handleTextareaSelect?: (e: React.SyntheticEvent<HTMLTextAreaElement>) => void;
@@ -68,6 +68,11 @@ export function WritePanel({
   const [viewMode, setViewMode] = useState<'document' | 'scenes'>('document');
   const [cameraMode, setCameraMode] = useState(false);
   const [selectedPreset, setSelectedPreset] = useState("");
+  const [referenceOpen, setReferenceOpen] = useState(false);
+  const [referencePassage, setReferencePassage] = useState("");
+  const [researchFirst, setResearchFirst] = useState(true);
+  const [researchBrief, setResearchBrief] = useState("");
+  const [researching, setResearching] = useState(false);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -278,6 +283,47 @@ export function WritePanel({
         </div>
       )}
 
+      {/* Research-before-script — creator formats brainstorm/outline only */}
+      {(mode === "brainstorm" || mode === "outline") && isCreatorFormat(project.format) && (
+        <div style={{ padding: "8px 16px", borderTop: "1px solid " + co.border, background: co.surfaceAlt }}>
+          <label style={{ display: "flex", alignItems: "flex-start", gap: 8, cursor: "pointer" }}>
+            <input type="checkbox" checked={researchFirst} onChange={e => setResearchFirst(e.target.checked)} style={{ marginTop: 2 }} />
+            <div>
+              <div style={{ fontSize: 12, fontWeight: 600, color: co.text }}>Research before scripting</div>
+              <div style={{ fontSize: 11, color: co.muted }}>Finds audience questions, content gaps, and trending angles first.</div>
+            </div>
+          </label>
+          {researchBrief && (
+            <div style={{ marginTop: 8, padding: "8px 10px", background: co.surface, borderRadius: 6, fontSize: 11, color: co.muted, maxHeight: 100, overflowY: "auto", border: "1px solid " + co.border }}>
+              <div style={{ fontWeight: 600, marginBottom: 4, color: co.accent }}>Research brief ready ✓</div>
+              {researchBrief.slice(0, 300)}...
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Write like this — reference passage */}
+      {(mode === "write" || mode === "brainstorm") && (
+        <div style={{ padding: "6px 16px", borderTop: "1px solid " + co.border, background: co.surfaceAlt }}>
+          <button
+            onClick={() => setReferenceOpen(p => !p)}
+            style={{ background: "none", border: "none", cursor: "pointer", fontSize: 11, color: co.muted, display: "flex", alignItems: "center", gap: 4, padding: "2px 0" }}
+          >
+            <span>{referenceOpen ? "▾" : "▸"}</span>
+            Write like a specific passage (optional)
+          </button>
+          {referenceOpen && (
+            <textarea
+              value={referencePassage}
+              onChange={e => setReferencePassage(e.target.value)}
+              placeholder="Paste a passage you want to write like. The AI will extract its specific craft techniques and apply them — different from Style DNA which applies general work principles."
+              rows={4}
+              style={{ ...sTextarea, fontSize: 11, marginTop: 6, width: "100%", boxSizing: "border-box" }}
+            />
+          )}
+        </div>
+      )}
+
       {/* Camera language section — story formats only */}
       {isStoryFormat(project.format) && (
         <div style={{ padding: "8px 16px", borderTop: "1px solid " + co.border, background: co.surfaceAlt }}>
@@ -356,7 +402,23 @@ export function WritePanel({
         />
 
         <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-          <button style={{ ...sBtn, opacity: generating ? 0.5 : 1 }} onClick={() => generate(cameraMode && selectedPreset ? { cameraPresetId: selectedPreset } : undefined)} disabled={generating}>
+          <button style={{ ...sBtn, opacity: generating || researching ? 0.5 : 1 }} disabled={generating || researching} onClick={async () => {
+            let researchContext = '';
+            if ((mode === 'brainstorm' || mode === 'outline') && isCreatorFormat(project.format) && researchFirst && prompt.trim()) {
+              setResearching(true);
+              try {
+                const res = await fetch('/api/ai/creator-research', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ topic: prompt, format: project.format }),
+                });
+                const data = await res.json();
+                if (data.researchBrief) { researchContext = data.researchBrief; setResearchBrief(data.researchBrief); }
+              } catch { /* research failure must never block generation */ }
+              finally { setResearching(false); }
+            }
+            generate({ cameraPresetId: cameraMode && selectedPreset ? selectedPreset : undefined, referencePassage: referencePassage.trim() || undefined, additionalContext: researchContext || undefined });
+          }}>
             {generating && genTarget === "main" ? getLoadingMessage(mode) : "Generate"}
           </button>
           <button style={{ padding: "2px 8px", border: "none", borderRadius: 4, cursor: "pointer", fontSize: 10, background: "transparent", color: co.muted }} onClick={() => setExpandedPrompt(!expandedPrompt)}>

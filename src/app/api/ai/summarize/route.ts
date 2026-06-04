@@ -12,10 +12,10 @@ export async function POST(req: Request) {
   if (!canAccessFeature(tier, 'story_memories')) {
     return NextResponse.json({ error: 'upgrade_required', feature: 'story_memories' }, { status: 403 });
   }
-  const { content } = await req.json();
+  const { content, chapterTitle, arcPosition, characters, previousMemories } = await req.json();
   try {
-    const summary = await summarizeChapter(content);
-    return NextResponse.json({ summary });
+    const result = await summarizeChapter(content, chapterTitle, arcPosition, characters, previousMemories);
+    return NextResponse.json({ summary: result.fact, structuredData: result.structuredData });
   } catch (e: any) {
     const msg = e?.message || "";
     if (msg.includes("rate_limit") || msg.includes("529"))
