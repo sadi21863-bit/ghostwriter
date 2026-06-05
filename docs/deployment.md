@@ -37,7 +37,7 @@ In the Vercel dashboard → Project → Settings → Environment Variables, add:
 |---|---|
 | `DATABASE_URL` | `postgres://user:pass@host/db?sslmode=require` |
 | `NEXTAUTH_SECRET` | Generate: `openssl rand -base64 32` |
-| `NEXTAUTH_URL` | `https://your-domain.vercel.app` |
+| `NEXTAUTH_URL` | `https://ghost-writer.cc` |
 | `NEXT_PUBLIC_APP_URL` | Same as `NEXTAUTH_URL` |
 | `ANTHROPIC_API_KEY` | From Anthropic console |
 | `ENCRYPTION_KEY` | 64-char hex: `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"` |
@@ -134,7 +134,7 @@ node scripts/seed-work-packets.js
 Alternatively via the admin API (requires `ADMIN_SECRET` env var in Vercel):
 
 ```bash
-POST https://your-domain.vercel.app/api/admin/seed-work-packets
+POST https://ghost-writer.cc/api/admin/seed-work-packets
 Authorization: Bearer YOUR_ADMIN_SECRET
 ```
 
@@ -143,7 +143,7 @@ Authorization: Bearer YOUR_ADMIN_SECRET
 After seeding:
 
 ```bash
-POST https://your-domain.vercel.app/api/work-packets/embed
+POST https://ghost-writer.cc/api/work-packets/embed
 Authorization: Bearer YOUR_CRON_SECRET
 ```
 
@@ -167,7 +167,7 @@ Copy each Price ID (`price_xxx`) to the corresponding Vercel env var.
 
 In Stripe Dashboard → Developers → Webhooks → Add Endpoint:
 
-- **Endpoint URL:** `https://your-domain.vercel.app/api/webhooks/stripe`
+- **Endpoint URL:** `https://ghost-writer.cc/api/webhooks/stripe`
 - **Events to send:**
   - `checkout.session.completed`
   - `customer.subscription.updated`
@@ -187,7 +187,7 @@ Copy the Signing Secret to `STRIPE_WEBHOOK_SECRET`.
 
 Update `src/lib/email/index.ts` to set your from address:
 ```typescript
-from: "GhostWriter <noreply@your-domain.com>"
+from: "GhostWriter <noreply@ghost-writer.cc>"
 ```
 
 ---
@@ -226,9 +226,10 @@ Before going live:
 - [ ] Add `OPENAI_API_KEY` to Vercel, then trigger embedding backfill: `POST /api/work-packets/embed`
 - [ ] Stripe products created and price IDs configured
 - [ ] Stripe webhook endpoint configured and verified
-- [ ] Resend domain verified and DNS propagated
+- [x] Resend domain verified and DNS propagated *(done 2026-06-05)*
 - [ ] Test a complete payment flow end-to-end (Stripe test mode → live mode)
-- [ ] `NEXTAUTH_URL` set to the production domain (not localhost)
+- [x] `NEXTAUTH_URL` set to `https://ghost-writer.cc` *(done 2026-06-05)*
+- [x] Custom domain `ghost-writer.cc` added to Vercel and env vars updated *(done 2026-06-05)*
 - [ ] `NEXTAUTH_SECRET` is a strong random string (not the same as dev)
 - [ ] `ENCRYPTION_KEY` stored securely (if lost, encrypted user API keys cannot be decrypted)
 - [ ] Sentry DSN configured for error monitoring

@@ -56,4 +56,4 @@ Application-level ownership checks only. Never use Supabase RLS. Always call get
 5. Trigger embedding backfill: `POST /api/work-packets/embed` (requires OPENAI_API_KEY in Vercel)
 6. Configure Resend domain + DNS
 7. Create Stripe products and add price IDs to Vercel env vars
-8. Production URL: https://ghostwriter-delta.vercel.app
+8. Production URL: https://ghost-writer.cc

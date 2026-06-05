@@ -1,6 +1,6 @@
 import { Resend } from 'resend';
 
-const FROM = process.env.EMAIL_FROM ?? 'GhostWriter <hello@ghostwriterai.com>';
+const FROM = process.env.EMAIL_FROM ?? 'GhostWriter <hello@ghost-writer.cc>';
 
 function getResend() {
   if (!process.env.RESEND_API_KEY) return null;
