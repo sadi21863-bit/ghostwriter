@@ -6,10 +6,10 @@ import { db } from "@/db";
 import { projects } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 
-export async function POST(req: Request, { params }: { params: { projectId: string } }) {
+export async function POST(req: Request, { params }: { params: Promise<{ projectId: string }> }) {
   const session = await getRequiredSession();
   const project = await db.query.projects.findFirst({
-    where: and(eq(projects.id, params.projectId), eq(projects.userId, session.user.id)),
+    where: and(eq(projects.id, (await params).projectId), eq(projects.userId, session.user.id)),
   });
   if (!project) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
@@ -21,15 +21,15 @@ export async function POST(req: Request, { params }: { params: { projectId: stri
 
   await db.update(projects)
     .set({ intentionalViolations: existing } as any)
-    .where(eq(projects.id, params.projectId));
+    .where(eq(projects.id, (await params).projectId));
 
   return NextResponse.json({ success: true });
 }
 
-export async function GET(_req: Request, { params }: { params: { projectId: string } }) {
+export async function GET(_req: Request, { params }: { params: Promise<{ projectId: string }> }) {
   const session = await getRequiredSession();
   const project = await db.query.projects.findFirst({
-    where: and(eq(projects.id, params.projectId), eq(projects.userId, session.user.id)),
+    where: and(eq(projects.id, (await params).projectId), eq(projects.userId, session.user.id)),
   });
   if (!project) return NextResponse.json({ error: "Not found" }, { status: 404 });
   return NextResponse.json({ violations: (project as any).intentionalViolations || {} });

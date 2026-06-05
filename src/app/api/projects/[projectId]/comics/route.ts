@@ -26,13 +26,13 @@ async function verifyOwnership(projectId: string, userId: string) {
   });
 }
 
-export async function GET(_: Request, { params }: { params: { projectId: string } }) {
+export async function GET(_: Request, { params }: { params: Promise<{ projectId: string }> }) {
   const s = await getRequiredSession();
-  if (!await verifyOwnership(params.projectId, s.user.id))
+  if (!await verifyOwnership((await params).projectId, s.user.id))
     return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const pages = await db.query.comicPages.findMany({
-    where: eq(comicPages.projectId, params.projectId),
+    where: eq(comicPages.projectId, (await params).projectId),
     with: { panels: { orderBy: (p, { asc }) => [asc(p.panelIndex)] } },
     orderBy: (p, { desc }) => [desc(p.createdAt)],
   });
@@ -40,13 +40,13 @@ export async function GET(_: Request, { params }: { params: { projectId: string 
   return NextResponse.json({ pages });
 }
 
-export async function POST(req: Request, { params }: { params: { projectId: string } }) {
+export async function POST(req: Request, { params }: { params: Promise<{ projectId: string }> }) {
   const s = await getRequiredSession();
   const tier = await getUserTier(s.user.id);
   if (!canAccessFeature(tier, "comic_studio")) {
     return NextResponse.json({ error: "upgrade_required", feature: "comic_studio" }, { status: 403 });
   }
-  if (!await verifyOwnership(params.projectId, s.user.id))
+  if (!await verifyOwnership((await params).projectId, s.user.id))
     return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const user = await db.query.users.findFirst({ where: eq(users.id, s.user.id) });
@@ -57,19 +57,19 @@ export async function POST(req: Request, { params }: { params: { projectId: stri
   const { chapterId, artStyleId } = await req.json();
 
   const chapter = await db.query.chapters.findFirst({
-    where: and(eq(chapters.id, chapterId), eq(chapters.projectId, params.projectId)),
+    where: and(eq(chapters.id, chapterId), eq(chapters.projectId, (await params).projectId)),
   });
   if (!chapter?.content?.trim())
     return NextResponse.json({ error: "Write your story first, then come back to generate comic panels." }, { status: 400 });
 
   const project = await db.query.projects.findFirst({
-    where: eq(projects.id, params.projectId),
+    where: eq(projects.id, (await params).projectId),
     with: { characters: true },
   });
   if (!project) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   // Determine page number
-  const existingPages = await db.query.comicPages.findMany({ where: eq(comicPages.projectId, params.projectId) });
+  const existingPages = await db.query.comicPages.findMany({ where: eq(comicPages.projectId, (await params).projectId) });
   const pageNumber = existingPages.length + 1;
 
   // Call Claude to break scene into panel specs
@@ -89,7 +89,7 @@ export async function POST(req: Request, { params }: { params: { projectId: stri
 
   // Create page record
   const [page] = await db.insert(comicPages).values({
-    projectId: params.projectId,
+    projectId: (await params).projectId,
     chapterId,
     pageNumber,
     artStyle: artStyleId ?? "manga",
@@ -130,7 +130,7 @@ export async function POST(req: Request, { params }: { params: { projectId: stri
         const imgRes = await fetch(soulUrl);
         const imgBuf = await imgRes.arrayBuffer();
         const blob = await put(
-          `comics/${params.projectId}/${page.id}/panel-${i}.png`,
+          `comics/${(await params).projectId}/${page.id}/panel-${i}.png`,
           imgBuf,
           { access: "public", contentType: "image/png" }
         );
@@ -148,7 +148,7 @@ export async function POST(req: Request, { params }: { params: { projectId: stri
       const { prompt, imageUrl, referenceImageUrl, index } = result.value;
       const [panel] = await db.insert(comicPanels).values({
         pageId: page.id,
-        projectId: params.projectId,
+        projectId: (await params).projectId,
         panelIndex: index,
         imageUrl,
         panelPrompt: prompt,

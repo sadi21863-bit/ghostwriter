@@ -223,8 +223,8 @@ Before going live:
 - [x] 18 platform work packets seeded via `node scripts/seed-work-packets.js` *(done 2026-06-05)*
 - [x] `pgvector` extension enabled on Neon (`node scripts/enable-pgvector.js`) *(done 2026-06-05)*
 - [x] Schema in sync with production DB (`node scripts/fix-embedding-column.js` applied vector(1536) column; drizzle-kit shows a false-positive diff for custom vector type — the DB is correct) *(done 2026-06-05)*
-- [ ] Add `OPENAI_API_KEY` to Vercel, then trigger embedding backfill: `POST /api/work-packets/embed`
-- [ ] Stripe products created and price IDs configured
+- [x] `OPENAI_API_KEY` added to Vercel *(done 2026-06-05)* — trigger embedding backfill: `POST /api/work-packets/embed`
+- [ ] Stripe products created and price IDs configured *(India invite-only — pending approval)*
 - [ ] Stripe webhook endpoint configured and verified
 - [x] Resend domain verified and DNS propagated *(done 2026-06-05)*
 - [ ] Test a complete payment flow end-to-end (Stripe test mode → live mode)
@@ -232,7 +232,7 @@ Before going live:
 - [x] Custom domain `ghost-writer.cc` added to Vercel and env vars updated *(done 2026-06-05)*
 - [ ] `NEXTAUTH_SECRET` is a strong random string (not the same as dev)
 - [ ] `ENCRYPTION_KEY` stored securely (if lost, encrypted user API keys cannot be decrypted)
-- [ ] Sentry DSN configured for error monitoring
+- [x] Sentry configured — DSN hardcoded in `sentry.*.config.ts`; add `NEXT_PUBLIC_SENTRY_DSN` to Vercel for explicitness *(done 2026-06-05)*
 - [ ] GrowthBook configured for feature flags (optional)
 - [ ] Test password reset email flow
 

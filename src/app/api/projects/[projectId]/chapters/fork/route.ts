@@ -7,10 +7,11 @@ import { projects, chapters } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { randomUUID } from "crypto";
 
-export async function POST(req: Request, { params }: { params: { projectId: string } }) {
+export async function POST(req: Request, { params }: { params: Promise<{ projectId: string }> }) {
+  const { projectId } = await params;
   const session = await getRequiredSession();
   const project = await db.query.projects.findFirst({
-    where: and(eq(projects.id, params.projectId), eq(projects.userId, session.user.id)),
+    where: and(eq(projects.id, projectId), eq(projects.userId, session.user.id)),
   });
   if (!project) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
@@ -18,14 +19,14 @@ export async function POST(req: Request, { params }: { params: { projectId: stri
   if (!fromChapterId) return NextResponse.json({ error: "fromChapterId required" }, { status: 400 });
 
   const fromChapter = await db.query.chapters.findFirst({
-    where: and(eq(chapters.id, fromChapterId), eq(chapters.projectId, params.projectId)),
+    where: and(eq(chapters.id, fromChapterId), eq(chapters.projectId, projectId)),
   });
   if (!fromChapter) return NextResponse.json({ error: "Chapter not found" }, { status: 404 });
 
   // Get all chapters from this one onwards (same branch, same sort order or later)
   const allChapters = await db.query.chapters.findMany({
     where: and(
-      eq(chapters.projectId, params.projectId),
+      eq(chapters.projectId, projectId),
       eq(chapters.branchId as any, fromChapter.branchId ?? "main")
     ),
   });
@@ -36,7 +37,7 @@ export async function POST(req: Request, { params }: { params: { projectId: stri
 
   const newChapters = await db.insert(chapters).values(
     toFork.map(c => ({
-      projectId: params.projectId,
+      projectId: projectId,
       title: c.title,
       content: c.content ?? "",
       summary: c.summary ?? "",

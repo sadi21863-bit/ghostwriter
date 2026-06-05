@@ -21,7 +21,7 @@ interface QualityCheckRequest {
   arcPosition?: string;
 }
 
-export async function POST(req: NextRequest, { params }: { params: { projectId: string } }) {
+export async function POST(req: NextRequest, { params }: { params: Promise<{ projectId: string }> }) {
   const session = await getRequiredSession();
 
   const tier = await getUserTier(session.user.id);
@@ -30,7 +30,7 @@ export async function POST(req: NextRequest, { params }: { params: { projectId: 
   }
 
   const owned = await db.query.projects.findFirst({
-    where: and(eq(projects.id, params.projectId), eq(projects.userId, session.user.id)),
+    where: and(eq(projects.id, (await params).projectId), eq(projects.userId, session.user.id)),
   });
   if (!owned) return NextResponse.json({ error: 'Not found' }, { status: 404 });
 

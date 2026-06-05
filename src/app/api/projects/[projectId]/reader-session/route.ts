@@ -13,16 +13,16 @@ async function verifyOwnership(projectId: string, userId: string) {
   });
 }
 
-export async function POST(_req: Request, { params }: { params: { projectId: string } }) {
+export async function POST(_req: Request, { params }: { params: Promise<{ projectId: string }> }) {
   const s = await getRequiredSession();
-  if (!await verifyOwnership(params.projectId, s.user.id))
+  if (!await verifyOwnership((await params).projectId, s.user.id))
     return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const token = randomBytes(24).toString("hex");
   const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
 
   const [session] = await db.insert(readerSessions).values({
-    projectId: params.projectId,
+    projectId: (await params).projectId,
     token,
     expiresAt,
   }).returning();
@@ -31,14 +31,14 @@ export async function POST(_req: Request, { params }: { params: { projectId: str
   return NextResponse.json({ token: session.token, shareUrl, expiresAt: session.expiresAt });
 }
 
-export async function GET(_: Request, { params }: { params: { projectId: string } }) {
+export async function GET(_: Request, { params }: { params: Promise<{ projectId: string }> }) {
   const s = await getRequiredSession();
-  if (!await verifyOwnership(params.projectId, s.user.id))
+  if (!await verifyOwnership((await params).projectId, s.user.id))
     return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const sessions = await db.query.readerSessions.findMany({
     where: and(
-      eq(readerSessions.projectId, params.projectId),
+      eq(readerSessions.projectId, (await params).projectId),
       gt(readerSessions.expiresAt, new Date())
     ),
     with: { reactions: true },

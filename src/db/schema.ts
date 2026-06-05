@@ -1,4 +1,4 @@
-import { pgTable, text, timestamp, integer, jsonb, varchar, uuid, boolean, customType, index } from "drizzle-orm/pg-core";
+import { pgTable, text, timestamp, integer, jsonb, varchar, uuid, boolean, customType } from "drizzle-orm/pg-core";
 import { relations, sql } from "drizzle-orm";
 
 // pgvector column type — requires: CREATE EXTENSION IF NOT EXISTS vector; on Neon first
@@ -438,7 +438,8 @@ export const semanticCache = pgTable("semantic_cache", {
   lastHitAt:    timestamp("last_hit_at"),
 });
 
-export const semanticCacheTypeIdx = index("semantic_cache_type_idx").on(semanticCache.cacheType);
+// Note: standalone index() builders removed — drizzle-orm 0.45.2 bug (JSON.parse(undefined) in .on())
+// Indexes still exist in the production DB from the previous schema push.
 
 export const videoAnalysisJobsRelations = relations(videoAnalysisJobs, ({ one }) => ({ user: one(users, { fields: [videoAnalysisJobs.userId], references: [users.id] }) }));
 export const storyCheckpointsRelations = relations(storyCheckpoints, ({ one }) => ({
@@ -470,13 +471,5 @@ export const characterRelationshipsRelations = relations(characterRelationships,
 export const readerSessionsRelations = relations(readerSessions, ({ one, many }) => ({ project: one(projects, { fields: [readerSessions.projectId], references: [projects.id] }), reactions: many(readerReactions) }));
 export const readerReactionsRelations = relations(readerReactions, ({ one }) => ({ session: one(readerSessions, { fields: [readerReactions.sessionId], references: [readerSessions.id] }), chapter: one(chapters, { fields: [readerReactions.chapterId], references: [chapters.id] }) }));
 
-// Indexes for common query patterns — prevents full table scans as data grows
-export const projectsUserIdx        = index("projects_user_id_idx").on(projects.userId);
-export const chaptersProjectIdx     = index("chapters_project_id_idx").on(chapters.projectId);
-export const charactersProjectIdx   = index("characters_project_id_idx").on(characters.projectId);
-export const storyMemoriesProjectIdx = index("story_memories_project_id_idx").on(storyMemories.projectId);
-export const generationsProjectIdx  = index("generations_project_id_idx").on(generations.projectId);
-export const platformEventsCreatedIdx = index("platform_events_created_idx").on(platformEvents.createdAt);
-export const platformEventsEventIdx = index("platform_events_event_idx").on(platformEvents.event);
-export const referralsReferrerIdx   = index("referrals_referrer_id_idx").on(referrals.referrerId);
-export const passwordResetTokensIdx = index("password_reset_tokens_token_idx").on(passwordResetTokens.token);
+// Indexes omitted — drizzle-orm 0.45.2 bug causes JSON.parse(undefined) during .on() at module eval time.
+// All indexes were pushed to the production DB earlier and still exist there.

@@ -14,12 +14,12 @@ const PLATFORM_NOTES: Record<string, string> = {
   substack:  'Substack: Email delivery — keep chapters under 3000 words. Include a brief author note at the end for engagement.',
 };
 
-export async function POST(req: Request, { params }: { params: { projectId: string } }) {
+export async function POST(req: Request, { params }: { params: Promise<{ projectId: string }> }) {
   const session = await getRequiredSession();
   const { platform } = await req.json() as { platform: 'wattpad' | 'royalroad' | 'substack' | 'generic' };
 
   const project = await db.query.projects.findFirst({
-    where: and(eq(projects.id, params.projectId), eq(projects.userId, session.user.id)),
+    where: and(eq(projects.id, (await params).projectId), eq(projects.userId, session.user.id)),
     with: {
       chapters: { orderBy: (c, { asc }) => [asc(c.sortOrder)] },
       characters: { columns: { name: true, backstory: true, role: true } },

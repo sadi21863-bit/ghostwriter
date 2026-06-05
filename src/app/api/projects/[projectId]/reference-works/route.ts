@@ -8,12 +8,12 @@ import { and, eq } from "drizzle-orm";
 
 export async function POST(
   req: NextRequest,
-  { params }: { params: { projectId: string } }
+  { params }: { params: Promise<{ projectId: string }> }
 ) {
   const session = await getRequiredSession();
 
   const project = await db.query.projects.findFirst({
-    where: and(eq(projects.id, params.projectId), eq(projects.userId, session.user.id)),
+    where: and(eq(projects.id, (await params).projectId), eq(projects.userId, session.user.id)),
     columns: { id: true },
   });
   if (!project) {
@@ -23,7 +23,7 @@ export async function POST(
   const body = await req.json();
   const [r] = await db
     .insert(referenceWorks)
-    .values({ projectId: params.projectId, ...body })
+    .values({ projectId: (await params).projectId, ...body })
     .returning();
   return NextResponse.json(r, { status: 201 });
 }

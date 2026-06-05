@@ -19,21 +19,21 @@ async function verifyOwnership(projectId: string, userId: string) {
   });
 }
 
-export async function GET(_: Request, { params }: { params: { projectId: string } }) {
+export async function GET(_: Request, { params }: { params: Promise<{ projectId: string }> }) {
   const s = await getRequiredSession();
-  if (!await verifyOwnership(params.projectId, s.user.id))
+  if (!await verifyOwnership((await params).projectId, s.user.id))
     return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const bible = await db.query.creatorBibles.findFirst({
-    where: eq(creatorBibles.projectId, params.projectId),
+    where: eq(creatorBibles.projectId, (await params).projectId),
   });
 
-  return NextResponse.json(bible ?? { ...DEFAULTS, projectId: params.projectId });
+  return NextResponse.json(bible ?? { ...DEFAULTS, projectId: (await params).projectId });
 }
 
-export async function PATCH(req: Request, { params }: { params: { projectId: string } }) {
+export async function PATCH(req: Request, { params }: { params: Promise<{ projectId: string }> }) {
   const s = await getRequiredSession();
-  if (!await verifyOwnership(params.projectId, s.user.id))
+  if (!await verifyOwnership((await params).projectId, s.user.id))
     return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const body = await req.json();
@@ -41,7 +41,7 @@ export async function PATCH(req: Request, { params }: { params: { projectId: str
 
   const [result] = await db
     .insert(creatorBibles)
-    .values({ ...DEFAULTS, ...body, projectId: params.projectId, createdAt: now, updatedAt: now })
+    .values({ ...DEFAULTS, ...body, projectId: (await params).projectId, createdAt: now, updatedAt: now })
     .onConflictDoUpdate({
       target: creatorBibles.projectId,
       set: { ...body, updatedAt: now },

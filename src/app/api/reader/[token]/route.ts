@@ -5,7 +5,7 @@ import { db } from "@/db";
 import { readerSessions, readerReactions, chapters } from "@/db/schema";
 import { eq, and, gt } from "drizzle-orm";
 
-type Ctx = { params: { token: string } };
+type Ctx = { params: Promise<{ token: string }> };
 
 async function getActiveSession(token: string) {
   return db.query.readerSessions.findFirst({
@@ -17,7 +17,7 @@ async function getActiveSession(token: string) {
 }
 
 export async function GET(_: Request, { params }: Ctx) {
-  const session = await getActiveSession(params.token);
+  const session = await getActiveSession((await params).token);
   if (!session) return NextResponse.json({ error: "Session not found or expired" }, { status: 404 });
 
   const projectChapters = await db.query.chapters.findMany({
@@ -33,7 +33,7 @@ export async function GET(_: Request, { params }: Ctx) {
 }
 
 export async function POST(req: Request, { params }: Ctx) {
-  const session = await getActiveSession(params.token);
+  const session = await getActiveSession((await params).token);
   if (!session) return NextResponse.json({ error: "Session not found or expired" }, { status: 404 });
 
   const { chapterId, textOffset, reactionType } = await req.json();

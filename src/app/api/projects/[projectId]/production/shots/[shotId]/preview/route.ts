@@ -15,9 +15,9 @@ async function verifyOwnership(projectId: string, userId: string) {
   });
 }
 
-export async function POST(_: Request, { params }: { params: { projectId: string; shotId: string } }) {
+export async function POST(_: Request, { params }: { params: Promise<{ projectId: string; shotId: string }> }) {
   const s = await getRequiredSession();
-  if (!await verifyOwnership(params.projectId, s.user.id))
+  if (!await verifyOwnership((await params).projectId, s.user.id))
     return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const user = await db.query.users.findFirst({ where: eq(users.id, s.user.id) });
@@ -26,14 +26,14 @@ export async function POST(_: Request, { params }: { params: { projectId: string
     return NextResponse.json({ error: "Add your Higgsfield API key in Settings to generate previews." }, { status: 400 });
 
   const shot = await db.query.productionShots.findFirst({
-    where: eq(productionShots.id, params.shotId),
+    where: eq(productionShots.id, (await params).shotId),
     with: { primaryCharacter: true },
   });
   if (!shot) return NextResponse.json({ error: "Shot not found" }, { status: 404 });
 
   await db.update(productionShots)
     .set({ generationStatus: "generating_preview", updatedAt: new Date() })
-    .where(eq(productionShots.id, params.shotId));
+    .where(eq(productionShots.id, (await params).shotId));
 
   try {
     const referenceImageUrl = (shot.primaryCharacter as any)?.portraitUrl || undefined;
@@ -48,7 +48,7 @@ export async function POST(_: Request, { params }: { params: { projectId: string
       const imgRes = await fetch(soulUrl);
       const imgBuf = await imgRes.arrayBuffer();
       const blob = await put(
-        `production/${params.projectId}/${params.shotId}/preview.jpg`,
+        `production/${(await params).projectId}/${(await params).shotId}/preview.jpg`,
         imgBuf,
         { access: "public", contentType: "image/jpeg" }
       );
@@ -58,14 +58,14 @@ export async function POST(_: Request, { params }: { params: { projectId: string
     const [updated] = await db
       .update(productionShots)
       .set({ previewImageUrl, generationStatus: "preview_ready", updatedAt: new Date() })
-      .where(eq(productionShots.id, params.shotId))
+      .where(eq(productionShots.id, (await params).shotId))
       .returning();
 
     return NextResponse.json({ shot: updated });
   } catch (err: any) {
     await db.update(productionShots)
       .set({ generationStatus: "error", updatedAt: new Date() })
-      .where(eq(productionShots.id, params.shotId));
+      .where(eq(productionShots.id, (await params).shotId));
     console.error('[preview] Error:', err);
     return NextResponse.json({ error: "Preview generation failed. Please try again." }, { status: 500 });
   }

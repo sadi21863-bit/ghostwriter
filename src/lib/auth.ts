@@ -1,13 +1,19 @@
 import { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { DrizzleAdapter } from "@auth/drizzle-adapter";
+import { neon } from "@neondatabase/serverless";
+import { drizzle } from "drizzle-orm/neon-http";
+import * as schema from "@/db/schema";
 import { db } from "@/db";
 import { users } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 
+// @auth/drizzle-adapter v1.11.2 validates db type — must pass a real drizzle instance, not a Proxy.
+const authDb = drizzle(neon(process.env.DATABASE_URL!), { schema });
+
 export const authOptions: NextAuthOptions = {
-  adapter: DrizzleAdapter(db) as any,
+  adapter: DrizzleAdapter(authDb),
   session: { strategy: "jwt" },
   pages: { signIn: "/login" },
   providers: [

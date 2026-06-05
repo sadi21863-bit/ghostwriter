@@ -10,12 +10,12 @@ import { Document, Packer, Paragraph, TextRun, HeadingLevel, PageBreak } from 'd
 import { tiptapToPlainText, isValidTipTapJson } from '@/lib/editor/content-migration';
 import { track } from '@/lib/analytics';
 
-export async function POST(req: Request, { params }: { params: { projectId: string } }) {
+export async function POST(req: Request, { params }: { params: Promise<{ projectId: string }> }) {
   const session = await getRequiredSession();
   const { formats } = await req.json() as { formats: ('docx' | 'md' | 'txt')[] };
 
   const project = await db.query.projects.findFirst({
-    where: and(eq(projects.id, params.projectId), eq(projects.userId, session.user.id)),
+    where: and(eq(projects.id, (await params).projectId), eq(projects.userId, session.user.id)),
     with: { chapters: { orderBy: (c, { asc }) => [asc(c.sortOrder)] } },
   });
   if (!project) return NextResponse.json({ error: 'Not found' }, { status: 404 });

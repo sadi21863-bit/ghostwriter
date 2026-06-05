@@ -11,7 +11,7 @@ import JSZip from "jszip";
 
 export async function GET(
   _req: Request,
-  { params }: { params: { projectId: string } }
+  { params }: { params: Promise<{ projectId: string }> }
 ) {
   const session = await getRequiredSession();
   const tier = await getUserTier(session.user.id);
@@ -20,12 +20,12 @@ export async function GET(
   }
 
   const project = await db.query.projects.findFirst({
-    where: and(eq(projects.id, params.projectId), eq(projects.userId, session.user.id)),
+    where: and(eq(projects.id, (await params).projectId), eq(projects.userId, session.user.id)),
   });
   if (!project) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const pages = await db.query.comicPages.findMany({
-    where: eq(comicPages.projectId, params.projectId),
+    where: eq(comicPages.projectId, (await params).projectId),
     with: { panels: { orderBy: [asc(comicPanels.panelIndex)] } },
     orderBy: [asc(comicPages.pageNumber)],
   });
@@ -66,7 +66,7 @@ export async function GET(
   const safeTitle = project.name.replace(/[^a-z0-9]/gi, "-").toLowerCase();
   const filename = `${safeTitle}-comic.cbz`;
 
-  const blob = await put(`exports/${params.projectId}/${filename}`, zipBuffer, {
+  const blob = await put(`exports/${(await params).projectId}/${filename}`, zipBuffer, {
     access: "public",
     contentType: "application/x-cbz",
     addRandomSuffix: true,

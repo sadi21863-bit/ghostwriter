@@ -63,7 +63,7 @@ export function WritePanel({
   generate, cohostVoice, setCohostVoice, onUpgradeRequired, onSlashCommand,
   skillSuggestion, onSkillSuggestionChange, onDismissSkillSuggestion, onAcceptSkillSuggestion,
 }: Props) {
-  const saveTimer = useRef<ReturnType<typeof setTimeout>>();
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const [slashOpen, setSlashOpen] = useState(false);
   const [viewMode, setViewMode] = useState<'document' | 'scenes'>('document');
   const [cameraMode, setCameraMode] = useState(false);

@@ -16,11 +16,11 @@ async function verifyOwnership(projectId: string, userId: string) {
   });
 }
 
-export async function POST(_: Request, { params }: { params: { projectId: string } }) {
+export async function POST(_: Request, { params }: { params: Promise<{ projectId: string }> }) {
   const s = await getRequiredSession();
   const rl = await checkAiRateLimit(s.user.id);
   if (rl) return rl;
-  if (!await verifyOwnership(params.projectId, s.user.id))
+  if (!await verifyOwnership((await params).projectId, s.user.id))
     return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const user = await db.query.users.findFirst({ where: eq(users.id, s.user.id) });
@@ -29,7 +29,7 @@ export async function POST(_: Request, { params }: { params: { projectId: string
     return NextResponse.json({ error: "Add your Higgsfield API key in Settings." }, { status: 400 });
 
   const shots = await db.query.productionShots.findMany({
-    where: and(eq(productionShots.projectId, params.projectId)),
+    where: and(eq(productionShots.projectId, (await params).projectId)),
     with: { primaryCharacter: true },
     orderBy: (s, { asc }) => [asc(s.sortOrder)],
   });
@@ -62,7 +62,7 @@ export async function POST(_: Request, { params }: { params: { projectId: string
           const imgRes = await fetch(soulUrl);
           const imgBuf = await imgRes.arrayBuffer();
           const blob = await put(
-            `production/${params.projectId}/${shot.id}/preview.jpg`,
+            `production/${(await params).projectId}/${shot.id}/preview.jpg`,
             imgBuf,
             { access: "public", contentType: "image/jpeg" }
           );

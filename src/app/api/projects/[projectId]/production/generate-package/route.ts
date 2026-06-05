@@ -22,15 +22,16 @@ async function verifyOwnership(projectId: string, userId: string) {
   });
 }
 
-export async function POST(_: Request, { params }: { params: { projectId: string } }) {
+export async function POST(_: Request, { params }: { params: Promise<{ projectId: string }> }) {
+  const { projectId } = await params;
   const s = await getRequiredSession();
   const rl = await checkAiRateLimit(s.user.id);
   if (rl) return rl;
-  if (!await verifyOwnership(params.projectId, s.user.id))
+  if (!await verifyOwnership(projectId, s.user.id))
     return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const project = await db.query.projects.findFirst({
-    where: eq(projects.id, params.projectId),
+    where: eq(projects.id, projectId),
     with: {
       characters: true,
       locations: true,
@@ -140,11 +141,11 @@ Generate 3-6 shots per chapter. Focus on visually interesting moments. Make prom
   }
 
   // Delete existing shots for this project (fresh slate)
-  await db.delete(productionShots).where(eq(productionShots.projectId, params.projectId));
+  await db.delete(productionShots).where(eq(productionShots.projectId, projectId));
 
   // Bulk insert shots
   const toInsert = pkg.shots.map((shot: any, i: number) => ({
-    projectId: params.projectId,
+    projectId: projectId,
     chapterId: chapterMap[shot.chapterTitle?.toLowerCase()] ?? null,
     sceneNumber: shot.sceneNumber ?? 1,
     shotNumber: shot.shotNumber ?? 1,

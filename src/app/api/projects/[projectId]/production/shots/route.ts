@@ -12,13 +12,13 @@ async function verifyOwnership(projectId: string, userId: string) {
   });
 }
 
-export async function GET(_: Request, { params }: { params: { projectId: string } }) {
+export async function GET(_: Request, { params }: { params: Promise<{ projectId: string }> }) {
   const s = await getRequiredSession();
-  if (!await verifyOwnership(params.projectId, s.user.id))
+  if (!await verifyOwnership((await params).projectId, s.user.id))
     return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const shots = await db.query.productionShots.findMany({
-    where: eq(productionShots.projectId, params.projectId),
+    where: eq(productionShots.projectId, (await params).projectId),
     with: { primaryCharacter: true },
     orderBy: (s, { asc }) => [asc(s.sceneNumber), asc(s.shotNumber)],
   });

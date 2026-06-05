@@ -8,13 +8,13 @@ import { eq, and } from "drizzle-orm";
 
 export async function GET(
   _: Request,
-  { params }: { params: { jobId: string } }
+  { params }: { params: Promise<{ jobId: string }> }
 ) {
   const s = await getRequiredSession();
 
   const job = await db.query.videoAnalysisJobs.findFirst({
     where: and(
-      eq(videoAnalysisJobs.id, params.jobId),
+      eq(videoAnalysisJobs.id, (await params).jobId),
       eq(videoAnalysisJobs.userId, s.user.id)
     ),
   });

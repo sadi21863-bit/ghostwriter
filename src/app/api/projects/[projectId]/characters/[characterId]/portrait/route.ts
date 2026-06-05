@@ -14,9 +14,9 @@ async function verifyOwnership(projectId: string, userId: string) {
   });
 }
 
-export async function POST(_: Request, { params }: { params: { projectId: string; characterId: string } }) {
+export async function POST(_: Request, { params }: { params: Promise<{ projectId: string; characterId: string }> }) {
   const s = await getRequiredSession();
-  if (!await verifyOwnership(params.projectId, s.user.id))
+  if (!await verifyOwnership((await params).projectId, s.user.id))
     return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const user = await db.query.users.findFirst({ where: eq(users.id, s.user.id) });
@@ -26,8 +26,8 @@ export async function POST(_: Request, { params }: { params: { projectId: string
 
   const char = await db.query.characters.findFirst({
     where: and(
-      eq(characters.id, params.characterId),
-      eq(characters.projectId, params.projectId)
+      eq(characters.id, (await params).characterId),
+      eq(characters.projectId, (await params).projectId)
     ),
   });
   if (!char) return NextResponse.json({ error: "Character not found" }, { status: 404 });
@@ -41,7 +41,7 @@ export async function POST(_: Request, { params }: { params: { projectId: string
   const [updated] = await db
     .update(characters)
     .set({ portraitUrl })
-    .where(eq(characters.id, params.characterId))
+    .where(eq(characters.id, (await params).characterId))
     .returning();
 
   return NextResponse.json({ portraitUrl: updated.portraitUrl });

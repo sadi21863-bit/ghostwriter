@@ -12,13 +12,13 @@ async function verifyOwnership(projectId: string, userId: string) {
   });
 }
 
-export async function DELETE(_: Request, { params }: { params: { projectId: string; pageId: string } }) {
+export async function DELETE(_: Request, { params }: { params: Promise<{ projectId: string; pageId: string }> }) {
   const s = await getRequiredSession();
-  if (!await verifyOwnership(params.projectId, s.user.id))
+  if (!await verifyOwnership((await params).projectId, s.user.id))
     return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   await db.delete(comicPages).where(
-    and(eq(comicPages.id, params.pageId), eq(comicPages.projectId, params.projectId))
+    and(eq(comicPages.id, (await params).pageId), eq(comicPages.projectId, (await params).projectId))
   );
   return NextResponse.json({ ok: true });
 }

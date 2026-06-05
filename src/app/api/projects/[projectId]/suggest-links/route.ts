@@ -12,13 +12,13 @@ async function verifyOwnership(projectId: string, userId: string) {
   });
 }
 
-export async function POST(_: Request, { params }: { params: { projectId: string } }) {
+export async function POST(_: Request, { params }: { params: Promise<{ projectId: string }> }) {
   const s = await getRequiredSession();
-  if (!await verifyOwnership(params.projectId, s.user.id))
+  if (!await verifyOwnership((await params).projectId, s.user.id))
     return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const project = await db.query.projects.findFirst({
-    where: eq(projects.id, params.projectId),
+    where: eq(projects.id, (await params).projectId),
     with: { characters: true, locations: true, plotThreads: true, chapters: true },
   });
   if (!project) return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -78,9 +78,9 @@ export async function POST(_: Request, { params }: { params: { projectId: string
   return NextResponse.json({ suggestions });
 }
 
-export async function PATCH(req: Request, { params }: { params: { projectId: string } }) {
+export async function PATCH(req: Request, { params }: { params: Promise<{ projectId: string }> }) {
   const s = await getRequiredSession();
-  if (!await verifyOwnership(params.projectId, s.user.id))
+  if (!await verifyOwnership((await params).projectId, s.user.id))
     return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const { type, characterId, targetId } = await req.json();

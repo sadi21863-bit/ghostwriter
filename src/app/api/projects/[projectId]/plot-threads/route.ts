@@ -5,11 +5,11 @@ import { getRequiredSession } from "@/lib/auth-helpers";
 import { db } from "@/db";
 import { plotThreads, projects } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
-export async function POST(req: Request, { params }: { params: { projectId: string } }){
+export async function POST(req: Request, { params }: { params: Promise<{ projectId: string }> }){
   const session = await getRequiredSession();
-  const project = await db.query.projects.findFirst({ where: and(eq(projects.id, params.projectId), eq(projects.userId, session.user.id)) });
+  const project = await db.query.projects.findFirst({ where: and(eq(projects.id, (await params).projectId), eq(projects.userId, session.user.id)) });
   if (!project) return NextResponse.json({ error: "Not found" }, { status: 404 });
   const b = await req.json();
-  const [r] = await db.insert(plotThreads).values({ projectId: params.projectId, ...b }).returning();
+  const [r] = await db.insert(plotThreads).values({ projectId: (await params).projectId, ...b }).returning();
   return NextResponse.json(r, { status: 201 });
 }

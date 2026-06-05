@@ -6,29 +6,29 @@ import { db } from '@/db';
 import { projects, storyCheckpoints } from '@/db/schema';
 import { and, eq, desc } from 'drizzle-orm';
 
-export async function GET(_: Request, { params }: { params: { projectId: string } }) {
+export async function GET(_: Request, { params }: { params: Promise<{ projectId: string }> }) {
   const s = await getRequiredSession();
 
   const project = await db.query.projects.findFirst({
-    where: and(eq(projects.id, params.projectId), eq(projects.userId, s.user.id)),
+    where: and(eq(projects.id, (await params).projectId), eq(projects.userId, s.user.id)),
     columns: { id: true },
   });
   if (!project) return NextResponse.json({ error: 'Not found' }, { status: 404 });
 
   const checkpoints = await db.query.storyCheckpoints.findMany({
-    where: eq(storyCheckpoints.projectId, params.projectId),
+    where: eq(storyCheckpoints.projectId, (await params).projectId),
     orderBy: [desc(storyCheckpoints.createdAt)],
   });
 
   return NextResponse.json({ checkpoints });
 }
 
-export async function POST(req: Request, { params }: { params: { projectId: string } }) {
+export async function POST(req: Request, { params }: { params: Promise<{ projectId: string }> }) {
   const s = await getRequiredSession();
   const { name, notes } = await req.json();
 
   const project = await db.query.projects.findFirst({
-    where: and(eq(projects.id, params.projectId), eq(projects.userId, s.user.id)),
+    where: and(eq(projects.id, (await params).projectId), eq(projects.userId, s.user.id)),
     with: {
       chapters:      { columns: { id: true, title: true, wordCount: true, arcPosition: true } },
       plotThreads:   { columns: { id: true, status: true, starvationWarning: true } },
@@ -49,7 +49,7 @@ export async function POST(req: Request, { params }: { params: { projectId: stri
   );
 
   const [checkpoint] = await db.insert(storyCheckpoints).values({
-    projectId: params.projectId,
+    projectId: (await params).projectId,
     name:  name?.trim() || `Checkpoint — ${new Date().toLocaleDateString()}`,
     notes: notes ?? '',
     snapshot: {
@@ -67,12 +67,12 @@ export async function POST(req: Request, { params }: { params: { projectId: stri
   return NextResponse.json({ checkpoint });
 }
 
-export async function DELETE(req: Request, { params }: { params: { projectId: string } }) {
+export async function DELETE(req: Request, { params }: { params: Promise<{ projectId: string }> }) {
   const s = await getRequiredSession();
   const { checkpointId } = await req.json();
 
   const project = await db.query.projects.findFirst({
-    where: and(eq(projects.id, params.projectId), eq(projects.userId, s.user.id)),
+    where: and(eq(projects.id, (await params).projectId), eq(projects.userId, s.user.id)),
     columns: { id: true },
   });
   if (!project) return NextResponse.json({ error: 'Not found' }, { status: 404 });
@@ -80,7 +80,7 @@ export async function DELETE(req: Request, { params }: { params: { projectId: st
   await db.delete(storyCheckpoints).where(
     and(
       eq(storyCheckpoints.id, checkpointId),
-      eq(storyCheckpoints.projectId, params.projectId),
+      eq(storyCheckpoints.projectId, (await params).projectId),
     ),
   );
 

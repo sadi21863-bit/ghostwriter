@@ -12,9 +12,9 @@ async function verifyOwnership(projectId: string, userId: string) {
   });
 }
 
-export async function PATCH(req: Request, { params }: { params: { projectId: string; pageId: string; panelId: string } }) {
+export async function PATCH(req: Request, { params }: { params: Promise<{ projectId: string; pageId: string; panelId: string }> }) {
   const s = await getRequiredSession();
-  if (!await verifyOwnership(params.projectId, s.user.id))
+  if (!await verifyOwnership((await params).projectId, s.user.id))
     return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const body = await req.json();
@@ -27,7 +27,7 @@ export async function PATCH(req: Request, { params }: { params: { projectId: str
   const [updated] = await db
     .update(comicPanels)
     .set(update)
-    .where(and(eq(comicPanels.id, params.panelId), eq(comicPanels.projectId, params.projectId)))
+    .where(and(eq(comicPanels.id, (await params).panelId), eq(comicPanels.projectId, (await params).projectId)))
     .returning();
 
   return NextResponse.json(updated);

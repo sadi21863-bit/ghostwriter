@@ -12,7 +12,7 @@ import { MODELS } from "@/lib/ai/engine";
 
 const anthropic = new Anthropic();
 
-export async function POST(req: Request, { params }: { params: { projectId: string } }) {
+export async function POST(req: Request, { params }: { params: Promise<{ projectId: string }> }) {
   const session = await getRequiredSession();
   const rl = await checkAiRateLimit(session.user.id);
   if (rl) return rl;
@@ -23,17 +23,17 @@ export async function POST(req: Request, { params }: { params: { projectId: stri
   }
 
   const project = await db.query.projects.findFirst({
-    where: and(eq(projects.id, params.projectId), eq(projects.userId, session.user.id)),
+    where: and(eq(projects.id, (await params).projectId), eq(projects.userId, session.user.id)),
   });
   if (!project) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const { targetAgent } = await req.json().catch(() => ({}));
 
   const allChapters = await db.query.chapters.findMany({
-    where: eq(chapters.projectId, params.projectId),
+    where: eq(chapters.projectId, (await params).projectId),
   });
   const allCharacters = await db.query.characters.findMany({
-    where: eq(characters.projectId, params.projectId),
+    where: eq(characters.projectId, (await params).projectId),
   });
 
   const wordCountEstimate = allChapters.length * 2500;

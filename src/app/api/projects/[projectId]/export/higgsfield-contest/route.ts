@@ -11,7 +11,7 @@ import JSZip from "jszip";
 
 export async function POST(
   _req: Request,
-  { params }: { params: { projectId: string } }
+  { params }: { params: Promise<{ projectId: string }> }
 ) {
   const session = await getRequiredSession();
   const tier = await getUserTier(session.user.id);
@@ -20,19 +20,19 @@ export async function POST(
   }
 
   const project = await db.query.projects.findFirst({
-    where: and(eq(projects.id, params.projectId), eq(projects.userId, session.user.id)),
+    where: and(eq(projects.id, (await params).projectId), eq(projects.userId, session.user.id)),
   });
   if (!project) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const [allChapters, allCharacters, allLocations, allShots] = await Promise.all([
     db.query.chapters.findMany({
-      where: eq(chapters.projectId, params.projectId),
+      where: eq(chapters.projectId, (await params).projectId),
       orderBy: [asc(chapters.sortOrder)],
     }),
-    db.query.characters.findMany({ where: eq(characters.projectId, params.projectId) }),
-    db.query.locations.findMany({ where: eq(locations.projectId, params.projectId) }),
+    db.query.characters.findMany({ where: eq(characters.projectId, (await params).projectId) }),
+    db.query.locations.findMany({ where: eq(locations.projectId, (await params).projectId) }),
     db.query.productionShots.findMany({
-      where: eq(productionShots.projectId, params.projectId),
+      where: eq(productionShots.projectId, (await params).projectId),
       orderBy: [asc(productionShots.sceneNumber), asc(productionShots.shotNumber)],
     }),
   ]);
@@ -119,7 +119,7 @@ ${soulIdChars.length > 0 ? soulIdChars.map(c => `- ${c.name}: ${c.soulId}`).join
   const safeTitle = project.name.replace(/[^a-z0-9]/gi, "-").toLowerCase();
 
   const blob = await put(
-    `exports/${params.projectId}/higgsfield-contest-${safeTitle}.zip`,
+    `exports/${(await params).projectId}/higgsfield-contest-${safeTitle}.zip`,
     zipBuffer,
     { access: "public", contentType: "application/zip", addRandomSuffix: true }
   );

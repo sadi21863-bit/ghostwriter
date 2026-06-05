@@ -7,11 +7,11 @@ import { projects } from '@/db/schema';
 import { and, eq } from 'drizzle-orm';
 import { tiptapToPlainText, isValidTipTapJson } from '@/lib/editor/content-migration';
 
-export async function GET(_req: Request, { params }: { params: { projectId: string } }) {
+export async function GET(_req: Request, { params }: { params: Promise<{ projectId: string }> }) {
   const session = await getRequiredSession();
 
   const project = await db.query.projects.findFirst({
-    where: and(eq(projects.id, params.projectId), eq(projects.userId, session.user.id)),
+    where: and(eq(projects.id, (await params).projectId), eq(projects.userId, session.user.id)),
     with: {
       characters: { columns: { id: true, name: true } },
       chapters: {

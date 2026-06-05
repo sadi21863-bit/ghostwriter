@@ -15,18 +15,18 @@ async function verifyOwnership(projectId: string, userId: string) {
   });
 }
 
-export async function POST(_: Request, { params }: { params: { projectId: string; pageId: string; panelId: string } }) {
+export async function POST(_: Request, { params }: { params: Promise<{ projectId: string; pageId: string; panelId: string }> }) {
   const s = await getRequiredSession();
-  if (!await verifyOwnership(params.projectId, s.user.id))
+  if (!await verifyOwnership((await params).projectId, s.user.id))
     return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const user = await db.query.users.findFirst({ where: eq(users.id, s.user.id) });
   if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
 
-  const panel = await db.query.comicPanels.findFirst({ where: eq(comicPanels.id, params.panelId) });
+  const panel = await db.query.comicPanels.findFirst({ where: eq(comicPanels.id, (await params).panelId) });
   if (!panel) return NextResponse.json({ error: "Panel not found" }, { status: 404 });
 
-  const page = await db.query.comicPages.findFirst({ where: eq(comicPages.id, params.pageId) });
+  const page = await db.query.comicPages.findFirst({ where: eq(comicPages.id, (await params).pageId) });
   if (!page) return NextResponse.json({ error: "Page not found" }, { status: 404 });
 
   const imageProviderId = user.imageProviderId || "segmind_soul";
@@ -50,7 +50,7 @@ export async function POST(_: Request, { params }: { params: { projectId: string
     const imgRes = await fetch(rawUrl);
     const imgBuffer = await imgRes.arrayBuffer();
     const blob = await put(
-      `comics/${params.projectId}/${params.pageId}/panel-${panel.panelIndex}-regen-${Date.now()}.png`,
+      `comics/${(await params).projectId}/${(await params).pageId}/panel-${panel.panelIndex}-regen-${Date.now()}.png`,
       imgBuffer,
       { access: "public", contentType: "image/png" }
     );
@@ -60,7 +60,7 @@ export async function POST(_: Request, { params }: { params: { projectId: string
   const [updated] = await db
     .update(comicPanels)
     .set({ imageUrl })
-    .where(eq(comicPanels.id, params.panelId))
+    .where(eq(comicPanels.id, (await params).panelId))
     .returning();
 
   return NextResponse.json({ panel: updated });

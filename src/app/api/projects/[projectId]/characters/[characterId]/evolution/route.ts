@@ -9,19 +9,19 @@ import { eq, and, asc } from "drizzle-orm";
 
 export async function GET(
   _req: Request,
-  { params }: { params: { projectId: string; characterId: string } }
+  { params }: { params: Promise<{ projectId: string; characterId: string }> }
 ) {
   const session = await getRequiredSession();
 
   const project = await db.query.projects.findFirst({
-    where: and(eq(projects.id, params.projectId), eq(projects.userId, session.user.id)),
+    where: and(eq(projects.id, (await params).projectId), eq(projects.userId, session.user.id)),
   });
   if (!project) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const logs = await db.query.characterEvolutionLog.findMany({
     where: and(
-      eq(characterEvolutionLog.characterId, params.characterId),
-      eq(characterEvolutionLog.projectId, params.projectId)
+      eq(characterEvolutionLog.characterId, (await params).characterId),
+      eq(characterEvolutionLog.projectId, (await params).projectId)
     ),
     orderBy: [asc(characterEvolutionLog.chapterIndex)],
   });

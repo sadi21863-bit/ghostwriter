@@ -14,9 +14,9 @@ async function verifyOwnership(projectId: string, userId: string) {
   });
 }
 
-export async function POST(req: Request, { params }: { params: { projectId: string; shotId: string } }) {
+export async function POST(req: Request, { params }: { params: Promise<{ projectId: string; shotId: string }> }) {
   const s = await getRequiredSession();
-  if (!await verifyOwnership(params.projectId, s.user.id))
+  if (!await verifyOwnership((await params).projectId, s.user.id))
     return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const user = await db.query.users.findFirst({ where: eq(users.id, s.user.id) });
@@ -24,7 +24,7 @@ export async function POST(req: Request, { params }: { params: { projectId: stri
   if (!higgsfieldKey)
     return NextResponse.json({ error: "Add your Higgsfield API key in Settings." }, { status: 400 });
 
-  const shot = await db.query.productionShots.findFirst({ where: eq(productionShots.id, params.shotId) });
+  const shot = await db.query.productionShots.findFirst({ where: eq(productionShots.id, (await params).shotId) });
   if (!shot) return NextResponse.json({ error: "Shot not found" }, { status: 404 });
   if (!shot.previewImageUrl)
     return NextResponse.json({ error: "Generate a preview image first." }, { status: 400 });
@@ -41,7 +41,7 @@ export async function POST(req: Request, { params }: { params: { projectId: stri
   const [updated] = await db
     .update(productionShots)
     .set({ generationStatus: "animating", higgsfieldJobId: `${requestId}|${pollingUrl}`, updatedAt: new Date() })
-    .where(eq(productionShots.id, params.shotId))
+    .where(eq(productionShots.id, (await params).shotId))
     .returning();
 
   return NextResponse.json({ shot: updated, jobId: requestId, status: "animating" });

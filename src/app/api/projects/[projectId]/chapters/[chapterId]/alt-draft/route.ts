@@ -12,20 +12,20 @@ import type { AltDraftGoal, AlternateDraft } from '@/types';
 
 export async function POST(
   req: NextRequest,
-  { params }: { params: { projectId: string; chapterId: string } }
+  { params }: { params: Promise<{ projectId: string; chapterId: string }> }
 ) {
   const session = await getRequiredSession();
   const { goal } = await req.json() as { goal: AltDraftGoal };
 
   const chapter = await db.query.chapters.findFirst({
-    where: and(eq(chapters.id, params.chapterId), eq(chapters.projectId, params.projectId)),
+    where: and(eq(chapters.id, (await params).chapterId), eq(chapters.projectId, (await params).projectId)),
   });
   if (!chapter?.content?.trim()) {
     return NextResponse.json({ error: 'Chapter is empty' }, { status: 400 });
   }
 
   const project = await db.query.projects.findFirst({
-    where: and(eq(projects.id, params.projectId), eq(projects.userId, session.user.id)),
+    where: and(eq(projects.id, (await params).projectId), eq(projects.userId, session.user.id)),
     with: { characters: true, locations: true, plotThreads: true, referenceWorks: true, storyMemories: true, characterRelationships: true },
   });
   if (!project) return NextResponse.json({ error: 'Not found' }, { status: 404 });
@@ -78,7 +78,7 @@ RULES:
 
   await db.update(chapters)
     .set({ alternateDrafts: updated as any })
-    .where(eq(chapters.id, params.chapterId));
+    .where(eq(chapters.id, (await params).chapterId));
 
   return NextResponse.json({ draft: newDraft });
 }

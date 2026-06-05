@@ -21,18 +21,18 @@ async function verifyOwnership(projectId: string, userId: string) {
   return db.query.projects.findFirst({ where: and(eq(projects.id, projectId), eq(projects.userId, userId)) });
 }
 
-export async function PATCH(req: Request, { params }: { params: { projectId: string; threadId: string } }) {
+export async function PATCH(req: Request, { params }: { params: Promise<{ projectId: string; threadId: string }> }) {
   const s = await getRequiredSession();
-  if (!await verifyOwnership(params.projectId, s.user.id)) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  if (!await verifyOwnership((await params).projectId, s.user.id)) return NextResponse.json({ error: "Not found" }, { status: 404 });
   const parsed = PlotThreadPatch.safeParse(await req.json());
   if (!parsed.success) return NextResponse.json({ error: "Invalid fields" }, { status: 400 });
-  const [u] = await db.update(plotThreads).set(parsed.data).where(eq(plotThreads.id, params.threadId)).returning();
+  const [u] = await db.update(plotThreads).set(parsed.data).where(eq(plotThreads.id, (await params).threadId)).returning();
   return NextResponse.json(u);
 }
 
-export async function DELETE(_: Request, { params }: { params: { projectId: string; threadId: string } }) {
+export async function DELETE(_: Request, { params }: { params: Promise<{ projectId: string; threadId: string }> }) {
   const s = await getRequiredSession();
-  if (!await verifyOwnership(params.projectId, s.user.id)) return NextResponse.json({ error: "Not found" }, { status: 404 });
-  await db.delete(plotThreads).where(eq(plotThreads.id, params.threadId));
+  if (!await verifyOwnership((await params).projectId, s.user.id)) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  await db.delete(plotThreads).where(eq(plotThreads.id, (await params).threadId));
   return NextResponse.json({ ok: true });
 }

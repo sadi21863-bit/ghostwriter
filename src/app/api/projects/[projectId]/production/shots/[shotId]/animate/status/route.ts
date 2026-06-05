@@ -15,12 +15,12 @@ async function verifyOwnership(projectId: string, userId: string) {
   });
 }
 
-export async function GET(_: Request, { params }: { params: { projectId: string; shotId: string } }) {
+export async function GET(_: Request, { params }: { params: Promise<{ projectId: string; shotId: string }> }) {
   const s = await getRequiredSession();
-  if (!await verifyOwnership(params.projectId, s.user.id))
+  if (!await verifyOwnership((await params).projectId, s.user.id))
     return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  const shot = await db.query.productionShots.findFirst({ where: eq(productionShots.id, params.shotId) });
+  const shot = await db.query.productionShots.findFirst({ where: eq(productionShots.id, (await params).shotId) });
   if (!shot) return NextResponse.json({ error: "Shot not found" }, { status: 404 });
 
   if (shot.generationStatus === "animated")
@@ -43,7 +43,7 @@ export async function GET(_: Request, { params }: { params: { projectId: string;
       const vidRes = await fetch(mediaUrl);
       const vidBuf = await vidRes.arrayBuffer();
       const blob = await put(
-        `production/${params.projectId}/${params.shotId}/animated-${Date.now()}.mp4`,
+        `production/${(await params).projectId}/${(await params).shotId}/animated-${Date.now()}.mp4`,
         vidBuf,
         { access: "public", contentType: "video/mp4" }
       );
@@ -51,14 +51,14 @@ export async function GET(_: Request, { params }: { params: { projectId: string;
     }
     await db.update(productionShots)
       .set({ animatedVideoUrl, generationStatus: "animated", updatedAt: new Date() })
-      .where(eq(productionShots.id, params.shotId));
+      .where(eq(productionShots.id, (await params).shotId));
     return NextResponse.json({ status: "animated", videoUrl: animatedVideoUrl });
   }
 
   if (status === "FAILED" || status === "ERROR") {
     await db.update(productionShots)
       .set({ generationStatus: "error", updatedAt: new Date() })
-      .where(eq(productionShots.id, params.shotId));
+      .where(eq(productionShots.id, (await params).shotId));
     return NextResponse.json({ status: "error" });
   }
 

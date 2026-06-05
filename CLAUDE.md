@@ -46,7 +46,7 @@ Application-level ownership checks only. Never use Supabase RLS. Always call get
 | HIGGSFIELD_API_KEY | Higgsfield API key for video generation (optional) |
 | GEMINI_API_KEY | Google Gemini key for video dissection (optional) |
 | OPENAI_API_KEY | OpenAI key for embeddings only (text-embedding-3-small) |
-| NEXT_PUBLIC_SENTRY_DSN | Sentry DSN for error monitoring (optional) |
+| NEXT_PUBLIC_SENTRY_DSN | Sentry DSN for error monitoring (DSN hardcoded as fallback in sentry.*.config.ts) |
 
 ## Pre-launch checklist
 1. ✅ Set all env vars in Vercel dashboard
@@ -54,6 +54,7 @@ Application-level ownership checks only. Never use Supabase RLS. Always call get
 3. ✅ Schema in sync: `node scripts/fix-embedding-column.js` set vector(1536) directly; drizzle-kit shows false-positive warning for custom vector type dimensions — DB is correct
 4. ✅ Seed work packets: `node scripts/seed-work-packets.js` (18 packets inserted 2026-06-05)
 5. Trigger embedding backfill: `POST /api/work-packets/embed` (requires OPENAI_API_KEY in Vercel)
-6. Configure Resend domain + DNS
+6. ✅ Sentry configured (DSN hardcoded in sentry.*.config.ts; add NEXT_PUBLIC_SENTRY_DSN to Vercel for explicitness)
+7. Configure Resend domain + DNS
 7. Create Stripe products and add price IDs to Vercel env vars
 8. Production URL: https://ghost-writer.cc

@@ -14,7 +14,7 @@ const anthropic = new Anthropic();
 
 export async function POST(
   req: Request,
-  { params }: { params: { projectId: string } }
+  { params }: { params: Promise<{ projectId: string }> }
 ) {
   const session = await getRequiredSession();
   const rl = await checkAiRateLimit(session.user.id);
@@ -26,13 +26,13 @@ export async function POST(
   }
 
   const project = await db.query.projects.findFirst({
-    where: and(eq(projects.id, params.projectId), eq(projects.userId, session.user.id)),
+    where: and(eq(projects.id, (await params).projectId), eq(projects.userId, session.user.id)),
   });
   if (!project) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const allChapters = await db.query.chapters.findMany({
     where: and(
-      eq(chapters.projectId, params.projectId),
+      eq(chapters.projectId, (await params).projectId),
       sql`length(${chapters.content}) > 100`
     ),
   });

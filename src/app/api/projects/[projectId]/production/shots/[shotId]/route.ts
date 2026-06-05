@@ -20,9 +20,9 @@ const ALLOWED_FIELDS = new Set([
   "characterEmotion", "focalLength", "duration", "aspectRatio", "generatedVideoUrl",
 ]);
 
-export async function PATCH(req: Request, { params }: { params: { projectId: string; shotId: string } }) {
+export async function PATCH(req: Request, { params }: { params: Promise<{ projectId: string; shotId: string }> }) {
   const s = await getRequiredSession();
-  if (!await verifyOwnership(params.projectId, s.user.id))
+  if (!await verifyOwnership((await params).projectId, s.user.id))
     return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const body = await req.json();
@@ -32,7 +32,7 @@ export async function PATCH(req: Request, { params }: { params: { projectId: str
   }
 
   // Fetch current shot to merge for prompt rebuild
-  const current = await db.query.productionShots.findFirst({ where: eq(productionShots.id, params.shotId) });
+  const current = await db.query.productionShots.findFirst({ where: eq(productionShots.id, (await params).shotId) });
   if (!current) return NextResponse.json({ error: "Shot not found" }, { status: 404 });
 
   const merged = { ...current, ...updates };
@@ -57,7 +57,7 @@ export async function PATCH(req: Request, { params }: { params: { projectId: str
   const [updated] = await db
     .update(productionShots)
     .set({ ...updates, updatedAt: new Date() })
-    .where(eq(productionShots.id, params.shotId))
+    .where(eq(productionShots.id, (await params).shotId))
     .returning();
 
   return NextResponse.json({ shot: updated });

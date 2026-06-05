@@ -12,13 +12,13 @@ async function verifyOwnership(projectId: string, userId: string) {
   });
 }
 
-export async function GET(_: Request, { params }: { params: { projectId: string } }) {
+export async function GET(_: Request, { params }: { params: Promise<{ projectId: string }> }) {
   const s = await getRequiredSession();
-  if (!await verifyOwnership(params.projectId, s.user.id))
+  if (!await verifyOwnership((await params).projectId, s.user.id))
     return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const project = await db.query.projects.findFirst({
-    where: eq(projects.id, params.projectId),
+    where: eq(projects.id, (await params).projectId),
     with: { characters: true, chapters: true },
   });
   if (!project) return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -27,7 +27,7 @@ export async function GET(_: Request, { params }: { params: { projectId: string 
 
   // Load stored relationship data
   const storedRels = await db.query.characterRelationships.findMany({
-    where: eq(characterRelationships.projectId, params.projectId),
+    where: eq(characterRelationships.projectId, (await params).projectId),
   });
   const relMap = new Map<string, typeof storedRels[0]>();
   for (const r of storedRels) {
@@ -87,9 +87,9 @@ export async function GET(_: Request, { params }: { params: { projectId: string 
   return NextResponse.json({ nodes, edges, isolated });
 }
 
-export async function PATCH(req: Request, { params }: { params: { projectId: string } }) {
+export async function PATCH(req: Request, { params }: { params: Promise<{ projectId: string }> }) {
   const s = await getRequiredSession();
-  if (!await verifyOwnership(params.projectId, s.user.id))
+  if (!await verifyOwnership((await params).projectId, s.user.id))
     return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const { characterAId, characterBId, trustLevel, relationshipType, notes, fourHorsemen,
@@ -103,7 +103,7 @@ export async function PATCH(req: Request, { params }: { params: { projectId: str
 
   const existing = await db.query.characterRelationships.findFirst({
     where: and(
-      eq(characterRelationships.projectId, params.projectId),
+      eq(characterRelationships.projectId, (await params).projectId),
       eq(characterRelationships.characterAId, aId),
       eq(characterRelationships.characterBId, bId)
     ),
@@ -129,7 +129,7 @@ export async function PATCH(req: Request, { params }: { params: { projectId: str
     return NextResponse.json(updated);
   } else {
     const [created] = await db.insert(characterRelationships).values({
-      projectId: params.projectId,
+      projectId: (await params).projectId,
       characterAId: aId,
       characterBId: bId,
       trustLevel: trustLevel ?? 50,

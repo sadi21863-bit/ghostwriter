@@ -21,13 +21,14 @@ async function verifyOwnership(projectId: string, userId: string) {
   });
 }
 
-export async function POST(_: Request, { params }: { params: { projectId: string; chapterId: string } }) {
+export async function POST(_: Request, { params }: { params: Promise<{ projectId: string; chapterId: string }> }) {
+  const { projectId, chapterId } = await params;
   const s = await getRequiredSession();
-  if (!await verifyOwnership(params.projectId, s.user.id))
+  if (!await verifyOwnership(projectId, s.user.id))
     return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const chapter = await db.query.chapters.findFirst({
-    where: eq(chapters.id, params.chapterId),
+    where: eq(chapters.id, chapterId),
   });
   if (!chapter?.content?.trim()) return NextResponse.json({ memories: [] });
 
@@ -47,7 +48,7 @@ Max 8 facts. No summaries. Only hard facts that affect continuity.`,
   // Replace auto-extracted memories for this chapter
   await db.delete(storyMemories).where(
     and(
-      eq(storyMemories.chapterId, params.chapterId),
+      eq(storyMemories.chapterId, chapterId),
       eq(storyMemories.autoExtracted, true)
     )
   );
@@ -56,8 +57,8 @@ Max 8 facts. No summaries. Only hard facts that affect continuity.`,
 
   const inserted = await db.insert(storyMemories).values(
     facts.map(f => ({
-      projectId: params.projectId,
-      chapterId: params.chapterId,
+      projectId: projectId,
+      chapterId: chapterId,
       fact: f.fact,
       category: f.category || "general",
       autoExtracted: true,

@@ -16,7 +16,7 @@ import { decrypt } from "@/lib/crypto";
 
 export async function POST(
   req: Request,
-  { params }: { params: { projectId: string; characterId: string } }
+  { params }: { params: Promise<{ projectId: string; characterId: string }> }
 ) {
   const session = await getRequiredSession();
   const tier = await getUserTier(session.user.id);
@@ -25,12 +25,12 @@ export async function POST(
   }
 
   const project = await db.query.projects.findFirst({
-    where: and(eq(projects.id, params.projectId), eq(projects.userId, session.user.id)),
+    where: and(eq(projects.id, (await params).projectId), eq(projects.userId, session.user.id)),
   });
   if (!project) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const char = await db.query.characters.findFirst({
-    where: eq(characters.id, params.characterId),
+    where: eq(characters.id, (await params).characterId),
   });
   if (!char) return NextResponse.json({ error: "Character not found" }, { status: 404 });
 
@@ -58,17 +58,17 @@ export async function POST(
     referenceImageUrls,
   });
 
-  return NextResponse.json({ jobId, characterId: params.characterId, status: "training" });
+  return NextResponse.json({ jobId, characterId: (await params).characterId, status: "training" });
 }
 
 export async function GET(
   req: Request,
-  { params }: { params: { projectId: string; characterId: string } }
+  { params }: { params: Promise<{ projectId: string; characterId: string }> }
 ) {
   const session = await getRequiredSession();
 
   const project = await db.query.projects.findFirst({
-    where: and(eq(projects.id, params.projectId), eq(projects.userId, session.user.id)),
+    where: and(eq(projects.id, (await params).projectId), eq(projects.userId, session.user.id)),
   });
   if (!project) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
@@ -89,7 +89,7 @@ export async function GET(
   if (result.status === "completed" && result.soulId) {
     await db.update(characters)
       .set({ soulId: result.soulId })
-      .where(eq(characters.id, params.characterId));
+      .where(eq(characters.id, (await params).characterId));
 
     return NextResponse.json({
       status: "completed",

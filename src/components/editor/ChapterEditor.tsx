@@ -20,7 +20,7 @@ interface Props {
 }
 
 export function ChapterEditor({ content, onChange, placeholder, readOnly, autoFocus }: Props) {
-  const saveTimer = useRef<ReturnType<typeof setTimeout>>();
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   const getInitialContent = () => {
     if (!content?.trim()) return { type: 'doc', content: [{ type: 'paragraph' }] };
