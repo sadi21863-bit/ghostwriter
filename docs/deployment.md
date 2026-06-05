@@ -124,17 +124,18 @@ This creates all tables. Running `db:push` in production is safe — Drizzle onl
 
 ### 3. Seed the Craft Library
 
-After schema push, seed the work packets:
+After schema push, seed the 18 platform work packets using the local seed script:
 
-```bash
-POST https://your-domain.vercel.app/api/admin/setup-db
-Authorization: Bearer YOUR_CRON_SECRET
+```powershell
+# From the project root (reads DATABASE_URL from .env.local)
+node scripts/seed-work-packets.js
 ```
 
-Or from Drizzle Studio:
+Alternatively via the admin API (requires `ADMIN_SECRET` env var in Vercel):
 
 ```bash
-npx drizzle-kit studio
+POST https://your-domain.vercel.app/api/admin/seed-work-packets
+Authorization: Bearer YOUR_ADMIN_SECRET
 ```
 
 ### 4. Generate Embeddings
@@ -217,10 +218,12 @@ The cleanup route deletes:
 
 Before going live:
 
-- [ ] All required env vars set in Vercel dashboard
-- [ ] `pgvector` extension enabled on Neon
-- [ ] Schema pushed (`npx drizzle-kit push`)
-- [ ] Craft library seeded and embeddings generated
+- [x] All required env vars set in Vercel dashboard *(done 2026-06-05)*
+- [x] Build passing on Vercel (`ghostwriter` project, deployment dpl_4dirjEb2muXwR7Hww6JSkysavt2R) *(done 2026-06-05)*
+- [x] 18 platform work packets seeded via `node scripts/seed-work-packets.js` *(done 2026-06-05)*
+- [x] `pgvector` extension enabled on Neon (`node scripts/enable-pgvector.js`) *(done 2026-06-05)*
+- [x] Schema in sync with production DB (`node scripts/fix-embedding-column.js` applied vector(1536) column; drizzle-kit shows a false-positive diff for custom vector type — the DB is correct) *(done 2026-06-05)*
+- [ ] Add `OPENAI_API_KEY` to Vercel, then trigger embedding backfill: `POST /api/work-packets/embed`
 - [ ] Stripe products created and price IDs configured
 - [ ] Stripe webhook endpoint configured and verified
 - [ ] Resend domain verified and DNS propagated

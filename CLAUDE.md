@@ -49,9 +49,11 @@ Application-level ownership checks only. Never use Supabase RLS. Always call get
 | NEXT_PUBLIC_SENTRY_DSN | Sentry DSN for error monitoring (optional) |
 
 ## Pre-launch checklist
-1. Set all env vars in Vercel dashboard
-2. Enable pgvector extension on Neon
-3. Run npx drizzle-kit push in production
-4. Trigger embedding backfill: POST /api/work-packets/embed
-5. Configure Resend domain + DNS
-6. Create Stripe products and add price IDs to Vercel env vars
+1. ✅ Set all env vars in Vercel dashboard
+2. ✅ Enable pgvector extension on Neon (`node scripts/enable-pgvector.js`, done 2026-06-05)
+3. ✅ Schema in sync: `node scripts/fix-embedding-column.js` set vector(1536) directly; drizzle-kit shows false-positive warning for custom vector type dimensions — DB is correct
+4. ✅ Seed work packets: `node scripts/seed-work-packets.js` (18 packets inserted 2026-06-05)
+5. Trigger embedding backfill: `POST /api/work-packets/embed` (requires OPENAI_API_KEY in Vercel)
+6. Configure Resend domain + DNS
+7. Create Stripe products and add price IDs to Vercel env vars
+8. Production URL: https://ghostwriter-delta.vercel.app

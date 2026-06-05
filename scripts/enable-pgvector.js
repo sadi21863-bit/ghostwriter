@@ -1,19 +1,10 @@
-// Run before drizzle-kit push: enables pgvector extension on Neon
-const { neon } = require("@neondatabase/serverless");
-require("dotenv").config({ path: ".env" });
+require('dotenv').config({ path: '.env.local' });
+const { neon } = require('@neondatabase/serverless');
 
-async function main() {
+async function run() {
   const sql = neon(process.env.DATABASE_URL);
-  try {
-    await sql`CREATE EXTENSION IF NOT EXISTS vector`;
-    console.log("pgvector extension enabled.");
-  } catch (e) {
-    if (e.message?.includes("already exists")) {
-      console.log("pgvector already enabled.");
-    } else {
-      console.error("Failed:", e.message);
-      process.exit(1);
-    }
-  }
+  await sql`CREATE EXTENSION IF NOT EXISTS vector`;
+  console.log('pgvector extension enabled');
 }
-main();
+
+run().catch(e => { console.error('Error:', e.message); process.exit(1); });

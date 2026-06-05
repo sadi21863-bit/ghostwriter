@@ -283,7 +283,7 @@ Response format for errors:
 | Method | Route | Auth | Description |
 |---|---|---|---|
 | GET | `/api/admin/analytics` | Required (admin) | Platform analytics |
-| POST | `/api/admin/setup-db` | Required (admin) | Database setup / seed |
+| POST | `/api/admin/seed-work-packets` | Required (admin) | Seed 18 platform work packets (idempotent) |
 
 ---
 
