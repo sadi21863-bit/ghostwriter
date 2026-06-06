@@ -6,12 +6,12 @@ How tiers work, what each tier unlocks, how Stripe is integrated, and how featur
 
 ## Tiers
 
-| Tier | Stripe price ID env var | Monthly (INR) |
+| Tier | Stripe price ID env var | Monthly |
 |---|---|---|
-| `free` | — (no Stripe) | ₹0 |
-| `story_pro` | `STRIPE_STORY_PRO_PRICE_ID` | ₹799 |
-| `creator_pro` | `STRIPE_CREATOR_PRO_PRICE_ID` | ₹399 |
-| `all_access` | `STRIPE_ALL_ACCESS_PRICE_ID` | ₹999 |
+| `free` | — (no Stripe) | $0 |
+| `story_pro` | `STRIPE_STORY_PRO_PRICE_ID` | $18 (or $172/year) |
+| `creator_pro` | `STRIPE_CREATOR_PRO_PRICE_ID` | $18 |
+| `all_access` | `STRIPE_ALL_ACCESS_PRICE_ID` | $28 (or $268/year) |
 
 Tier names are the values stored in `subscriptions.tier` column.
 
@@ -20,21 +20,26 @@ Tier names are the values stored in `subscriptions.tier` column.
 ## What Each Tier Unlocks
 
 ### Free Tier
-- 10 AI generations per day
-- 1 project
+- 10 AI generations per month (routed to Claude Haiku for low cost)
+- 7-day full trial on signup (all features unlocked)
+- 1 project · 2 characters
 - Core modes only: Brainstorm, Outline, Write
-- No Style DNA, no Story Memory, no library modes
+- All 22 library modes blocked (403 → upgrade prompt)
+- No Style DNA, no AIisms check, no library modes
 
 ### Story Pro (`story_pro`)
-- Unlimited generations
-- Up to 20 projects
-- All 20 library modes (dialogue, combat, atmosphere, etc.)
+- 500 generations/month (Claude Sonnet)
+- All 22 library modes (dialogue, combat, atmosphere, etc.)
+- Full character intelligence (NVC, language profiles, contextVisibility toggles)
 - Style DNA (reference works → style fingerprint)
+- Voice fingerprinting (stylometric constraints from your last 5 chapters)
+- AIisms check (opt-in — 20 AI fiction tells blocked post-generation)
 - Story Memory + Story State tracking
 - Character evolution log
 - Comic Studio
 - Production Studio (shot lists)
 - World Bible (full character/location/thread detail)
+- Series Bible
 - Export: DOCX manuscript, blurb, query letter
 - Alt Draft generator
 - Quality Review panel
@@ -60,7 +65,11 @@ Tier names are the values stored in `subscriptions.tier` column.
   - Series planner
 
 ### All Access (`all_access`)
+- Unlimited generations
 - Everything from Story Pro + Creator Pro
+- Priority generation
+- YouTube reference video analysis (Gemini 3.5 Flash)
+- Higgsfield pipeline (Soul ID training + video generation)
 
 ---
 
@@ -168,30 +177,29 @@ All events are verified with `stripe.webhooks.constructEvent()` before processin
 
 ## Free Tier Limits
 
-Free users are subject to a daily generation limit enforced by `freeGenerationLimit` in `src/lib/ratelimit.ts`:
+Free users have a monthly generation cap enforced in `src/lib/subscription.ts`:
 
 ```typescript
-const freeGenerationLimit = new Ratelimit({
-  redis,
-  limiter: Ratelimit.slidingWindow(10, "1d"),
-});
+export const MONTHLY_GENERATION_LIMITS: Record<string, number> = {
+  free:        10,   // Haiku-routed — habit-forming, low cost
+  story_pro:   500,
+  creator_pro: 500,
+  all_access:  -1,   // unlimited
+};
 ```
 
-The check runs in AI generation routes:
+Free users are also routed to `MODELS.fast` (Haiku) to keep inference cost near zero:
+
 ```typescript
-if (tier === "free") {
-  const rl = await checkFreeGenerationLimit(session.user.id);
-  if (rl) return rl; // 429 with upgrade hint
-}
+// In /api/ai/generate/route.ts
+const overrideModel = tier === 'free' ? MODELS.fast : undefined;
 ```
 
-The 429 response includes:
-```json
-{
-  "error": "daily_limit_reached",
-  "feature": "ai_generation",
-  "limit": 10,
-  "upgradeRequired": true
+The 22 library modes are hard-blocked for free users regardless of generation count:
+
+```typescript
+if (tier === 'free' && LIBRARY_MODES.has(mode)) {
+  return NextResponse.json({ error: 'upgrade_required', feature: 'story_modes_advanced' }, { status: 403 });
 }
 ```
 

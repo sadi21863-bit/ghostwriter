@@ -44,6 +44,7 @@ Key columns:
 - `controllingIdea` — used by Theme Tracker
 - `targetAudience`, `targetLength`
 - `creatorBibleId` — links to the creator bible for YouTube/podcast projects
+- `aiismsCheck` (boolean, default false) — opt-in AIisms fiction-tell detection (Sprint 21)
 
 **Format values:** `novel`, `screenplay`, `youtube_longform`, `youtube_short`, `podcast`
 
@@ -71,6 +72,7 @@ Rich character profiles:
 - `antagonistType` — `Narcissist | Machiavellian | Psychopath | Ideological | Systemic`
 - NVC profile: `nvcGestures`, `nvcPosture`, `nvcProximity`, `nvcVocalPatterns`
 - Language profile: `languageRegister`, `sentenceStructure`, `vocabularyLevel`, `speechPatterns`
+- `contextVisibility` — `always | mentioned | never` — controls context injection (Sprint 21)
 - `higgsfield_soul_id` — trained Higgsfield Soul ID for consistent character portraits
 
 **Why NVC and language profiles?**

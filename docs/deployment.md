@@ -6,7 +6,7 @@ How to deploy GhostWriter to Vercel, what environment variables are required, an
 
 ## Prerequisites
 
-1. A [Neon](https://neon.tech) PostgreSQL database
+1. A [Neon](https://neon.tech) PostgreSQL database (with pgvector extension enabled)
 2. A [Vercel](https://vercel.com) account
 3. An [Anthropic](https://console.anthropic.com) API key
 4. A [Stripe](https://stripe.com) account with three products created
@@ -219,19 +219,18 @@ The cleanup route deletes:
 Before going live:
 
 - [x] All required env vars set in Vercel dashboard *(done 2026-06-05)*
-- [x] Build passing on Vercel (`ghostwriter` project, deployment dpl_4dirjEb2muXwR7Hww6JSkysavt2R) *(done 2026-06-05)*
+- [x] Build passing on Vercel *(done 2026-06-05)*
 - [x] 18 platform work packets seeded via `node scripts/seed-work-packets.js` *(done 2026-06-05)*
 - [x] `pgvector` extension enabled on Neon (`node scripts/enable-pgvector.js`) *(done 2026-06-05)*
-- [x] Schema in sync with production DB (`node scripts/fix-embedding-column.js` applied vector(1536) column; drizzle-kit shows a false-positive diff for custom vector type — the DB is correct) *(done 2026-06-05)*
-- [x] `OPENAI_API_KEY` added to Vercel *(done 2026-06-05)* — trigger embedding backfill: `POST /api/work-packets/embed`
+- [x] Schema in sync with production DB — Sprint 21 columns (`aiisms_check`, `context_visibility`) pushed via `drizzle-kit push` *(done 2026-06-06)*
+- [x] DB indexes restored via `node scripts/add-indexes.js` (10 indexes) *(done 2026-06-06)*
+- [x] `OPENAI_API_KEY` added to Vercel; embedding backfill complete — 18/18 packets embedded *(done 2026-06-06)*
 - [ ] Stripe products created and price IDs configured *(India invite-only — pending approval)*
 - [ ] Stripe webhook endpoint configured and verified
 - [x] Resend domain verified and DNS propagated *(done 2026-06-05)*
 - [ ] Test a complete payment flow end-to-end (Stripe test mode → live mode)
 - [x] `NEXTAUTH_URL` set to `https://ghost-writer.cc` *(done 2026-06-05)*
 - [x] Custom domain `ghost-writer.cc` added to Vercel and env vars updated *(done 2026-06-05)*
-- [ ] `NEXTAUTH_SECRET` is a strong random string (not the same as dev)
-- [ ] `ENCRYPTION_KEY` stored securely (if lost, encrypted user API keys cannot be decrypted)
 - [x] Sentry configured — DSN hardcoded in `sentry.*.config.ts`; add `NEXT_PUBLIC_SENTRY_DSN` to Vercel for explicitness *(done 2026-06-05)*
 - [ ] GrowthBook configured for feature flags (optional)
 - [ ] Test password reset email flow

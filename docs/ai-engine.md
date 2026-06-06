@@ -116,9 +116,28 @@ The style analysis for each reference work produces 6 attributes:
 
 These are injected as `STYLE DIRECTIVE: [attribute]: [value]` lines.
 
-**3. Characters**
+**3. Voice Fingerprint** (only when 3+ chapters with 200+ chars exist)
 
-Characters with `alwaysInContext = true` get full injection:
+Extracts 10 stylometric markers from the writer's last 5 chapters and injects them as binding numerical constraints (Van Nuenen / Berkeley 2026 research). Implemented in `src/lib/ai/voice-fingerprint.ts`.
+
+```
+VOICE FINGERPRINT — write to match these measured constraints:
+- Avg sentence length: 14.2 words (range: 10–18)
+- Contraction rate: 0.08 per sentence
+- First-person rate: 0.12 per sentence
+...
+These are measured from your actual writing. Treat as hard constraints.
+```
+
+**4. Characters**
+
+Injection is controlled by `contextVisibility` per character:
+
+- `always` — full profile injected regardless of scene
+- `mentioned` — full profile injected only if character name appears in prompt/context; otherwise one-liner
+- `never` — never injected
+
+Characters with full injection:
 ```
 ━━ Maya Patel (Protagonist) ━━
 Role: Lead investigator
@@ -130,20 +149,20 @@ NVC: Crosses arms when lying, speaks faster under stress
 Language: Formal register, avoids contractions
 ```
 
-Characters with `alwaysInContext = false` get compressed to one line:
+Characters with `alwaysInContext = false` (legacy) or `contextVisibility = mentioned` (not in scene) get compressed to one line:
 ```
-The Informant: Unnamed contact, appears Ch.3, provides documents.
+The Informant: Unnamed contact, appears Ch.3, provides documents. (not in scene)
 ```
 
-**4. Locations** — same compression logic as characters
+**5. Locations** — same compression logic as characters
 
-**5. Plot Threads**
+**6. Plot Threads**
 ```
 • The missing journalist [status: open]
 • Maya's estranged father [status: dormant]
 ```
 
-**6. Story Memories** — priority-scored, hard cap of 8
+**7. Story Memories** — priority-scored, hard cap of 8
 
 Scoring formula:
 ```
@@ -162,7 +181,7 @@ recencyBonus:
 
 Top 8 by score are injected. This keeps the context window lean on long projects.
 
-**7. Chapter Summaries** — last 3 chapters' summaries
+**8. Chapter Summaries** — last 3 chapters' summaries
 
 ---
 
@@ -255,6 +274,58 @@ Both run via Promise.all() — non-blocking, combined in response
 ```
 
 The Haiku pass handles objective metrics; Sonnet handles subjective quality. Together they give a richer report without doubling latency.
+
+---
+
+## AIisms Check
+
+An opt-in post-generation guard available to Story Pro+ users. Enabled per project in World Bible settings (`aiismsCheck` boolean column).
+
+When enabled, `src/lib/ai/aiisms.ts` appends a directive to the dynamic context:
+
+```
+AIISMS CHECK — after writing, verify none of these phrases appear:
+Fiction clichés: heart raced | heart pounded | breath caught | eyes widened | jaw dropped | ...
+If any appear, replace with specific physical action or concrete detail.
+```
+
+The 20 most common AI fiction tells are blocked. This is injected as `additionalContext` in the generate route, not as a system prompt change, so it doesn't break prompt caching.
+
+---
+
+## Brainstorm 3-Option Mode
+
+When `mode === 'brainstorm'`, the generate route appends a structural directive to the user prompt:
+
+```
+Return exactly 3 distinct structural approaches as options:
+OPTION A — [SHORT NAME]:
+...
+OPTION B — [SHORT NAME]:
+...
+OPTION C — [SHORT NAME]:
+...
+```
+
+The WritePanel parses this with `parseBrainstormOptions()` and renders selectable cards. Clicking "Develop this direction →" pre-fills the prompt with the chosen option name and clears the output.
+
+---
+
+## YouTube Reference Video Analysis
+
+`POST /api/ai/analyze-reference-video` — available to `creator_tools_advanced` tier (All Access).
+
+Uses Gemini 3.5 Flash's native YouTube URL support (`fileData.fileUri`) to analyze a reference video's structure, pacing, and style. Returns directives injected into the next generation call as `additionalContext`.
+
+```typescript
+const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+await ai.models.generateContent({
+  model: 'gemini-3.5-flash',
+  contents: [{ fileData: { fileUri: youtubeUrl } }, { text: '...' }],
+});
+```
+
+The UI shows in WritePanel when `isCreatorFormat(project.format) && mode === 'brainstorm'`.
 
 ---
 

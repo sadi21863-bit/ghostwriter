@@ -15,7 +15,7 @@ How GhostWriter works end-to-end: layers, data flow, and how all the pieces conn
                     │ fetch()
 ┌───────────────────▼─────────────────────────────┐
 │  API Layer                                       │
-│  Next.js 14 App Router route handlers            │
+│  Next.js 16 App Router route handlers            │
 │  src/app/api/                                    │
 │  All auth, ownership, rate limiting, AI calls    │
 └───────────────────┬─────────────────────────────┘
@@ -44,13 +44,17 @@ A full AI generation request from user click to streamed response:
    ├─ getRequiredSession()        → 401 if not logged in
    ├─ checkAiRateLimit(userId)    → 429 if over limit
    ├─ getUserTier(userId)         → subscription tier
+   ├─ LIBRARY_MODES gate          → 403 if free tier + library mode
+   ├─ overrideModel = MODELS.fast → if free tier (Haiku routing)
    ├─ canAccessFeature(tier, ...) → 403 if not subscribed
+   ├─ AIisms check (if project.aiismsCheck && Story Pro+)
    └─ build context →
    │
 4. context-builder.ts assembles the prompt context:
    ├─ Project header (title, format, genres, tone, logline)
    ├─ Style DNA (if reference works exist — 6 style attributes)
-   ├─ Characters (full detail for alwaysInContext=true, compressed for false)
+   ├─ Voice fingerprint (if 3+ chapters — 10 stylometric constraints)
+   ├─ Characters (filtered by contextVisibility: always/mentioned/never)
    ├─ Locations (same compression logic)
    ├─ Plot threads
    ├─ Story memories (priority-scored, capped at 8)
@@ -155,6 +159,7 @@ export const MODELS = {
 ```
 
 **MODELS.fast** — used for:
+- All free-tier generation (overrideModel routing)
 - Chapter summarization
 - Story memory extraction
 - Comic panel description
@@ -163,7 +168,7 @@ export const MODELS = {
 - Trend angle generation
 
 **MODELS.default** — used for:
-- All prose generation (Write, Dialogue, Combat, etc.)
+- All paid prose generation (Write, Dialogue, Combat, etc.)
 - Creator tools (hooks, TikTok, SEO, trends, guest intel)
 - Export copy (blurb, query letter)
 - Analysis routes (theme tracker, tension curve, character evolution)
