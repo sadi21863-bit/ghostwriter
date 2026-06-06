@@ -1,7 +1,6 @@
 export const dynamic = 'force-dynamic';
 
 import { NextResponse } from 'next/server';
-import { getRequiredSession } from '@/lib/auth-helpers';
 import { db } from '@/db';
 import { workPackets } from '@/db/schema';
 import { eq } from 'drizzle-orm';
@@ -11,7 +10,7 @@ export async function POST(req: Request) {
   const authHeader = req.headers.get('authorization') ?? '';
   const cronSecret = process.env.CRON_SECRET;
   if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
-    await getRequiredSession();
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
   const allPackets = await db.query.workPackets.findMany();
