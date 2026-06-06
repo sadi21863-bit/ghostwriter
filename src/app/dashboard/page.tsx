@@ -26,6 +26,7 @@ export default function Dashboard() {
   const [newName, setNewName] = useState("");
   const [newFormat, setNewFormat] = useState("Novel");
   const [newSkillLevel, setNewSkillLevel] = useState<"beginner" | "expert">("beginner");
+  const [newStoryType, setNewStoryType] = useState<"linear" | "series" | "universe-story">("linear");
   const [creating, setCreating] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<Project | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -56,6 +57,11 @@ export default function Dashboard() {
   const [filterFormat, setFilterFormat] = useState("All");
   const [seriesBibles, setSeriesBibles] = useState<{ id: string; name: string; premise: string; projectIds: string[]; updatedAt: string }[]>([]);
   const [seriesExpanded, setSeriesExpanded] = useState(false);
+  const [universes, setUniverses] = useState<{ id: string; name: string; premise: string; updatedAt: string }[]>([]);
+  const [universesExpanded, setUniversesExpanded] = useState(false);
+  const [creatingUniverse, setCreatingUniverse] = useState(false);
+  const [showCreateUniverse, setShowCreateUniverse] = useState(false);
+  const [newUniverseName, setNewUniverseName] = useState("");
   const [showCreateBible, setShowCreateBible] = useState(false);
   const [newBibleName, setNewBibleName] = useState("");
   const [newBiblePremise, setNewBiblePremise] = useState("");
@@ -100,6 +106,10 @@ export default function Dashboard() {
       .then(r => r.json())
       .then(d => setSeriesBibles(d.bibles ?? []))
       .catch(() => {});
+    fetch("/api/universes")
+      .then(r => r.json())
+      .then(d => setUniverses(Array.isArray(d) ? d : []))
+      .catch(() => {});
   }, [status]);
 
   const createBible = async () => {
@@ -116,6 +126,19 @@ export default function Dashboard() {
     setShowCreateBible(false); setCreatingBible(false);
   };
 
+  const createUniverse = async () => {
+    if (!newUniverseName.trim()) return;
+    setCreatingUniverse(true);
+    const res = await fetch("/api/universes", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: newUniverseName.trim() }),
+    });
+    const u = await res.json();
+    if (u?.id) setUniverses(prev => [u, ...prev]);
+    setNewUniverseName(""); setShowCreateUniverse(false); setCreatingUniverse(false);
+  };
+
   const deleteBible = async (id: string) => {
     await fetch(`/api/series-bibles/${id}`, { method: "DELETE" });
     setSeriesBibles(prev => prev.filter(b => b.id !== id));
@@ -130,13 +153,14 @@ export default function Dashboard() {
       const res = await fetch("/api/projects", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: newName.trim(), format: newFormat, skillLevel: newSkillLevel }),
+        body: JSON.stringify({ name: newName.trim(), format: newFormat, skillLevel: newSkillLevel, storyType: newStoryType }),
       });
       const p = await res.json();
       setShowCreate(false);
       setNewName("");
       setNewFormat("Novel");
       setNewSkillLevel("beginner");
+      setNewStoryType("linear");
       router.push("/project/" + p.id);
     } catch {
       setError("Failed to create project");
@@ -452,6 +476,60 @@ export default function Dashboard() {
           </>
         )}
       </section>
+
+      {/* Universes section */}
+      <section style={{ maxWidth: 900, margin: "0 auto 40px", padding: "0 16px" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16, cursor: "pointer" }} onClick={() => setUniversesExpanded(v => !v)}>
+          <span style={{ fontSize: 15, fontWeight: 700, color: "#1a1a1a" }}>🌌 Universes</span>
+          <span style={{ fontSize: 11, color: "#aaa", background: "#f5f4f0", padding: "2px 8px", borderRadius: 10 }}>{universes.length}</span>
+          <span style={{ fontSize: 9, background: "rgba(29,158,117,0.12)", color: "#1d9e75", padding: "1px 6px", borderRadius: 8, fontWeight: 700 }}>NEW</span>
+          <span style={{ marginLeft: "auto", fontSize: 12, color: "#aaa" }}>{universesExpanded ? "▲" : "▼"}</span>
+        </div>
+        {universesExpanded && (
+          <>
+            <div style={{ marginBottom: 16 }}>
+              <button onClick={() => setShowCreateUniverse(true)} style={{ fontSize: 13, fontWeight: 700, background: GW_GOLD, color: "#0d0d10", border: "none", borderRadius: 8, padding: "8px 16px", cursor: "pointer" }}>
+                + New Universe
+              </button>
+            </div>
+            {showCreateUniverse && (
+              <div style={{ padding: 20, borderRadius: 12, background: "#fff", border: "1px solid " + GW_BORDER, marginBottom: 16, boxShadow: "0 2px 8px rgba(0,0,0,0.06)" }}>
+                <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 12, color: "#1a1a1a" }}>New Universe</div>
+                <input
+                  value={newUniverseName}
+                  onChange={e => setNewUniverseName(e.target.value)}
+                  placeholder="Universe name…"
+                  onKeyDown={e => e.key === "Enter" && createUniverse()}
+                  style={{ width: "100%", padding: "8px 12px", borderRadius: 8, border: "1px solid " + GW_BORDER, fontSize: 13, marginBottom: 12, fontFamily: "'Figtree', sans-serif", boxSizing: "border-box" }}
+                />
+                <div style={{ display: "flex", gap: 8 }}>
+                  <button onClick={createUniverse} disabled={creatingUniverse || !newUniverseName.trim()} style={{ padding: "8px 20px", borderRadius: 8, fontSize: 13, fontWeight: 700, background: GW_GOLD, color: "#0d0d10", border: "none", cursor: (creatingUniverse || !newUniverseName.trim()) ? "not-allowed" : "pointer", opacity: (creatingUniverse || !newUniverseName.trim()) ? 0.6 : 1 }}>
+                    {creatingUniverse ? "Creating…" : "Create"}
+                  </button>
+                  <button onClick={() => { setShowCreateUniverse(false); setNewUniverseName(""); }} style={{ padding: "8px 16px", borderRadius: 8, fontSize: 13, border: "1px solid " + GW_BORDER, background: "#fff", color: "#888", cursor: "pointer" }}>
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            )}
+            {universes.length === 0 && !showCreateUniverse && (
+              <p style={{ fontSize: 13, color: "#aaa", padding: "16px 0" }}>No universes yet. Create one to build your own Cosmere or MCU — multiple standalone stories in one shared world.</p>
+            )}
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 12 }}>
+              {universes.map(u => (
+                <a key={u.id} href={`/universe/${u.id}`} style={{ textDecoration: "none", display: "block", background: "#fff", borderRadius: 12, border: "1px solid " + GW_BORDER, padding: "16px 18px" }}>
+                  <div style={{ fontWeight: 700, fontSize: 14, color: "#1a1a1a", marginBottom: 6 }}>🌌 {u.name}</div>
+                  {u.premise && (
+                    <div style={{ fontSize: 12, color: "#888", lineHeight: 1.5, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" as const }}>
+                      {u.premise}
+                    </div>
+                  )}
+                </a>
+              ))}
+            </div>
+          </>
+        )}
+      </section>
       </main>
 
       {showOnboarding && <Onboarding onDismiss={() => setShowOnboarding(false)} />}
@@ -527,6 +605,35 @@ export default function Dashboard() {
                 <select value={newFormat} onChange={e => setNewFormat(e.target.value)} className="gw-modal-input" style={{ ...inputS, cursor: "pointer" }}>
                   {FORMATS.map(f => <option key={f}>{f}</option>)}
                 </select>
+              </div>
+              <div>
+                <label style={{ display: "block", fontSize: 10, fontWeight: 700, color: "#aaa", textTransform: "uppercase", letterSpacing: 1.2, marginBottom: 8 }}>What kind of story?</label>
+                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                  {([
+                    { id: "linear", label: "One Story", desc: "A single story, beginning to end.", examples: "Novel · Screenplay · Film", icon: "◆" },
+                    { id: "series", label: "Book Series", desc: "Multiple books where each builds on the last.", examples: "Harry Potter · Mistborn · Web Serials", icon: "📚" },
+                    { id: "universe-story", label: "Your Universe", desc: "Separate stories in one world — each stands alone but connects.", examples: "MCU · Cosmere · Star Wars", icon: "🌌", badge: "NEW" },
+                  ] as { id: "linear" | "series" | "universe-story"; label: string; desc: string; examples: string; icon: string; badge?: string }[]).map(type => (
+                    <button key={type.id} type="button" onClick={() => setNewStoryType(type.id)}
+                      style={{ textAlign: "left", padding: "10px 12px", background: newStoryType === type.id ? "#fefce8" : "#f9f9f9", border: `1px solid ${newStoryType === type.id ? GW_GOLD : GW_BORDER}`, borderRadius: 10, cursor: "pointer", transition: "all 0.15s" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 2 }}>
+                        <span style={{ fontSize: 14 }}>{type.icon}</span>
+                        <span style={{ fontSize: 12, fontWeight: 700, color: "#1a1a1a" }}>{type.label}</span>
+                        {type.badge && <span style={{ fontSize: 9, background: "rgba(29,158,117,0.12)", color: "#1d9e75", padding: "1px 5px", borderRadius: 8, fontWeight: 700 }}>{type.badge}</span>}
+                      </div>
+                      <div style={{ fontSize: 10, color: "#888" }}>{type.desc}</div>
+                      <div style={{ fontSize: 10, color: "#aaa" }}>e.g. {type.examples}</div>
+                    </button>
+                  ))}
+                  <button type="button" disabled style={{ textAlign: "left", padding: "10px 12px", background: "#f9f9f9", border: `1px solid ${GW_BORDER}`, borderRadius: 10, cursor: "default", opacity: 0.45 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 2 }}>
+                      <span style={{ fontSize: 14 }}>▶</span>
+                      <span style={{ fontSize: 12, fontWeight: 700, color: "#1a1a1a" }}>Multiple Storylines</span>
+                      <span style={{ fontSize: 9, color: "#aaa", marginLeft: "auto" }}>Coming soon</span>
+                    </div>
+                    <div style={{ fontSize: 10, color: "#888" }}>Different characters in parallel, eventually converging.</div>
+                  </button>
+                </div>
               </div>
               <div>
                 <label style={{ display: "block", fontSize: 10, fontWeight: 700, color: "#aaa", textTransform: "uppercase", letterSpacing: 1.2, marginBottom: 8 }}>Experience Level</label>

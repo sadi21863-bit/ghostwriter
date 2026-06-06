@@ -26,6 +26,7 @@ const CharacterPatch = z.object({
   linkedPlotThreadIds: z.array(z.string().uuid()).optional(),
   alwaysInContext: z.boolean().optional(),
   sortOrder: z.number().int().optional(),
+  contextVisibility: z.enum(["always", "mentioned", "never"]).optional(),
 });
 
 async function verifyOwnership(projectId: string, userId: string) {

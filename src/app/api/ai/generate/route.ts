@@ -9,7 +9,8 @@ import { generate, MODELS } from "@/lib/ai/engine";
 import { buildAiismsInstruction } from "@/lib/ai/aiisms";
 import { db } from "@/db";
 import { generations, projects, users } from "@/db/schema";
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, sql, lte, ne } from "drizzle-orm";
+import { universeEvents, universeCharacters, projectCharacterStates } from "@/db/schema";
 import { track } from "@/lib/analytics";
 
 const VIOLATION_PATTERNS: Record<string, {
@@ -33,6 +34,102 @@ const VIOLATION_PATTERNS: Record<string, {
     supportMode: "Writing disability with full human complexity. The superpower, if present, comes from something other than the disability itself.",
   },
 };
+
+async function buildSeriesUniverseContext(proj: any, userId: string): Promise<string> {
+  if (!proj) return '';
+  const lines: string[] = [];
+
+  // SERIES: walk seriesParentId chain to collect previous stories' key events
+  if (proj.storyType === 'series' && proj.seriesParentId) {
+    const previousStories: any[] = [];
+    let currentId: string | null = proj.seriesParentId;
+    let depth = 0;
+    while (currentId && depth < 10) {
+      const prev = await db.query.projects.findFirst({
+        where: and(eq(projects.id, currentId), eq(projects.userId, userId)),
+        columns: { id: true, name: true, seriesParentId: true },
+        with: { storyMemories: { limit: 5, orderBy: (m, { desc }) => [desc(m.createdAt)] } },
+      });
+      if (!prev) break;
+      previousStories.unshift(prev);
+      currentId = (prev as any).seriesParentId ?? null;
+      depth++;
+    }
+    if (previousStories.length > 0) {
+      lines.push('SERIES CONTEXT — events from previous books that inform this story:');
+      previousStories.forEach((story: any, i: number) => {
+        lines.push(`\nBook ${i + 1}: ${story.name}`);
+        if (story.storyMemories?.length) {
+          story.storyMemories.forEach((m: any) => {
+            if (m.structuredData?.keyEvents?.length) {
+              lines.push(`  Key: ${m.structuredData.keyEvents.join(' | ')}`);
+            } else if (m.fact) {
+              lines.push(`  - ${m.fact}`);
+            }
+          });
+        }
+      });
+    }
+  }
+
+  // UNIVERSE: inject canonical events + character states from earlier-positioned stories
+  if (proj.storyType === 'universe-story' && proj.universeId && proj.timelineSort != null) {
+    const canonEvents = await db.query.universeEvents.findMany({
+      where: and(
+        eq(universeEvents.universeId, proj.universeId),
+        eq(universeEvents.isCanon, true),
+        lte(universeEvents.timelineSort, (proj.timelineSort ?? 0) - 1)
+      ),
+      orderBy: (e, { asc }) => [asc(e.timelineSort)],
+      limit: 15,
+    });
+    if (canonEvents.length > 0) {
+      lines.push('UNIVERSE CANON — events established before this story:');
+      canonEvents.forEach((e: any) => {
+        lines.push(`- ${e.name}${e.description ? ': ' + e.description : ''}`);
+      });
+    }
+
+    // Universe characters with states from prior stories
+    const uniChars = await db.query.universeCharacters.findMany({
+      where: eq(universeCharacters.universeId, proj.universeId),
+      with: { states: true },
+    });
+    const priorProjs = await db.query.projects.findMany({
+      where: and(eq(projects.universeId, proj.universeId), ne(projects.id, proj.id)),
+      columns: { id: true, timelineSort: true },
+    });
+    const priorProjIds = new Set(
+      priorProjs
+        .filter((p: any) => (p.timelineSort ?? 0) < (proj.timelineSort ?? 0))
+        .map((p: any) => p.id)
+    );
+    if (uniChars.length > 0) {
+      const charLines: string[] = [];
+      for (const char of uniChars) {
+        const priorState = (char as any).states
+          ?.filter((s: any) => priorProjIds.has(s.projectId))
+          .sort((a: any, b: any) => (b.createdAt?.getTime?.() ?? 0) - (a.createdAt?.getTime?.() ?? 0))[0];
+        if (priorState?.isDeceased) {
+          charLines.push(`${char.name}: DECEASED (do not include in this story)`);
+          continue;
+        }
+        const parts: string[] = [`${char.name}:`];
+        const baseProfile = (char as any).baseProfile as any;
+        if (baseProfile?.role) parts.push(`  Role: ${baseProfile.role}`);
+        if (priorState?.emotionalState) parts.push(`  State: ${priorState.emotionalState}`);
+        if (priorState?.stateNotes) parts.push(`  History: ${priorState.stateNotes}`);
+        charLines.push(parts.join('\n'));
+      }
+      if (charLines.length > 0) {
+        lines.push('\nUNIVERSE CHARACTERS — state at the start of this story:');
+        lines.push(...charLines);
+      }
+    }
+  }
+
+  return lines.length > 0 ? '\n\n--- STORY UNIVERSE ---\n' + lines.join('\n') : '';
+}
 
 export async function POST(req: Request) {
   const session = await getRequiredSession();
@@ -143,18 +240,22 @@ export async function POST(req: Request) {
       effectivePrompt = prompt + `\n\nReturn exactly 3 distinct structural approaches as options. Do not pick one.\nFormat strictly:\n\nOPTION A — [SHORT NAME]:\n[2-3 sentences describing the structural direction, opening, key tension]\n\nOPTION B — [SHORT NAME]:\n[2-3 sentences describing a different structural direction]\n\nOPTION C — [SHORT NAME]:\n[2-3 sentences describing a third structural direction]\n\n---\nEach option must represent a genuinely different creative direction, not variations of the same idea.\nOne option should subvert expectations.`;
     }
 
-    // AIisms check (opt-in per project, Story Pro+ only)
+    // AIisms check + series/universe context (fetch project once for both)
     let aiismsNote = '';
-    if (projectId && tier !== 'free') {
+    let seriesUniverseCtx = '';
+    if (projectId) {
       const proj = await db.query.projects.findFirst({
         where: and(eq(projects.id, projectId), eq(projects.userId, session.user.id)),
       });
-      if ((proj as any)?.aiismsCheck) {
+      if (tier !== 'free' && (proj as any)?.aiismsCheck) {
         aiismsNote = '\n\n' + buildAiismsInstruction();
+      }
+      if ((proj as any)?.storyType === 'series' || (proj as any)?.storyType === 'universe-story') {
+        seriesUniverseCtx = await buildSeriesUniverseContext(proj, session.user.id);
       }
     }
 
-    const effectiveDynamic = [dynamicContext, additionalContext, aiismsNote].filter(Boolean).join('\n\n');
+    const effectiveDynamic = [dynamicContext, additionalContext, seriesUniverseCtx, aiismsNote].filter(Boolean).join('\n\n');
     const r = await generate({ mode, prompt: effectivePrompt, context, staticContext, dynamicContext: effectiveDynamic, format, narrativeStructure, overrideModel });
     await db.insert(generations).values({
       projectId, chapterId: chapterId || null, mode, prompt,

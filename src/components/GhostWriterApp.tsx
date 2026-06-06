@@ -5,8 +5,6 @@ import type { SkillSuggestion } from "@/lib/ai/skill-router";
 import { useProjectState } from "@/hooks/useProjectState";
 import { useAIActions } from "@/hooks/useAIActions";
 import { useWorldBible } from "@/hooks/useWorldBible";
-import WorldBiblePanel from "@/components/panels/WorldBiblePanel";
-import ToolbarPanel from "@/components/panels/ToolbarPanel";
 import ChapterEditor from "@/components/panels/ChapterEditor";
 import { ToastContainer } from "@/components/ToastContainer";
 import type { FeatureGate } from "@/types/subscription";
@@ -20,6 +18,8 @@ const SprintMode        = dynamic(() => import("@/components/SprintMode").then(m
 const UpgradePrompt     = dynamic(() => import("@/components/upgrade/UpgradePrompt").then(m => ({ default: m.UpgradePrompt })), { ssr: false });
 const CommandPalette    = dynamic(() => import("@/components/CommandPalette").then(m => ({ default: m.CommandPalette })), { ssr: false });
 const QualityReviewPanel = dynamic(() => import("@/components/panels/QualityReviewPanel").then(m => ({ default: m.QualityReviewPanel })), { ssr: false });
+const WorldBiblePanel    = dynamic(() => import("@/components/panels/WorldBiblePanel"), { ssr: false });
+const ToolbarPanel       = dynamic(() => import("@/components/panels/ToolbarPanel"), { ssr: false });
 
 export default function GhostWriterApp({ projectId }: { projectId: string }) {
   const [mode, setMode] = useState("brainstorm");

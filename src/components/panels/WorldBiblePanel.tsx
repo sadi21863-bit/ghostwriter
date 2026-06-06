@@ -5,6 +5,7 @@ import { co, sInput, sTextarea, sBtn, sBtnSm } from "@/lib/styles";
 import { GENRE_DEFAULT_RULES } from "@/lib/ai/genre-rules";
 import { isCreatorFormat, isStoryFormat, FORMATS, GENRES, STYLE_ATTRS, DEFAULT_CHAR, DEFAULT_LOC, DEFAULT_PLOT, CharFields, LocFields, PlotFields } from "@/lib/formats";
 import { EmptyState } from "@/components/EmptyState";
+import { extractVoiceFingerprint } from "@/lib/ai/voice-fingerprint";
 
 const entityApiPath: Record<string, string> = { characters: "characters", locations: "locations", plotThreads: "plot-threads" };
 
@@ -70,6 +71,22 @@ export default function WorldBiblePanel(props: Props) {
   const [relMapLoading, setRelMapLoading] = useState(false);
   const [selectedMapEdge, setSelectedMapEdge] = useState<any | null>(null);
   const [selectedMapNode, setSelectedMapNode] = useState<any | null>(null);
+
+  // Series / Universe linking state
+  const [allProjects, setAllProjects] = useState<any[]>([]);
+  const [allUniverses, setAllUniverses] = useState<any[]>([]);
+  const [seriesDataLoaded, setSeriesDataLoaded] = useState(false);
+
+  const loadSeriesData = async () => {
+    if (seriesDataLoaded) return;
+    const [ps, us] = await Promise.all([
+      fetch('/api/projects').then(r => r.json()),
+      fetch('/api/universes').then(r => r.json()),
+    ]);
+    setAllProjects(Array.isArray(ps) ? ps.filter((p: any) => p.id !== project.id) : []);
+    setAllUniverses(Array.isArray(us) ? us : []);
+    setSeriesDataLoaded(true);
+  };
 
   // Trend Intelligence state
   const [trendKeyConnected, setTrendKeyConnected] = useState(false);
@@ -635,6 +652,111 @@ export default function WorldBiblePanel(props: Props) {
                           <div style={{ fontSize: 10, color: co.muted }}>Instructs the model to avoid the 20 most common AI fiction tells. Adds a constraint block to every generation.</div>
                         </div>
                       </label>
+                      {(() => {
+                        const chapterContents = (project.chapters ?? [])
+                          .filter((c: any) => c.content && c.content.trim().length > 200)
+                          .map((c: any) => c.content as string);
+                        const fp = chapterContents.length >= 3
+                          ? extractVoiceFingerprint(chapterContents)
+                          : null;
+                        return fp ? (
+                          <div style={{ marginTop: 12, padding: '10px 14px', background: 'rgba(29,158,117,0.06)', border: '1px solid rgba(29,158,117,0.15)', borderRadius: 8 }}>
+                            <div style={{ fontSize: 11, fontWeight: 700, color: '#1d9e75', marginBottom: 8 }}>
+                              ✓ VOICE FINGERPRINT ACTIVE — measured from your chapters
+                            </div>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 4, fontSize: 11 }}>
+                              <span style={{ color: co.muted }}>Avg sentence</span>
+                              <span>{fp.avgSentenceLength.toFixed(1)} words</span>
+                              <span style={{ color: co.muted }}>Contractions</span>
+                              <span>{(fp.contractionRate * 100).toFixed(1)}%</span>
+                              <span style={{ color: co.muted }}>First-person rate</span>
+                              <span>{fp.firstPersonRate.toFixed(1)} per 100 words</span>
+                              <span style={{ color: co.muted }}>Dialogue ratio</span>
+                              <span>{(fp.dialogueRatio * 100).toFixed(0)}%</span>
+                              <span style={{ color: co.muted }}>Word diversity</span>
+                              <span>{(fp.wordDiversityRatio * 100).toFixed(0)}%</span>
+                            </div>
+                            <div style={{ fontSize: 10, color: co.muted, marginTop: 6 }}>
+                              Updates as you write more chapters. At least 3 chapters needed.
+                            </div>
+                          </div>
+                        ) : (
+                          <div style={{ fontSize: 11, color: co.muted, marginTop: 8 }}>
+                            Voice fingerprint inactive — write 3+ chapters to activate constraint-based voice matching.
+                          </div>
+                        );
+                      })()}
+                    </div>
+                  )}
+                  {/* Series / Universe linking */}
+                  {((project as any).storyType === 'series' || (project as any).storyType === 'universe-story') && (
+                    <div style={{ borderTop: `1px solid ${co.border}`, paddingTop: 14, marginTop: 14 }}>
+                      <div style={{ fontSize: 10, fontWeight: 700, color: co.accent, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 10 }}>
+                        {(project as any).storyType === 'series' ? '📚 Series' : '🌌 Universe'}
+                      </div>
+                      {!seriesDataLoaded && (
+                        <button onClick={loadSeriesData} style={{ ...sBtnSm, marginBottom: 10 }}>Load {(project as any).storyType === 'series' ? 'series' : 'universe'} options</button>
+                      )}
+                      {seriesDataLoaded && (project as any).storyType === 'series' && (
+                        <div>
+                          <span style={{ fontSize: 10, color: co.muted, display: 'block', marginBottom: 4 }}>Previous Story in Series</span>
+                          <select
+                            value={(project as any).seriesParentId ?? ''}
+                            onChange={async e => {
+                              const val = e.target.value || null;
+                              await fetch(`/api/projects/${project.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ seriesParentId: val }) });
+                              updateProject((p: any) => ({ ...p, seriesParentId: val }));
+                            }}
+                            style={{ ...sInput, fontSize: 11 }}
+                          >
+                            <option value="">None (this is the first story)</option>
+                            {allProjects.map((p: any) => (
+                              <option key={p.id} value={p.id}>{p.name}</option>
+                            ))}
+                          </select>
+                        </div>
+                      )}
+                      {seriesDataLoaded && (project as any).storyType === 'universe-story' && (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                          <div>
+                            <span style={{ fontSize: 10, color: co.muted, display: 'block', marginBottom: 4 }}>Universe</span>
+                            <select
+                              value={(project as any).universeId ?? ''}
+                              onChange={async e => {
+                                const val = e.target.value || null;
+                                await fetch(`/api/projects/${project.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ universeId: val }) });
+                                updateProject((p: any) => ({ ...p, universeId: val }));
+                              }}
+                              style={{ ...sInput, fontSize: 11 }}
+                            >
+                              <option value="">Not part of a universe</option>
+                              {allUniverses.map((u: any) => (
+                                <option key={u.id} value={u.id}>{u.name}</option>
+                              ))}
+                            </select>
+                          </div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <span style={{ fontSize: 10, color: co.muted, flexShrink: 0 }}>Timeline position:</span>
+                            <input
+                              type="number"
+                              min={1}
+                              value={(project as any).timelineSort ?? 1}
+                              onChange={async e => {
+                                const val = parseInt(e.target.value) || 1;
+                                await fetch(`/api/projects/${project.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ timelineSort: val }) });
+                                updateProject((p: any) => ({ ...p, timelineSort: val }));
+                              }}
+                              style={{ ...sInput, width: 64, fontSize: 11 }}
+                            />
+                            <span style={{ fontSize: 10, color: co.muted }}>(1 = first story)</span>
+                          </div>
+                          {(project as any).universeId && (
+                            <a href={`/universe/${(project as any).universeId}`} target="_blank" rel="noreferrer" style={{ fontSize: 11, color: co.accent, fontWeight: 600 }}>
+                              Open Universe Dashboard →
+                            </a>
+                          )}
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>

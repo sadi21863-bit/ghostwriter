@@ -13,7 +13,7 @@ const vectorColumn = customType<{ data: number[]; driverData: string }>({
 export const users = pgTable("users", { id: uuid("id").defaultRandom().primaryKey(), name: text("name"), email: text("email").notNull().unique(), emailVerified: timestamp("email_verified", { mode: "date" }), image: text("image"), hashedPassword: text("hashed_password"), higgsfieldApiKey: text("higgsfield_api_key").default(""), higgsfieldApiSecret: text("higgsfield_api_secret").default(""), openaiApiKey: text("openai_api_key").default(""), imageProviderId: text("image_provider_id").default("segmind_soul"), trendIntelligenceKey: text("trend_intelligence_key").default(""), referralCode: varchar("referral_code", { length: 12 }), monthlyGenerations: integer("monthly_generations").default(0), monthlyGenerationsResetAt: timestamp("monthly_generations_reset_at"), createdAt: timestamp("created_at").defaultNow().notNull(), updatedAt: timestamp("updated_at").defaultNow().notNull() });
 export const accounts = pgTable("accounts", { id: uuid("id").defaultRandom().primaryKey(), userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }), type: text("type").notNull(), provider: text("provider").notNull(), providerAccountId: text("provider_account_id").notNull(), refresh_token: text("refresh_token"), access_token: text("access_token"), expires_at: integer("expires_at"), token_type: text("token_type"), scope: text("scope"), id_token: text("id_token"), session_state: text("session_state") });
 export const sessions = pgTable("sessions", { id: uuid("id").defaultRandom().primaryKey(), sessionToken: text("session_token").notNull().unique(), userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }), expires: timestamp("expires", { mode: "date" }).notNull() });
-export const projects = pgTable("projects", { id: uuid("id").defaultRandom().primaryKey(), userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }), name: text("name").notNull().default("Untitled Project"), format: varchar("format", { length: 50 }).notNull().default("Novel"), genres: jsonb("genres").$type().default([]), skillLevel: varchar("skill_level", { length: 20 }).notNull().default("beginner"), notes: text("notes").default(""), controllingIdea: text("controlling_idea").default(""), intentionalViolations: jsonb("intentional_violations").$type<Record<string, { confirmed: boolean; purpose: string; timestamp: string }>>().default({}), aiRules: jsonb("ai_rules").$type<any[]>().default([]), isHiggsfieldProject: boolean("is_higgsfield_project").default(false), narratorVoice: text("narrator_voice").default(""), narrativeStructure: varchar("narrative_structure", { length: 30 }).default("linear"), qualityGradingEnabled: boolean("quality_grading_enabled").default(false), aiismsCheck: boolean("aiisms_check").default(false), createdAt: timestamp("created_at").defaultNow().notNull(), updatedAt: timestamp("updated_at").defaultNow().notNull() });
+export const projects = pgTable("projects", { id: uuid("id").defaultRandom().primaryKey(), userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }), name: text("name").notNull().default("Untitled Project"), format: varchar("format", { length: 50 }).notNull().default("Novel"), genres: jsonb("genres").$type().default([]), skillLevel: varchar("skill_level", { length: 20 }).notNull().default("beginner"), notes: text("notes").default(""), controllingIdea: text("controlling_idea").default(""), intentionalViolations: jsonb("intentional_violations").$type<Record<string, { confirmed: boolean; purpose: string; timestamp: string }>>().default({}), aiRules: jsonb("ai_rules").$type<any[]>().default([]), isHiggsfieldProject: boolean("is_higgsfield_project").default(false), narratorVoice: text("narrator_voice").default(""), narrativeStructure: varchar("narrative_structure", { length: 30 }).default("linear"), qualityGradingEnabled: boolean("quality_grading_enabled").default(false), aiismsCheck: boolean("aiisms_check").default(false), storyType: varchar("story_type", { length: 20 }).default("linear"), universeId: uuid("universe_id"), timelineSort: integer("timeline_sort"), phase: text("phase"), seriesParentId: uuid("series_parent_id"), createdAt: timestamp("created_at").defaultNow().notNull(), updatedAt: timestamp("updated_at").defaultNow().notNull() });
 export const characters = pgTable("characters", {
   id: uuid("id").defaultRandom().primaryKey(),
   projectId: uuid("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
@@ -105,7 +105,7 @@ export const characters = pgTable("characters", {
 });
 export const locations = pgTable("locations", { id: uuid("id").defaultRandom().primaryKey(), projectId: uuid("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }), name: text("name").notNull(), description: text("description").default(""), atmosphere: text("atmosphere").default(""), history: text("history").default(""), sensoryDetails: text("sensory_details").default(""), linkedCharacterIds: jsonb("linked_character_ids").$type<string[]>().default([]), alwaysInContext: boolean("always_in_context").default(true), sortOrder: integer("sort_order").default(0), createdAt: timestamp("created_at").defaultNow().notNull() });
 export const plotThreads = pgTable("plot_threads", { id: uuid("id").defaultRandom().primaryKey(), projectId: uuid("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }), name: text("name").notNull(), description: text("description").default(""), status: varchar("status", { length: 20 }).default("Active"), stakes: text("stakes").default(""), connections: text("connections").default(""), alwaysInContext: boolean("always_in_context").default(true), sortOrder: integer("sort_order").default(0), lastMentionedChapterId: uuid("last_mentioned_chapter_id"), starvationWarning: boolean("starvation_warning").default(false), createdAt: timestamp("created_at").defaultNow().notNull() });
-export const chapters = pgTable("chapters", { id: uuid("id").defaultRandom().primaryKey(), projectId: uuid("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }), title: text("title").notNull().default("Chapter 1"), content: text("content").default(""), summary: text("summary").default(""), tags: jsonb("tags").$type<string[]>().default([]), chapterType: varchar("chapter_type", { length: 30 }).default("chapter"), sortOrder: integer("sort_order").default(0), wordCount: integer("word_count").default(0), branchId: text("branch_id").default("main"), branchLabel: text("branch_label").default(""), parentChapterId: uuid("parent_chapter_id"), alternateDrafts: jsonb("alternate_drafts").$type<any[]>().default([]), emotionalTone: varchar("emotional_tone", { length: 50 }).default(""), arcPosition: varchar("arc_position", { length: 40 }).default(""), scenes: jsonb("scenes").$type<any[]>().default([]), createdAt: timestamp("created_at").defaultNow().notNull(), updatedAt: timestamp("updated_at").defaultNow().notNull() });
+export const chapters = pgTable("chapters", { id: uuid("id").defaultRandom().primaryKey(), projectId: uuid("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }), title: text("title").notNull().default("Chapter 1"), content: text("content").default(""), summary: text("summary").default(""), tags: jsonb("tags").$type<string[]>().default([]), chapterType: varchar("chapter_type", { length: 30 }).default("chapter"), sortOrder: integer("sort_order").default(0), wordCount: integer("word_count").default(0), branchId: text("branch_id").default("main"), branchLabel: text("branch_label").default(""), parentChapterId: uuid("parent_chapter_id"), alternateDrafts: jsonb("alternate_drafts").$type<any[]>().default([]), emotionalTone: varchar("emotional_tone", { length: 50 }).default(""), arcPosition: varchar("arc_position", { length: 40 }).default(""), scenes: jsonb("scenes").$type<any[]>().default([]), storylineId: text("storyline_id"), createdAt: timestamp("created_at").defaultNow().notNull(), updatedAt: timestamp("updated_at").defaultNow().notNull() });
 export const referenceWorks = pgTable("reference_works", { id: uuid("id").defaultRandom().primaryKey(), projectId: uuid("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }), title: text("title").notNull(), attributes: jsonb("attributes").$type().default({}), createdAt: timestamp("created_at").defaultNow().notNull() });
 export const generations = pgTable("generations", { id: uuid("id").defaultRandom().primaryKey(), projectId: uuid("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }), chapterId: uuid("chapter_id").references(() => chapters.id, { onDelete: "set null" }), mode: varchar("mode", { length: 20 }).notNull(), prompt: text("prompt").notNull(), output: text("output").notNull(), model: varchar("model", { length: 100 }).default("claude-sonnet-4-20250514"), tokensUsed: integer("tokens_used"), createdAt: timestamp("created_at").defaultNow().notNull() });
 
@@ -420,6 +420,49 @@ export const platformEvents = pgTable("platform_events", {
   createdAt:  timestamp("created_at").defaultNow().notNull(),
 });
 
+// Sprint 22: Series + Universe tables
+export const universes = pgTable("universes", {
+  id:          uuid("id").defaultRandom().primaryKey(),
+  userId:      uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  name:        text("name").notNull(),
+  premise:     text("premise").default(""),
+  sharedRules: jsonb("shared_rules").$type<string[]>().default([]),
+  tone:        text("tone").default(""),
+  createdAt:   timestamp("created_at").defaultNow().notNull(),
+  updatedAt:   timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const universeCharacters = pgTable("universe_characters", {
+  id:          uuid("id").defaultRandom().primaryKey(),
+  universeId:  uuid("universe_id").notNull().references(() => universes.id, { onDelete: "cascade" }),
+  name:        text("name").notNull(),
+  baseProfile: jsonb("base_profile").$type<Record<string, any>>(),
+  isAlive:     boolean("is_alive").default(true),
+  createdAt:   timestamp("created_at").defaultNow().notNull(),
+});
+
+export const projectCharacterStates = pgTable("project_character_states", {
+  id:                uuid("id").defaultRandom().primaryKey(),
+  projectId:         uuid("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
+  universeCharId:    uuid("universe_char_id").notNull().references(() => universeCharacters.id, { onDelete: "cascade" }),
+  knowledgeOverride: jsonb("knowledge_override").$type<Record<string, any>>(),
+  emotionalState:    text("emotional_state"),
+  stateNotes:        text("state_notes"),
+  isDeceased:        boolean("is_deceased").default(false),
+  createdAt:         timestamp("created_at").defaultNow().notNull(),
+});
+
+export const universeEvents = pgTable("universe_events", {
+  id:           uuid("id").defaultRandom().primaryKey(),
+  universeId:   uuid("universe_id").notNull().references(() => universes.id, { onDelete: "cascade" }),
+  projectId:    uuid("project_id").references(() => projects.id, { onDelete: "set null" }),
+  name:         text("name").notNull(),
+  description:  text("description").default(""),
+  timelineSort: integer("timeline_sort").notNull(),
+  isCanon:      boolean("is_canon").default(true),
+  createdAt:    timestamp("created_at").defaultNow().notNull(),
+});
+
 export const referralsRelations = relations(referrals, ({ one }) => ({
   referrer: one(users, { fields: [referrals.referrerId], references: [users.id] }),
   referee:  one(users, { fields: [referrals.refereeId], references: [users.id] }),
@@ -474,3 +517,21 @@ export const readerReactionsRelations = relations(readerReactions, ({ one }) => 
 
 // Indexes omitted — drizzle-orm 0.45.2 bug causes JSON.parse(undefined) during .on() at module eval time.
 // All indexes were pushed to the production DB earlier and still exist there.
+
+export const universesRelations = relations(universes, ({ one, many }) => ({
+  user: one(users, { fields: [universes.userId], references: [users.id] }),
+  characters: many(universeCharacters),
+  events: many(universeEvents),
+}));
+export const universeCharactersRelations = relations(universeCharacters, ({ one, many }) => ({
+  universe: one(universes, { fields: [universeCharacters.universeId], references: [universes.id] }),
+  states: many(projectCharacterStates),
+}));
+export const projectCharacterStatesRelations = relations(projectCharacterStates, ({ one }) => ({
+  project: one(projects, { fields: [projectCharacterStates.projectId], references: [projects.id] }),
+  universeChar: one(universeCharacters, { fields: [projectCharacterStates.universeCharId], references: [universeCharacters.id] }),
+}));
+export const universeEventsRelations = relations(universeEvents, ({ one }) => ({
+  universe: one(universes, { fields: [universeEvents.universeId], references: [universes.id] }),
+  project: one(projects, { fields: [universeEvents.projectId], references: [projects.id] }),
+}));

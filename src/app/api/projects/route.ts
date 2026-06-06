@@ -28,4 +28,4 @@ export async function GET() {
   });
   return NextResponse.json(r);
 }
-export async function POST(req: Request) { const s = await getRequiredSession(); const b = await req.json(); const [p] = await db.insert(projects).values({ userId: s.user.id, name: b.name || "Untitled", format: b.format || "Novel", skillLevel: b.skillLevel || "beginner", genres: b.genres || [] }).returning(); await db.insert(chapters).values({ projectId: p.id, title: "Chapter 1", sortOrder: 0 }); await track(s.user.id, 'project_created', { format: b.format || 'Novel' }); return NextResponse.json(p, { status: 201 }); }
+export async function POST(req: Request) { const s = await getRequiredSession(); const b = await req.json(); const [p] = await db.insert(projects).values({ userId: s.user.id, name: b.name || "Untitled", format: b.format || "Novel", skillLevel: b.skillLevel || "beginner", genres: b.genres || [], storyType: b.storyType || "linear" }).returning(); await db.insert(chapters).values({ projectId: p.id, title: "Chapter 1", sortOrder: 0 }); await track(s.user.id, 'project_created', { format: b.format || 'Novel' }); return NextResponse.json(p, { status: 201 }); }
