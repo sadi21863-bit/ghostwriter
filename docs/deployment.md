@@ -37,7 +37,7 @@ In the Vercel dashboard → Project → Settings → Environment Variables, add:
 |---|---|
 | `DATABASE_URL` | `postgres://user:pass@host/db?sslmode=require` |
 | `NEXTAUTH_SECRET` | Generate: `openssl rand -base64 32` |
-| `NEXTAUTH_URL` | `https://ghost-writer.cc` |
+| `NEXTAUTH_URL` | `https://www.ghost-writer.cc` (www — apex 308s to www, breaking auth) |
 | `NEXT_PUBLIC_APP_URL` | Same as `NEXTAUTH_URL` |
 | `ANTHROPIC_API_KEY` | From Anthropic console |
 | `ENCRYPTION_KEY` | 64-char hex: `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"` |
@@ -225,11 +225,13 @@ Before going live:
 - [x] Schema in sync with production DB — Sprint 21 columns (`aiisms_check`, `context_visibility`) pushed via `drizzle-kit push` *(done 2026-06-06)*
 - [x] DB indexes restored via `node scripts/add-indexes.js` (10 indexes) *(done 2026-06-06)*
 - [x] `OPENAI_API_KEY` added to Vercel; embedding backfill complete — 18/18 packets embedded *(done 2026-06-06)*
+- [x] Sprint 21 schema pushed: `aiisms_check`, `context_visibility` columns *(done 2026-06-06)*
+- [x] Sprint 22 schema pushed: `universes`, `universe_characters`, `project_character_states`, `universe_events` tables; `story_type`/`universe_id`/`timeline_sort`/`phase`/`series_parent_id` on projects; `storyline_id` on chapters *(done 2026-06-06)*
 - [ ] Stripe products created and price IDs configured *(India invite-only — pending approval)*
 - [ ] Stripe webhook endpoint configured and verified
 - [x] Resend domain verified and DNS propagated *(done 2026-06-05)*
 - [ ] Test a complete payment flow end-to-end (Stripe test mode → live mode)
-- [x] `NEXTAUTH_URL` set to `https://ghost-writer.cc` *(done 2026-06-05)*
+- [ ] **⚠️ Change `NEXTAUTH_URL` to `https://www.ghost-writer.cc`** (www required — apex 308s to www breaking auth callbacks)
 - [x] Custom domain `ghost-writer.cc` added to Vercel and env vars updated *(done 2026-06-05)*
 - [x] Sentry configured — DSN hardcoded in `sentry.*.config.ts`; add `NEXT_PUBLIC_SENTRY_DSN` to Vercel for explicitness *(done 2026-06-05)*
 - [ ] GrowthBook configured for feature flags (optional)

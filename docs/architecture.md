@@ -48,6 +48,7 @@ A full AI generation request from user click to streamed response:
    ├─ overrideModel = MODELS.fast → if free tier (Haiku routing)
    ├─ canAccessFeature(tier, ...) → 403 if not subscribed
    ├─ AIisms check (if project.aiismsCheck && Story Pro+)
+   ├─ buildSeriesUniverseContext() → series chain or universe canon injection
    └─ build context →
    │
 4. context-builder.ts assembles the prompt context:
@@ -158,6 +159,9 @@ export const MODELS = {
 };
 ```
 
+**Dynamic imports** — panels loaded lazily (not in main bundle):
+`StoryHealthPanel`, `ExportPanel`, `AltDraftPanel`, `SprintMode`, `UpgradePrompt`, `CommandPalette`, `QualityReviewPanel`, `WorldBiblePanel`, `ToolbarPanel`
+
 **MODELS.fast** — used for:
 - All free-tier generation (overrideModel routing)
 - Chapter summarization
@@ -251,6 +255,44 @@ if (!canAccessFeature(tier, "story_modes_advanced")) {
 `getUserTier()` caches the result in memory for 5 minutes per user ID to avoid a DB round-trip on every request. Cache is invalidated on subscription webhook events.
 
 Feature names map to tiers in `src/types/subscription.ts` → `FEATURE_ACCESS` map.
+
+---
+
+## Series + Universe Architecture (Sprint 22)
+
+Two distinct multi-story structures:
+
+**Series** — one continuous story across volumes (Royal Road web serials, book trilogies). Characters age and accumulate knowledge linearly. Each story has a `seriesParentId` pointing to the previous story.
+
+**Universe** — multiple standalone stories in one world (MCU, Cosmere). Each story fully self-contained; connections are rewards for committed readers. Stories are positioned by `timelineSort` integer (no dates required).
+
+### Context injection: `buildSeriesUniverseContext()`
+
+Called in the generate route immediately after the AIisms check. Adds a `STORY UNIVERSE` block to `effectiveDynamic`:
+
+```
+Series:
+  → Walks seriesParentId chain (up to 10 books back)
+  → Injects each prior book's name + top 5 story memories (key events)
+
+Universe:
+  → Queries universeEvents where isCanon=true AND timelineSort < this story's timelineSort
+  → Queries universeCharacters with their projectCharacterStates from prior stories
+  → Injects "DECEASED" flag for dead characters (prevents model from resurrecting them)
+  → Injects emotionalState + stateNotes for surviving characters
+```
+
+### Universe Dashboard
+
+`/universe/[universeId]` — lists stories in timeline order, manages canonical events, manages universe-level characters. Linked from the dashboard "Universes" section.
+
+### Story Type Selector
+
+In the new project modal, writers choose between:
+- `linear` — single story (default; existing projects unaffected)
+- `series` — book series with `seriesParentId` chain
+- `universe-story` — part of a universe, positioned by `timelineSort`
+- `parallel` — multiple converging storylines (Sprint 23, shown as coming-soon)
 
 ---
 

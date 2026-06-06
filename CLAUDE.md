@@ -16,7 +16,9 @@ Next.js 16, Drizzle ORM 0.45.x, Neon PostgreSQL, NextAuth, Anthropic Claude, Tai
 - AIisms check: opt-in per project (Story Pro+) — 20 fiction tells blocked post-generation
 - Quality check: Tier 1 Haiku + Tier 2 Sonnet in parallel, non-blocking
 - Toast system: src/lib/toast.ts + ToastContainer — no external state manager
-- Bundle: 7 heavy panels as dynamic imports (StoryHealth, Export, AltDraft, SprintMode, UpgradePrompt, CommandPalette, QualityReview)
+- Bundle: 9 heavy panels as dynamic imports (StoryHealth, Export, AltDraft, SprintMode, UpgradePrompt, CommandPalette, QualityReview, WorldBiblePanel, ToolbarPanel)
+- Series/Universe architecture: storyType (linear/series/universe-story/parallel) per project; universes table with characters + events; series context chains previous books' memories; universe context injects canonical events + character states
+- Voice fingerprint display: visible in WorldBiblePanel settings when 3+ chapters exist
 
 ## Commands
 npm run dev (port 3001) / npm run db:push / npm run db:studio
@@ -38,7 +40,7 @@ Application-level ownership checks only. Never use Supabase RLS. Always call get
 |---|---|
 | DATABASE_URL | Neon PostgreSQL connection string |
 | NEXTAUTH_SECRET | NextAuth JWT secret (random 32-char string) |
-| NEXTAUTH_URL | Full public URL (e.g. https://ghostwriterai.com) |
+| NEXTAUTH_URL | Full public URL — must be https://www.ghost-writer.cc (www, not apex — apex 308s to www) |
 | ANTHROPIC_API_KEY | Claude API key for all AI generation |
 | STRIPE_SECRET_KEY | Stripe secret key for payment processing |
 | STRIPE_WEBHOOK_SECRET | Stripe webhook signing secret |
@@ -62,4 +64,6 @@ Application-level ownership checks only. Never use Supabase RLS. Always call get
 7. ✅ Resend domain + DNS configured
 8. ✅ DB indexes restored via `node scripts/add-indexes.js` (10 indexes, 2026-06-06)
 9. ⏳ Create Stripe products and add price IDs to Vercel env vars (India invite-only — pending approval)
-10. Production URL: https://ghost-writer.cc
+10. ⚠️ Change NEXTAUTH_URL in Vercel to https://www.ghost-writer.cc (www required — apex redirects to www, breaking auth callbacks)
+11. ✅ Sprint 22 schema pushed: universes, universe_characters, project_character_states, universe_events tables; storyType/universeId/timelineSort/phase/seriesParentId on projects; storylineId on chapters (2026-06-06)
+12. Production URL: https://www.ghost-writer.cc

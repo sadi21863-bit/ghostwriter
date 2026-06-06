@@ -46,6 +46,12 @@ Key columns:
 - `creatorBibleId` — links to the creator bible for YouTube/podcast projects
 - `aiismsCheck` (boolean, default false) — opt-in AIisms fiction-tell detection (Sprint 21)
 
+- `storyType` — `linear | series | universe-story | parallel` — defaults to `linear` (existing projects unaffected)
+- `universeId` — uuid, FK → universes.id — null for standalone projects
+- `timelineSort` — integer — position within a series or universe timeline
+- `phase` — text — optional grouping label within a universe ("Phase 1", "The First Saga")
+- `seriesParentId` — uuid — points to the previous story in a series; null = first story
+
 **Format values:** `novel`, `screenplay`, `youtube_longform`, `youtube_short`, `podcast`
 
 The `format` field drives everything downstream — format-specific rules in `engine.ts`, what modes are available, what export options appear.
@@ -58,6 +64,8 @@ The `format` field drives everything downstream — format-specific rules in `en
 - `sortOrder` — manual ordering
 - `wordCount`
 - `parentChapterId` — enables chapter forking (alt drafts)
+
+- `storylineId` — text — for future parallel structure; which character's POV lane (null = all storylines or non-parallel project)
 
 The `summary` column is the key to the continuity engine. When a chapter is saved, the summarize route generates a 2-3 sentence summary. That summary is then available to all subsequent generation calls.
 
@@ -74,6 +82,8 @@ Rich character profiles:
 - Language profile: `languageRegister`, `sentenceStructure`, `vocabularyLevel`, `speechPatterns`
 - `contextVisibility` — `always | mentioned | never` — controls context injection (Sprint 21)
 - `higgsfield_soul_id` — trained Higgsfield Soul ID for consistent character portraits
+
+**Note:** `contextVisibility` is accepted by the character PATCH handler (Sprint 22 fix — was previously silently dropped).
 
 **Why NVC and language profiles?**
 The AI generates dialogue and action for characters. Without physical and linguistic ground truth, every character sounds and moves the same. The NVC profile is injected so the model knows "Maya crosses her arms when lying and speaks faster under stress."
@@ -255,6 +265,54 @@ Graph edges for the relationship map:
 - `relationshipType` — `ally | enemy | romantic | family | mentor | rival`
 - `description` — free-form relationship note
 - `strength` — 1-5 (weak to strong)
+
+---
+
+---
+
+### Series + Universe Tables (Sprint 22)
+
+#### `universes`
+
+Top-level container for a shared fictional world:
+
+- `userId` (FK → users.id)
+- `name`, `premise`, `tone`
+- `sharedRules` (text array) — physics, magic system, tech level truths that hold across every story
+
+#### `universeCharacters`
+
+Characters that exist across multiple stories in a universe:
+
+- `universeId` (FK → universes.id)
+- `name`
+- `baseProfile` (JSON) — permanent facts: role, NVC, flaw triangle (same structure as `characters` table)
+- `isAlive` (boolean) — when a character dies in a story, mark here; subsequent stories won't use them
+
+#### `projectCharacterStates`
+
+How a universe character has evolved by the end of a specific story:
+
+- `projectId` (FK → projects.id)
+- `universeCharId` (FK → universeCharacters.id)
+- `knowledgeOverride` (JSON) — what this character knows by story end
+- `emotionalState` — character's emotional state at story end
+- `stateNotes` — prose summary of major changes in this story
+- `isDeceased` (boolean) — did this character die in this story?
+
+These states are queried by `buildSeriesUniverseContext()` in the generate route to inject accurate character state into AI context for later stories in the universe.
+
+#### `universeEvents`
+
+Canonical events that occurred in the universe timeline:
+
+- `universeId` (FK → universes.id)
+- `projectId` (FK → projects.id) — which story established this event (nullable)
+- `name`, `description`
+- `timelineSort` (integer) — position in timeline; no dates required (integer ordering only)
+- `isCanon` (boolean) — canon events inject into context for all later-positioned stories
+
+Canon events with `timelineSort` < current story's `timelineSort` are automatically injected into AI context via `buildSeriesUniverseContext()`.
 
 ---
 

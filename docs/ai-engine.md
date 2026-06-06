@@ -311,6 +311,45 @@ The WritePanel parses this with `parseBrainstormOptions()` and renders selectabl
 
 ---
 
+## Series + Universe Context Injection
+
+`buildSeriesUniverseContext(project, userId)` in `src/app/api/ai/generate/route.ts` — runs for every generation when `project.storyType` is `series` or `universe-story`. Result is merged into `effectiveDynamic` before the Anthropic call.
+
+### Series context
+
+Walks the `seriesParentId` chain backwards (up to 10 prior books). For each prior story, injects:
+```
+SERIES CONTEXT — events from previous books that inform this story:
+
+Book 1: The Final Empire
+  Key: Kelsier dies | Vin discovers her true power | The Lord Ruler falls
+Book 2: The Well of Ascension
+  - Vin takes the power at the Well and releases it
+```
+
+### Universe context
+
+For `universe-story` projects with a `timelineSort` position:
+
+1. **Canonical events** — all `universeEvents` where `isCanon=true` and `timelineSort < this story's position`:
+   ```
+   UNIVERSE CANON — events established before this story:
+   - The Shattering: Adonalsium was broken into 16 Shards
+   - The Final Ascension: Vin became a god briefly then died
+   ```
+
+2. **Universe characters** — state at the start of this story (from `projectCharacterStates` of prior stories):
+   ```
+   UNIVERSE CHARACTERS — state at the start of this story:
+   Hoid: Role: Wanderer
+     State: Amused, collecting stories
+   Kelsier: DECEASED (do not include in this story)
+   ```
+
+The "DECEASED" flag prevents the model from resurrecting characters that died in earlier stories.
+
+---
+
 ## YouTube Reference Video Analysis
 
 `POST /api/ai/analyze-reference-video` — available to `creator_tools_advanced` tier (All Access).
