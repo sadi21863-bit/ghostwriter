@@ -8,7 +8,7 @@ const INDEXES = [
   'CREATE INDEX IF NOT EXISTS chapters_project_id_idx ON chapters(project_id)',
   'CREATE INDEX IF NOT EXISTS characters_project_id_idx ON characters(project_id)',
   'CREATE INDEX IF NOT EXISTS story_memories_project_id_idx ON story_memories(project_id)',
-  'CREATE INDEX IF NOT EXISTS generations_user_id_idx ON generations(user_id)',
+  'CREATE INDEX IF NOT EXISTS generations_project_id_idx ON generations(project_id)',
   'CREATE INDEX IF NOT EXISTS platform_events_created_idx ON platform_events(created_at)',
   'CREATE INDEX IF NOT EXISTS platform_events_event_idx ON platform_events(event)',
   'CREATE INDEX IF NOT EXISTS referrals_referrer_id_idx ON referrals(referrer_id)',
@@ -20,11 +20,12 @@ async function run() {
   let ok = 0, fail = 0;
   for (const idx of INDEXES) {
     try {
-      await sql(idx);
+      await sql.query(idx);
       console.log('✓', idx.match(/INDEX \w+/)[0]);
       ok++;
     } catch (e) {
-      console.error('✗', e.message);
+      console.error('✗ FAILED:', idx);
+      console.error('  Error:', e.message);
       fail++;
     }
   }

@@ -7,8 +7,12 @@ import { workPackets } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 import { generateEmbedding, buildPacketEmbeddingText } from '@/lib/ai/embeddings';
 
-export async function POST(_: Request) {
-  await getRequiredSession();
+export async function POST(req: Request) {
+  const authHeader = req.headers.get('authorization') ?? '';
+  const cronSecret = process.env.CRON_SECRET;
+  if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
+    await getRequiredSession();
+  }
 
   const allPackets = await db.query.workPackets.findMany();
   const unembedded = allPackets.filter(p => !(p as any).embedding);
