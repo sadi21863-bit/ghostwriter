@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
+import dynamic from "next/dynamic";
 import type { SkillSuggestion } from "@/lib/ai/skill-router";
 import { useProjectState } from "@/hooks/useProjectState";
 import { useAIActions } from "@/hooks/useAIActions";
@@ -7,17 +8,18 @@ import { useWorldBible } from "@/hooks/useWorldBible";
 import WorldBiblePanel from "@/components/panels/WorldBiblePanel";
 import ToolbarPanel from "@/components/panels/ToolbarPanel";
 import ChapterEditor from "@/components/panels/ChapterEditor";
-import { StoryHealthPanel } from "@/components/panels/StoryHealthPanel";
-import { ExportPanel } from "@/components/panels/ExportPanel";
-import { AltDraftPanel } from "@/components/panels/toolbar/tools/AltDraftPanel";
-import { SprintMode } from "@/components/SprintMode";
-import { UpgradePrompt } from "@/components/upgrade/UpgradePrompt";
-import { CommandPalette } from "@/components/CommandPalette";
-import { QualityReviewPanel } from "@/components/panels/QualityReviewPanel";
 import { ToastContainer } from "@/components/ToastContainer";
 import type { FeatureGate } from "@/types/subscription";
 import type { CompositionLayer } from "@/lib/ai/composer";
 import { co, sBtn, sBtnSm } from "@/lib/styles";
+
+const StoryHealthPanel  = dynamic(() => import("@/components/panels/StoryHealthPanel").then(m => ({ default: m.StoryHealthPanel })), { ssr: false });
+const ExportPanel       = dynamic(() => import("@/components/panels/ExportPanel").then(m => ({ default: m.ExportPanel })), { ssr: false });
+const AltDraftPanel     = dynamic(() => import("@/components/panels/toolbar/tools/AltDraftPanel").then(m => ({ default: m.AltDraftPanel })), { ssr: false });
+const SprintMode        = dynamic(() => import("@/components/SprintMode").then(m => ({ default: m.SprintMode })), { ssr: false });
+const UpgradePrompt     = dynamic(() => import("@/components/upgrade/UpgradePrompt").then(m => ({ default: m.UpgradePrompt })), { ssr: false });
+const CommandPalette    = dynamic(() => import("@/components/CommandPalette").then(m => ({ default: m.CommandPalette })), { ssr: false });
+const QualityReviewPanel = dynamic(() => import("@/components/panels/QualityReviewPanel").then(m => ({ default: m.QualityReviewPanel })), { ssr: false });
 
 export default function GhostWriterApp({ projectId }: { projectId: string }) {
   const [mode, setMode] = useState("brainstorm");
@@ -60,6 +62,21 @@ export default function GhostWriterApp({ projectId }: { projectId: string }) {
   const [activeInfluence, setActiveInfluence] = useState<any | null>(null);
   const [activePatterns, setActivePatterns] = useState<any[]>([]);
   const [mobileToolbarOpen, setMobileToolbarOpen] = useState(false);
+  const [subscription, setSubscription] = useState<{ status: string; currentPeriodEnd: string | null } | null>(null);
+
+  useEffect(() => {
+    fetch('/api/subscription').then(r => r.json()).then(setSubscription).catch(() => {});
+  }, []);
+
+  function getTrialDaysLeft(trialEnd: string | null): number | null {
+    if (!trialEnd) return null;
+    const diff = Math.ceil((new Date(trialEnd).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+    return Math.max(0, diff);
+  }
+
+  const trialDaysLeft = subscription?.status === 'trialing'
+    ? getTrialDaysLeft(subscription.currentPeriodEnd)
+    : null;
 
   useEffect(() => {
     const tintMap: Record<string, string> = {
@@ -157,7 +174,16 @@ export default function GhostWriterApp({ projectId }: { projectId: string }) {
   );
 
   return (
-    <div style={{ display: "flex", height: "100vh", fontFamily: "'Inter',system-ui,sans-serif", background: co.bg, color: co.text, overflow: "hidden" }}>
+    <div style={{ display: "flex", flexDirection: "column", height: "100vh", fontFamily: "'Inter',system-ui,sans-serif", background: co.bg, color: co.text, overflow: "hidden" }}>
+      {trialDaysLeft !== null && (
+        <div style={{ background: 'rgba(217,119,6,0.1)', borderBottom: '1px solid rgba(217,119,6,0.2)', padding: '7px 16px', fontSize: 12, textAlign: 'center', color: '#d97706', flexShrink: 0 }}>
+          {trialDaysLeft > 0
+            ? <><strong>{trialDaysLeft} day{trialDaysLeft !== 1 ? 's' : ''} left</strong> in your free trial — you have full Story Pro access.{' '}<a href="/settings" style={{ color: '#d97706', fontWeight: 700 }}>Upgrade to keep it →</a></>
+            : <>Your trial has ended.{' '}<a href="/settings" style={{ color: '#d97706', fontWeight: 700 }}>Upgrade to continue →</a></>
+          }
+        </div>
+      )}
+      <div style={{ display: "flex", flex: 1, overflow: "hidden" }}>
       {aiActions.violationBanner && (
         <div style={{ position: "fixed", top: 0, left: 0, right: 0, background: "#92400e", color: "#fef3c7", padding: "12px 20px", zIndex: 1999, borderBottom: "1px solid #d97706" }}>
           <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 6 }}>⚠ Craft Notice — Read before generating</div>
@@ -455,6 +481,7 @@ export default function GhostWriterApp({ projectId }: { projectId: string }) {
       )}
 
       <ToastContainer />
+      </div>
     </div>
   );
 }

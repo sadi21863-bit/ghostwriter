@@ -17,6 +17,21 @@ import type { Scene } from "@/types";
 import { isStoryFormat, isCreatorFormat } from "@/lib/formats";
 import { CAMERA_PRESETS, VIRAL_PRESETS } from "@/lib/higgsfield/presets";
 
+function parseBrainstormOptions(text: string): { label: string; name: string; content: string }[] | null {
+  const headerRe = /OPTION\s+([A-C])\s+[-—–]\s+([^\n:]+)/gi;
+  const headers: { label: string; name: string; pos: number }[] = [];
+  let m: RegExpExecArray | null;
+  while ((m = headerRe.exec(text)) !== null) {
+    headers.push({ label: m[1], name: m[2].trim(), pos: m.index });
+  }
+  if (headers.length < 3) return null;
+  return headers.slice(0, 3).map((h, i) => {
+    const start = text.indexOf('\n', h.pos) + 1;
+    const end = i + 1 < 3 ? headers[i + 1].pos : text.length;
+    return { label: h.label, name: h.name, content: text.slice(start, end).trim() };
+  });
+}
+
 interface Props {
   mode: string;
   project: any;
@@ -73,6 +88,10 @@ export function WritePanel({
   const [researchFirst, setResearchFirst] = useState(true);
   const [researchBrief, setResearchBrief] = useState("");
   const [researching, setResearching] = useState(false);
+  const [referenceUrl, setReferenceUrl] = useState("");
+  const [referenceDirectives, setReferenceDirectives] = useState("");
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [selectedOption, setSelectedOption] = useState<number | null>(null);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -126,6 +145,21 @@ export function WritePanel({
         });
       } catch { /* silent */ }
     }, 1500);
+  };
+
+  const handleAnalyzeVideo = async () => {
+    if (!referenceUrl.trim()) return;
+    setIsAnalyzing(true);
+    try {
+      const res = await fetch('/api/ai/analyze-reference-video', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ youtubeUrl: referenceUrl }),
+      });
+      const data = await res.json();
+      if (data.directives) setReferenceDirectives(data.directives);
+    } catch { /* silent */ }
+    finally { setIsAnalyzing(false); }
   };
 
   const viewToggleStyle = (active: boolean): React.CSSProperties => ({
@@ -232,11 +266,45 @@ export function WritePanel({
         </div>
       ) : (
         <div style={{ flex: 1, overflow: "auto", padding: 24 }}>
-          {streamText
-            ? <div style={{ whiteSpace: "pre-wrap", fontSize: 15, lineHeight: 1.8, fontFamily: "Georgia,serif" }}>{streamText}</div>
-            : <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%", color: co.muted, fontSize: 15 }}>
-                {mode === "brainstorm" ? "Ask a what-if or describe what you need" : "Describe what to outline"}
-              </div>}
+          {streamText ? (
+            (() => {
+              const opts = mode === 'brainstorm' ? parseBrainstormOptions(streamText) : null;
+              if (opts) {
+                return (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                    <div style={{ fontSize: 12, color: co.muted, marginBottom: 4 }}>Choose a direction to develop:</div>
+                    {opts.map((opt, i) => (
+                      <div key={i} onClick={() => setSelectedOption(selectedOption === i ? null : i)} style={{
+                        padding: '14px 16px', borderRadius: 10, cursor: 'pointer',
+                        border: `1px solid ${selectedOption === i ? co.accent : co.border}`,
+                        background: selectedOption === i ? co.accentBg : co.surface,
+                      }}>
+                        <div style={{ fontSize: 12, fontWeight: 700, color: co.accent, marginBottom: 6 }}>
+                          OPTION {opt.label} — {opt.name}
+                        </div>
+                        <div style={{ fontSize: 13, color: co.text, lineHeight: 1.6 }}>{opt.content}</div>
+                        {selectedOption === i && (
+                          <button style={{ ...sBtn, marginTop: 10, fontSize: 12 }} onClick={e => {
+                            e.stopPropagation();
+                            setPrompt(`Develop: ${opt.name}`);
+                            setStreamText('');
+                            setSelectedOption(null);
+                          }}>
+                            Develop this direction →
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                );
+              }
+              return <div style={{ whiteSpace: "pre-wrap", fontSize: 15, lineHeight: 1.8, fontFamily: "Georgia,serif" }}>{streamText}</div>;
+            })()
+          ) : (
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%", color: co.muted, fontSize: 15 }}>
+              {mode === "brainstorm" ? "Ask a what-if or describe what you need" : "Describe what to outline"}
+            </div>
+          )}
         </div>
       )}
 
@@ -297,6 +365,35 @@ export function WritePanel({
             <div style={{ marginTop: 8, padding: "8px 10px", background: co.surface, borderRadius: 6, fontSize: 11, color: co.muted, maxHeight: 100, overflowY: "auto", border: "1px solid " + co.border }}>
               <div style={{ fontWeight: 600, marginBottom: 4, color: co.accent }}>Research brief ready ✓</div>
               {researchBrief.slice(0, 300)}...
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* YouTube reference video — creator formats brainstorm only */}
+      {mode === "brainstorm" && isCreatorFormat(project.format) && (
+        <div style={{ padding: "8px 16px", borderTop: "1px solid " + co.border, background: co.surfaceAlt }}>
+          <div style={{ fontSize: 12, fontWeight: 600, color: co.text, marginBottom: 6 }}>Reference video (optional)</div>
+          <div style={{ display: 'flex', gap: 6 }}>
+            <input
+              type="text"
+              value={referenceUrl}
+              onChange={e => setReferenceUrl(e.target.value)}
+              placeholder="YouTube URL — AI will analyze structure + style"
+              style={{ ...sInput, flex: 1, fontSize: 11 }}
+            />
+            <button
+              onClick={handleAnalyzeVideo}
+              disabled={isAnalyzing || !referenceUrl.trim()}
+              style={{ ...sBtnSm, opacity: isAnalyzing || !referenceUrl.trim() ? 0.5 : 1, flexShrink: 0 }}
+            >
+              {isAnalyzing ? "Analyzing..." : "Analyze"}
+            </button>
+          </div>
+          {referenceDirectives && (
+            <div style={{ marginTop: 8, padding: "8px 10px", background: co.surface, borderRadius: 6, fontSize: 11, color: co.muted, maxHeight: 80, overflowY: "auto", border: "1px solid " + co.border }}>
+              <div style={{ fontWeight: 600, marginBottom: 4, color: co.accent }}>Video analyzed ✓</div>
+              {referenceDirectives.slice(0, 200)}...
             </div>
           )}
         </div>
@@ -417,7 +514,8 @@ export function WritePanel({
               } catch { /* research failure must never block generation */ }
               finally { setResearching(false); }
             }
-            generate({ cameraPresetId: cameraMode && selectedPreset ? selectedPreset : undefined, referencePassage: referencePassage.trim() || undefined, additionalContext: researchContext || undefined });
+            const extraCtx = [referenceDirectives, researchContext].filter(Boolean).join('\n\n');
+            generate({ cameraPresetId: cameraMode && selectedPreset ? selectedPreset : undefined, referencePassage: referencePassage.trim() || undefined, additionalContext: extraCtx || undefined });
           }}>
             {generating && genTarget === "main" ? getLoadingMessage(mode) : "Generate"}
           </button>

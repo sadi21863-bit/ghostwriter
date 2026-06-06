@@ -3,6 +3,7 @@ import { ARC_POSITION_DIRECTIVES } from "@/lib/arc";
 import { buildInfluenceContext } from "@/lib/ai/influence-context";
 import { buildAccuracyContext, detectAccuracyDomains } from "@/lib/accuracy";
 import { buildRealismContext, getRealismDomainsForMode } from "@/lib/realism";
+import { extractVoiceFingerprint, fingerprintToConstraints } from "@/lib/ai/voice-fingerprint";
 
 export interface CharacterRelationship {
   characterAId: string;
@@ -181,10 +182,40 @@ export function buildStaticContext(p: ContextProject): string {
     }
   }
 
+  // ── VOICE FINGERPRINT ─────────────────────────────────────────────────────
+  // Constraint-based voice preservation (Berkeley 2026): prompt instructions drift,
+  // numerical constraints measured from the writer's own prose don't.
+  if (p.chapters && p.chapters.length >= 3) {
+    const recentChapterContents = p.chapters
+      .filter((c: any) => c.content && c.content.trim().length > 200)
+      .slice(-5)
+      .map((c: any) => c.content as string);
+    const fingerprint = extractVoiceFingerprint(recentChapterContents);
+    if (fingerprint) {
+      r.push('\n' + fingerprintToConstraints(fingerprint));
+      r.push('');
+    }
+  }
+
   if (p.characters?.length) {
     r.push("CHARACTERS:");
     const activeIdx = p.chapters?.findIndex((ch: any) => ch.id === p.activeChapter) ?? 0;
+    const searchText = (
+      ((p as any).activeChapterContent ?? '') +
+      ((p as any).currentPrompt ?? '')
+    ).toLowerCase();
+
     p.characters.forEach((c: Character) => {
+      // Character visibility filter (F2): always / mentioned / never
+      const visibility = (c as any).contextVisibility ?? 'always';
+      if (visibility === 'never') return;
+      if (visibility === 'mentioned') {
+        if (!searchText.includes(c.name.toLowerCase())) {
+          r.push("- " + c.name + (c.role ? " (" + c.role + ", not in scene)" : " (not in scene)"));
+          return;
+        }
+      }
+
       if (c.alwaysInContext === false) {
         r.push("- " + c.name + (c.role ? " (" + c.role + ", minor)" : " (minor)"));
         return;

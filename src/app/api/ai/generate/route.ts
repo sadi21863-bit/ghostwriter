@@ -5,7 +5,8 @@ import { getRequiredSession } from "@/lib/auth-helpers";
 import { checkAiRateLimit, freeGenerationLimit } from "@/lib/ratelimit";
 import { getUserTier, canAccessFeature, MONTHLY_GENERATION_LIMITS } from "@/lib/subscription";
 import { GATED_MODES } from "@/types/subscription";
-import { generate } from "@/lib/ai/engine";
+import { generate, MODELS } from "@/lib/ai/engine";
+import { buildAiismsInstruction } from "@/lib/ai/aiisms";
 import { db } from "@/db";
 import { generations, projects, users } from "@/db/schema";
 import { and, eq, sql } from "drizzle-orm";
@@ -68,6 +69,25 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "upgrade_required", feature: gatedFeature, tier }, { status: 403 });
   }
 
+  // Free tier: block all library modes
+  const LIBRARY_MODES = new Set([
+    'combat', 'emotional', 'atmosphere', 'tension', 'horror',
+    'comedy', 'mystery', 'romance', 'action', 'monologue',
+    'voice', 'thriller', 'sports', 'setting', 'historical',
+    'scitech', 'ethics', 'endings', 'isekai', 'composition',
+    'interrogation', 'chase',
+  ]);
+  if (tier === 'free' && LIBRARY_MODES.has(mode)) {
+    return NextResponse.json({
+      error: 'upgrade_required',
+      feature: 'story_modes_advanced',
+      message: 'Library modes require Story Pro. Upgrade for all 26 writing modes.',
+    }, { status: 403 });
+  }
+
+  // Free tier: route to Haiku (4.5x cheaper, proves value, drives upgrades)
+  const overrideModel = tier === 'free' ? MODELS.fast : undefined;
+
   // Daily limit: free tier gets 10 generations/day
   if (tier === "free" && freeGenerationLimit) {
     const { success } = await freeGenerationLimit.limit(session.user.id);
@@ -117,8 +137,25 @@ export async function POST(req: Request) {
   }
 
   try {
-    const effectiveDynamic = additionalContext ? `${dynamicContext}\n\n${additionalContext}` : dynamicContext;
-    const r = await generate({ mode, prompt, context, staticContext, dynamicContext: effectiveDynamic, format, narrativeStructure });
+    // Brainstorm mode: append 3-options directive
+    let effectivePrompt = prompt;
+    if (mode === 'brainstorm') {
+      effectivePrompt = prompt + `\n\nReturn exactly 3 distinct structural approaches as options. Do not pick one.\nFormat strictly:\n\nOPTION A — [SHORT NAME]:\n[2-3 sentences describing the structural direction, opening, key tension]\n\nOPTION B — [SHORT NAME]:\n[2-3 sentences describing a different structural direction]\n\nOPTION C — [SHORT NAME]:\n[2-3 sentences describing a third structural direction]\n\n---\nEach option must represent a genuinely different creative direction, not variations of the same idea.\nOne option should subvert expectations.`;
+    }
+
+    // AIisms check (opt-in per project, Story Pro+ only)
+    let aiismsNote = '';
+    if (projectId && tier !== 'free') {
+      const proj = await db.query.projects.findFirst({
+        where: and(eq(projects.id, projectId), eq(projects.userId, session.user.id)),
+      });
+      if ((proj as any)?.aiismsCheck) {
+        aiismsNote = '\n\n' + buildAiismsInstruction();
+      }
+    }
+
+    const effectiveDynamic = [dynamicContext, additionalContext, aiismsNote].filter(Boolean).join('\n\n');
+    const r = await generate({ mode, prompt: effectivePrompt, context, staticContext, dynamicContext: effectiveDynamic, format, narrativeStructure, overrideModel });
     await db.insert(generations).values({
       projectId, chapterId: chapterId || null, mode, prompt,
       output: r.text, model: r.model, tokensUsed: r.tokensUsed,

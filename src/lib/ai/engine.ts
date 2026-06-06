@@ -329,14 +329,15 @@ Co-host voice options:
   enthusiastic_newcomer — expresses surprise, asks for clarification`,
 };
 
-export async function generate({ mode, prompt, context, staticContext, dynamicContext, format, maxTokens = 4000, narrativeStructure }: {
+export async function generate({ mode, prompt, context, staticContext, dynamicContext, format, maxTokens = 4000, narrativeStructure, overrideModel }: {
   mode: string; prompt: string;
   context?: string;
   staticContext?: string; dynamicContext?: string;
   format: string; maxTokens?: number;
   narrativeStructure?: string;
+  overrideModel?: string;
 }) {
-  const model = QUALITY_MODES.has(mode) ? MODELS.quality : MODELS.default;
+  const model = overrideModel ?? (QUALITY_MODES.has(mode) ? MODELS.quality : MODELS.default);
   const formatRules = FORMAT_RULES[format]
     ? "\n\n" + FORMAT_RULES[format]
     : STORY_FORMAT_RULES[format]

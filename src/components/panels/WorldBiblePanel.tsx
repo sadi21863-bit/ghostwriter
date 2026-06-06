@@ -624,6 +624,17 @@ export default function WorldBiblePanel(props: Props) {
                           <div style={{ fontSize: 10, color: co.muted }}>After each generation, checks for rule violations and slop markers. Off by default. Adds ~1s.</div>
                         </div>
                       </label>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', marginTop: 10 }}>
+                        <input
+                          type="checkbox"
+                          checked={(project as any).aiismsCheck ?? false}
+                          onChange={e => updateProject((p: any) => ({ ...p, aiismsCheck: e.target.checked }))}
+                        />
+                        <div>
+                          <div style={{ fontSize: 12, fontWeight: 500, color: co.text }}>AIisms check (Story Pro)</div>
+                          <div style={{ fontSize: 10, color: co.muted }}>Instructs the model to avoid the 20 most common AI fiction tells. Adds a constraint block to every generation.</div>
+                        </div>
+                      </label>
                     </div>
                   )}
                 </div>
@@ -1525,6 +1536,21 @@ export default function WorldBiblePanel(props: Props) {
                 </div>
               </details>
             </div>
+            )}
+            {tKey === "char" && isStoryFormat(project.format) && (
+              <div style={{ marginBottom: 12 }}>
+                <span style={{ fontSize: 11, color: co.muted, marginBottom: 4, display: "block", fontWeight: 600 }}>Context Injection</span>
+                <select
+                  style={sInput}
+                  value={(data as any).contextVisibility ?? 'always'}
+                  onChange={e => setData((d: any) => ({ ...d, contextVisibility: e.target.value }))}
+                >
+                  <option value="always">Always inject (main characters — full profile every generation)</option>
+                  <option value="mentioned">When mentioned (secondary — inject only when they appear in the scene)</option>
+                  <option value="never">Never inject (background — no AI context cost)</option>
+                </select>
+                <div style={{ fontSize: 10, color: co.muted, marginTop: 4 }}>Set secondary characters to "When mentioned" to save context tokens.</div>
+              </div>
             )}
             {tKey === "plot" && <div style={{ marginBottom: 8 }}><span style={{ fontSize: 11, color: co.muted, marginBottom: 2, display: "block", fontWeight: 600 }}>Status</span><select style={sInput} value={newPlot.status} onChange={e => setNewPlot((t: any) => ({ ...t, status: e.target.value }))}><option>Active</option><option>Simmering</option><option>Resolved</option></select></div>}
             <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 12 }}>

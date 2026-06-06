@@ -8,7 +8,7 @@ import type { FeatureGate, SubscriptionTier } from "@/types/subscription";
 import { FEATURE_ACCESS } from "@/types/subscription";
 
 export const MONTHLY_GENERATION_LIMITS: Record<string, number> = {
-  free:        30,
+  free:        10,   // Haiku-routed — habit-forming, low cost (~$0.08/month)
   story_pro:   500,
   creator_pro: 500,
   all_access:  -1, // unlimited
