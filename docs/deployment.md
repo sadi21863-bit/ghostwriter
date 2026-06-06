@@ -231,7 +231,7 @@ Before going live:
 - [ ] Stripe webhook endpoint configured and verified
 - [x] Resend domain verified and DNS propagated *(done 2026-06-05)*
 - [ ] Test a complete payment flow end-to-end (Stripe test mode → live mode)
-- [ ] **⚠️ Change `NEXTAUTH_URL` to `https://www.ghost-writer.cc`** (www required — apex 308s to www breaking auth callbacks)
+- [x] `NEXTAUTH_URL` set to `https://www.ghost-writer.cc` *(done 2026-06-06 — www required; apex 308s to www)*
 - [x] Custom domain `ghost-writer.cc` added to Vercel and env vars updated *(done 2026-06-05)*
 - [x] Sentry configured — DSN hardcoded in `sentry.*.config.ts`; add `NEXT_PUBLIC_SENTRY_DSN` to Vercel for explicitness *(done 2026-06-05)*
 - [ ] GrowthBook configured for feature flags (optional)

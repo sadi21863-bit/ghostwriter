@@ -64,6 +64,6 @@ Application-level ownership checks only. Never use Supabase RLS. Always call get
 7. ✅ Resend domain + DNS configured
 8. ✅ DB indexes restored via `node scripts/add-indexes.js` (10 indexes, 2026-06-06)
 9. ⏳ Create Stripe products and add price IDs to Vercel env vars (India invite-only — pending approval)
-10. ⚠️ Change NEXTAUTH_URL in Vercel to https://www.ghost-writer.cc (www required — apex redirects to www, breaking auth callbacks)
+10. ✅ NEXTAUTH_URL set to https://www.ghost-writer.cc in Vercel (2026-06-06)
 11. ✅ Sprint 22 schema pushed: universes, universe_characters, project_character_states, universe_events tables; storyType/universeId/timelineSort/phase/seriesParentId on projects; storylineId on chapters (2026-06-06)
 12. Production URL: https://www.ghost-writer.cc
