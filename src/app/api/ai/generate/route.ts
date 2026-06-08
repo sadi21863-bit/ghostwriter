@@ -239,6 +239,9 @@ export async function POST(req: Request) {
     if (mode === 'brainstorm') {
       effectivePrompt = prompt + `\n\nReturn exactly 3 distinct structural approaches as options. Do not pick one.\nFormat strictly:\n\nOPTION A — [SHORT NAME]:\n[2-3 sentences describing the structural direction, opening, key tension]\n\nOPTION B — [SHORT NAME]:\n[2-3 sentences describing a different structural direction]\n\nOPTION C — [SHORT NAME]:\n[2-3 sentences describing a third structural direction]\n\n---\nEach option must represent a genuinely different creative direction, not variations of the same idea.\nOne option should subvert expectations.`;
     }
+    else if (mode === 'outline') {
+      effectivePrompt = prompt + `\n\nFormat each beat as a numbered list item starting with "BEAT:":\nBEAT: [beat description in present tense, 1-2 sentences]\n\nGenerate 6-12 beats appropriate for this story. Each beat should describe what happens in the scene and what changes as a result.`;
+    }
 
     // AIisms check + series/universe context (fetch project once for both)
     let aiismsNote = '';
@@ -255,8 +258,41 @@ export async function POST(req: Request) {
       }
     }
 
-    const effectiveDynamic = [dynamicContext, additionalContext, seriesUniverseCtx, aiismsNote].filter(Boolean).join('\n\n');
-    const r = await generate({ mode, prompt: effectivePrompt, context, staticContext, dynamicContext: effectiveDynamic, format, narrativeStructure, overrideModel });
+    // Series/universe context belongs in the static (cached) block — it doesn't change mid-session
+    const effectiveStatic = seriesUniverseCtx
+      ? (staticContext ?? '') + '\n\n---\n' + seriesUniverseCtx
+      : staticContext;
+
+    const RESEARCH_MODES = new Set(['historical', 'scitech', 'sports', 'setting']);
+    let domainResearchContext = '';
+
+    if (RESEARCH_MODES.has(mode) && process.env.GEMINI_API_KEY) {
+      try {
+        const { GoogleGenAI } = await import('@google/genai');
+        const gemini = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+
+        const researchMsg = await gemini.models.generateContent({
+          model: 'gemini-3.5-flash',
+          contents: [{
+            text: `Quick domain research for fiction writing accuracy:
+Topic: "${prompt}"
+Mode: ${mode}
+
+Provide 3-5 specific, accurate facts that a writer would need to portray this
+authentically. Focus on technical accuracy and realistic detail. Be brief.
+Do NOT write the scene — just provide the accurate factual grounding.`,
+          }],
+        });
+
+        const facts = researchMsg.text;
+        if (facts && facts.trim().length > 50) {
+          domainResearchContext = `\nDOMAIN ACCURACY NOTES (verified for this scene):\n${facts}\n`;
+        }
+      } catch { /* domain research failure must never block generation */ }
+    }
+
+    const effectiveDynamic = [dynamicContext, additionalContext, aiismsNote, domainResearchContext].filter(Boolean).join('\n\n');
+    const r = await generate({ mode, prompt: effectivePrompt, context, staticContext: effectiveStatic, dynamicContext: effectiveDynamic, format, narrativeStructure, overrideModel });
     await db.insert(generations).values({
       projectId, chapterId: chapterId || null, mode, prompt,
       output: r.text, model: r.model, tokensUsed: r.tokensUsed,

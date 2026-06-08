@@ -224,6 +224,34 @@ export function useAIActions({
     setGenerating(false); setGenTarget("");
   };
 
+  const expandBeat = async (beatText: string) => {
+    const effectivePrompt = `Write this scene: ${beatText}`;
+    const extended = { ...project, activeMode: 'write', currentPrompt: effectivePrompt, activeInfluence, activePatterns };
+    let staticCtx: string;
+    let dynamicCtx: string;
+    if (isCreatorFormat(project.format)) {
+      staticCtx = buildCreatorContext({ ...extended, creatorBible });
+      dynamicCtx = '';
+    } else if (project.skillLevel === 'beginner') {
+      staticCtx = buildBeginnerContext(extended);
+      dynamicCtx = '';
+    } else {
+      staticCtx = buildStaticContext(extended);
+      dynamicCtx = buildDynamicContext(extended);
+    }
+    const neighbourCtx = buildNeighbourContext(project);
+    if (neighbourCtx) dynamicCtx += '\n\n' + neighbourCtx;
+
+    const r = await callAI("generate", { mode: 'write', prompt: effectivePrompt, staticContext: staticCtx, dynamicContext: dynamicCtx, format: project.format, projectId: project.id, chapterId: activeChap.id, narrativeStructure: (project as any).narrativeStructure });
+    if (r.error || !r.text) {
+      throw new Error(r.error || 'Expansion failed');
+    }
+    setUndoStack(s => [...s.slice(-9), activeChap.content]);
+    const merged = appendToTipTap(activeChap.content, r.text);
+    updateChapter("content", merged);
+    updateChapter("wordCount", getWordCount(merged));
+  };
+
   const runQualityCheck = async (output: string, projectId: string) => {
     try {
       const res = await fetch(`/api/projects/${projectId}/quality-check`, {
@@ -801,7 +829,7 @@ export function useAIActions({
     hookScore, hookScoring,
     qualityReview, setQualityReview,
     callAI, buildNeighbourContext, buildFullContext,
-    generate, undoGeneration, autoSummarize, generateDialogue, generateCombat,
+    generate, expandBeat, undoGeneration, autoSummarize, generateDialogue, generateCombat,
     generateEmotionalScene, generateAtmosphere, generateTension, generateComposition,
     generateHorror, generateComedy, generateMystery, generateRomance, generateAction,
     generateMonologue, generateVoice, generateThriller, generateSports,

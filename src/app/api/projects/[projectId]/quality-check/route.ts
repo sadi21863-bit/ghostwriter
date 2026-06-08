@@ -31,6 +31,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ pro
 
   const owned = await db.query.projects.findFirst({
     where: and(eq(projects.id, (await params).projectId), eq(projects.userId, session.user.id)),
+    columns: { id: true, storyType: true, universeId: true },
   });
   if (!owned) return NextResponse.json({ error: 'Not found' }, { status: 404 });
 
@@ -99,6 +100,30 @@ No other text.`;
   const tier1 = parseJson(t1Text) ?? { ruleViolations: [], knowledgeViolations: [], povBreaks: [] };
   const tier2 = parseJson(t2Text) ?? { slopMarkers: [], overallSignal: 'acceptable' };
 
+  let suggestedCanonEvents: { name: string; description: string }[] = [];
+
+  if ((owned as any).storyType === 'universe-story' && (owned as any).universeId) {
+    try {
+      const canonMsg = await client.messages.create({
+        model: MODELS.fast,
+        max_tokens: 200,
+        messages: [{
+          role: 'user',
+          content: `Given this story chapter, list any events significant enough to become universe canon — events that would affect other stories set in the same universe AFTER this one.
+Return ONLY a JSON array: [{"name":"...","description":"..."}]
+Return [] if nothing is universe-significant.
+
+CHAPTER:
+${body.output.slice(0, 3000)}`,
+        }],
+      });
+      const canonText = canonMsg.content.filter(b => b.type === 'text').map(b => (b as any).text).join('');
+      const cleanText = canonText.replace(/```json\n?|```/g, '').trim();
+      const parsed = JSON.parse(cleanText);
+      if (Array.isArray(parsed)) suggestedCanonEvents = parsed.slice(0, 3);
+    } catch { /* canon suggestion must never break quality check */ }
+  }
+
   return NextResponse.json({
     ruleViolations:      tier1.ruleViolations ?? [],
     knowledgeViolations: tier1.knowledgeViolations ?? [],
@@ -110,5 +135,6 @@ No other text.`;
       (tier1.knowledgeViolations?.length ?? 0) > 0 ||
       (tier2.slopMarkers?.length ?? 0) > 2
     ),
+    suggestedCanonEvents,
   });
 }

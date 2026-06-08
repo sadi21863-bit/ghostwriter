@@ -285,6 +285,7 @@ export default function GhostWriterApp({ projectId }: { projectId: string }) {
         hookScoring={aiActions.hookScoring}
         scoreHook={aiActions.scoreHook}
         generate={aiActions.generate}
+        expandBeat={aiActions.expandBeat}
         generateDialogue={aiActions.generateDialogue}
         updateProject={projectState.updateProject}
         handleTextareaSelect={aiActions.handleTextareaSelect}
@@ -465,6 +466,7 @@ export default function GhostWriterApp({ projectId }: { projectId: string }) {
         <QualityReviewPanel
           review={aiActions.qualityReview}
           onDismiss={() => aiActions.setQualityReview(null)}
+          project={project}
         />
       )}
 

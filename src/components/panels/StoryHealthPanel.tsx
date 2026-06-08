@@ -2,6 +2,7 @@
 import { useState, useEffect } from "react";
 import { TensionCurve } from "@/components/TensionCurve";
 import { ArcHeatMap } from "@/components/ArcHeatMap";
+import { toast } from '@/lib/toast';
 
 const SCENE_PURPOSES = [
   { id: "plot-advance", label: "Plot Advance" },
@@ -33,7 +34,7 @@ interface StoryHealthPanelProps {
 }
 
 export function StoryHealthPanel({ project, projectId, activeChapContent, onClose }: StoryHealthPanelProps) {
-  const [tab, setTab] = useState<"validator" | "dead-scenes" | "theme" | "tension" | "transport" | "promises" | "heatmap" | "checkpoints">("validator");
+  const [tab, setTab] = useState<"validator" | "dead-scenes" | "theme" | "tension" | "transport" | "promises" | "heatmap" | "checkpoints" | "audit">("validator");
 
   // Checkpoints state
   const [checkpoints, setCheckpoints] = useState<any[]>([]);
@@ -70,6 +71,10 @@ export function StoryHealthPanel({ project, projectId, activeChapContent, onClos
   const [analysingTheme, setAnalysingTheme] = useState(false);
   const [themeResult, setThemeResult] = useState<any>(null);
   const [themeError, setThemeError] = useState("");
+
+  // Manuscript Audit state
+  const [auditRunning, setAuditRunning] = useState(false);
+  const [auditResult, setAuditResult] = useState<any>(null);
 
   useEffect(() => {
     fetch(`/api/projects/${projectId}/story-state`)
@@ -203,6 +208,26 @@ export function StoryHealthPanel({ project, projectId, activeChapContent, onClos
     setAnalysingTheme(false);
   };
 
+  const handleRunAudit = async () => {
+    setAuditRunning(true);
+    setAuditResult(null);
+    try {
+      const res = await fetch(`/api/projects/${projectId}/knowledge-audit`, {
+        method: 'POST',
+      });
+      const data = await res.json();
+      if (data.error) {
+        toast.error(data.error);
+      } else {
+        setAuditResult(data);
+      }
+    } catch {
+      toast.error('Audit failed. Please try again.');
+    } finally {
+      setAuditRunning(false);
+    }
+  };
+
   const tabStyle = (active: boolean) => ({
     padding: "8px 14px", borderRadius: 6, border: "none", cursor: "pointer", fontSize: 13, fontWeight: active ? 600 : 400,
     background: active ? "#2a2a30" : "transparent",
@@ -261,6 +286,7 @@ export function StoryHealthPanel({ project, projectId, activeChapContent, onClos
             { id: "promises", label: "Story Promises" },
             { id: "heatmap", label: "Arc Heat Map" },
             { id: "checkpoints", label: "Checkpoints" },
+            { id: "audit", label: "Manuscript Audit" },
           ] as const).map(t => (
             <button key={t.id} onClick={() => setTab(t.id)} style={tabStyle(tab === t.id)}>{t.label}</button>
           ))}
@@ -741,6 +767,55 @@ export function StoryHealthPanel({ project, projectId, activeChapContent, onClos
                   </div>
                 </div>
               ))}
+            </div>
+          )}
+
+          {/* ── Manuscript Audit ── */}
+          {tab === "audit" && (
+            <div>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+                <div>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: "#F2F2F3" }}>Manuscript Audit</div>
+                  <div style={{ fontSize: 11, color: "#9898A6", marginTop: 2 }}>
+                    Full-manuscript consistency check. Finds character, timeline, and knowledge violations.
+                    Story Pro only.
+                  </div>
+                </div>
+                <button onClick={handleRunAudit} disabled={auditRunning} style={btnStyle(auditRunning)}>
+                  {auditRunning ? "Auditing…" : "Run audit"}
+                </button>
+              </div>
+
+              {auditResult && (
+                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                  <div style={{ fontSize: 11, color: "#9898A6" }}>
+                    {auditResult.chaptersAudited} chapters audited · {auditResult.issues?.length ?? 0} issues found
+                  </div>
+
+                  {auditResult.strengths?.map((s: string, i: number) => (
+                    <div key={i} style={{ padding: "8px 12px", background: "rgba(34,197,94,0.08)", borderRadius: 8, fontSize: 12, color: "#22c55e" }}>
+                      ✓ {s}
+                    </div>
+                  ))}
+
+                  {auditResult.issues?.map((issue: any, i: number) => (
+                    <div key={i} style={{
+                      padding: "10px 12px", borderRadius: 8,
+                      background: issue.severity === "high" ? "rgba(239,68,68,0.08)" : "rgba(245,158,11,0.08)",
+                      border: `1px solid ${issue.severity === "high" ? "rgba(239,68,68,0.25)" : "rgba(245,158,11,0.2)"}`,
+                    }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+                        <div style={{ fontSize: 12, fontWeight: 700, color: "#F2F2F3" }}>{issue.title}</div>
+                        <div style={{ fontSize: 10, color: "#9898A6" }}>Ch {issue.chapter} · {issue.severity}</div>
+                      </div>
+                      <div style={{ fontSize: 11, color: "#9898A6", marginBottom: 4 }}>{issue.description}</div>
+                      {issue.suggestion && (
+                        <div style={{ fontSize: 11, color: "#22c55e", fontStyle: "italic" }}>→ {issue.suggestion}</div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
         </div>

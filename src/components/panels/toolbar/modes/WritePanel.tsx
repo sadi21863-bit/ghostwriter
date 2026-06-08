@@ -2,6 +2,7 @@
 import { useRef, useState, useEffect } from "react";
 import { getLoadingMessage } from "@/lib/loadingMessages";
 import { co, sInput, sTextarea, sBtn, sBtnSm } from "@/lib/styles";
+import { toast } from '@/lib/toast';
 import { ProsePanel } from "../tools/ProsePanel";
 import { ScoreHookPanel } from "../tools/ScoreHookPanel";
 import { TitleHookPanel } from "../tools/TitleHookPanel";
@@ -32,6 +33,12 @@ function parseBrainstormOptions(text: string): { label: string; name: string; co
   });
 }
 
+function parseBeatList(text: string): string[] | null {
+  const lines = text.split('\n').filter(l => l.trim().startsWith('BEAT:'));
+  if (lines.length < 3) return null;
+  return lines.map(l => l.replace(/^BEAT:\s*/, '').trim());
+}
+
 interface Props {
   mode: string;
   project: any;
@@ -57,6 +64,7 @@ interface Props {
   hookScoring: boolean;
   scoreHook: () => Promise<void>;
   generate: (opts?: { cameraPresetId?: string; referencePassage?: string; additionalContext?: string }) => Promise<void>;
+  expandBeat: (beatText: string) => Promise<void>;
   cohostVoice: string;
   setCohostVoice: (v: string) => void;
   handleTextareaSelect?: (e: React.SyntheticEvent<HTMLTextAreaElement>) => void;
@@ -75,7 +83,7 @@ export function WritePanel({
   selectedText, setSelectedText, setSelectedRange,
   proseLoading, proseResult, setProseResult, runProse, replaceSelection,
   hookScore, hookScoring, scoreHook,
-  generate, cohostVoice, setCohostVoice, onUpgradeRequired, onSlashCommand,
+  generate, expandBeat, cohostVoice, setCohostVoice, onUpgradeRequired, onSlashCommand,
   skillSuggestion, onSkillSuggestionChange, onDismissSkillSuggestion, onAcceptSkillSuggestion,
 }: Props) {
   const saveTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
@@ -88,10 +96,14 @@ export function WritePanel({
   const [researchFirst, setResearchFirst] = useState(true);
   const [researchBrief, setResearchBrief] = useState("");
   const [researching, setResearching] = useState(false);
+  const [researchExpanded, setResearchExpanded] = useState(false);
   const [referenceUrl, setReferenceUrl] = useState("");
   const [referenceDirectives, setReferenceDirectives] = useState("");
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [selectedOption, setSelectedOption] = useState<number | null>(null);
+  const [expandedBeats, setExpandedBeats] = useState<Set<number>>(new Set());
+  const [expandingBeatIndex, setExpandingBeatIndex] = useState<number | null>(null);
+  const [expandingBeats, setExpandingBeats] = useState(false);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -114,6 +126,28 @@ export function WritePanel({
         body: JSON.stringify({ [field]: value }),
       });
     } catch { /* silent */ }
+  };
+
+  const handleExpandBeat = async (beat: string, index: number) => {
+    setExpandingBeatIndex(index);
+    try {
+      await expandBeat(beat);
+      setExpandedBeats(prev => new Set([...prev, index]));
+    } catch {
+      toast.error('Expansion failed');
+    } finally {
+      setExpandingBeatIndex(null);
+    }
+  };
+
+  const handleExpandAllBeats = async (beats: string[]) => {
+    setExpandingBeats(true);
+    for (let i = 0; i < beats.length; i++) {
+      if (expandedBeats.has(i)) continue;
+      await handleExpandBeat(beats[i], i);
+      await new Promise(resolve => setTimeout(resolve, 500));
+    }
+    setExpandingBeats(false);
   };
 
   const handleEditorChange = (json: string, wordCount: number) => {
@@ -298,6 +332,49 @@ export function WritePanel({
                   </div>
                 );
               }
+              const beats = mode === 'outline' ? parseBeatList(streamText) : null;
+              if (beats) {
+                return (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                      <div style={{ fontSize: 12, color: co.muted }}>{beats.length} beats generated</div>
+                      <button
+                        onClick={() => handleExpandAllBeats(beats)}
+                        disabled={expandingBeats}
+                        style={{ ...sBtnSm, fontSize: 11, opacity: expandingBeats ? 0.6 : 1, cursor: expandingBeats ? 'default' : 'pointer' }}
+                      >
+                        {expandingBeats ? 'Expanding...' : 'Expand all to draft →'}
+                      </button>
+                    </div>
+                    {beats.map((beat, i) => (
+                      <div key={i} style={{
+                        padding: '10px 12px', borderRadius: 8,
+                        background: expandedBeats.has(i) ? co.accentBg : co.surface,
+                        border: `1px solid ${expandedBeats.has(i) ? co.accent : co.border}`,
+                      }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                          <div style={{ flex: 1 }}>
+                            <span style={{ fontSize: 10, fontWeight: 700, color: co.muted, marginRight: 6 }}>BEAT {i + 1}</span>
+                            <span style={{ fontSize: 12, color: co.text }}>{beat}</span>
+                          </div>
+                          {!expandedBeats.has(i) && (
+                            <button
+                              onClick={() => handleExpandBeat(beat, i)}
+                              disabled={expandingBeatIndex === i}
+                              style={{ ...sBtnSm, marginLeft: 8, flexShrink: 0, fontSize: 10, opacity: expandingBeatIndex === i ? 0.6 : 1, cursor: expandingBeatIndex === i ? 'default' : 'pointer' }}
+                            >
+                              {expandingBeatIndex === i ? '...' : 'Expand →'}
+                            </button>
+                          )}
+                          {expandedBeats.has(i) && (
+                            <span style={{ fontSize: 10, color: co.green, marginLeft: 8, flexShrink: 0 }}>✓ Added</span>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                );
+              }
               return <div style={{ whiteSpace: "pre-wrap", fontSize: 15, lineHeight: 1.8, fontFamily: "Georgia,serif" }}>{streamText}</div>;
             })()
           ) : (
@@ -362,9 +439,32 @@ export function WritePanel({
             </div>
           </label>
           {researchBrief && (
-            <div style={{ marginTop: 8, padding: "8px 10px", background: co.surface, borderRadius: 6, fontSize: 11, color: co.muted, maxHeight: 100, overflowY: "auto", border: "1px solid " + co.border }}>
-              <div style={{ fontWeight: 600, marginBottom: 4, color: co.accent }}>Research brief ready ✓</div>
-              {researchBrief.slice(0, 300)}...
+            <div style={{
+              marginTop: 8, padding: '8px 10px',
+              background: 'rgba(29,158,117,0.05)',
+              border: '1px solid rgba(29,158,117,0.15)',
+              borderRadius: 6,
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontSize: 11, fontWeight: 600, color: co.accent }}>
+                  ✓ Research brief ready
+                </span>
+                <button
+                  onClick={() => setResearchExpanded(e => !e)}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer',
+                           fontSize: 10, color: co.muted }}
+                >
+                  {researchExpanded ? 'Hide ▲' : 'View ▼'}
+                </button>
+              </div>
+              {researchExpanded && (
+                <div style={{
+                  marginTop: 6, fontSize: 11, color: co.muted,
+                  whiteSpace: 'pre-wrap', maxHeight: 200, overflowY: 'auto',
+                }}>
+                  {researchBrief}
+                </div>
+              )}
             </div>
           )}
         </div>

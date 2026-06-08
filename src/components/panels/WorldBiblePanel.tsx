@@ -6,6 +6,7 @@ import { GENRE_DEFAULT_RULES } from "@/lib/ai/genre-rules";
 import { isCreatorFormat, isStoryFormat, FORMATS, GENRES, STYLE_ATTRS, DEFAULT_CHAR, DEFAULT_LOC, DEFAULT_PLOT, CharFields, LocFields, PlotFields } from "@/lib/formats";
 import { EmptyState } from "@/components/EmptyState";
 import { extractVoiceFingerprint } from "@/lib/ai/voice-fingerprint";
+import { CapabilityIndicator } from '@/components/panels/CapabilityIndicator';
 
 const entityApiPath: Record<string, string> = { characters: "characters", locations: "locations", plotThreads: "plot-threads" };
 
@@ -423,9 +424,16 @@ export default function WorldBiblePanel(props: Props) {
   return (
     <>
       <div style={{ width: leftCollapsed ? 48 : 300, minWidth: leftCollapsed ? 48 : 300, background: co.surface, borderRight: "1px solid " + co.border, display: "flex", flexDirection: "column", transition: "all 0.2s", overflow: "hidden" }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 10px", borderBottom: "1px solid " + co.border }}>
-          {!leftCollapsed && <><span style={{ fontSize: 15, fontWeight: 800, color: co.accent }}>GhostWriter</span><span style={{ fontSize: 9, fontWeight: 600, color: co.muted, background: co.accentBg, padding: "2px 8px", borderRadius: 4 }}>{project.skillLevel === "beginner" ? "🎯 Beginner" : "⭐ Expert"}</span></>}
-          <button style={{ background: "none", border: "none", color: co.muted, cursor: "pointer", fontSize: 14, padding: "4px" }} onClick={() => setLeftCollapsed(!leftCollapsed)}>{leftCollapsed ? "▶" : "◀"}</button>
+        <div style={{ padding: "12px 10px", borderBottom: "1px solid " + co.border }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            {!leftCollapsed && <><span style={{ fontSize: 15, fontWeight: 800, color: co.accent }}>GhostWriter</span><span style={{ fontSize: 9, fontWeight: 600, color: co.muted, background: co.accentBg, padding: "2px 8px", borderRadius: 4 }}>{project.skillLevel === "beginner" ? "🎯 Beginner" : "⭐ Expert"}</span></>}
+            <button style={{ background: "none", border: "none", color: co.muted, cursor: "pointer", fontSize: 14, padding: "4px" }} onClick={() => setLeftCollapsed(!leftCollapsed)}>{leftCollapsed ? "▶" : "◀"}</button>
+          </div>
+          {!leftCollapsed && (
+            <div style={{ marginTop: 8 }}>
+              <CapabilityIndicator project={project} characters={project.characters ?? []} compact />
+            </div>
+          )}
         </div>
         {!leftCollapsed && <>
           <div style={{ display: "flex", borderBottom: "1px solid " + co.border }}>
@@ -577,6 +585,9 @@ export default function WorldBiblePanel(props: Props) {
               </div>
             ) : leftTab === "bible" ? (
               <>
+                <div style={{ marginBottom: 14 }}>
+                  <CapabilityIndicator project={project} characters={project.characters ?? []} />
+                </div>
                 <div style={{ marginBottom: 12 }}>
                   <label style={{ fontSize: 10, fontWeight: 700, color: co.accent, textTransform: "uppercase" }}>Project</label>
                   <input style={{ ...sInput, marginTop: 4, fontWeight: 700 }} value={project.name} onChange={e => updateProject((p: any) => ({ ...p, name: e.target.value }))} />

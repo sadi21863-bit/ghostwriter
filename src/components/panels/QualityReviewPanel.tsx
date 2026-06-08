@@ -1,5 +1,7 @@
 'use client';
 
+import { toast } from '@/lib/toast';
+
 interface Issue {
   type?: string; rule?: string; violation?: string; character?: string;
   entity?: string; state?: string; text?: string; suggestion?: string; severity?: string;
@@ -10,14 +12,39 @@ interface QualityReview {
   knowledgeViolations: Issue[];
   slopMarkers: Issue[];
   overallSignal: 'strong' | 'acceptable' | 'weak';
+  suggestedCanonEvents?: { name: string; description: string }[];
 }
 
 interface Props {
   review: QualityReview;
   onDismiss: () => void;
+  project?: any;
 }
 
-export function QualityReviewPanel({ review, onDismiss }: Props) {
+export function QualityReviewPanel({ review, onDismiss, project }: Props) {
+
+  const handleAddCanonEvent = async (ev: { name: string; description: string }) => {
+    const universeId = project?.universeId;
+    if (!universeId) return;
+    try {
+      const res = await fetch(`/api/universes/${universeId}/events`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: ev.name,
+          description: ev.description,
+          projectId: project?.id,
+          timelineSort: Date.now(),
+          isCanon: true,
+        }),
+      });
+      if (res.ok) {
+        toast.success(`"${ev.name}" added to universe canon`);
+      }
+    } catch {
+      toast.error('Failed to add canon event');
+    }
+  };
   const totalIssues = review.ruleViolations.length +
     review.knowledgeViolations.length +
     review.slopMarkers.length;
@@ -79,6 +106,30 @@ export function QualityReviewPanel({ review, onDismiss }: Props) {
             {s.suggestion && <div style={{ fontSize: 11, color: '#6b7280' }}>→ {s.suggestion}</div>}
           </div>
         ))}
+
+        {review.suggestedCanonEvents && review.suggestedCanonEvents.length > 0 && (
+          <div style={{ padding: '8px 14px', borderBottom: '1px solid var(--border, #2a2a3e)' }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: '#d97706', marginBottom: 8 }}>
+              UNIVERSE EVENTS — add to canon?
+            </div>
+            {review.suggestedCanonEvents.map((ev, i) => (
+              <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, marginBottom: 6 }}>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 12, fontWeight: 600, color: '#e5e7eb' }}>{ev.name}</div>
+                  <div style={{ fontSize: 11, color: '#9ca3af' }}>{ev.description}</div>
+                </div>
+                <button
+                  onClick={() => handleAddCanonEvent(ev)}
+                  style={{ fontSize: 10, padding: '3px 8px', borderRadius: 4,
+                           background: '#d97706', color: '#fff', border: 'none', cursor: 'pointer',
+                           flexShrink: 0 }}
+                >
+                  Add →
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
 
         {review.slopMarkers.length > 4 && (
           <div style={{ padding: '6px 14px', fontSize: 11, color: '#6b7280' }}>

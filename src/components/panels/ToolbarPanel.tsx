@@ -94,6 +94,7 @@ interface Props {
   hookScoring: boolean;
   scoreHook: () => Promise<void>;
   generate: (opts?: { cameraPresetId?: string }) => Promise<void>;
+  expandBeat: (beatText: string) => Promise<void>;
   generateDialogue: (charAId: string, charBId: string, prompt: string, archetypeName: string) => Promise<void>;
   generateCombat: (styleA: string, styleB: string, prompt: string) => Promise<void>;
   updateProject: (fn: any) => void;
@@ -206,7 +207,7 @@ export default function ToolbarPanel(props: Props) {
     pipelineRunning, pipelineResults, setPipelineResults, expandedAgent, setExpandedAgent, activePipelineId,
     runPipeline, usePipelineOutput,
     selectedText, setSelectedText, setSelectedRange, proseLoading, proseResult, setProseResult, runProse, replaceSelection,
-    hookScore, hookScoring, scoreHook, generate, generateDialogue, generateCombat, updateProject, handleTextareaSelect, setSavedMsg,
+    hookScore, hookScoring, scoreHook, generate, expandBeat, generateDialogue, generateCombat, updateProject, handleTextareaSelect, setSavedMsg,
     dialogueCharA, setDialogueCharA, dialogueCharB, setDialogueCharB,
     dialogueArchetype, setDialogueArchetype,
     combatStyleA, setCombatStyleA, combatStyleB, setCombatStyleB,
@@ -675,6 +676,7 @@ export default function ToolbarPanel(props: Props) {
             hookScoring={hookScoring}
             scoreHook={scoreHook}
             generate={generate}
+            expandBeat={expandBeat}
             cohostVoice={cohostVoice}
             setCohostVoice={setCohostVoice}
             handleTextareaSelect={handleTextareaSelect}
