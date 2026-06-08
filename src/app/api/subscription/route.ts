@@ -13,9 +13,12 @@ import type { SubscriptionTier } from "@/types/subscription";
 import { track } from "@/lib/analytics";
 
 function getRazorpay() {
+  if (!process.env.RAZORPAY_KEY_ID || !process.env.RAZORPAY_KEY_SECRET) {
+    return null;
+  }
   return new Razorpay({
-    key_id: process.env.RAZORPAY_KEY_ID!,
-    key_secret: process.env.RAZORPAY_KEY_SECRET!,
+    key_id: process.env.RAZORPAY_KEY_ID,
+    key_secret: process.env.RAZORPAY_KEY_SECRET,
   });
 }
 
@@ -41,6 +44,14 @@ export async function GET() {
 // POST — create a Razorpay subscription; the client opens the checkout overlay with the returned id
 export async function POST(req: Request) {
   const session = await getRequiredSession();
+
+  const razorpay = getRazorpay();
+  if (!razorpay) {
+    return NextResponse.json({
+      error: 'Payments not configured yet. Please try again later.',
+    }, { status: 503 });
+  }
+
   const { tier, billingPeriod } = await req.json() as {
     tier: SubscriptionTier;
     billingPeriod?: 'monthly' | 'annual';
@@ -54,10 +65,10 @@ export async function POST(req: Request) {
   const period = billingPeriod === 'annual' ? 'annual' : 'monthly';
   const planId = RAZORPAY_PLANS[tier]?.[period];
   if (!planId) {
-    return NextResponse.json({ error: "Plan not configured. Add RAZORPAY_*_PLAN_ID to environment variables." }, { status: 500 });
+    return NextResponse.json({
+      error: 'This plan is not available yet. Please try again later.',
+    }, { status: 503 });
   }
-
-  const razorpay = getRazorpay();
 
   // total_count = number of billing cycles before the subscription auto-expires.
   // Set to ~10 years out — the subscription effectively renews until the user cancels.
@@ -78,6 +89,14 @@ export async function POST(req: Request) {
 // DELETE — cancel subscription at the end of the current billing cycle
 export async function DELETE() {
   const session = await getRequiredSession();
+
+  const razorpay = getRazorpay();
+  if (!razorpay) {
+    return NextResponse.json({
+      error: 'Payments not configured yet. Please try again later.',
+    }, { status: 503 });
+  }
+
   const { db } = await import("@/db");
   const { subscriptions } = await import("@/db/schema");
   const { eq } = await import("drizzle-orm");
@@ -90,7 +109,6 @@ export async function DELETE() {
     return NextResponse.json({ error: "No active subscription" }, { status: 404 });
   }
 
-  const razorpay = getRazorpay();
   await razorpay.subscriptions.cancel(sub.razorpaySubscriptionId, true);
 
   return NextResponse.json({ success: true, cancelledAtPeriodEnd: true });

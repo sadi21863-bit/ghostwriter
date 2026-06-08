@@ -19,6 +19,13 @@ import type { SubscriptionTier } from "@/types/subscription";
 
 export async function POST(req: Request) {
   const session = await getRequiredSession();
+
+  if (!process.env.RAZORPAY_KEY_SECRET) {
+    return NextResponse.json({
+      error: 'Payment verification not configured.',
+    }, { status: 503 });
+  }
+
   const {
     razorpay_payment_id,
     razorpay_subscription_id,

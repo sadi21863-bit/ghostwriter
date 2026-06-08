@@ -63,7 +63,7 @@ export default async function Home() {
           Start writing free →
         </Link>
         <p style={{ fontSize: 12, color: '#5c5c6b', marginTop: 14 }}>
-          Free tier · No credit card required · Story Pro from $18/month
+          Free tier · No credit card required · Story Pro from ₹1,500/month
         </p>
       </section>
 
@@ -145,14 +145,14 @@ export default async function Home() {
               cta: 'Start free', highlighted: false, annualNote: null,
             },
             {
-              name: 'Story Pro', price: '$18', period: '/month',
+              name: 'Story Pro', price: '₹1,500', period: '/month',
               features: ['500 generations/month', 'All 26 writing modes', 'Full character intelligence', 'Quality grading', 'Manuscript export (DOCX/PDF/EPUB)', 'Series Bible'],
-              cta: 'Start 7-day trial', highlighted: true, annualNote: 'or $172/year',
+              cta: 'Start 7-day trial', highlighted: true, annualNote: 'or ₹14,400/year',
             },
             {
-              name: 'All Access', price: '$28', period: '/month',
+              name: 'All Access', price: '₹2,500', period: '/month',
               features: ['Unlimited generations', 'Everything in Story Pro', 'Creator formats', 'Higgsfield pipeline', 'Comic Studio · Audio Novel', 'Priority generation'],
-              cta: 'Start 7-day trial', highlighted: false, annualNote: 'or $268/year',
+              cta: 'Start 7-day trial', highlighted: false, annualNote: 'or ₹24,000/year',
             },
           ].map(plan => (
             <div key={plan.name} style={{
