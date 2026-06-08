@@ -84,6 +84,23 @@ export const STRIPE_PRICES = {
   all_access_annual:  process.env.STRIPE_ALL_ACCESS_ANNUAL_PRICE_ID  ?? "",
 } as const;
 
+// ── Razorpay plan IDs (created manually in Razorpay dashboard) ─────────────
+
+export const RAZORPAY_PLANS: Record<string, Record<string, string>> = {
+  story_pro: {
+    monthly: process.env.RAZORPAY_STORY_PRO_MONTHLY_PLAN_ID ?? '',
+    annual:  process.env.RAZORPAY_STORY_PRO_ANNUAL_PLAN_ID  ?? '',
+  },
+  creator_pro: {
+    monthly: process.env.RAZORPAY_STORY_PRO_MONTHLY_PLAN_ID ?? '',
+    annual:  process.env.RAZORPAY_STORY_PRO_ANNUAL_PLAN_ID  ?? '',
+  },
+  all_access: {
+    monthly: process.env.RAZORPAY_ALL_ACCESS_MONTHLY_PLAN_ID ?? '',
+    annual:  process.env.RAZORPAY_ALL_ACCESS_ANNUAL_PLAN_ID  ?? '',
+  },
+};
+
 // ── Free tier limits ───────────────────────────────────────────────────────
 
 export const FREE_TIER_LIMITS = {

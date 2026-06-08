@@ -1,3 +1,31 @@
+const SUBSCRIPTION_TIER_NAMES: Record<string, string> = {
+  story_pro: "Story Pro",
+  creator_pro: "Creator Pro",
+  all_access: "All Access",
+};
+
+export function subscriptionConfirmedEmail(name: string, tier: string): { subject: string; html: string; text: string } {
+  const tierName = SUBSCRIPTION_TIER_NAMES[tier] ?? tier;
+  return {
+    subject: `Welcome to GhostWriter ${tierName}`,
+    text: `Hi ${name || 'there'},\n\nYour ${tierName} subscription is now active — everything in ${tierName} is unlocked.\n\nJump back in: https://www.ghost-writer.cc/dashboard\nManage your subscription any time from Settings.\n\n— GhostWriter`,
+    html: `
+      <div style="font-family:Georgia,serif;max-width:600px;margin:0 auto;padding:40px 24px;">
+        <h2 style="font-size:20px;">Welcome to ${tierName}</h2>
+        <p style="font-size:15px;line-height:1.7;color:#333;">
+          Your ${tierName} subscription is now active. Everything included in ${tierName}
+          is unlocked on your account.
+        </p>
+        <a href="https://www.ghost-writer.cc/dashboard"
+           style="display:inline-block;margin-top:20px;padding:12px 28px;
+                  background:#4F46E5;color:#fff;text-decoration:none;
+                  border-radius:8px;font-size:15px;">
+          Open GhostWriter →
+        </a>
+      </div>`,
+  };
+}
+
 export function welcomeEmail(name: string): { subject: string; html: string; text: string } {
   return {
     subject: "Welcome to GhostWriter — let's write something real",

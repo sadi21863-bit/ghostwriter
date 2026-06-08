@@ -1,7 +1,6 @@
 "use client";
 import { useState } from "react";
-import ComicStudio from "@/components/ComicStudio";
-import ProductionStudio from "@/components/ProductionStudio";
+import dynamic from "next/dynamic";
 import { MODES, PODCAST_MODES, isStoryFormat, isCreatorFormat } from "@/lib/formats";
 import { co, sBtn, sBtnSm } from "@/lib/styles";
 
@@ -50,6 +49,9 @@ import { CreatorSEOPanel } from "./toolbar/tools/CreatorSEOPanel";
 import type { HookScore, ProseResult } from "./toolbar/types";
 import type { CompositionLayer } from "@/lib/ai/composer";
 import type { Pipeline } from "@/lib/ai/pipelines";
+
+const ComicStudio      = dynamic(() => import("@/components/ComicStudio"), { ssr: false });
+const ProductionStudio = dynamic(() => import("@/components/ProductionStudio"), { ssr: false });
 
 interface Props {
   project: any;

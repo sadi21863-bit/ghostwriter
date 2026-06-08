@@ -350,6 +350,8 @@ export const subscriptions = pgTable("subscriptions", {
   userId: uuid("user_id").notNull().unique().references(() => users.id, { onDelete: "cascade" }),
   stripeCustomerId: text("stripe_customer_id").notNull().default(""),
   stripeSubscriptionId: text("stripe_subscription_id"),
+  razorpaySubscriptionId: text("razorpay_subscription_id"),
+  razorpayPaymentId: text("razorpay_payment_id"),
   // "free" | "story_pro" | "creator_pro" | "all_access"
   tier: text("tier").notNull().default("free"),
   // "active" | "cancelled" | "past_due" | "trialing"

@@ -1,5 +1,13 @@
 "use client";
 import { useEffect, useState } from "react";
+import { useSession } from "next-auth/react";
+import Script from "next/script";
+import { toast } from "@/lib/toast";
+import { ToastContainer } from "@/components/ToastContainer";
+
+declare global {
+  interface Window { Razorpay: any; }
+}
 
 type Settings = {
   higgsfieldKeySet: boolean; higgsfieldKeyLast4: string;
@@ -16,12 +24,14 @@ type Subscription = {
 };
 
 export default function SettingsPage() {
+  const { data: session } = useSession();
   const [settings, setSettings] = useState<Settings | null>(null);
   const [subscription, setSubscription] = useState<Subscription | null>(null);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
-  const [portalLoading, setPortalLoading] = useState(false);
   const [upgradeLoading, setUpgradeLoading] = useState(false);
+  const [cancelLoading, setCancelLoading] = useState(false);
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const [billingPeriod, setBillingPeriod] = useState<'monthly' | 'annual'>('monthly');
   const [referrals, setReferrals] = useState<any[]>([]);
   const [user, setUser] = useState<any>(null);
@@ -38,20 +48,6 @@ export default function SettingsPage() {
       if (data.referrals) setReferrals(data.referrals);
       if (data.user) setUser(data.user);
     }).catch(() => {});
-  }, []);
-
-  // Handle ?upgraded=1 query param
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      const params = new URLSearchParams(window.location.search);
-      if (params.get("upgraded") === "1") {
-        setSaved(true);
-        setTimeout(() => setSaved(false), 4000);
-        window.history.replaceState({}, "", "/settings");
-        // Refresh subscription info
-        fetch("/api/subscription").then(r => r.json()).then(setSubscription);
-      }
-    }
   }, []);
 
   const save = async () => {
@@ -73,33 +69,80 @@ export default function SettingsPage() {
     setHiggsfieldApiKey(""); setHiggsfieldApiSecret(""); setOpenaiApiKey(""); setTrendKey("");
   };
 
-  const openBillingPortal = async () => {
-    setPortalLoading(true);
-    const res = await fetch("/api/subscription/portal", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ returnUrl: window.location.href }),
-    });
-    const { url } = await res.json();
-    if (url) window.location.href = url;
-    setPortalLoading(false);
-  };
+  const refreshSubscription = () => fetch("/api/subscription").then(r => r.json()).then(setSubscription);
 
   const openUpgradeCheckout = async (tier: string) => {
+    if (typeof window === "undefined" || !window.Razorpay) {
+      toast.error("Checkout is still loading — try again in a moment.");
+      return;
+    }
     setUpgradeLoading(true);
-    const res = await fetch("/api/subscription", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        tier,
-        billingPeriod,
-        successUrl: `${window.location.origin}/settings?upgraded=1`,
-        cancelUrl: window.location.href,
-      }),
-    });
-    const { url } = await res.json();
-    if (url) window.location.href = url;
-    setUpgradeLoading(false);
+    try {
+      const res = await fetch("/api/subscription", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tier, billingPeriod }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.subscriptionId) {
+        toast.error(data.error ?? "Could not start checkout. Please try again.");
+        setUpgradeLoading(false);
+        return;
+      }
+
+      const checkout = new window.Razorpay({
+        key: data.keyId,
+        subscription_id: data.subscriptionId,
+        name: "GhostWriter",
+        description: `${tier.replace("_", " ")} subscription`,
+        prefill: {
+          name: session?.user?.name ?? undefined,
+          email: session?.user?.email ?? undefined,
+        },
+        theme: { color: "#4F46E5" },
+        modal: { ondismiss: () => setUpgradeLoading(false) },
+        handler: async (response: { razorpay_payment_id: string; razorpay_subscription_id: string; razorpay_signature: string }) => {
+          const verifyRes = await fetch("/api/subscription/verify", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ ...response, tier }),
+          });
+          if (verifyRes.ok) {
+            toast.success("Plan upgraded successfully");
+            await refreshSubscription();
+          } else {
+            toast.error("Payment received but verification failed — contact support if your plan doesn't update shortly.");
+          }
+          setUpgradeLoading(false);
+        },
+      });
+      checkout.on("payment.failed", () => {
+        toast.error("Payment failed. Please try again.");
+        setUpgradeLoading(false);
+      });
+      checkout.open();
+    } catch {
+      toast.error("Could not start checkout. Please try again.");
+      setUpgradeLoading(false);
+    }
+  };
+
+  const cancelSubscription = async () => {
+    setCancelLoading(true);
+    try {
+      const res = await fetch("/api/subscription", { method: "DELETE" });
+      const data = await res.json();
+      if (res.ok) {
+        toast.success("Your plan will end at the close of the current billing period.");
+        await refreshSubscription();
+      } else {
+        toast.error(data.error ?? "Could not cancel subscription. Please try again.");
+      }
+    } catch {
+      toast.error("Could not cancel subscription. Please try again.");
+    }
+    setCancelLoading(false);
+    setShowCancelConfirm(false);
   };
 
   const Field = ({ label, isSet, last4, value, onChange, placeholder }: {
@@ -130,6 +173,9 @@ export default function SettingsPage() {
   const hasChanges = !!(higgsfieldApiKey || higgsfieldApiSecret || openaiApiKey || trendKey);
 
   return (
+    <>
+      <Script src="https://checkout.razorpay.com/v1/checkout.js" strategy="lazyOnload" />
+      <ToastContainer />
     <div style={{ maxWidth: 560, margin: "60px auto", padding: "0 24px" }}>
       <div style={{ marginBottom: 8, display: "flex", alignItems: "center", gap: 12 }}>
         <a href="/dashboard" style={{ color: "var(--color-text-muted)", fontSize: 13, textDecoration: "none" }}>
@@ -145,23 +191,14 @@ export default function SettingsPage() {
       <div style={{ marginBottom: 40, paddingBottom: 40, borderBottom: "1px solid var(--color-border-default)" }}>
         <h2 style={{ fontSize: 18, fontWeight: 700, marginBottom: 16, color: "var(--color-text-primary)" }}>Plan</h2>
 
-        {saved && subscription?.tier !== "free" && (
-          <div style={{ padding: "10px 14px", borderRadius: 8, background: "#16a34a22", border: "1px solid #22c55e44", color: "#22c55e", fontSize: 13, marginBottom: 16 }}>
-            ✓ Plan upgraded successfully
-          </div>
-        )}
-
         {subscription ? (
           <>
             {subscription.status === 'past_due' && (
               <div style={{ padding: '12px 16px', marginBottom: 16, background: '#451a1a', border: '1px solid #f87171', borderRadius: 8 }}>
                 <strong style={{ color: '#f87171' }}>Payment failed.</strong>
                 <span style={{ color: '#fca5a5', marginLeft: 8 }}>
-                  Update your payment method to keep your subscription active.
+                  Razorpay will automatically retry the charge. If it keeps failing, your plan will move to Free.
                 </span>
-                <button onClick={openBillingPortal} style={{ marginLeft: 12, fontSize: 12, padding: '4px 10px', background: 'transparent', border: '1px solid #f87171', color: '#f87171', borderRadius: 6, cursor: 'pointer' }}>
-                  Update payment →
-                </button>
               </div>
             )}
 
@@ -237,19 +274,48 @@ export default function SettingsPage() {
                 ))}
               </div>
               </>
+            ) : subscription.status === "cancelled" ? (
+              <p style={{ fontSize: 13, color: "var(--color-text-muted)" }}>
+                Your plan won't renew. You'll keep access until the date above.
+              </p>
+            ) : showCancelConfirm ? (
+              <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                <span style={{ fontSize: 13, color: "var(--color-text-secondary)" }}>
+                  Cancel at the end of the current billing period?
+                </span>
+                <button
+                  onClick={cancelSubscription}
+                  disabled={cancelLoading}
+                  style={{
+                    padding: "8px 16px", borderRadius: 8, fontSize: 13, fontWeight: 600,
+                    background: "#dc2626", color: "#fff", border: "none",
+                    cursor: cancelLoading ? "not-allowed" : "pointer", opacity: cancelLoading ? 0.7 : 1,
+                  }}
+                >
+                  {cancelLoading ? "Cancelling..." : "Yes, cancel"}
+                </button>
+                <button
+                  onClick={() => setShowCancelConfirm(false)}
+                  disabled={cancelLoading}
+                  style={{
+                    padding: "8px 16px", borderRadius: 8, fontSize: 13,
+                    border: "1px solid var(--color-border-default)",
+                    background: "transparent", color: "var(--color-text-primary)", cursor: "pointer",
+                  }}
+                >
+                  Keep plan
+                </button>
+              </div>
             ) : (
               <button
-                onClick={openBillingPortal}
-                disabled={portalLoading}
+                onClick={() => setShowCancelConfirm(true)}
                 style={{
                   padding: "10px 20px", borderRadius: 8, fontSize: 13,
                   border: "1px solid var(--color-border-default)",
-                  background: "transparent", color: "var(--color-text-primary)",
-                  cursor: portalLoading ? "not-allowed" : "pointer",
-                  opacity: portalLoading ? 0.7 : 1,
+                  background: "transparent", color: "var(--color-text-primary)", cursor: "pointer",
                 }}
               >
-                {portalLoading ? "Opening..." : "Manage billing →"}
+                Cancel subscription
               </button>
             )}
           </>
@@ -329,5 +395,6 @@ export default function SettingsPage() {
         {saved ? "Saved ✓" : saving ? "Saving..." : "Save Changes"}
       </button>
     </div>
+    </>
   );
 }

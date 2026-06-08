@@ -1,3 +1,7 @@
+const withBundleAnalyzer = require('@next/bundle-analyzer')({
+  enabled: process.env.ANALYZE === 'true',
+});
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   // Prevent @neondatabase/serverless from being bundled
@@ -16,11 +20,12 @@ const nextConfig = {
             key: 'Content-Security-Policy',
             value: [
               "default-src 'self'",
-              "script-src 'self' 'unsafe-eval' 'unsafe-inline'",
+              "script-src 'self' 'unsafe-eval' 'unsafe-inline' https://checkout.razorpay.com",
               "style-src 'self' 'unsafe-inline'",
               "img-src 'self' data: blob: https:",
               "font-src 'self'",
-              "connect-src 'self' https://api.anthropic.com https://cloud.higgsfield.ai https://api.resend.com https://cdn.growthbook.io https://*.ingest.sentry.io https://*.ingest.us.sentry.io wss:",
+              "connect-src 'self' https://api.anthropic.com https://cloud.higgsfield.ai https://api.resend.com https://cdn.growthbook.io https://*.ingest.sentry.io https://*.ingest.us.sentry.io https://api.razorpay.com https://checkout.razorpay.com https://lumberjack.razorpay.com wss:",
+              "frame-src 'self' https://api.razorpay.com https://checkout.razorpay.com",
               "media-src 'self' blob:",
               "frame-ancestors 'none'",
             ].join('; '),
@@ -31,9 +36,11 @@ const nextConfig = {
   },
 };
 
+const analyzedConfig = withBundleAnalyzer(nextConfig);
+
 try {
   const { withSentryConfig } = require('@sentry/nextjs');
-  module.exports = withSentryConfig(nextConfig, {
+  module.exports = withSentryConfig(analyzedConfig, {
     silent: true,
     org: process.env.SENTRY_ORG,
     project: process.env.SENTRY_PROJECT,
@@ -42,5 +49,5 @@ try {
     hideSourceMaps: true,
   });
 } catch {
-  module.exports = nextConfig;
+  module.exports = analyzedConfig;
 }
