@@ -2,7 +2,7 @@
 
 An AI-powered writing platform for novelists, screenwriters, and content creators. Write fiction across 25 specialized modes, generate video production packages, analyse YouTube trends, and repurpose content for TikTok and Instagram — all within a single continuity-aware workspace.
 
-Built with Next.js 14 App Router, Drizzle ORM, Neon PostgreSQL, and Anthropic Claude.
+Built with Next.js 16 App Router, Drizzle ORM, Neon PostgreSQL, and Anthropic Claude.
 
 ---
 
@@ -70,15 +70,19 @@ npm run dev
 | `ANTHROPIC_API_KEY` | console.anthropic.com |
 | `ENCRYPTION_KEY` | `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"` — 64-char hex; encrypts stored Higgsfield keys at rest |
 
-### Required for Payments
+### Required for Payments (Razorpay)
 
 | Variable | How to get it |
 |---|---|
-| `STRIPE_SECRET_KEY` | Stripe dashboard → Developers → API keys |
-| `STRIPE_WEBHOOK_SECRET` | Stripe dashboard → Webhooks → signing secret |
-| `STRIPE_STORY_PRO_PRICE_ID` | Stripe product price ID (price_xxx) |
-| `STRIPE_CREATOR_PRO_PRICE_ID` | Stripe product price ID |
-| `STRIPE_ALL_ACCESS_PRICE_ID` | Stripe product price ID |
+| `RAZORPAY_KEY_ID` | Razorpay dashboard → Settings → API Keys |
+| `RAZORPAY_KEY_SECRET` | Razorpay dashboard → Settings → API Keys |
+| `RAZORPAY_WEBHOOK_SECRET` | Razorpay dashboard → Webhooks → signing secret |
+| `RAZORPAY_STORY_PRO_MONTHLY_PLAN_ID` | Razorpay dashboard → Subscriptions → Plans |
+| `RAZORPAY_STORY_PRO_ANNUAL_PLAN_ID` | Razorpay dashboard → Subscriptions → Plans |
+| `RAZORPAY_CREATOR_PRO_MONTHLY_PLAN_ID` | Razorpay dashboard → Subscriptions → Plans |
+| `RAZORPAY_CREATOR_PRO_ANNUAL_PLAN_ID` | Razorpay dashboard → Subscriptions → Plans |
+| `RAZORPAY_ALL_ACCESS_MONTHLY_PLAN_ID` | Razorpay dashboard → Subscriptions → Plans |
+| `RAZORPAY_ALL_ACCESS_ANNUAL_PLAN_ID` | Razorpay dashboard → Subscriptions → Plans |
 
 ### Required for Email
 
@@ -154,19 +158,20 @@ When absent, rate limiting is **fail-open** — the app works, just unmetered. A
 Request
   │
   ▼
-Next.js 14 App Router
+Next.js 16 App Router
   │
   ├─ Pages (src/app/)
   │   ├─ / (landing)
   │   ├─ /dashboard (project list)
   │   ├─ /project/[projectId] (editor)
+  │   ├─ /settings (plan + billing)
   │   └─ /reader/[token] (public read-only)
   │
   └─ API Routes (src/app/api/)
       ├─ /ai/*           — AI generation (all Anthropic calls here)
       ├─ /projects/*     — CRUD + per-project AI features
       ├─ /audio/*        — TTS + lipsync (Higgsfield)
-      ├─ /webhooks/*     — Stripe events
+      ├─ /webhooks/*     — Razorpay events
       └─ /cron/*         — Scheduled cleanup
 
 src/
@@ -214,21 +219,25 @@ src/
 
 | Tier | Monthly | Unlocks |
 |---|---|---|
-| Free | — | 10 AI generations/day, 1 project, basic modes |
-| Story Pro | ₹799 | Unlimited generations, all 20 library modes, Style DNA, Story Memory, Comic Studio, Production Studio |
-| Creator Pro | ₹399 | Creator tools (trend search, dissection, hook A/B, retention, guest intel, TikTok, repurpose) |
-| All Access | ₹999 | Everything |
+| Free | — | 10 AI generations/month (Haiku), 3 core modes only |
+| Story Pro | ₹1,500 | 500 generations/month (Sonnet), all 22 library modes, Style DNA, Story Memory, Comic Studio, Production Studio |
+| Creator Pro | ₹2,000 | All creator tools (trend search, dissection, hook A/B, retention, guest intel, TikTok, repurpose) |
+| All Access | ₹2,500 | Everything — unlimited generations, Higgsfield pipeline, YouTube reference video analysis |
 
-Feature gates are enforced server-side in every route via `canAccessFeature(tier, featureName)`.
+Feature gates are enforced server-side in every route via `canAccessFeature(tier, featureName)`. Payments are processed by Razorpay (Indian payment gateway).
 
 ---
 
 ## Security Notes
 
 - Every project route checks `projects.userId === session.user.id` before any DB operation or AI call.
+- Child resource routes (chapters, characters, locations, plot threads) additionally check `childTable.projectId = projectId` in all UPDATE/DELETE WHERE clauses to prevent IDOR cross-project mutations.
+- All collection POST routes (`/characters`, `/locations`, `/plot-threads`, `/reference-works`) allowlist fields explicitly — no spreading raw request bodies into DB inserts.
 - Higgsfield API keys supplied by users are AES-256 encrypted at rest using `ENCRYPTION_KEY`. GET routes return only `keySet: boolean` and `keyLast4: string`.
+- Rate limiting via Upstash Redis: AI routes 20/min, auth routes 5/hour, general routes 100/min. Fail-open when Redis is not configured.
+- Registration and forgot-password routes enforce IP-based rate limiting (5 requests/hour) to prevent abuse.
 - The cleanup cron (`/api/cron/cleanup`) requires `Authorization: Bearer CRON_SECRET`.
-- Image data is never stored in the database — URLs to Vercel Blob storage are stored instead.
+- Image data is never stored in the database — URLs to external storage are stored instead.
 
 ---
 
@@ -240,9 +249,10 @@ See the [docs/](docs/) folder for deep-dives:
 |---|---|
 | [docs/architecture.md](docs/architecture.md) | Full request lifecycle, data flow, how all layers connect |
 | [docs/ai-engine.md](docs/ai-engine.md) | MODELS constants, all 25 modes, prompt caching, context assembly |
-| [docs/database.md](docs/database.md) | All 23 tables, relationships, schema decisions |
+| [docs/database.md](docs/database.md) | All 30+ tables, relationships, schema decisions |
 | [docs/auth-and-security.md](docs/auth-and-security.md) | Auth flow, rate limiting, ownership checks, encryption |
-| [docs/subscription.md](docs/subscription.md) | Tier system, feature gates, Stripe integration |
+| [docs/security.md](docs/security.md) | Threat model, defense in depth, security invariants, all protections |
+| [docs/subscription.md](docs/subscription.md) | Tier system, feature gates, Razorpay integration, grace period logic |
 | [docs/api-routes.md](docs/api-routes.md) | All API endpoints with auth requirements and descriptions |
 | [docs/components.md](docs/components.md) | Component hierarchy, panel system, how modes connect to routes |
 | [docs/video-and-media.md](docs/video-and-media.md) | Higgsfield, Segmind, Soul ID, video generation pipeline |

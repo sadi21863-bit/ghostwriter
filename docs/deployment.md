@@ -9,7 +9,7 @@ How to deploy GhostWriter to Vercel, what environment variables are required, an
 1. A [Neon](https://neon.tech) PostgreSQL database (with pgvector extension enabled)
 2. A [Vercel](https://vercel.com) account
 3. An [Anthropic](https://console.anthropic.com) API key
-4. A [Stripe](https://stripe.com) account with three products created
+4. A [Razorpay](https://razorpay.com) account with three subscription plans created
 5. A [Resend](https://resend.com) account for email
 6. An [Upstash](https://upstash.com) Redis database (free tier works)
 
@@ -42,15 +42,19 @@ In the Vercel dashboard → Project → Settings → Environment Variables, add:
 | `ANTHROPIC_API_KEY` | From Anthropic console |
 | `ENCRYPTION_KEY` | 64-char hex: `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"` |
 
-#### Stripe (Required for subscriptions)
+#### Razorpay (Required for subscriptions)
 
 | Variable | Value |
 |---|---|
-| `STRIPE_SECRET_KEY` | `sk_live_...` (use `sk_test_...` for staging) |
-| `STRIPE_WEBHOOK_SECRET` | From Stripe → Webhooks → signing secret |
-| `STRIPE_STORY_PRO_PRICE_ID` | `price_xxx` |
-| `STRIPE_CREATOR_PRO_PRICE_ID` | `price_xxx` |
-| `STRIPE_ALL_ACCESS_PRICE_ID` | `price_xxx` |
+| `RAZORPAY_KEY_ID` | From Razorpay → Settings → API Keys |
+| `RAZORPAY_KEY_SECRET` | From Razorpay → Settings → API Keys |
+| `RAZORPAY_WEBHOOK_SECRET` | From Razorpay → Webhooks → signing secret |
+| `RAZORPAY_STORY_PRO_MONTHLY_PLAN_ID` | Razorpay plan ID for Story Pro monthly |
+| `RAZORPAY_STORY_PRO_ANNUAL_PLAN_ID` | Razorpay plan ID for Story Pro annual |
+| `RAZORPAY_CREATOR_PRO_MONTHLY_PLAN_ID` | Razorpay plan ID for Creator Pro monthly |
+| `RAZORPAY_CREATOR_PRO_ANNUAL_PLAN_ID` | Razorpay plan ID for Creator Pro annual |
+| `RAZORPAY_ALL_ACCESS_MONTHLY_PLAN_ID` | Razorpay plan ID for All Access monthly |
+| `RAZORPAY_ALL_ACCESS_ANNUAL_PLAN_ID` | Razorpay plan ID for All Access annual |
 
 #### Email (Required)
 
@@ -151,30 +155,37 @@ This generates `text-embedding-3-small` embeddings for all craft library princip
 
 ---
 
-## Stripe Setup
+## Razorpay Setup
 
-### 1. Create Products
+### 1. Create Subscription Plans
 
-In Stripe Dashboard → Products → Add Product:
+In Razorpay Dashboard → Subscriptions → Plans → Create New Plan:
 
-- **Story Pro** — Recurring, Monthly, ₹799 (or your price)
-- **Creator Pro** — Recurring, Monthly, ₹399
-- **All Access** — Recurring, Monthly, ₹999
+- **Story Pro Monthly** — Recurring, ₹1,500/month
+- **Story Pro Annual** — Recurring, ₹18,000/year (or preferred annual price)
+- **Creator Pro Monthly** — Recurring, ₹2,000/month
+- **Creator Pro Annual** — Recurring, ₹24,000/year
+- **All Access Monthly** — Recurring, ₹2,500/month
+- **All Access Annual** — Recurring, ₹30,000/year
 
-Copy each Price ID (`price_xxx`) to the corresponding Vercel env var.
+Copy each Plan ID (format: `plan_xxx`) to the corresponding Vercel env var.
 
 ### 2. Configure Webhooks
 
-In Stripe Dashboard → Developers → Webhooks → Add Endpoint:
+In Razorpay Dashboard → Settings → Webhooks → Add Webhook:
 
-- **Endpoint URL:** `https://ghost-writer.cc/api/webhooks/stripe`
+- **Webhook URL:** `https://ghost-writer.cc/api/webhooks/razorpay`
 - **Events to send:**
-  - `checkout.session.completed`
-  - `customer.subscription.updated`
-  - `customer.subscription.deleted`
-  - `invoice.payment_failed`
+  - `subscription.activated`
+  - `subscription.charged`
+  - `subscription.cancelled`
+  - `subscription.completed`
 
-Copy the Signing Secret to `STRIPE_WEBHOOK_SECRET`.
+Copy the Signing Secret to `RAZORPAY_WEBHOOK_SECRET`.
+
+### 3. Test the Flow
+
+Use Razorpay's test mode (test API keys). Create a test subscription, verify the webhook fires, check the `subscriptions` table in Drizzle Studio.
 
 ---
 
@@ -227,10 +238,12 @@ Before going live:
 - [x] `OPENAI_API_KEY` added to Vercel; embedding backfill complete — 18/18 packets embedded *(done 2026-06-06)*
 - [x] Sprint 21 schema pushed: `aiisms_check`, `context_visibility` columns *(done 2026-06-06)*
 - [x] Sprint 22 schema pushed: `universes`, `universe_characters`, `project_character_states`, `universe_events` tables; `story_type`/`universe_id`/`timeline_sort`/`phase`/`series_parent_id` on projects; `storyline_id` on chapters *(done 2026-06-06)*
-- [ ] Stripe products created and price IDs configured *(India invite-only — pending approval)*
-- [ ] Stripe webhook endpoint configured and verified
+- [x] Razorpay integrated (Sprint 24): switched from Stripe. Webhook handler at `/api/webhooks/razorpay` *(done)*
+- [x] Sprint 25 schema pushed: `updated_at` columns added to `characters`, `locations`, `plot_threads` tables *(done 2026-06-09)*
+- [ ] Razorpay plans created and plan IDs added to Vercel env vars *(required before payments work)*
+- [ ] Razorpay webhook endpoint configured at `ghost-writer.cc/api/webhooks/razorpay`
 - [x] Resend domain verified and DNS propagated *(done 2026-06-05)*
-- [ ] Test a complete payment flow end-to-end (Stripe test mode → live mode)
+- [ ] Test a complete payment flow end-to-end (Razorpay test mode → live mode)
 - [x] `NEXTAUTH_URL` set to `https://www.ghost-writer.cc` *(done 2026-06-06 — www required; apex 308s to www)*
 - [x] Custom domain `ghost-writer.cc` added to Vercel and env vars updated *(done 2026-06-05)*
 - [x] Sentry configured — DSN hardcoded in `sentry.*.config.ts`; add `NEXT_PUBLIC_SENTRY_DSN` to Vercel for explicitness *(done 2026-06-05)*
@@ -268,7 +281,7 @@ ANTHROPIC_API_KEY=sk-ant-...
 ENCRYPTION_KEY=64-char-hex-string
 ```
 
-Without Stripe, Resend, and Upstash set, the app runs but:
+Without Razorpay, Resend, and Upstash set, the app runs but:
 - Subscriptions don't work (all users are on free tier)
 - Emails don't send
 - Rate limiting is disabled (fail-open)

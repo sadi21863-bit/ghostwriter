@@ -10,7 +10,7 @@
 |-----|-------|
 | **Location** | `C:\Users\aditya\Desktop\ghostwriter project\ghostwriter` |
 | **Repo** | `github.com/sadi21863-bit/ghostwriter` |
-| **Stack** | Next.js 14, Drizzle ORM, Neon PostgreSQL, NextAuth, Anthropic Claude, OpenAI, Tailwind, Vercel |
+| **Stack** | Next.js 16, Drizzle ORM, Neon PostgreSQL, NextAuth, Anthropic Claude, Razorpay, Tailwind, Vercel |
 | **Dev port** | 3001 — always run `npm run dev -- -p 3001` |
 | **DB migrate** | Always run `copy .env.local .env` THEN `npm run db:push` |
 | **Dev tool** | Claude Code terminal only. Do NOT use VS Code extension. |

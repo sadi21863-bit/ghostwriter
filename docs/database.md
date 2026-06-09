@@ -78,12 +78,13 @@ Rich character profiles:
 - `arc` — character change arc
 - `alwaysInContext` (boolean) — whether to inject full detail or compress to one line
 - `antagonistType` — `Narcissist | Machiavellian | Psychopath | Ideological | Systemic`
-- NVC profile: `nvcGestures`, `nvcPosture`, `nvcProximity`, `nvcVocalPatterns`
-- Language profile: `languageRegister`, `sentenceStructure`, `vocabularyLevel`, `speechPatterns`
+- NVC profile (8 channels): kinesics (baseline/micro/idiosyncrasy), proxemics, paralanguage, haptics, chronemics, oculesics, objectics, appearance
+- Language profile: `nativeLanguage`, `acquiredLanguages`, `accentProfile`, `registerDefault`, `idiolectFingerprint`, `codeSwitchingTriggers`
+- Flaw triangle: `rootWound`, `hamartia`, `significantFlaws`, `cognitiveBias`, `blindSpot`, `strengthBranch`, `compensationMode`
+- World Logic Matrix: `knowledgeMap` (JSON), `intelligenceProfile` (JSON), `culturalWorldview`, `characterWant`, `characterNeed`, `contradiction`, `narratorBlindSpot`
 - `contextVisibility` — `always | mentioned | never` — controls context injection (Sprint 21)
-- `higgsfield_soul_id` — trained Higgsfield Soul ID for consistent character portraits
-
-**Note:** `contextVisibility` is accepted by the character PATCH handler (Sprint 22 fix — was previously silently dropped).
+- `soulId` — trained Higgsfield Soul ID for consistent character portraits
+- `createdAt`, `updatedAt` — both present (updatedAt added Sprint 25)
 
 **Why NVC and language profiles?**
 The AI generates dialogue and action for characters. Without physical and linguistic ground truth, every character sounds and moves the same. The NVC profile is injected so the model knows "Maya crosses her arms when lying and speaks faster under stress."
@@ -91,15 +92,19 @@ The AI generates dialogue and action for characters. Without physical and lingui
 #### `locations`
 
 - `name`, `description`, `atmosphere`
-- `sensoryDetails` — sight, sound, smell, texture
+- `history`, `sensoryDetails` — historical context and sight/sound/smell/texture
+- `linkedCharacterIds` (text array) — characters associated with this location
 - `alwaysInContext` (boolean) — same compression logic as characters
-- `significance` — why this place matters to the story
+- `createdAt`, `updatedAt` — both present (updatedAt added Sprint 25)
 
 #### `plotThreads`
 
-- `name`, `description`, `status` (`open | dormant | resolved`)
-- `connectedCharacterIds` (text array) — which characters are involved
-- `chapterIntroduced`, `chapterResolved`
+- `name`, `description`, `status` (`Active | Dormant | Resolved`)
+- `stakes`, `connections` — why this thread matters, how it connects to other threads
+- `alwaysInContext` (boolean) — compression logic
+- `starvationWarning` (boolean) — flagged when thread hasn't been mentioned in 3+ chapters
+- `lastMentionedChapterId` — used by the starvation check
+- `createdAt`, `updatedAt` — both present (updatedAt added Sprint 25)
 
 ---
 
@@ -321,10 +326,23 @@ Canon events with `timelineSort` < current story's `timelineSort` are automatica
 #### `subscriptions`
 
 - `userId`
-- `stripeCustomerId`, `stripeSubscriptionId`
+- `stripeCustomerId`, `stripeSubscriptionId` — legacy Stripe fields (kept for historical rows)
+- `razorpaySubscriptionId`, `razorpayPaymentId` — active payment provider (Razorpay)
 - `tier` — `free | story_pro | creator_pro | all_access`
 - `status` — `active | cancelled | past_due | trialing`
-- `currentPeriodEnd`
+- `currentPeriodEnd` — used for grace period: when `status=cancelled` and `currentPeriodEnd` is in the future, `getUserTier()` still returns the paid tier
+- `createdAt`, `updatedAt`
+
+**Grace period behavior:** Cancellation webhook sets `status='cancelled'` but does NOT overwrite `tier`. `getUserTier()` checks:
+
+```
+cancelled + currentPeriodEnd > now  →  return sub.tier  (still in grace period)
+cancelled + currentPeriodEnd ≤ now  →  return "free"
+past_due                            →  return "free"
+active | trialing                   →  return sub.tier
+```
+
+This means a cancelled user retains their tier until their period expires — correct UX for end-of-billing-cycle cancellations. Implemented in `src/lib/subscription.ts`.
 
 ---
 

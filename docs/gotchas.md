@@ -38,7 +38,7 @@ Do not "fix" these warnings by adding `'use client'` everywhere or removing func
 The `generations` table has:
 
 ```typescript
-model: text("model").default("claude-sonnet-4-20250514")
+model: varchar("model", { length: 100 }).default("claude-sonnet-4-6")
 ```
 
 This is a **literal string hardcoded in the DB schema**, not a `MODELS.default` reference. This is intentional and correct.
@@ -136,16 +136,14 @@ The workflow itself also needs `GEMINI_API_KEY` configured as a GitHub repositor
 
 ---
 
-## Stripe Webhook Must Use Live Signing Secret for Production
+## Razorpay Webhook Must Use the Correct Signing Secret
 
-If you configure the Stripe webhook endpoint and then switch from test mode to live mode, the `STRIPE_WEBHOOK_SECRET` changes. The test signing secret and live signing secret are different strings.
+Razorpay test mode and live mode have separate webhook signing secrets. Symptoms of using the wrong secret:
+- Webhooks arrive at `/api/webhooks/razorpay` but return 400
+- HMAC-SHA256 verification fails
+- Subscriptions appear active in Razorpay dashboard but don't activate in your database
 
-Symptoms of using the wrong secret:
-- Webhooks arrive but return 400
-- `stripe.webhooks.constructEvent()` throws a signature verification error
-- Subscriptions appear in Stripe but don't activate in your database
-
-Fix: Copy the signing secret from the **live** webhook endpoint configuration, not the test endpoint.
+Fix: Copy the signing secret from the **correct mode's** webhook configuration in Razorpay Dashboard → Settings → Webhooks.
 
 ---
 
@@ -153,14 +151,7 @@ Fix: Copy the signing secret from the **live** webhook endpoint configuration, n
 
 After a user upgrades, there is up to a 5-minute delay before new features unlock. This is because `getUserTier()` caches subscription tier lookups in memory.
 
-If you need immediate tier invalidation (e.g., after a Stripe webhook), clear the cache:
-
-```typescript
-// In the webhook handler, after updating the subscription
-tierCache.delete(userId);
-```
-
-Without this, a user who just paid might see "upgrade required" for up to 5 minutes after their payment completes.
+The Razorpay webhook handler clears the cache via `invalidateTierCache(userId)` after updating the subscription. But if you add a new subscription-mutating route and forget to call `invalidateTierCache`, the user's old tier persists until cache expiry.
 
 ---
 
@@ -228,3 +219,69 @@ eslint: { ignoreDuringBuilds: true },
 This means TypeScript errors do not fail Vercel builds. The build will deploy even if there are type errors. This is intentional — it prevents minor LSP false positives from blocking deployments.
 
 **Do not rely on the Vercel build to catch type errors.** Run `npx tsc --noEmit` locally before pushing.
+
+---
+
+## PowerShell Heredoc Syntax for Git Commits
+
+PowerShell does **not** support Bash-style heredocs (`cat <<'EOF'`). Using Bash syntax in PowerShell for multi-line git commit messages causes a parse error:
+
+```powershell
+# ❌ Does NOT work in PowerShell
+git commit -m "$(cat <<'EOF'
+Message here
+EOF
+)"
+```
+
+**Correct approaches in PowerShell:**
+
+```powershell
+# Option 1: Write to temp file
+"Commit message here.`n`nCo-Authored-By: ..." | Out-File -FilePath commit_msg.txt -Encoding utf8
+git commit -F commit_msg.txt
+Remove-Item commit_msg.txt
+
+# Option 2: Single-quoted here-string (PowerShell native)
+git commit -m @'
+Commit message here.
+
+Co-Authored-By: ...
+'@
+```
+
+---
+
+## Claude Returns JSON Wrapped in Code Fences
+
+Claude often wraps JSON responses in markdown code fences:
+
+```
+```json
+{ "key": "value" }
+```
+```
+
+Calling `JSON.parse()` directly on this string throws. Use `safeParseJson()` from `src/lib/ai/engine.ts` instead, which strips code fences before parsing:
+
+```typescript
+// ❌ Fails when Claude wraps JSON in ```json ... ```
+const result = JSON.parse(raw);
+
+// ✅ Handles fenced and unfenced JSON
+const result = safeParseJson(raw);
+```
+
+Routes that call Claude and expect JSON (`generateQuickStory`, `generateBeginnerCharacters`, `braindump`) must use `safeParseJson`. The `braindump` route strips fences inline with `.replace(/```json\n?|```/g, '')` which works, but using `safeParseJson` is cleaner.
+
+---
+
+## `analyze-passage` Rate Limit Returns 429, Not Silent 200
+
+When a user hits the monthly generation limit in `POST /api/ai/analyze-passage`, the route returns:
+
+```json
+{ "error": "monthly_limit_reached", "directives": "" }
+```
+
+with status **429** (not 200). Client code must check the response status — a `directives: ""` response on 200 is a legitimate "no directives found" result; a 429 means the limit was hit.

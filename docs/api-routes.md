@@ -253,10 +253,9 @@ Response format for errors:
 
 | Method | Route | Auth | Description |
 |---|---|---|---|
-| GET | `/api/subscription` | Required | Get current subscription |
-| POST | `/api/subscription` | Required | Create Stripe Checkout session |
-| POST | `/api/subscription/portal` | Required | Create Stripe Billing Portal session |
-| POST | `/api/webhooks/stripe` | None (verified by signature) | Stripe event handler |
+| GET | `/api/subscription` | Required | Get current subscription tier and status |
+| POST | `/api/subscription` | Required | Create Razorpay subscription (returns subscriptionId for checkout overlay) |
+| POST | `/api/webhooks/razorpay` | None (HMAC-SHA256 verified) | Razorpay event handler — activates/cancels subscriptions, applies referral rewards |
 
 ---
 

@@ -42,11 +42,15 @@ Application-level ownership checks only. Never use Supabase RLS. Always call get
 | NEXTAUTH_SECRET | NextAuth JWT secret (random 32-char string) |
 | NEXTAUTH_URL | Full public URL — must be https://www.ghost-writer.cc (www, not apex — apex 308s to www) |
 | ANTHROPIC_API_KEY | Claude API key for all AI generation |
-| STRIPE_SECRET_KEY | Stripe secret key for payment processing |
-| STRIPE_WEBHOOK_SECRET | Stripe webhook signing secret |
-| STRIPE_STORY_PRO_PRICE_ID | Story Pro monthly price ID (price_xxx) |
-| STRIPE_CREATOR_PRO_PRICE_ID | Creator Pro monthly price ID |
-| STRIPE_ALL_ACCESS_PRICE_ID | All Access monthly price ID |
+| RAZORPAY_KEY_ID | Razorpay API key ID |
+| RAZORPAY_KEY_SECRET | Razorpay API key secret |
+| RAZORPAY_WEBHOOK_SECRET | Razorpay webhook signing secret |
+| RAZORPAY_STORY_PRO_MONTHLY_PLAN_ID | Story Pro monthly plan ID (plan_xxx) |
+| RAZORPAY_STORY_PRO_ANNUAL_PLAN_ID | Story Pro annual plan ID |
+| RAZORPAY_CREATOR_PRO_MONTHLY_PLAN_ID | Creator Pro monthly plan ID |
+| RAZORPAY_CREATOR_PRO_ANNUAL_PLAN_ID | Creator Pro annual plan ID |
+| RAZORPAY_ALL_ACCESS_MONTHLY_PLAN_ID | All Access monthly plan ID |
+| RAZORPAY_ALL_ACCESS_ANNUAL_PLAN_ID | All Access annual plan ID |
 | RESEND_API_KEY | Resend API key for transactional email |
 | CRON_SECRET | Secret header for cron job routes |
 | HIGGSFIELD_API_KEY | Higgsfield API key for video generation (optional) |
@@ -63,7 +67,9 @@ Application-level ownership checks only. Never use Supabase RLS. Always call get
 6. ✅ Sentry configured (DSN hardcoded in sentry.*.config.ts; add NEXT_PUBLIC_SENTRY_DSN to Vercel for explicitness)
 7. ✅ Resend domain + DNS configured
 8. ✅ DB indexes restored via `node scripts/add-indexes.js` (10 indexes, 2026-06-06)
-9. ⏳ Create Stripe products and add price IDs to Vercel env vars (India invite-only — pending approval)
-10. ✅ NEXTAUTH_URL set to https://www.ghost-writer.cc in Vercel (2026-06-06)
-11. ✅ Sprint 22 schema pushed: universes, universe_characters, project_character_states, universe_events tables; storyType/universeId/timelineSort/phase/seriesParentId on projects; storylineId on chapters (2026-06-06)
-12. Production URL: https://www.ghost-writer.cc
+9. ✅ Switched from Stripe to Razorpay (Sprint 24) — webhook at /api/webhooks/razorpay
+10. ⏳ Create Razorpay plans (6 plans: 3 tiers × monthly+annual) and add plan IDs to Vercel env vars
+11. ✅ NEXTAUTH_URL set to https://www.ghost-writer.cc in Vercel (2026-06-06)
+12. ✅ Sprint 22 schema pushed: universes, universe_characters, project_character_states, universe_events tables; storyType/universeId/timelineSort/phase/seriesParentId on projects; storylineId on chapters (2026-06-06)
+13. ✅ Sprint 25 schema pushed: updated_at columns on characters, locations, plot_threads (2026-06-09)
+14. Production URL: https://www.ghost-writer.cc

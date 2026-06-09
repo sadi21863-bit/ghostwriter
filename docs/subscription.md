@@ -6,14 +6,14 @@ How tiers work, what each tier unlocks, how Stripe is integrated, and how featur
 
 ## Tiers
 
-| Tier | Stripe price ID env var | Monthly |
+| Tier | Razorpay plan env vars | Monthly |
 |---|---|---|
-| `free` | — (no Stripe) | $0 |
-| `story_pro` | `STRIPE_STORY_PRO_PRICE_ID` | $18 (or $172/year) |
-| `creator_pro` | `STRIPE_CREATOR_PRO_PRICE_ID` | $18 |
-| `all_access` | `STRIPE_ALL_ACCESS_PRICE_ID` | $28 (or $268/year) |
+| `free` | — (no payment) | ₹0 |
+| `story_pro` | `RAZORPAY_STORY_PRO_MONTHLY_PLAN_ID` / `RAZORPAY_STORY_PRO_ANNUAL_PLAN_ID` | ₹1,500 |
+| `creator_pro` | `RAZORPAY_CREATOR_PRO_MONTHLY_PLAN_ID` / `RAZORPAY_CREATOR_PRO_ANNUAL_PLAN_ID` | ₹2,000 |
+| `all_access` | `RAZORPAY_ALL_ACCESS_MONTHLY_PLAN_ID` / `RAZORPAY_ALL_ACCESS_ANNUAL_PLAN_ID` | ₹2,500 |
 
-Tier names are the values stored in `subscriptions.tier` column.
+Tier names are the values stored in `subscriptions.tier` column. Prices are in Indian Rupees (INR) — GhostWriter is India-first.
 
 ---
 
@@ -114,64 +114,94 @@ The `feature` field in the 403 response is used by the frontend to show the appr
 `src/lib/subscription.ts`:
 
 ```typescript
-const tierCache = new Map<string, { tier: SubscriptionTier; ts: number }>();
-const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
-
 export async function getUserTier(userId: string): Promise<SubscriptionTier> {
   const cached = tierCache.get(userId);
-  if (cached && Date.now() - cached.ts < CACHE_TTL) {
-    return cached.tier;
-  }
-  
+  if (cached && cached.expiresAt > Date.now()) return cached.tier;
+
   const sub = await db.query.subscriptions.findFirst({
-    where: and(
-      eq(subscriptions.userId, userId),
-      eq(subscriptions.status, "active")
-    ),
+    where: eq(subscriptions.userId, userId),  // all statuses — grace period needs cancelled rows
   });
-  
-  const tier = sub?.tier ?? "free";
-  tierCache.set(userId, { tier, ts: Date.now() });
+
+  let tier: SubscriptionTier = "free";
+  if (sub) {
+    if (sub.status === "cancelled" && sub.currentPeriodEnd) {
+      tier = new Date(sub.currentPeriodEnd) > new Date() ? sub.tier as SubscriptionTier : "free";
+    } else if (sub.status === "past_due") {
+      tier = "free";  // payment failed — access removed immediately
+    } else if (sub.status === "active" || sub.status === "trialing") {
+      tier = sub.tier as SubscriptionTier;
+    }
+  }
+
+  tierCache.set(userId, { tier, expiresAt: Date.now() + 5 * 60 * 1000 });
   return tier;
 }
 ```
 
+**Grace period:** A cancelled subscription keeps the paid tier until `currentPeriodEnd`. This is why the cancellation webhook must NOT set `tier='free'` — it sets `status='cancelled'` and `currentPeriodEnd`, and the logic above handles the rest.
+
 **Why in-process cache?**
 Subscription tier is checked on every AI request. Without caching, every generation would hit the DB for a subscription lookup. The 5-minute TTL means a new subscription takes up to 5 minutes to activate — acceptable for this use case.
 
-**Cache invalidation:** Stripe webhook events (subscription created/updated/deleted) should clear the cache for the affected user. If the cache isn't invalidated on webhook, newly subscribed users may need to wait up to 5 minutes.
+**Cache invalidation:** Razorpay webhook handlers call `invalidateTierCache(userId)` after updating subscription status. If the cache isn't cleared on webhook, newly subscribed users may need to wait up to 5 minutes.
 
 ---
 
-## Stripe Integration
+## Razorpay Integration
+
+GhostWriter switched from Stripe to Razorpay (Sprint 24) to support Indian payment methods (UPI, netbanking, wallets).
 
 ### Payment Flow
 
-1. User clicks "Upgrade" → `UpgradePrompt.tsx`
-2. Frontend calls `POST /api/subscription` with `{ priceId }` and optional coupon
-3. Route creates Stripe Checkout Session with:
-   - `mode: "subscription"`
-   - `success_url` / `cancel_url`
-   - Customer ID (created if first purchase via `getOrCreateStripeCustomer()`)
-4. User is redirected to Stripe Checkout
-5. User completes payment
-6. Stripe sends `checkout.session.completed` webhook to `/api/webhooks/stripe`
-7. Webhook handler creates/updates `subscriptions` row
-
-### Customer Portal
-
-`POST /api/subscription/portal` creates a Stripe Billing Portal session. Users manage their subscription (cancel, change plan, update payment method) entirely in Stripe's hosted portal — no custom billing UI needed.
+1. User clicks "Upgrade" on `/settings` → `UpgradePrompt.tsx`
+2. Frontend calls `POST /api/subscription` with `{ tier, billingCycle }` (monthly or annual)
+3. Route creates a Razorpay subscription using the plan ID from `src/types/subscription.ts`:
+   ```typescript
+   const subscriptionId = await razorpay.subscriptions.create({
+     plan_id: RAZORPAY_PLANS[tier][billingCycle],
+     total_count: billingCycle === 'annual' ? 12 : 120,
+     notes: { tier, userId },
+   });
+   ```
+4. Returns `subscriptionId` to the client
+5. Client opens Razorpay Checkout overlay (no redirect — modal flow)
+6. User pays with UPI / card / netbanking / wallet
+7. Razorpay sends webhook to `/api/webhooks/razorpay`
+8. Webhook handler creates/updates `subscriptions` row
 
 ### Webhook Events Handled
 
 | Event | Action |
 |---|---|
-| `checkout.session.completed` | Create `subscriptions` row, set tier and status |
-| `customer.subscription.updated` | Update `subscriptions` row (tier change, renewal) |
-| `customer.subscription.deleted` | Set status to `cancelled` |
-| `invoice.payment_failed` | Set status to `past_due` |
+| `subscription.activated` | Create/update `subscriptions` row with `tier` from `notes.tier`; apply referral reward atomically |
+| `subscription.charged` | Update `currentPeriodEnd` on renewal |
+| `subscription.cancelled` | Set `status='cancelled'`, set `currentPeriodEnd` from `sub.current_end`; **do NOT set `tier='free'`** (grace period preserved) |
+| `subscription.completed` | Set `status='cancelled'` (subscription naturally ended) |
 
-All events are verified with `stripe.webhooks.constructEvent()` before processing.
+All events are verified with Razorpay's HMAC-SHA256 webhook signature before processing:
+```typescript
+const expectedSignature = crypto
+  .createHmac("sha256", process.env.RAZORPAY_WEBHOOK_SECRET!)
+  .update(body)
+  .digest("hex");
+if (expectedSignature !== razorpaySignature) return 400;
+```
+
+### Referral Reward — Atomic Idempotency
+
+On `subscription.activated`, the referral reward (1 month bonus) is applied via an atomic conditional update:
+
+```typescript
+const [updated] = await db.update(referrals)
+  .set({ status: "rewarded", rewardApplied: true })
+  .where(and(
+    eq(referrals.refereeId, userId),
+    eq(referrals.rewardApplied, false)  // ← only if not already rewarded
+  ))
+  .returning();
+```
+
+The `rewardApplied: false` condition means the update is a no-op on webhook retry — preventing double-reward.
 
 ---
 
@@ -212,7 +242,7 @@ if (tier === 'free' && LIBRARY_MODES.has(mode)) {
 1. Receives the `feature` string from the 403 response
 2. Looks up the feature in `UPGRADE_COPY` from `src/types/subscription.ts`
 3. Renders a modal with feature description, price, and "Upgrade" CTA
-4. "Upgrade" hits `POST /api/subscription` → redirects to Stripe Checkout
+4. "Upgrade" hits `POST /api/subscription` → creates Razorpay subscription → opens Razorpay Checkout overlay (modal, no redirect)
 
 This means adding a new gated feature requires:
 1. Add the feature key to `FEATURE_ACCESS` in `src/types/subscription.ts`
@@ -220,3 +250,15 @@ This means adding a new gated feature requires:
 3. Call `canAccessFeature(tier, "your_feature")` in the route handler
 
 No other changes needed — the upgrade flow is automatic.
+
+## Monthly Reset Logic
+
+Monthly generation counts reset on the first of each calendar month. The reset check in every AI route:
+
+```typescript
+const firstOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+const isNewMonth = !resetAt || resetAt < firstOfMonth;
+```
+
+**Why not `resetAt.getMonth() !== now.getMonth()`?**
+That comparison would incorrectly reset when `resetAt` is in a *future* month (e.g., resetAt = June 2027, today = May 2027 → June ≠ May → reset fires). The `resetAt < firstOfMonth` check is monotonically correct.

@@ -83,24 +83,35 @@ Row-level security (like Supabase RLS `auth.uid()`) ties authorization logic to 
 
 Rate limiting uses [Upstash Redis](https://upstash.com) — a serverless Redis service with a REST API. The `@upstash/ratelimit` library provides sliding-window rate limiting.
 
-### Three Limiters
+### Four Limiters
 
 ```typescript
 const aiRatelimit = new Ratelimit({
   redis,
-  limiter: Ratelimit.slidingWindow(20, "1m"),  // 20 per minute
+  limiter: Ratelimit.slidingWindow(20, "1m"),  // 20 per minute — per userId
+  prefix: "gw:ai",
 });
 
 const generalRatelimit = new Ratelimit({
   redis,
-  limiter: Ratelimit.slidingWindow(100, "1m"), // 100 per minute
+  limiter: Ratelimit.slidingWindow(100, "1m"), // 100 per minute — per userId
+  prefix: "gw:general",
 });
 
 const freeGenerationLimit = new Ratelimit({
   redis,
-  limiter: Ratelimit.slidingWindow(10, "1d"),  // 10 per day
+  limiter: Ratelimit.slidingWindow(10, "1d"),  // 10 per day — per userId (free tier)
+  prefix: "gw:free",
+});
+
+const authRatelimit = new Ratelimit({
+  redis,
+  limiter: Ratelimit.slidingWindow(5, "1h"),   // 5 per hour — per IP (prevents account enumeration)
+  prefix: "gw:auth",
 });
 ```
+
+`authRatelimit` applies to registration and forgot-password endpoints, keyed by IP address (not userId, since no session exists yet).
 
 ### Fail-Open Design
 
@@ -191,25 +202,100 @@ Vercel calls this route on schedule. The `CRON_SECRET` environment variable must
 
 ---
 
+## IDOR Protection
+
+Insecure Direct Object Reference (IDOR) vulnerabilities occur when a route verifies project ownership but then uses only the child resource ID in the WHERE clause, allowing a logged-in user to mutate another user's characters/locations/plot threads via a cross-project request.
+
+### The Pattern
+
+Every child resource UPDATE and DELETE uses both the child ID **and** the parent project ID in the WHERE clause:
+
+```typescript
+// ✅ Correct — both conditions required
+await db.update(characters)
+  .set({ ...data, updatedAt: new Date() })
+  .where(and(
+    eq(characters.id, characterId),       // resource ID from URL
+    eq(characters.projectId, projectId)   // project ID from URL (ownership already verified above)
+  ));
+
+// ❌ Wrong — only child ID — allows cross-project mutation
+await db.update(characters)
+  .set(data)
+  .where(eq(characters.id, characterId));
+```
+
+The project-level ownership check (`verifyOwnership()`) confirms `project.userId === session.user.id`. The child-level `projectId` condition on the UPDATE ensures the character actually belongs to the verified project — not just that the project belongs to the user.
+
+### Routes with Double-Guard WHERE Clauses
+
+- `PATCH/DELETE /api/projects/[projectId]/characters/[characterId]`
+- `PATCH/DELETE /api/projects/[projectId]/locations/[locationId]`
+- `PATCH/DELETE /api/projects/[projectId]/plot-threads/[threadId]`
+- `PATCH/DELETE /api/projects/[projectId]/chapters/[chapterId]`
+- `GET/PATCH/DELETE /api/projects/[projectId]/production/shots/[shotId]`
+- `POST /api/projects/[projectId]/suggest-links` (character/location lookups include projectId)
+- `PATCH/DELETE /api/universes/[universeId]` (checks `universes.userId = session.user.id`)
+
+---
+
+## POST Body Injection Protection
+
+Collection POST routes used to spread the raw request body directly into DB inserts:
+
+```typescript
+// ❌ Before — client can set any column
+const body = await req.json();
+await db.insert(characters).values({ projectId, ...body });
+```
+
+All collection inserts now use explicit field allowlisting:
+
+```typescript
+// ✅ After — only allowed fields reach the DB
+const { name, role, age, appearance, personality, ... } = await req.json();
+if (!name || typeof name !== "string") return 400;
+await db.insert(characters).values({ projectId, name, role, age, appearance, ... });
+```
+
+Routes hardened: `/characters` (POST), `/locations` (POST), `/plot-threads` (POST), `/reference-works` (POST).
+
+---
+
+## Email Normalization
+
+Registration normalizes email before inserting to the database:
+
+```typescript
+const normalizedEmail = email.toLowerCase().trim();
+```
+
+This prevents duplicate accounts from `User@Example.com` vs `user@example.com`.
+
+---
+
 ## Content Security
 
 ### No Image Data in DB
 
 Image URLs from Segmind and Higgsfield (character portraits, comic panels, video shots) are stored as URLs only. The binary data lives in the provider's storage. If a URL expires or a provider goes down, the image is lost — but the DB stays lean.
 
-### Stripe Webhook Verification
+### Razorpay Webhook Verification
 
-The Stripe webhook endpoint (`/api/webhooks/stripe`) verifies the signature on every incoming event:
+The Razorpay webhook endpoint (`/api/webhooks/razorpay`) verifies the HMAC-SHA256 signature on every incoming event:
 
 ```typescript
-const event = stripe.webhooks.constructEvent(
-  body,
-  signature,
-  process.env.STRIPE_WEBHOOK_SECRET
-);
+const expectedSignature = crypto
+  .createHmac("sha256", process.env.RAZORPAY_WEBHOOK_SECRET!)
+  .update(rawBody)
+  .digest("hex");
+
+if (expectedSignature !== razorpaySignature) {
+  return NextResponse.json({ error: "Invalid signature" }, { status: 400 });
+}
 ```
 
-Unverified events are rejected with 400. This prevents fake payment events from being processed.
+Unverified events are rejected with 400. This prevents fake subscription activation events from being processed.
 
 ---
 
@@ -242,3 +328,5 @@ These patterns are explicitly avoided:
 - **No client-side OpenAI calls** — same reason
 - **No committing `.env.local`** — gitignored; never included in commits
 - **No skipping `getRequiredSession()`** — every protected route calls it as its first line
+- **No spreading `req.json()` into DB inserts** — explicit field allowlisting on all collection POST routes
+- **No child-resource-only WHERE clauses** — all UPDATE/DELETE include both `childId` and `projectId`

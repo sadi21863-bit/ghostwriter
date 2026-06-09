@@ -39,7 +39,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ projec
   if (!await verifyOwnership(projectId, s.user.id)) return NextResponse.json({ error: "Not found" }, { status: 404 });
   const parsed = CharacterPatch.safeParse(await req.json());
   if (!parsed.success) return NextResponse.json({ error: "Invalid fields" }, { status: 400 });
-  const [u] = await db.update(characters).set(parsed.data)
+  const [u] = await db.update(characters).set({ ...parsed.data, updatedAt: new Date() })
     .where(and(eq(characters.id, characterId), eq(characters.projectId, projectId)))
     .returning();
   return NextResponse.json(u);
