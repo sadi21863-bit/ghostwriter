@@ -1,10 +1,15 @@
-"use client";
 import GhostWriterApp from "@/components/GhostWriterApp";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
-export default function Editor({ params }: { params: { projectId: string } }) {
+
+export default async function Editor({
+  params,
+}: {
+  params: Promise<{ projectId: string }>;
+}) {
+  const { projectId } = await params;
   return (
     <ErrorBoundary>
-      <GhostWriterApp projectId={params.projectId} />
+      <GhostWriterApp projectId={projectId} />
     </ErrorBoundary>
   );
 }

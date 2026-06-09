@@ -217,7 +217,7 @@ export default async function Home() {
         <div style={{ display: 'flex', gap: 24 }}>
           <a href="/terms" style={{ color: '#5c5c6b', textDecoration: 'none' }}>Terms</a>
           <a href="/privacy" style={{ color: '#5c5c6b', textDecoration: 'none' }}>Privacy</a>
-          <a href="mailto:hello@ghostwriterai.com" style={{ color: '#5c5c6b', textDecoration: 'none' }}>Contact</a>
+          <a href="mailto:hello@ghost-writer.cc" style={{ color: '#5c5c6b', textDecoration: 'none' }}>Contact</a>
         </div>
       </footer>
 

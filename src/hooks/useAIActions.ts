@@ -9,28 +9,7 @@ import { toast } from "@/lib/toast";
 import { buildStaticContext, buildDynamicContext, buildBeginnerContext, buildCreatorContext } from "@/lib/ai/context-builder";
 import { getPipelines, type Pipeline } from "@/lib/ai/pipelines";
 import { isCreatorFormat } from "@/lib/formats";
-import { buildDialogueContext } from "@/lib/dialogue";
-import { buildCombatContext } from "@/lib/combat";
-import { buildEmotionalContext } from "@/lib/emotional";
-import { buildAtmosphereContext } from "@/lib/atmosphere";
-import { buildTensionContext } from "@/lib/tension";
-import { buildCompositionContext, type CompositionLayer } from "@/lib/ai/composer";
-import { compactContext } from "@/lib/compact";
-import { buildHorrorContext } from "@/lib/horror";
-import { buildComedyContext } from "@/lib/comedy";
-import { buildMysteryContext } from "@/lib/mystery";
-import { buildRomanceContext } from "@/lib/romance";
-import { buildActionContext } from "@/lib/action";
-import { buildMonologueContext } from "@/lib/monologue";
-import { buildVoiceContext } from "@/lib/voice";
-import { buildThrillerContext } from "@/lib/thriller";
-import { buildSportsContext } from "@/lib/sports";
-import { buildSettingContext } from "@/lib/setting";
-import { buildHistoricalContext } from "@/lib/historical";
-import { buildScitechContext } from "@/lib/scitech";
-import { buildEthicsContext } from "@/lib/ethics";
-import { buildEndingsContext } from "@/lib/endings";
-import { buildIsekaiContext } from "@/lib/isekai";
+import type { CompositionLayer } from "@/lib/ai/composer";
 import { plainTextToTipTap, isValidTipTapJson, getWordCount } from "@/lib/editor/content-migration";
 
 function appendToTipTap(existingContent: string, newText: string): string {
@@ -352,6 +331,7 @@ export function useAIActions({
     setGenerating(true); setGenTarget("main"); setStreamText("");
     try {
       const extended = { ...p, activeMode: 'dialogue', currentPrompt: dialoguePrompt, activeInfluence, activePatterns };
+      const { buildDialogueContext } = await import('@/lib/dialogue');
       const libraryPrefix = buildDialogueContext(charA, charB, archetypeName) + "\n---\n";
       const staticCtx = libraryPrefix + buildStaticContext(extended);
       const dynamicCtx = buildDynamicContext(extended);
@@ -422,6 +402,7 @@ export function useAIActions({
     setGenerating(true); setGenTarget("main"); setStreamText("");
     try {
       const extended = { ...project, activeMode: 'combat', currentPrompt: combatPrompt, activeInfluence, activePatterns };
+      const { buildCombatContext } = await import('@/lib/combat');
       const staticCtx = buildCombatContext(styleA, styleB) + "\n---\n" + buildStaticContext(extended);
       const dynamicCtx = buildDynamicContext(extended);
       const res = await fetch("/api/ai/generate", {
@@ -440,6 +421,7 @@ export function useAIActions({
     setGenerating(true); setGenTarget("main"); setStreamText("");
     try {
       const extended = { ...project, activeMode: 'emotional', currentPrompt: emotionalPrompt, activeInfluence, activePatterns };
+      const { buildEmotionalContext } = await import('@/lib/emotional');
       const staticCtx = buildEmotionalContext(emotionName) + "\n---\n" + buildStaticContext(extended);
       const dynamicCtx = buildDynamicContext(extended);
       const res = await fetch("/api/ai/generate", {
@@ -458,6 +440,7 @@ export function useAIActions({
     setGenerating(true); setGenTarget("main"); setStreamText("");
     try {
       const extended = { ...project, activeMode: 'atmosphere', currentPrompt: atmospherePrompt, activeInfluence, activePatterns };
+      const { buildAtmosphereContext } = await import('@/lib/atmosphere');
       const staticCtx = buildAtmosphereContext(environmentName) + "\n---\n" + buildStaticContext(extended);
       const dynamicCtx = buildDynamicContext(extended);
       const res = await fetch("/api/ai/generate", {
@@ -476,6 +459,7 @@ export function useAIActions({
     setGenerating(true); setGenTarget("main"); setStreamText("");
     try {
       const extended = { ...project, activeMode: 'tension', currentPrompt: tensionPrompt, activeInfluence, activePatterns };
+      const { buildTensionContext } = await import('@/lib/tension');
       const staticCtx = buildTensionContext(tensionType) + "\n---\n" + buildStaticContext(extended);
       const dynamicCtx = buildDynamicContext(extended);
       const res = await fetch("/api/ai/generate", {
@@ -494,6 +478,7 @@ export function useAIActions({
     setGenerating(true); setGenTarget("main"); setStreamText("");
     try {
       const extended = { ...project, activeMode: 'horror', currentPrompt: horrorPrompt, activeInfluence, activePatterns };
+      const { buildHorrorContext } = await import('@/lib/horror');
       const staticCtx = buildHorrorContext(archetypeName) + "\n---\n" + buildStaticContext(extended);
       const dynamicCtx = buildDynamicContext(extended);
       const res = await fetch("/api/ai/generate", {
@@ -512,6 +497,7 @@ export function useAIActions({
     setGenerating(true); setGenTarget("main"); setStreamText("");
     try {
       const extended = { ...project, activeMode: 'comedy', currentPrompt: comedyPrompt, activeInfluence, activePatterns };
+      const { buildComedyContext } = await import('@/lib/comedy');
       const staticCtx = buildComedyContext(archetypeName) + "\n---\n" + buildStaticContext(extended);
       const dynamicCtx = buildDynamicContext(extended);
       const res = await fetch("/api/ai/generate", {
@@ -530,6 +516,7 @@ export function useAIActions({
     setGenerating(true); setGenTarget("main"); setStreamText("");
     try {
       const extended = { ...project, activeMode: 'mystery', currentPrompt: mysteryPrompt, activeInfluence, activePatterns };
+      const { buildMysteryContext } = await import('@/lib/mystery');
       const staticCtx = buildMysteryContext(archetypeName) + "\n---\n" + buildStaticContext(extended);
       const dynamicCtx = buildDynamicContext(extended);
       const res = await fetch("/api/ai/generate", {
@@ -548,6 +535,7 @@ export function useAIActions({
     setGenerating(true); setGenTarget("main"); setStreamText("");
     try {
       const extended = { ...project, activeMode: 'romance', currentPrompt: romancePrompt, activeInfluence, activePatterns };
+      const { buildRomanceContext } = await import('@/lib/romance');
       const staticCtx = buildRomanceContext(archetypeName) + "\n---\n" + buildStaticContext(extended);
       const dynamicCtx = buildDynamicContext(extended);
       const res = await fetch("/api/ai/generate", {
@@ -566,6 +554,7 @@ export function useAIActions({
     setGenerating(true); setGenTarget("main"); setStreamText("");
     try {
       const extended = { ...project, activeMode: 'monologue', currentPrompt: monologuePrompt, activeInfluence, activePatterns };
+      const { buildMonologueContext } = await import('@/lib/monologue');
       const staticCtx = buildMonologueContext(archetypeName) + "\n---\n" + buildStaticContext(extended);
       const dynamicCtx = buildDynamicContext(extended);
       const res = await fetch("/api/ai/generate", {
@@ -584,6 +573,7 @@ export function useAIActions({
     setGenerating(true); setGenTarget("main"); setStreamText("");
     try {
       const extended = { ...project, activeMode: 'voice', currentPrompt: voicePrompt, activeInfluence, activePatterns };
+      const { buildVoiceContext } = await import('@/lib/voice');
       const staticCtx = buildVoiceContext(profileName) + "\n---\n" + buildStaticContext(extended);
       const dynamicCtx = buildDynamicContext(extended);
       const res = await fetch("/api/ai/generate", {
@@ -602,6 +592,7 @@ export function useAIActions({
     setGenerating(true); setGenTarget("main"); setStreamText("");
     try {
       const extended = { ...project, activeMode: 'thriller', currentPrompt: thrillerPrompt, activeInfluence, activePatterns };
+      const { buildThrillerContext } = await import('@/lib/thriller');
       const staticCtx = buildThrillerContext(archetypeName) + "\n---\n" + buildStaticContext(extended);
       const dynamicCtx = buildDynamicContext(extended);
       const res = await fetch("/api/ai/generate", {
@@ -620,6 +611,7 @@ export function useAIActions({
     setGenerating(true); setGenTarget("main"); setStreamText("");
     try {
       const extended = { ...project, activeMode: 'sports', currentPrompt: sportsPrompt, activeInfluence, activePatterns };
+      const { buildSportsContext } = await import('@/lib/sports');
       const staticCtx = buildSportsContext(archetypeName) + "\n---\n" + buildStaticContext(extended);
       const dynamicCtx = buildDynamicContext(extended);
       const res = await fetch("/api/ai/generate", {
@@ -638,6 +630,7 @@ export function useAIActions({
     setGenerating(true); setGenTarget("main"); setStreamText("");
     try {
       const extended = { ...project, activeMode: 'action', currentPrompt: actionPrompt, activeInfluence, activePatterns };
+      const { buildActionContext } = await import('@/lib/action');
       const staticCtx = buildActionContext(archetypeName) + "\n---\n" + buildStaticContext(extended);
       const dynamicCtx = buildDynamicContext(extended);
       const res = await fetch("/api/ai/generate", {
@@ -655,6 +648,8 @@ export function useAIActions({
     if (!layers.length) { toast.error("Select at least one layer before generating."); return; }
     setGenerating(true); setGenTarget("main"); setStreamText("");
     try {
+      const { buildCompositionContext } = await import('@/lib/ai/composer');
+      const { compactContext } = await import('@/lib/compact');
       const libraryCtx = buildCompositionContext(layers);
       const storyCtx = buildFullContext();
       const fullCtx = compactContext(libraryCtx + "\n\n---\n\n" + storyCtx);
@@ -681,6 +676,7 @@ export function useAIActions({
     setGenerating(true); setGenTarget("main"); setStreamText("");
     try {
       const extended = { ...project, activeMode: 'setting', currentPrompt: settingPrompt, activeInfluence, activePatterns };
+      const { buildSettingContext } = await import('@/lib/setting');
       const staticCtx = buildSettingContext(archetypeName) + "\n---\n" + buildStaticContext(extended);
       const dynamicCtx = buildDynamicContext(extended);
       const res = await fetch("/api/ai/generate", {
@@ -699,6 +695,7 @@ export function useAIActions({
     setGenerating(true); setGenTarget("main"); setStreamText("");
     try {
       const extended = { ...project, activeMode: 'historical', currentPrompt: historicalPrompt, activeInfluence, activePatterns };
+      const { buildHistoricalContext } = await import('@/lib/historical');
       const staticCtx = buildHistoricalContext(archetypeName) + "\n---\n" + buildStaticContext(extended);
       const dynamicCtx = buildDynamicContext(extended);
       const res = await fetch("/api/ai/generate", {
@@ -717,6 +714,7 @@ export function useAIActions({
     setGenerating(true); setGenTarget("main"); setStreamText("");
     try {
       const extended = { ...project, activeMode: 'scitech', currentPrompt: scitechPrompt, activeInfluence, activePatterns };
+      const { buildScitechContext } = await import('@/lib/scitech');
       const staticCtx = buildScitechContext(archetypeName) + "\n---\n" + buildStaticContext(extended);
       const dynamicCtx = buildDynamicContext(extended);
       const res = await fetch("/api/ai/generate", {
@@ -735,6 +733,7 @@ export function useAIActions({
     setGenerating(true); setGenTarget("main"); setStreamText("");
     try {
       const extended = { ...project, activeMode: 'ethics', currentPrompt: ethicsPrompt, activeInfluence, activePatterns };
+      const { buildEthicsContext } = await import('@/lib/ethics');
       const staticCtx = buildEthicsContext(archetypeName) + "\n---\n" + buildStaticContext(extended);
       const dynamicCtx = buildDynamicContext(extended);
       const res = await fetch("/api/ai/generate", {
@@ -753,6 +752,7 @@ export function useAIActions({
     setGenerating(true); setGenTarget("main"); setStreamText("");
     try {
       const extended = { ...project, activeMode: 'endings', currentPrompt: endingsPrompt, activeInfluence, activePatterns };
+      const { buildEndingsContext } = await import('@/lib/endings');
       const staticCtx = buildEndingsContext(archetypeName) + "\n---\n" + buildStaticContext(extended);
       const dynamicCtx = buildDynamicContext(extended);
       const res = await fetch("/api/ai/generate", {
@@ -771,6 +771,7 @@ export function useAIActions({
     setGenerating(true); setGenTarget("main"); setStreamText("");
     try {
       const extended = { ...project, activeMode: 'isekai', currentPrompt: isekaiPrompt, activeInfluence, activePatterns };
+      const { buildIsekaiContext } = await import('@/lib/isekai');
       const staticCtx = buildIsekaiContext(archetypeName) + "\n---\n" + buildStaticContext(extended);
       const dynamicCtx = buildDynamicContext(extended);
       const res = await fetch("/api/ai/generate", {
