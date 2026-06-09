@@ -207,9 +207,8 @@ export async function POST(req: Request) {
     });
     const now = new Date();
     const resetAt = user?.monthlyGenerationsResetAt;
-    const isNewMonth = !resetAt ||
-      resetAt.getMonth() !== now.getMonth() ||
-      resetAt.getFullYear() !== now.getFullYear();
+    const firstOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const isNewMonth = !resetAt || resetAt < firstOfMonth;
 
     if (isNewMonth) {
       await db.update(users).set({

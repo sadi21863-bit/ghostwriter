@@ -12,9 +12,10 @@ function stripRtf(rtf: string): string {
   text = text.replace(/\{\\[\w-]+[^}]*\}/g, '');
   text = text.replace(/\\[a-z]+[-]?\d*\s?/g, ' ');
   text = text.replace(/[{}\\]/g, '');
-  text = text.replace(/\\'([0-9a-f]{2})/gi, (_, hex) =>
-    String.fromCharCode(parseInt(hex, 16))
-  );
+  text = text.replace(/\\'([0-9a-f]{2})/gi, (_, hex) => {
+    const code = parseInt(hex, 16);
+    return isNaN(code) ? "" : String.fromCharCode(code);
+  });
   text = text.replace(/\s+/g, ' ').trim();
   return text;
 }

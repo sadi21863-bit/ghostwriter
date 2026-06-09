@@ -11,19 +11,20 @@ export async function POST(
   { params }: { params: Promise<{ projectId: string }> }
 ) {
   const session = await getRequiredSession();
+  const { projectId } = await params;
 
   const project = await db.query.projects.findFirst({
-    where: and(eq(projects.id, (await params).projectId), eq(projects.userId, session.user.id)),
+    where: and(eq(projects.id, projectId), eq(projects.userId, session.user.id)),
     columns: { id: true },
   });
   if (!project) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
-
-  const body = await req.json();
+  const { title, attributes } = await req.json();
+  if (!title || typeof title !== "string") return NextResponse.json({ error: "title is required" }, { status: 400 });
   const [r] = await db
     .insert(referenceWorks)
-    .values({ projectId: (await params).projectId, ...body })
+    .values({ projectId, title, ...(attributes !== undefined && { attributes }) })
     .returning();
   return NextResponse.json(r, { status: 201 });
 }

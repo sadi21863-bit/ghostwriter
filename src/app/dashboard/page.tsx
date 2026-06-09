@@ -185,6 +185,7 @@ export default function Dashboard() {
           storyType: 'linear',
         }),
       });
+      if (!projRes.ok) throw new Error('Failed to create project');
       const proj = await projRes.json();
 
       await fetch(`/api/projects/${proj.id}`, {

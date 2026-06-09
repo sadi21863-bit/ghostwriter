@@ -29,12 +29,13 @@ export async function PATCH(req: Request) {
   const s = await getRequiredSession();
   const { higgsfieldApiKey, higgsfieldApiSecret, openaiApiKey, imageProviderId, trendIntelligenceKey } = await req.json();
 
-  const update: Record<string, string> = {};
+  const update: Record<string, string | Date> = {};
   if (higgsfieldApiKey     !== undefined) update.higgsfieldApiKey     = encrypt(higgsfieldApiKey);
   if (higgsfieldApiSecret  !== undefined) update.higgsfieldApiSecret  = encrypt(higgsfieldApiSecret);
   if (openaiApiKey         !== undefined) update.openaiApiKey         = encrypt(openaiApiKey);
   if (trendIntelligenceKey !== undefined) update.trendIntelligenceKey = encrypt(trendIntelligenceKey);
   if (imageProviderId      !== undefined) update.imageProviderId      = imageProviderId;
+  update.updatedAt = new Date();
 
   await db.update(users).set(update).where(eq(users.id, s.user.id));
   return NextResponse.json({ success: true });

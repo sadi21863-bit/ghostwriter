@@ -27,16 +27,15 @@ export async function POST(req: NextRequest) {
     });
     const now = new Date();
     const resetAt = user?.monthlyGenerationsResetAt;
-    const isNewMonth = !resetAt ||
-      resetAt.getMonth() !== now.getMonth() ||
-      resetAt.getFullYear() !== now.getFullYear();
+    const firstOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const isNewMonth = !resetAt || resetAt < firstOfMonth;
 
     if (isNewMonth) {
       await db.update(users)
         .set({ monthlyGenerations: 0, monthlyGenerationsResetAt: now })
         .where(eq(users.id, session.user.id));
     } else if ((user?.monthlyGenerations ?? 0) >= monthlyLimit) {
-      return NextResponse.json({ directives: "" });
+      return NextResponse.json({ error: "monthly_limit_reached", directives: "" }, { status: 429 });
     }
   }
 
