@@ -37,7 +37,7 @@ export async function PATCH(req: Request, { params }: Ctx) {
     ...(tone !== undefined && { tone }),
     ...(sharedRules !== undefined && { sharedRules }),
     updatedAt: new Date(),
-  }).where(eq(universes.id, universeId)).returning();
+  }).where(and(eq(universes.id, universeId), eq(universes.userId, s.user.id))).returning();
   return NextResponse.json(u);
 }
 
@@ -49,6 +49,6 @@ export async function DELETE(_: Request, { params }: Ctx) {
   await db.update(projects)
     .set({ universeId: null, storyType: "linear" })
     .where(eq(projects.universeId, universeId));
-  await db.delete(universes).where(eq(universes.id, universeId));
+  await db.delete(universes).where(and(eq(universes.id, universeId), eq(universes.userId, s.user.id)));
   return NextResponse.json({ ok: true });
 }

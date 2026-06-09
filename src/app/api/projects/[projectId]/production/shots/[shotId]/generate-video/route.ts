@@ -24,7 +24,10 @@ export async function POST(req: Request, { params }: { params: Promise<{ project
   if (!higgsfieldKey)
     return NextResponse.json({ error: "Add your Higgsfield API key in Settings." }, { status: 400 });
 
-  const shot = await db.query.productionShots.findFirst({ where: eq(productionShots.id, (await params).shotId) });
+  const { projectId: pid, shotId } = await params;
+  const shot = await db.query.productionShots.findFirst({
+    where: and(eq(productionShots.id, shotId), eq(productionShots.projectId, pid)),
+  });
   if (!shot) return NextResponse.json({ error: "Shot not found" }, { status: 404 });
 
   const { model } = await req.json();
@@ -43,7 +46,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ project
   const [updated] = await db
     .update(productionShots)
     .set({ generationStatus: "generating_final", higgsfieldJobId: `${requestId}|${pollingUrl}`, updatedAt: new Date() })
-    .where(eq(productionShots.id, (await params).shotId))
+    .where(and(eq(productionShots.id, shotId), eq(productionShots.projectId, pid)))
     .returning();
 
   return NextResponse.json({ shot: updated, jobId: requestId, status: "generating_final" });

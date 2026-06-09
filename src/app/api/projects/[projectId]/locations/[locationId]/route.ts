@@ -24,16 +24,20 @@ async function verifyOwnership(projectId: string, userId: string) {
 
 export async function PATCH(req: Request, { params }: { params: Promise<{ projectId: string; locationId: string }> }) {
   const s = await getRequiredSession();
-  if (!await verifyOwnership((await params).projectId, s.user.id)) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  const { projectId, locationId } = await params;
+  if (!await verifyOwnership(projectId, s.user.id)) return NextResponse.json({ error: "Not found" }, { status: 404 });
   const parsed = LocationPatch.safeParse(await req.json());
   if (!parsed.success) return NextResponse.json({ error: "Invalid fields" }, { status: 400 });
-  const [u] = await db.update(locations).set(parsed.data).where(eq(locations.id, (await params).locationId)).returning();
+  const [u] = await db.update(locations).set(parsed.data)
+    .where(and(eq(locations.id, locationId), eq(locations.projectId, projectId)))
+    .returning();
   return NextResponse.json(u);
 }
 
 export async function DELETE(_: Request, { params }: { params: Promise<{ projectId: string; locationId: string }> }) {
   const s = await getRequiredSession();
-  if (!await verifyOwnership((await params).projectId, s.user.id)) return NextResponse.json({ error: "Not found" }, { status: 404 });
-  await db.delete(locations).where(eq(locations.id, (await params).locationId));
+  const { projectId, locationId } = await params;
+  if (!await verifyOwnership(projectId, s.user.id)) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  await db.delete(locations).where(and(eq(locations.id, locationId), eq(locations.projectId, projectId)));
   return NextResponse.json({ ok: true });
 }

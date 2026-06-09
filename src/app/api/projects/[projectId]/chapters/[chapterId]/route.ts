@@ -14,16 +14,20 @@ async function verifyOwnership(projectId: string, userId: string) {
 
 export async function PATCH(req: Request, { params }: Ctx) {
   const s = await getRequiredSession();
-  if (!await verifyOwnership((await params).projectId, s.user.id)) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  const { projectId, chapterId } = await params;
+  if (!await verifyOwnership(projectId, s.user.id)) return NextResponse.json({ error: "Not found" }, { status: 404 });
   const b = await req.json();
   if (b.content !== undefined) b.wordCount = b.content.trim().split(/\s+/).filter(Boolean).length;
-  const [u] = await db.update(chapters).set({ ...b, updatedAt: new Date() }).where(eq(chapters.id, (await params).chapterId)).returning();
+  const [u] = await db.update(chapters).set({ ...b, updatedAt: new Date() })
+    .where(and(eq(chapters.id, chapterId), eq(chapters.projectId, projectId)))
+    .returning();
   return NextResponse.json(u);
 }
 
 export async function DELETE(_: Request, { params }: Ctx) {
   const s = await getRequiredSession();
-  if (!await verifyOwnership((await params).projectId, s.user.id)) return NextResponse.json({ error: "Not found" }, { status: 404 });
-  await db.delete(chapters).where(eq(chapters.id, (await params).chapterId));
+  const { projectId, chapterId } = await params;
+  if (!await verifyOwnership(projectId, s.user.id)) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  await db.delete(chapters).where(and(eq(chapters.id, chapterId), eq(chapters.projectId, projectId)));
   return NextResponse.json({ ok: true });
 }

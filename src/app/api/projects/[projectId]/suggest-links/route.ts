@@ -84,18 +84,19 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ projec
     return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const { type, characterId, targetId } = await req.json();
+  const { projectId } = await params;
 
   if (type === "char-loc") {
-    const char = await db.query.characters.findFirst({ where: eq(characters.id, characterId) });
-    const loc = await db.query.locations.findFirst({ where: eq(locations.id, targetId) });
+    const char = await db.query.characters.findFirst({ where: and(eq(characters.id, characterId), eq(characters.projectId, projectId)) });
+    const loc = await db.query.locations.findFirst({ where: and(eq(locations.id, targetId), eq(locations.projectId, projectId)) });
     if (!char || !loc) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-    await db.update(characters).set({ linkedLocationIds: [...(char.linkedLocationIds || []), targetId] }).where(eq(characters.id, characterId));
-    await db.update(locations).set({ linkedCharacterIds: [...(loc.linkedCharacterIds || []), characterId] }).where(eq(locations.id, targetId));
+    await db.update(characters).set({ linkedLocationIds: [...(char.linkedLocationIds || []), targetId] }).where(and(eq(characters.id, characterId), eq(characters.projectId, projectId)));
+    await db.update(locations).set({ linkedCharacterIds: [...(loc.linkedCharacterIds || []), characterId] }).where(and(eq(locations.id, targetId), eq(locations.projectId, projectId)));
   } else if (type === "char-plot") {
-    const char = await db.query.characters.findFirst({ where: eq(characters.id, characterId) });
+    const char = await db.query.characters.findFirst({ where: and(eq(characters.id, characterId), eq(characters.projectId, projectId)) });
     if (!char) return NextResponse.json({ error: "Not found" }, { status: 404 });
-    await db.update(characters).set({ linkedPlotThreadIds: [...(char.linkedPlotThreadIds || []), targetId] }).where(eq(characters.id, characterId));
+    await db.update(characters).set({ linkedPlotThreadIds: [...(char.linkedPlotThreadIds || []), targetId] }).where(and(eq(characters.id, characterId), eq(characters.projectId, projectId)));
   }
 
   return NextResponse.json({ ok: true });

@@ -35,16 +35,20 @@ async function verifyOwnership(projectId: string, userId: string) {
 
 export async function PATCH(req: Request, { params }: { params: Promise<{ projectId: string; characterId: string }> }) {
   const s = await getRequiredSession();
-  if (!await verifyOwnership((await params).projectId, s.user.id)) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  const { projectId, characterId } = await params;
+  if (!await verifyOwnership(projectId, s.user.id)) return NextResponse.json({ error: "Not found" }, { status: 404 });
   const parsed = CharacterPatch.safeParse(await req.json());
   if (!parsed.success) return NextResponse.json({ error: "Invalid fields" }, { status: 400 });
-  const [u] = await db.update(characters).set(parsed.data).where(eq(characters.id, (await params).characterId)).returning();
+  const [u] = await db.update(characters).set(parsed.data)
+    .where(and(eq(characters.id, characterId), eq(characters.projectId, projectId)))
+    .returning();
   return NextResponse.json(u);
 }
 
 export async function DELETE(_: Request, { params }: { params: Promise<{ projectId: string; characterId: string }> }) {
   const s = await getRequiredSession();
-  if (!await verifyOwnership((await params).projectId, s.user.id)) return NextResponse.json({ error: "Not found" }, { status: 404 });
-  await db.delete(characters).where(eq(characters.id, (await params).characterId));
+  const { projectId, characterId } = await params;
+  if (!await verifyOwnership(projectId, s.user.id)) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  await db.delete(characters).where(and(eq(characters.id, characterId), eq(characters.projectId, projectId)));
   return NextResponse.json({ ok: true });
 }

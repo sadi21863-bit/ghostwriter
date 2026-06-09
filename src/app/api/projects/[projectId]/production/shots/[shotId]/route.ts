@@ -31,8 +31,11 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ projec
     if (key in body) updates[key] = body[key];
   }
 
-  // Fetch current shot to merge for prompt rebuild
-  const current = await db.query.productionShots.findFirst({ where: eq(productionShots.id, (await params).shotId) });
+  // Fetch current shot to merge for prompt rebuild — include projectId to prevent cross-project IDOR
+  const { projectId: pid, shotId } = await params;
+  const current = await db.query.productionShots.findFirst({
+    where: and(eq(productionShots.id, shotId), eq(productionShots.projectId, pid)),
+  });
   if (!current) return NextResponse.json({ error: "Shot not found" }, { status: 404 });
 
   const merged = { ...current, ...updates };
@@ -57,7 +60,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ projec
   const [updated] = await db
     .update(productionShots)
     .set({ ...updates, updatedAt: new Date() })
-    .where(eq(productionShots.id, (await params).shotId))
+    .where(and(eq(productionShots.id, shotId), eq(productionShots.projectId, pid)))
     .returning();
 
   return NextResponse.json({ shot: updated });
