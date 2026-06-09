@@ -292,7 +292,7 @@ Do NOT write the scene — just provide the accurate factual grounding.`,
     }
 
     const effectiveDynamic = [dynamicContext, additionalContext, aiismsNote, domainResearchContext].filter(Boolean).join('\n\n');
-    const r = await generate({ mode, prompt: effectivePrompt, context, staticContext: effectiveStatic, dynamicContext: effectiveDynamic, format, narrativeStructure, overrideModel });
+    const r = await generate({ mode, prompt: effectivePrompt, context, staticContext: effectiveStatic, dynamicContext: effectiveDynamic || undefined, format, narrativeStructure, overrideModel });
     await db.insert(generations).values({
       projectId, chapterId: chapterId || null, mode, prompt,
       output: r.text, model: r.model, tokensUsed: r.tokensUsed,
@@ -307,7 +307,7 @@ Do NOT write the scene — just provide the accurate factual grounding.`,
     return NextResponse.json(r);
   } catch (e: any) {
     const msg = e?.message || "";
-    console.error('[ai/generate] generation error:', e?.status, msg.slice(0, 500));
+    console.error(`[gen] ${e?.status} ${msg.slice(0, 300)}`);
     if (msg.includes("rate_limit") || msg.includes("529"))
       return NextResponse.json({ error: "Anthropic rate limit hit. Wait a moment and try again.", retryable: true }, { status: 429 });
     if (msg.includes("context_length") || msg.includes("too long"))
