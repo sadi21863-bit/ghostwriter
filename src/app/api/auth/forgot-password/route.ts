@@ -7,8 +7,15 @@ import { eq } from 'drizzle-orm';
 import { randomBytes } from 'crypto';
 import { sendEmail } from '@/lib/email';
 import { passwordResetEmail } from '@/lib/email/templates';
+import { checkAuthRateLimit } from '@/lib/ratelimit';
 
 export async function POST(req: NextRequest) {
+  const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
+    ?? req.headers.get('x-real-ip')
+    ?? 'anonymous';
+  const rl = await checkAuthRateLimit(ip);
+  if (rl) return rl;
+
   const { email } = await req.json();
   if (!email?.trim()) return NextResponse.json({ ok: true });
 

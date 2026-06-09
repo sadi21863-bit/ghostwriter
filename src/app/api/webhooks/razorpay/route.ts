@@ -59,18 +59,20 @@ async function activateSubscription(sub: RazorpaySubscriptionEntity) {
     sendEmail({ to: user.email, subject, html, text }).catch(() => {});
   }
 
-  // Referral reward: extend referrer's current period by 30 days once their referee subscribes
+  // Referral reward: atomic conditional update prevents double-reward on webhook retry
   try {
-    const pendingReferral = await db.query.referrals.findFirst({
-      where: and(eq(referrals.refereeId, userId), eq(referrals.status, 'pending')),
-    });
-    if (pendingReferral) {
-      await db.update(referrals)
-        .set({ status: 'subscribed' })
-        .where(eq(referrals.id, pendingReferral.id));
+    const updateResult = await db.update(referrals)
+      .set({ status: 'subscribed' })
+      .where(and(
+        eq(referrals.refereeId, userId),
+        eq(referrals.status, 'pending'),
+      ))
+      .returning({ id: referrals.id, referrerId: referrals.referrerId });
 
+    if (updateResult.length > 0) {
+      const { id: referralId, referrerId } = updateResult[0];
       const referrerSub = await db.query.subscriptions.findFirst({
-        where: eq(subscriptions.userId, pendingReferral.referrerId),
+        where: eq(subscriptions.userId, referrerId),
       });
       if (referrerSub?.currentPeriodEnd) {
         await db.update(subscriptions)
@@ -78,9 +80,9 @@ async function activateSubscription(sub: RazorpaySubscriptionEntity) {
           .where(eq(subscriptions.id, referrerSub.id));
         await db.update(referrals)
           .set({ status: 'rewarded', rewardApplied: true })
-          .where(eq(referrals.id, pendingReferral.id));
-        invalidateTierCache(pendingReferral.referrerId);
-        await track(pendingReferral.referrerId, 'referral_rewarded');
+          .where(eq(referrals.id, referralId));
+        invalidateTierCache(referrerId);
+        await track(referrerId, 'referral_rewarded');
       }
     }
   } catch { /* referral reward failure must never break the main flow */ }
@@ -139,9 +141,11 @@ export async function POST(req: Request) {
     case "subscription.cancelled":
     case "subscription.completed": {
       if (!subEntity) break;
+      // Keep tier unchanged — getUserTier() grants access until currentPeriodEnd,
+      // then falls back to "free". Setting tier: "free" here would break that grace period.
       await db.update(subscriptions).set({
         status: "cancelled",
-        tier: "free",
+        currentPeriodEnd: subEntity.current_end ? new Date(subEntity.current_end * 1000) : undefined,
         updatedAt: new Date(),
       }).where(eq(subscriptions.razorpaySubscriptionId, subEntity.id));
       await invalidateCacheFor(subEntity.id);

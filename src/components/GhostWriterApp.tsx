@@ -163,9 +163,30 @@ export default function GhostWriterApp({ projectId }: { projectId: string }) {
   }, [activeChap?.emotionalTone]);
 
   if (loadError) return (
-    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100vh", fontFamily: "system-ui", flexDirection: "column", gap: 12 }}>
-      <span style={{ color: "#d94545", fontSize: 15 }}>{loadError}</span>
-      <button onClick={() => window.location.reload()} style={{ padding: "8px 20px", background: "#5b4ccc", color: "#fff", border: "none", borderRadius: 8, cursor: "pointer" }}>Retry</button>
+    <div style={{
+      display: 'flex', flexDirection: 'column', alignItems: 'center',
+      justifyContent: 'center', height: '100vh', gap: 12, padding: 24,
+      background: '#0d0d10', color: '#f2f2f3',
+    }}>
+      <div style={{ fontSize: 32 }}>⚠️</div>
+      <h2 style={{ fontSize: 18, fontWeight: 700, margin: 0 }}>Could not load project</h2>
+      <p style={{ fontSize: 14, color: '#9898a6', textAlign: 'center', maxWidth: 320, margin: 0, lineHeight: 1.6 }}>
+        This is usually caused by a connection issue. Your work is saved.
+      </p>
+      <div style={{ display: 'flex', gap: 10, marginTop: 8 }}>
+        <button
+          onClick={() => window.location.reload()}
+          style={{ padding: '10px 24px', borderRadius: 8, background: '#d97706', color: '#fff', border: 'none', cursor: 'pointer', fontWeight: 600 }}
+        >
+          Try again
+        </button>
+        <a
+          href="/dashboard"
+          style={{ padding: '10px 24px', borderRadius: 8, background: 'transparent', color: '#9898a6', border: '1px solid rgba(255,255,255,0.1)', textDecoration: 'none', fontWeight: 600 }}
+        >
+          Dashboard
+        </a>
+      </div>
     </div>
   );
 

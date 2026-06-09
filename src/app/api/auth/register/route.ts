@@ -8,8 +8,15 @@ import { randomBytes } from "crypto";
 import bcrypt from "bcryptjs";
 import { sendEmail } from "@/lib/email";
 import { welcomeEmail } from "@/lib/email/templates";
+import { checkAuthRateLimit } from "@/lib/ratelimit";
 
 export async function POST(req: NextRequest) {
+  const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
+    ?? req.headers.get('x-real-ip')
+    ?? 'anonymous';
+  const rl = await checkAuthRateLimit(ip);
+  if (rl) return rl;
+
   const { email, name, password, ref } = await req.json();
   if (!email || !password) {
     return NextResponse.json({ error: "Email and password required" }, { status: 400 });
@@ -17,7 +24,8 @@ export async function POST(req: NextRequest) {
   if (password.length < 8) {
     return NextResponse.json({ error: "Password must be at least 8 characters" }, { status: 400 });
   }
-  const existing = await db.query.users.findFirst({ where: eq(users.email, email) });
+  const normalizedEmail = email.toLowerCase().trim();
+  const existing = await db.query.users.findFirst({ where: eq(users.email, normalizedEmail) });
   if (existing) {
     return NextResponse.json({ error: "Email already registered" }, { status: 409 });
   }
@@ -25,7 +33,7 @@ export async function POST(req: NextRequest) {
   const referralCode = randomBytes(6).toString("hex").toUpperCase();
   const [user] = await db
     .insert(users)
-    .values({ email, name: name?.trim() || null, hashedPassword, referralCode })
+    .values({ email: normalizedEmail, name: name?.trim() || null, hashedPassword, referralCode })
     .returning({ id: users.id, email: users.email, name: users.name });
 
   // Link referrer if a valid ref code was provided

@@ -30,6 +30,16 @@ export const generalRatelimit = redis
     })
   : null;
 
+// 5 requests per hour for auth endpoints (register, forgot-password)
+export const authRatelimit = redis
+  ? new Ratelimit({
+      redis,
+      limiter: Ratelimit.slidingWindow(5, "1 h"),
+      analytics: true,
+      prefix: "gw:auth",
+    })
+  : null;
+
 // 10 AI generations per free user per day
 export const freeGenerationLimit = redis
   ? new Ratelimit({
@@ -58,6 +68,38 @@ export async function checkAiRateLimit(userId: string): Promise<NextResponse | n
           "X-RateLimit-Reset": String(reset),
         },
       }
+    );
+  }
+  return null;
+}
+
+/**
+ * IP-based rate limit for auth endpoints. 5 requests per hour per IP.
+ * Fails open if Upstash is not configured.
+ */
+export async function checkAuthRateLimit(ip: string): Promise<NextResponse | null> {
+  if (!authRatelimit) return null;
+  const { success } = await authRatelimit.limit(ip);
+  if (!success) {
+    return NextResponse.json(
+      { error: "Too many requests. Please wait before trying again." },
+      { status: 429 }
+    );
+  }
+  return null;
+}
+
+/**
+ * General IP-based rate limit. 100 requests per minute per IP.
+ * Fails open if Upstash is not configured.
+ */
+export async function checkGeneralRateLimit(ip: string): Promise<NextResponse | null> {
+  if (!generalRatelimit) return null;
+  const { success } = await generalRatelimit.limit(ip);
+  if (!success) {
+    return NextResponse.json(
+      { error: "Too many requests. Please wait before trying again." },
+      { status: 429 }
     );
   }
   return null;
