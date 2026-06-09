@@ -41,28 +41,12 @@ export default function Dashboard() {
   const [deleteTarget, setDeleteTarget] = useState<Project | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
-  const [showSettings, setShowSettings] = useState(false);
   const [showImport, setShowImport] = useState(false);
   const [importFile, setImportFile] = useState<File | null>(null);
   const [importName, setImportName] = useState("");
   const [importing, setImporting] = useState(false);
   const [importMsg, setImportMsg] = useState("");
-  const [higgsfieldKeySet, setHiggsfieldKeySet] = useState(false);
-  const [higgsfieldKeyLast4, setHiggsfieldKeyLast4] = useState("");
-  const [higgsfieldInput, setHiggsfieldInput] = useState("");
-  const [higgsfieldSecretSet, setHiggsfieldSecretSet] = useState(false);
-  const [higgsfieldSecretLast4, setHiggsfieldSecretLast4] = useState("");
-  const [higgsfieldSecretInput, setHiggsfieldSecretInput] = useState("");
-  const [openaiKeySet, setOpenaiKeySet] = useState(false);
-  const [openaiKeyLast4, setOpenaiKeyLast4] = useState("");
-  const [openaiInput, setOpenaiInput] = useState("");
-  const [imageProviderId, setImageProviderId] = useState("segmind_soul");
-  const [trendKeySet, setTrendKeySet] = useState(false);
-  const [trendKeyLast4, setTrendKeyLast4] = useState("");
-  const [trendKeyInput, setTrendKeyInput] = useState("");
-  const [showTrendKeyInput, setShowTrendKeyInput] = useState(false);
-  const [settingsSaving, setSettingsSaving] = useState(false);
-  const [settingsMsg, setSettingsMsg] = useState("");
+  const [subscription, setSubscription] = useState<{ tier: string; status: string } | null>(null);
   const [search, setSearch] = useState("");
   const [filterFormat, setFilterFormat] = useState("All");
   const [seriesBibles, setSeriesBibles] = useState<{ id: string; name: string; premise: string; projectIds: string[]; updatedAt: string }[]>([]);
@@ -90,20 +74,6 @@ export default function Dashboard() {
     }
   }, [status]);
 
-  useEffect(() => {
-    if (status !== "authenticated") return;
-    fetch("/api/user/settings").then(r => r.json()).then(data => {
-      setHiggsfieldKeySet(data.higgsfieldKeySet ?? false);
-      setHiggsfieldKeyLast4(data.higgsfieldKeyLast4 ?? "");
-      setHiggsfieldSecretSet(data.higgsfieldSecretSet ?? false);
-      setHiggsfieldSecretLast4(data.higgsfieldSecretLast4 ?? "");
-      setOpenaiKeySet(data.openaiKeySet ?? false);
-      setOpenaiKeyLast4(data.openaiKeyLast4 ?? "");
-      setImageProviderId(data.imageProviderId ?? "segmind_soul");
-      setTrendKeySet(data.trendIntelligenceKeySet ?? false);
-      setTrendKeyLast4(data.trendIntelligenceKeyLast4 ?? "");
-    }).catch(() => {});
-  }, [status]);
 
   useEffect(() => {
     if (status !== "authenticated") return;
@@ -119,6 +89,10 @@ export default function Dashboard() {
     fetch("/api/universes")
       .then(r => r.json())
       .then(d => setUniverses(Array.isArray(d) ? d : []))
+      .catch(() => {});
+    fetch("/api/subscription")
+      .then(r => r.json())
+      .then(d => setSubscription(d))
       .catch(() => {});
   }, [status]);
 
@@ -246,35 +220,6 @@ export default function Dashboard() {
     }
   };
 
-  const saveSettings = async () => {
-    setSettingsSaving(true);
-    setSettingsMsg("");
-    try {
-      const body: Record<string, any> = { imageProviderId };
-      if (higgsfieldInput.trim()) body.higgsfieldApiKey = higgsfieldInput.trim();
-      if (higgsfieldSecretInput.trim()) body.higgsfieldApiSecret = higgsfieldSecretInput.trim();
-      if (openaiInput.trim()) body.openaiApiKey = openaiInput.trim();
-      if (trendKeyInput.trim()) body.trendIntelligenceKey = trendKeyInput.trim();
-      const res = await fetch("/api/user/settings", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-      if (res.ok) {
-        if (higgsfieldInput.trim()) { setHiggsfieldKeySet(true); setHiggsfieldKeyLast4(higgsfieldInput.trim().slice(-4)); setHiggsfieldInput(""); }
-        if (higgsfieldSecretInput.trim()) { setHiggsfieldSecretSet(true); setHiggsfieldSecretLast4(higgsfieldSecretInput.trim().slice(-4)); setHiggsfieldSecretInput(""); }
-        if (openaiInput.trim()) { setOpenaiKeySet(true); setOpenaiKeyLast4(openaiInput.trim().slice(-4)); setOpenaiInput(""); }
-        if (trendKeyInput.trim()) { setTrendKeySet(true); setTrendKeyLast4(trendKeyInput.trim().slice(-4)); setTrendKeyInput(""); setShowTrendKeyInput(false); }
-        setSettingsMsg("Saved!");
-        setTimeout(() => setSettingsMsg(""), 2000);
-      } else {
-        setSettingsMsg("Failed to save.");
-      }
-    } catch {
-      setSettingsMsg("Network error.");
-    }
-    setSettingsSaving(false);
-  };
 
   const handleScrivenerImport = async () => {
     if (!importFile) return;
@@ -362,13 +307,22 @@ export default function Dashboard() {
           GhostWriter
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <span style={{ fontSize: 12, color: "#444", marginRight: 8 }}>
+          <span style={{ fontSize: 12, color: "#444", marginRight: 4 }}>
             {session?.user?.name || session?.user?.email}
           </span>
-          <button className="gw-hdr-btn" onClick={() => setShowSettings(true)}
-            style={{ fontSize: 12, color: "#666", background: "transparent", border: "1px solid #1e1e2a", borderRadius: 8, padding: "6px 12px", cursor: "pointer", fontFamily: "'Figtree', sans-serif" }}>
+          {subscription && (
+            <a href="/settings" style={{
+              fontSize: 11, fontWeight: 700, textDecoration: "none", padding: "3px 10px", borderRadius: 20,
+              background: subscription.tier === "free" ? "rgba(201,168,76,0.12)" : "rgba(34,197,94,0.12)",
+              color: subscription.tier === "free" ? GW_GOLD : "#22c55e",
+            }}>
+              {subscription.tier === "free" ? "Free → Upgrade" : subscription.tier.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase())}
+            </a>
+          )}
+          <a href="/settings" className="gw-hdr-btn"
+            style={{ fontSize: 12, color: "#666", background: "transparent", border: "1px solid #1e1e2a", borderRadius: 8, padding: "6px 12px", cursor: "pointer", fontFamily: "'Figtree', sans-serif", textDecoration: "none" }}>
             ⚙ Settings
-          </button>
+          </a>
           <button className="gw-hdr-btn" onClick={() => signOut({ callbackUrl: "/login" })}
             style={{ fontSize: 12, color: "#666", background: "transparent", border: "1px solid #1e1e2a", borderRadius: 8, padding: "6px 12px", cursor: "pointer", fontFamily: "'Figtree', sans-serif" }}>
             Sign Out
@@ -386,14 +340,14 @@ export default function Dashboard() {
               Your Projects
             </h1>
           </div>
-          <div style={{ display: 'flex', gap: 8 }}>
-            <button onClick={() => setShowImport(true)}
-              style={{ background: "transparent", color: "#aaa", border: "1px solid " + GW_BORDER, borderRadius: 10, padding: "11px 22px", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "'Figtree', sans-serif" }}>
-              Import Scrivener
-            </button>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
             <button className="gw-gold-btn" onClick={() => setShowCreate(true)}
               style={{ background: GW_GOLD, color: "#0d0d10", border: "none", borderRadius: 10, padding: "11px 22px", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "'Figtree', sans-serif", letterSpacing: 0.3 }}>
               + New Project
+            </button>
+            <button onClick={() => setShowImport(true)}
+              style={{ background: "transparent", color: "#bbb", border: "none", padding: 0, fontSize: 11, cursor: "pointer", fontFamily: "'Figtree', sans-serif", textDecoration: "underline" }}>
+              Import from Scrivener
             </button>
           </div>
         </div>
@@ -556,7 +510,7 @@ export default function Dashboard() {
       </section>
 
       {/* Universes section */}
-      <section style={{ maxWidth: 900, margin: "0 auto 40px", padding: "0 16px" }}>
+      <section style={{ marginTop: 40, paddingTop: 32, borderTop: "1px solid " + GW_BORDER }}>
         <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16, cursor: "pointer" }} onClick={() => setUniversesExpanded(v => !v)}>
           <span style={{ fontSize: 15, fontWeight: 700, color: "#1a1a1a" }}>🌌 Universes</span>
           <span style={{ fontSize: 11, color: "#aaa", background: "#f5f4f0", padding: "2px 8px", borderRadius: 10 }}>{universes.length}</span>
@@ -664,7 +618,7 @@ export default function Dashboard() {
       )}
 
       {/* Overlay helper */}
-      {(showCreate || showSettings || !!deleteTarget) && (
+      {(showCreate || !!deleteTarget) && (
         <style>{`.gw-modal-input:focus { border-color: ${GW_GOLD} !important; outline: none !important; box-shadow: 0 0 0 3px rgba(201,168,76,0.12) !important; }`}</style>
       )}
 
@@ -858,80 +812,6 @@ export default function Dashboard() {
                 </div>
               </div>
             )}
-          </div>
-        </div>
-      )}
-
-      {/* Settings modal */}
-      {showSettings && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 50, padding: "0 16px" }} onClick={() => setShowSettings(false)}>
-          <div style={{ background: "#fff", borderRadius: 18, padding: "28px", width: "100%", maxWidth: 420, maxHeight: "88vh", overflowY: "auto", boxShadow: "0 24px 64px rgba(0,0,0,0.18)" }} onClick={e => e.stopPropagation()}>
-            <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 24, fontWeight: 600, marginBottom: 24, color: "#1a1a1a" }}>Settings</div>
-
-            {[
-              { title: "Higgsfield Integration", content: (
-                <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                  <div>
-                    <label style={{ display: "block", fontSize: 10, fontWeight: 700, color: "#aaa", textTransform: "uppercase", letterSpacing: 1.2, marginBottom: 6 }}>API Key</label>
-                    {higgsfieldKeySet && <div style={{ fontSize: 11, color: "#16a34a", marginBottom: 6 }}>✓ Connected — ••••{higgsfieldKeyLast4}</div>}
-                    <input type="password" value={higgsfieldInput} onChange={e => setHiggsfieldInput(e.target.value)} placeholder={higgsfieldKeySet ? "Enter new key to update" : "hf-xxxxxxxxxxxxxxxx"} className="gw-modal-input" style={inputS} />
-                  </div>
-                  <div>
-                    <label style={{ display: "block", fontSize: 10, fontWeight: 700, color: "#aaa", textTransform: "uppercase", letterSpacing: 1.2, marginBottom: 6 }}>API Secret</label>
-                    {higgsfieldSecretSet && <div style={{ fontSize: 11, color: "#16a34a", marginBottom: 6 }}>✓ Connected — ••••{higgsfieldSecretLast4}</div>}
-                    <input type="password" value={higgsfieldSecretInput} onChange={e => setHiggsfieldSecretInput(e.target.value)} placeholder={higgsfieldSecretSet ? "Enter new secret to update" : "API Secret"} className="gw-modal-input" style={inputS} />
-                  </div>
-                  <div style={{ fontSize: 11, color: higgsfieldKeySet ? "#16a34a" : "#d97706" }}>
-                    {higgsfieldKeySet ? "✅ Comics and Production Studio enabled." : "⚠ Not connected. Get key at higgsfield.ai → Account → API Keys."}
-                  </div>
-                </div>
-              )},
-              { title: "Image Generation", content: (
-                <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                  <select value={imageProviderId} onChange={e => setImageProviderId(e.target.value)} className="gw-modal-input" style={{ ...inputS, cursor: "pointer" }}>
-                    <option value="segmind_soul">Higgsfield Soul 2.0 — Recommended</option>
-                    <option value="openai_gpt_image">GPT Image 2 — OpenAI</option>
-                  </select>
-                  {imageProviderId === "openai_gpt_image" && (
-                    <div>
-                      {openaiKeySet && <div style={{ fontSize: 11, color: "#16a34a", marginBottom: 6 }}>✓ Connected — ••••{openaiKeyLast4}</div>}
-                      <input type="password" value={openaiInput} onChange={e => setOpenaiInput(e.target.value)} placeholder={openaiKeySet ? "Enter new key to update" : "sk-..."} className="gw-modal-input" style={inputS} />
-                    </div>
-                  )}
-                </div>
-              )},
-              { title: "Trend Intelligence", content: (
-                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                  {trendKeySet
-                    ? <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                        <div style={{ fontSize: 11, color: "#16a34a" }}>✓ Connected — ••••{trendKeyLast4}</div>
-                        <button style={{ background: "none", border: "none", fontSize: 11, color: "#aaa", cursor: "pointer", textDecoration: "underline" }} onClick={() => setShowTrendKeyInput(true)}>Update</button>
-                      </div>
-                    : <div style={{ fontSize: 11, color: "#aaa" }}>Not connected. Activate from the Trends tab inside any creator project.</div>
-                  }
-                  {(!trendKeySet || showTrendKeyInput) && (
-                    <input type="password" value={trendKeyInput} onChange={e => setTrendKeyInput(e.target.value)} placeholder={trendKeySet ? "Enter new key to update" : "Enter your personal data key"} className="gw-modal-input" style={inputS} />
-                  )}
-                </div>
-              )},
-            ].map(({ title, content }) => (
-              <div key={title} style={{ marginBottom: 24 }}>
-                <div style={{ fontSize: 10, fontWeight: 700, color: "#aaa", textTransform: "uppercase", letterSpacing: 1.5, marginBottom: 14, paddingBottom: 10, borderBottom: "1px solid " + GW_BORDER }}>{title}</div>
-                {content}
-              </div>
-            ))}
-
-            {settingsMsg && <div style={{ fontSize: 13, color: "#16a34a", fontWeight: 600, marginBottom: 14 }}>{settingsMsg}</div>}
-            <div style={{ display: "flex", gap: 10 }}>
-              <button onClick={() => setShowSettings(false)}
-                style={{ flex: 1, border: "1px solid " + GW_BORDER, background: "#fff", color: "#888", fontWeight: 600, padding: "10px 0", borderRadius: 10, fontSize: 13, cursor: "pointer", fontFamily: "'Figtree', sans-serif" }}>
-                Cancel
-              </button>
-              <button onClick={saveSettings} disabled={settingsSaving} className="gw-gold-btn"
-                style={{ flex: 1, background: GW_GOLD, color: "#0d0d10", border: "none", fontWeight: 700, padding: "10px 0", borderRadius: 10, fontSize: 13, cursor: settingsSaving ? "not-allowed" : "pointer", opacity: settingsSaving ? 0.6 : 1, fontFamily: "'Figtree', sans-serif" }}>
-                {settingsSaving ? "Saving…" : "Save"}
-              </button>
-            </div>
           </div>
         </div>
       )}

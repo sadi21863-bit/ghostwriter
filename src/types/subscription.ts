@@ -92,8 +92,8 @@ export const RAZORPAY_PLANS: Record<string, Record<string, string>> = {
     annual:  process.env.RAZORPAY_STORY_PRO_ANNUAL_PLAN_ID  ?? '',
   },
   creator_pro: {
-    monthly: process.env.RAZORPAY_STORY_PRO_MONTHLY_PLAN_ID ?? '',
-    annual:  process.env.RAZORPAY_STORY_PRO_ANNUAL_PLAN_ID  ?? '',
+    monthly: process.env.RAZORPAY_CREATOR_PRO_MONTHLY_PLAN_ID ?? '',
+    annual:  process.env.RAZORPAY_CREATOR_PRO_ANNUAL_PLAN_ID  ?? '',
   },
   all_access: {
     monthly: process.env.RAZORPAY_ALL_ACCESS_MONTHLY_PLAN_ID ?? '',
