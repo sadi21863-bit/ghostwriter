@@ -6,6 +6,7 @@ import { checkAiRateLimit, freeGenerationLimit } from "@/lib/ratelimit";
 import { getUserTier, canAccessFeature, MONTHLY_GENERATION_LIMITS } from "@/lib/subscription";
 import { GATED_MODES } from "@/types/subscription";
 import { generate, MODELS } from "@/lib/ai/engine";
+import { capContextForTier } from "@/lib/ai/context-caps";
 import { buildAiismsInstruction } from "@/lib/ai/aiisms";
 import { db } from "@/db";
 import { generations, projects, users } from "@/db/schema";
@@ -161,6 +162,12 @@ export async function POST(req: Request) {
 
   // Tier check: mode-gated features (dialogue, combat, emotional, atmosphere, tension, composition)
   const tier = await getUserTier(session.user.id);
+
+  // Server-side context caps: a deterministic ceiling per tier so the prompt-cache
+  // block stays byte-identical across calls with the same input (cap only changes
+  // on a tier change, which is an expected one-time cache miss).
+  const { cappedStatic, cappedDynamic, cappedPrompt } = capContextForTier(tier, { staticContext, dynamicContext, prompt });
+
   const gatedFeature = GATED_MODES[mode as string];
   if (gatedFeature && !canAccessFeature(tier, gatedFeature)) {
     return NextResponse.json({ error: "upgrade_required", feature: gatedFeature, tier }, { status: 403 });
@@ -234,12 +241,12 @@ export async function POST(req: Request) {
 
   try {
     // Brainstorm mode: append 3-options directive
-    let effectivePrompt = prompt;
+    let effectivePrompt = cappedPrompt;
     if (mode === 'brainstorm') {
-      effectivePrompt = prompt + `\n\nReturn exactly 3 distinct structural approaches as options. Do not pick one.\nFormat strictly:\n\nOPTION A — [SHORT NAME]:\n[2-3 sentences describing the structural direction, opening, key tension]\n\nOPTION B — [SHORT NAME]:\n[2-3 sentences describing a different structural direction]\n\nOPTION C — [SHORT NAME]:\n[2-3 sentences describing a third structural direction]\n\n---\nEach option must represent a genuinely different creative direction, not variations of the same idea.\nOne option should subvert expectations.`;
+      effectivePrompt = cappedPrompt + `\n\nReturn exactly 3 distinct structural approaches as options. Do not pick one.\nFormat strictly:\n\nOPTION A — [SHORT NAME]:\n[2-3 sentences describing the structural direction, opening, key tension]\n\nOPTION B — [SHORT NAME]:\n[2-3 sentences describing a different structural direction]\n\nOPTION C — [SHORT NAME]:\n[2-3 sentences describing a third structural direction]\n\n---\nEach option must represent a genuinely different creative direction, not variations of the same idea.\nOne option should subvert expectations.`;
     }
     else if (mode === 'outline') {
-      effectivePrompt = prompt + `\n\nFormat each beat as a numbered list item starting with "BEAT:":\nBEAT: [beat description in present tense, 1-2 sentences]\n\nGenerate 6-12 beats appropriate for this story. Each beat should describe what happens in the scene and what changes as a result.`;
+      effectivePrompt = cappedPrompt + `\n\nFormat each beat as a numbered list item starting with "BEAT:":\nBEAT: [beat description in present tense, 1-2 sentences]\n\nGenerate 6-12 beats appropriate for this story. Each beat should describe what happens in the scene and what changes as a result.`;
     }
 
     // AIisms check + series/universe context (fetch project once for both)
@@ -257,10 +264,12 @@ export async function POST(req: Request) {
       }
     }
 
-    // Series/universe context belongs in the static (cached) block — it doesn't change mid-session
+    // Series/universe context belongs in the static (cached) block — it doesn't change mid-session.
+    // Appended AFTER the cap so server-derived series/universe context is never truncated by a
+    // client-inflated static block.
     const effectiveStatic = seriesUniverseCtx
-      ? (staticContext ?? '') + '\n\n---\n' + seriesUniverseCtx
-      : staticContext;
+      ? (cappedStatic ?? '') + '\n\n---\n' + seriesUniverseCtx
+      : cappedStatic;
 
     const RESEARCH_MODES = new Set(['historical', 'scitech', 'sports', 'setting']);
     let domainResearchContext = '';
@@ -290,10 +299,10 @@ Do NOT write the scene — just provide the accurate factual grounding.`,
       } catch { /* domain research failure must never block generation */ }
     }
 
-    const effectiveDynamic = [dynamicContext, additionalContext, aiismsNote, domainResearchContext].filter(Boolean).join('\n\n');
+    const effectiveDynamic = [cappedDynamic, additionalContext, aiismsNote, domainResearchContext].filter(Boolean).join('\n\n');
     const r = await generate({ mode, prompt: effectivePrompt, context, staticContext: effectiveStatic, dynamicContext: effectiveDynamic || undefined, format, narrativeStructure, overrideModel });
     await db.insert(generations).values({
-      projectId, chapterId: chapterId || null, mode, prompt,
+      projectId, chapterId: chapterId || null, mode, prompt: cappedPrompt,
       output: r.text, model: r.model, tokensUsed: r.tokensUsed,
     });
     // Increment monthly generation counter
