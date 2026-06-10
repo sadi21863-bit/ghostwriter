@@ -15,7 +15,7 @@ import {
   FEATURE_ACCESS,
   GATED_MODES,
   FREE_TIER_LIMITS,
-  STRIPE_PRICES,
+  RAZORPAY_PLANS,
 } from "@/types/subscription";
 import { canAccessFeature } from "@/lib/subscription";
 
@@ -104,16 +104,16 @@ describe("GATED_MODES coverage", () => {
   });
 });
 
-describe("Stripe price IDs configured", () => {
-  it("story_pro price ID is set", () => {
-    expect(typeof STRIPE_PRICES.story_pro).toBe("string");
+describe("Razorpay plan IDs configured", () => {
+  it("story_pro monthly plan ID is set", () => {
+    expect(typeof RAZORPAY_PLANS.story_pro.monthly).toBe("string");
   });
 
-  it("creator_pro price ID is set", () => {
-    expect(typeof STRIPE_PRICES.creator_pro).toBe("string");
+  it("creator_pro monthly plan ID is set", () => {
+    expect(typeof RAZORPAY_PLANS.creator_pro.monthly).toBe("string");
   });
 
-  it("all_access price ID is set", () => {
-    expect(typeof STRIPE_PRICES.all_access).toBe("string");
+  it("all_access monthly plan ID is set", () => {
+    expect(typeof RAZORPAY_PLANS.all_access.monthly).toBe("string");
   });
 });

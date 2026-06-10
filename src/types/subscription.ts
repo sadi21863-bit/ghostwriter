@@ -71,19 +71,6 @@ export const GATED_MODES: Record<string, FeatureGate> = {
   isekai:      "story_modes_advanced",
 };
 
-// ── Stripe price IDs (replace with real IDs from Stripe dashboard) ─────────
-
-export const STRIPE_PRICES = {
-  // Monthly
-  story_pro:          process.env.STRIPE_STORY_PRO_PRICE_ID          ?? "",
-  creator_pro:        process.env.STRIPE_CREATOR_PRO_PRICE_ID         ?? "",
-  all_access:         process.env.STRIPE_ALL_ACCESS_PRICE_ID          ?? "",
-  // Annual (20% discount — create in Stripe dashboard)
-  story_pro_annual:   process.env.STRIPE_STORY_PRO_ANNUAL_PRICE_ID   ?? "",
-  creator_pro_annual: process.env.STRIPE_CREATOR_PRO_ANNUAL_PRICE_ID ?? "",
-  all_access_annual:  process.env.STRIPE_ALL_ACCESS_ANNUAL_PRICE_ID  ?? "",
-} as const;
-
 // ── Razorpay plan IDs (created manually in Razorpay dashboard) ─────────────
 
 export const RAZORPAY_PLANS: Record<string, Record<string, string>> = {
