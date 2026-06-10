@@ -2,7 +2,7 @@
 // Server-side subscription helpers. Used in API routes.
 
 import { db } from "@/db";
-import { subscriptions } from "@/db/schema";
+import { subscriptions, users } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import type { FeatureGate, SubscriptionTier } from "@/types/subscription";
 import { FEATURE_ACCESS } from "@/types/subscription";
@@ -42,6 +42,17 @@ export async function getUserTier(userId: string): Promise<SubscriptionTier> {
       tier = "free";
     } else if (sub.status === "active" || sub.status === "trialing") {
       tier = sub.tier as SubscriptionTier;
+    }
+  }
+
+  // 7-day Story Pro trial: a free-tier user with an unexpired trial gets story_pro access.
+  if (tier === "free") {
+    const user = await db.query.users.findFirst({
+      where: eq(users.id, userId),
+      columns: { trialEndAt: true },
+    });
+    if (user?.trialEndAt && new Date(user.trialEndAt) > new Date()) {
+      tier = "story_pro";
     }
   }
 

@@ -26,7 +26,7 @@ function getRazorpay() {
 export async function GET() {
   const session = await getRequiredSession();
   const { db } = await import('@/db');
-  const { subscriptions } = await import('@/db/schema');
+  const { subscriptions, users } = await import('@/db/schema');
   const { eq } = await import('drizzle-orm');
 
   const sub = await db.query.subscriptions.findFirst({
@@ -34,8 +34,25 @@ export async function GET() {
     columns: { tier: true, status: true, currentPeriodEnd: true },
   });
 
+  const tier = sub?.tier ?? 'free';
+
+  // 7-day Story Pro trial: report story_pro/trialing so the existing trial banner renders.
+  if (tier === 'free') {
+    const user = await db.query.users.findFirst({
+      where: eq(users.id, session.user.id),
+      columns: { trialEndAt: true },
+    });
+    if (user?.trialEndAt && new Date(user.trialEndAt) > new Date()) {
+      return NextResponse.json({
+        tier: 'story_pro',
+        status: 'trialing',
+        currentPeriodEnd: user.trialEndAt.toISOString(),
+      });
+    }
+  }
+
   return NextResponse.json({
-    tier: sub?.tier ?? 'free',
+    tier,
     status: sub?.status ?? 'active',
     currentPeriodEnd: sub?.currentPeriodEnd?.toISOString() ?? null,
   });
