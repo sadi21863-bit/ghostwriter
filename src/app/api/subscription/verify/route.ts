@@ -30,12 +30,10 @@ export async function POST(req: Request) {
     razorpay_payment_id,
     razorpay_subscription_id,
     razorpay_signature,
-    tier,
   } = await req.json() as {
     razorpay_payment_id: string;
     razorpay_subscription_id: string;
     razorpay_signature: string;
-    tier: SubscriptionTier;
   };
 
   if (!razorpay_payment_id || !razorpay_subscription_id || !razorpay_signature) {
@@ -59,14 +57,31 @@ export async function POST(req: Request) {
   });
   const razorpaySub = await razorpay.subscriptions.fetch(razorpay_subscription_id);
 
-  await db.update(subscriptions).set({
+  // CRITICAL: tier comes from the Razorpay subscription's notes (set server-side at
+  // creation in POST /api/subscription), never from the client request body.
+  if (razorpaySub.notes?.userId !== session.user.id) {
+    return NextResponse.json({ error: "Subscription does not belong to this user" }, { status: 403 });
+  }
+  const tier = (razorpaySub.notes?.tier ?? "free") as SubscriptionTier;
+
+  await db.insert(subscriptions).values({
+    userId: session.user.id,
     razorpaySubscriptionId: razorpay_subscription_id,
     razorpayPaymentId: razorpay_payment_id,
     tier,
     status: "active",
     currentPeriodEnd: razorpaySub.current_end ? new Date(razorpaySub.current_end * 1000) : null,
-    updatedAt: new Date(),
-  }).where(eq(subscriptions.userId, session.user.id));
+  }).onConflictDoUpdate({
+    target: subscriptions.userId,
+    set: {
+      razorpaySubscriptionId: razorpay_subscription_id,
+      razorpayPaymentId: razorpay_payment_id,
+      tier,
+      status: "active",
+      currentPeriodEnd: razorpaySub.current_end ? new Date(razorpaySub.current_end * 1000) : null,
+      updatedAt: new Date(),
+    },
+  });
 
   invalidateTierCache(session.user.id);
   await track(session.user.id, 'subscription_activated', { tier });
