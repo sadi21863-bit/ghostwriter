@@ -85,7 +85,8 @@ export async function checkAiRateLimit(userId: string): Promise<NextResponse | n
       );
     }
     return null;
-  } catch {
+  } catch (err) {
+    console.error('[checkAiRateLimit] Upstash rate-limit check failed:', err);
     return NextResponse.json(
       { error: "Rate limiting service unavailable. Please try again shortly." },
       { status: 503 }
