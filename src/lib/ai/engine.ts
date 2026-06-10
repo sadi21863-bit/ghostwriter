@@ -329,6 +329,18 @@ Co-host voice options:
   enthusiastic_newcomer — expresses surprise, asks for clarification`,
 };
 
+export const WRITE_CRAFT_DIRECTIVES = `
+CHARACTER EMBODIMENT RULES (apply to all characters with backstory, want/need, contradiction):
+- Backstory is sediment, not exposition. Show it through reflex, avoidance, automatic behavior. Never explain it.
+- Want drives every scene — the character moves toward it even obliquely.
+- Need is the truth they resist. The story is the collision between want and need.
+- Contradiction must never resolve cleanly. Write behavior that expresses both sides.
+`;
+
+export function getCraftDirectives(format: string): string {
+  return STORY_FORMAT_RULES[format] ? "\n" + WRITE_CRAFT_DIRECTIVES : "";
+}
+
 export async function generate({ mode, prompt, context, staticContext, dynamicContext, format, maxTokens = 4000, narrativeStructure, overrideModel }: {
   mode: string; prompt: string;
   context?: string;
@@ -343,6 +355,7 @@ export async function generate({ mode, prompt, context, staticContext, dynamicCo
     : STORY_FORMAT_RULES[format]
     ? "\n\n" + STORY_FORMAT_RULES[format]
     : "";
+  const craftDirectives = getCraftDirectives(format);
   const modeInstruction = (MI as Record<string, (f: string) => string>)[mode](format);
   const narrativeNote = getNarrativeStructureInstruction(narrativeStructure);
 
@@ -351,7 +364,7 @@ export async function generate({ mode, prompt, context, staticContext, dynamicCo
     systemBlocks = [
       {
         type: 'text',
-        text: modeInstruction + formatRules + narrativeNote + '\n---\n' + staticContext,
+        text: modeInstruction + formatRules + craftDirectives + narrativeNote + '\n---\n' + staticContext,
         cache_control: { type: 'ephemeral' },
       },
       {
@@ -361,7 +374,7 @@ export async function generate({ mode, prompt, context, staticContext, dynamicCo
     ];
   } else {
     const fullContext = context ?? '';
-    systemBlocks = [{ type: 'text', text: modeInstruction + formatRules + narrativeNote + '\n---\n' + fullContext, cache_control: { type: 'ephemeral' } }];
+    systemBlocks = [{ type: 'text', text: modeInstruction + formatRules + craftDirectives + narrativeNote + '\n---\n' + fullContext, cache_control: { type: 'ephemeral' } }];
   }
 
   const msg = await client.messages.create({
