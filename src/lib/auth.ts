@@ -5,7 +5,7 @@ import { neon } from "@neondatabase/serverless";
 import { drizzle } from "drizzle-orm/neon-http";
 import * as schema from "@/db/schema";
 import { db } from "@/db";
-import { users } from "@/db/schema";
+import { users, subscriptions } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 
@@ -41,6 +41,11 @@ export const authOptions: NextAuthOptions = {
     async jwt({ token, user }) {
       if (user) token.sub = user.id;
       return token;
+    },
+  },
+  events: {
+    async createUser({ user }) {
+      await db.insert(subscriptions).values({ userId: user.id }).onConflictDoNothing();
     },
   },
 };
