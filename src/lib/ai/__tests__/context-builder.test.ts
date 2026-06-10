@@ -242,3 +242,25 @@ describe("buildStaticContext — token budget", () => {
     expect(buildStaticContext(project)).toBe(buildStaticContext(project));
   });
 });
+
+describe("buildStaticContext — character embodiment", () => {
+  it("emits backstory, want/need, and contradiction as data only, without instructional sentences", () => {
+    const char = makeCharacter({
+      name: "Alice",
+      backstory: "Grew up in a war zone.",
+    });
+    (char as any).characterWant = "to be free";
+    (char as any).characterNeed = "to forgive herself";
+    (char as any).contradiction = "Craves connection but pushes everyone away.";
+
+    const ctx = buildStaticContext(baseProject({ characters: [char] }));
+
+    expect(ctx).toContain("Backstory: Grew up in a war zone.");
+    expect(ctx).toContain("Want: to be free");
+    expect(ctx).toContain("Need: to forgive herself");
+    expect(ctx).toContain("Contradiction: Craves connection but pushes everyone away.");
+    expect(ctx).not.toContain("do not state — embody");
+    expect(ctx).not.toContain("DEFINING CONTRADICTION");
+    expect(ctx).not.toContain("collision between want and need");
+  });
+});

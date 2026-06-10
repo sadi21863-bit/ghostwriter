@@ -245,14 +245,13 @@ export function buildStaticContext(p: ContextProject): string {
 
       // ── BACKSTORY AS BEHAVIOR ──────────────────────────────────────────────
       if (c.backstory) {
-        parts.push(`  BACKSTORY (do not state — embody): ${c.backstory}`);
-        parts.push('  This is not information to be explained — it is the sediment that produces behavior. Show it through reflex, avoidance, the things this character does automatically without knowing why. The reader must sense the history, never be told it.');
+        parts.push(`  Backstory: ${c.backstory}`);
       }
 
       // ── WANT / NEED STRUCTURAL ENGINE ─────────────────────────────────────
       if ((c as any).characterWant && (c as any).characterNeed) {
-        parts.push(`  WANT: ${(c as any).characterWant} — this is what they actively pursue. Every scene, they are moving toward this, even obliquely.`);
-        parts.push(`  NEED: ${(c as any).characterNeed} — this is the truth they resist. The story is the collision between want and need. They cannot get what they want without confronting what they need.`);
+        parts.push(`  Want: ${(c as any).characterWant}`);
+        parts.push(`  Need: ${(c as any).characterNeed}`);
       } else {
         if (c.fears)   parts.push(`  Fears: ${c.fears}`);
         if (c.desires) parts.push(`  Desires: ${c.desires}`);
@@ -260,8 +259,7 @@ export function buildStaticContext(p: ContextProject): string {
 
       // ── CORE CONTRADICTION ────────────────────────────────────────────────
       if ((c as any).contradiction?.trim()) {
-        parts.push(`  DEFINING CONTRADICTION: ${(c as any).contradiction}`);
-        parts.push('  Write behavior that expresses both sides of this tension — never resolving it cleanly. This contradiction is not a flaw to be overcome. It is what makes this character human.');
+        parts.push(`  Contradiction: ${(c as any).contradiction}`);
       }
 
       if (c.linkedLocationIds?.length) {
