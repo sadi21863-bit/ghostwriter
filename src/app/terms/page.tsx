@@ -38,7 +38,7 @@ export default function TermsPage() {
 
       <section>
         <h2 style={h2Style}>6. Subscriptions and Billing</h2>
-        <p style={pStyle}>Paid subscriptions are processed via Stripe. You may cancel anytime — cancellation takes effect at the end of the current billing period. Refunds are evaluated case by case for technical failures.</p>
+        <p style={pStyle}>Paid subscriptions are processed via Razorpay. You may cancel anytime — cancellation takes effect at the end of the current billing period. Refunds are evaluated case by case for technical failures.</p>
       </section>
 
       <section>

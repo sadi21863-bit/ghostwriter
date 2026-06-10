@@ -106,7 +106,7 @@ export function UpgradePrompt({ feature, onClose }: UpgradePromptProps) {
 
         {/* Fine print */}
         <div style={{ fontSize: 11, color: "#9CA3AF", textAlign: "center", marginTop: 16 }}>
-          Cancel anytime · Secure payment via Stripe · No hidden fees
+          Cancel anytime · Secure payment via Razorpay · No hidden fees
         </div>
       </div>
     </div>

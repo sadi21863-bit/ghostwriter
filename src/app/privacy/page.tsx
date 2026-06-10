@@ -18,7 +18,7 @@ export default function PrivacyPage() {
 
       <section>
         <h2 style={h2Style}>What We Don't Collect</h2>
-        <p style={pStyle}>We do not collect payment card details (handled by Stripe). We do not track you across other websites. We do not sell your data. We do not use your stories to train AI models.</p>
+        <p style={pStyle}>We do not collect payment card details (handled by Razorpay). We do not track you across other websites. We do not sell your data. We do not use your stories to train AI models.</p>
       </section>
 
       <section>
@@ -28,7 +28,7 @@ export default function PrivacyPage() {
 
       <section>
         <h2 style={h2Style}>Third-Party Services</h2>
-        <p style={pStyle}>We use Anthropic's API for AI generation (your prompts are sent to their servers), Neon for database hosting, Vercel for application hosting, Stripe for payment processing, Sentry for error monitoring (anonymized), and Resend for transactional email. Each provider's privacy policy governs their handling of your data.</p>
+        <p style={pStyle}>We use Anthropic's API for AI generation (your prompts are sent to their servers), Neon for database hosting, Vercel for application hosting, Razorpay for payment processing, Sentry for error monitoring (anonymized), and Resend for transactional email. Each provider's privacy policy governs their handling of your data.</p>
       </section>
 
       <section>
