@@ -2,7 +2,7 @@ export const dynamic = 'force-dynamic';
 
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
-import { users, referrals } from "@/db/schema";
+import { users, referrals, subscriptions } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { randomBytes } from "crypto";
 import bcrypt from "bcryptjs";
@@ -31,10 +31,13 @@ export async function POST(req: NextRequest) {
   }
   const hashedPassword = await bcrypt.hash(password, 12);
   const referralCode = randomBytes(6).toString("hex").toUpperCase();
+  const trialEndAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
   const [user] = await db
     .insert(users)
-    .values({ email: normalizedEmail, name: name?.trim() || null, hashedPassword, referralCode })
+    .values({ email: normalizedEmail, name: name?.trim() || null, hashedPassword, referralCode, trialEndAt })
     .returning({ id: users.id, email: users.email, name: users.name });
+
+  await db.insert(subscriptions).values({ userId: user.id });
 
   // Link referrer if a valid ref code was provided
   if (ref) {
