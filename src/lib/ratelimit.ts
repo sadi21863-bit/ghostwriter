@@ -53,24 +53,44 @@ export const freeGenerationLimit = redis
 /**
  * Returns a 429 NextResponse if the user is rate-limited, or null if they're allowed.
  * Call immediately after getRequiredSession() in every AI route.
+ *
+ * Fails CLOSED in production: if Upstash isn't configured, or the rate-limit check
+ * itself throws, AI routes return 503 rather than allowing unlimited requests.
+ * Fails OPEN in development without Upstash configured (returns null).
  */
 export async function checkAiRateLimit(userId: string): Promise<NextResponse | null> {
-  if (!aiRatelimit) return null;
-  const { success, limit, remaining, reset } = await aiRatelimit.limit(userId);
-  if (!success) {
+  if (!aiRatelimit) {
+    if (process.env.NODE_ENV === "production") {
+      return NextResponse.json(
+        { error: "Rate limiting is not configured. Please try again later." },
+        { status: 503 }
+      );
+    }
+    return null;
+  }
+
+  try {
+    const { success, limit, remaining, reset } = await aiRatelimit.limit(userId);
+    if (!success) {
+      return NextResponse.json(
+        { error: "Rate limit exceeded. Maximum 20 AI requests per minute." },
+        {
+          status: 429,
+          headers: {
+            "X-RateLimit-Limit": String(limit),
+            "X-RateLimit-Remaining": String(remaining),
+            "X-RateLimit-Reset": String(reset),
+          },
+        }
+      );
+    }
+    return null;
+  } catch {
     return NextResponse.json(
-      { error: "Rate limit exceeded. Maximum 20 AI requests per minute." },
-      {
-        status: 429,
-        headers: {
-          "X-RateLimit-Limit": String(limit),
-          "X-RateLimit-Remaining": String(remaining),
-          "X-RateLimit-Reset": String(reset),
-        },
-      }
+      { error: "Rate limiting service unavailable. Please try again shortly." },
+      { status: 503 }
     );
   }
-  return null;
 }
 
 /**

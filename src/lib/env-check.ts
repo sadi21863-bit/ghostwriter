@@ -28,6 +28,8 @@ const REQUIRED_ENV_VARS = [
   'RESEND_API_KEY',
   'CRON_SECRET',
   'ADMIN_SECRET',
+  'UPSTASH_REDIS_REST_URL',
+  'UPSTASH_REDIS_REST_TOKEN',
 ];
 
 export function checkEnvVars(): { missing: string[]; ok: boolean } {
