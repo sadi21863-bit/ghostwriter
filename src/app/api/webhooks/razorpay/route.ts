@@ -40,13 +40,22 @@ async function activateSubscription(sub: RazorpaySubscriptionEntity) {
   const tier = (sub.notes?.tier ?? "story_pro") as SubscriptionTier;
   if (!userId) return;
 
-  await db.update(subscriptions).set({
+  await db.insert(subscriptions).values({
+    userId,
     razorpaySubscriptionId: sub.id,
     tier,
     status: "active",
     currentPeriodEnd: sub.current_end ? new Date(sub.current_end * 1000) : null,
-    updatedAt: new Date(),
-  }).where(eq(subscriptions.userId, userId));
+  }).onConflictDoUpdate({
+    target: subscriptions.userId,
+    set: {
+      razorpaySubscriptionId: sub.id,
+      tier,
+      status: "active",
+      currentPeriodEnd: sub.current_end ? new Date(sub.current_end * 1000) : null,
+      updatedAt: new Date(),
+    },
+  });
   invalidateTierCache(userId);
   await track(userId, 'subscription_activated', { tier });
 
