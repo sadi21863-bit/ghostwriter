@@ -10,6 +10,7 @@ Next.js 16, Drizzle ORM 0.45.x, Neon PostgreSQL, NextAuth, Anthropic Claude, Tai
 - Modes: Brainstorm / Outline / Write / 22 library modes + creator tools
 - World Bible: characters (with contextVisibility), locations, plot threads
 - Prompt caching: static/dynamic context split; static block cached (ephemeral)
+- Context budget: buildStaticContext caps at 8,000 tokens via priority-ordered section assembly (`[Context trimmed — project too large]` marker if exceeded); /api/ai/generate re-caps per subscription tier via capContextForTier (free/story_pro/creator_pro/all_access char limits; line-boundary-aware re-trim with `[Context truncated for tier limit]` marker if it re-trims)
 - Model tiers: Haiku (free-tier generation + summaries/grading), Sonnet-4-6 (default generation), Opus-4-6 (quality/composition modes)
 - Free tier: 10 gen/month on Haiku; 22 library modes gated (403 for free users)
 - Voice fingerprinting: 10 stylometric markers extracted from last 5 chapters → injected as binding constraints
@@ -19,6 +20,7 @@ Next.js 16, Drizzle ORM 0.45.x, Neon PostgreSQL, NextAuth, Anthropic Claude, Tai
 - Bundle: 9 heavy panels as dynamic imports (StoryHealth, Export, AltDraft, SprintMode, UpgradePrompt, CommandPalette, QualityReview, WorldBiblePanel, ToolbarPanel)
 - Series/Universe architecture: storyType (linear/series/universe-story/parallel) per project; universes table with characters + events; series context chains previous books' memories; universe context injects canonical events + character states
 - Voice fingerprint display: visible in WorldBiblePanel settings when 3+ chapters exist
+- Cost monitoring: GET /api/admin/cost-report (ADMIN_SECRET-gated) — 30-day blended cost estimate by model, top users, top modes
 
 ## Commands
 npm run dev (port 3001) / npm run db:push / npm run db:studio
