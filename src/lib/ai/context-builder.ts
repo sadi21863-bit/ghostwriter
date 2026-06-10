@@ -109,8 +109,15 @@ const GENRE_CONTRACTS: Partial<Record<string, string>> = {
   'Drama': 'OPENING PROMISE (Drama): This is your first chapter. Establish the specific tension in the protagonist\'s world — not the external conflict but the internal one they\'ve been living with. Something has been wrong for a long time. This chapter is where it becomes impossible to ignore.',
 };
 
+function estimateTokens(text: string): number {
+  return Math.ceil(text.length / 4);
+}
+
+const STATIC_CONTEXT_BUDGET = 8_000;
+
 export function buildStaticContext(p: ContextProject): string {
-  const r: string[] = [];
+  let r: string[] = [];
+  const sections: string[][] = [r];
 
   // ── ACTIVE INFLUENCE ───────────────────────────────────────────────────────
   if (p.activeInfluence) {
@@ -182,6 +189,9 @@ export function buildStaticContext(p: ContextProject): string {
     }
   }
 
+  r = [];
+  sections.push(r);
+
   // ── VOICE FINGERPRINT ─────────────────────────────────────────────────────
   // Constraint-based voice preservation (Berkeley 2026): prompt instructions drift,
   // numerical constraints measured from the writer's own prose don't.
@@ -196,6 +206,9 @@ export function buildStaticContext(p: ContextProject): string {
       r.push('');
     }
   }
+
+  r = [];
+  sections.push(r);
 
   if (p.characters?.length) {
     r.push("CHARACTERS:");
@@ -604,6 +617,9 @@ export function buildStaticContext(p: ContextProject): string {
     }
   }
 
+  r = [];
+  sections.push(r);
+
   if (p.locations?.length) {
     r.push("LOCATIONS:");
     p.locations.forEach((l: Location) => {
@@ -619,6 +635,9 @@ export function buildStaticContext(p: ContextProject): string {
     });
   }
 
+  r = [];
+  sections.push(r);
+
   if (p.plotThreads?.length) {
     r.push("PLOTS:");
     p.plotThreads.forEach((t: PlotThread) => {
@@ -633,7 +652,22 @@ export function buildStaticContext(p: ContextProject): string {
     });
   }
 
-  return r.join("\n");
+  // Assemble sections in priority order, stopping when the static context
+  // budget is exceeded. Section 0 (header) is always included so the output
+  // is never empty. Truncation is deterministic for identical project data,
+  // keeping the prompt-cache block stable.
+  const result: string[] = [];
+  for (let i = 0; i < sections.length; i++) {
+    const sectionLines = sections[i];
+    if (sectionLines.length === 0) continue;
+    const candidate = [...result, ...sectionLines].join("\n");
+    if (i > 0 && estimateTokens(candidate) > STATIC_CONTEXT_BUDGET) {
+      result.push('[Context trimmed — project too large]');
+      break;
+    }
+    result.push(...sectionLines);
+  }
+  return result.join("\n");
 }
 
 export function buildDynamicContext(p: ContextProject): string {

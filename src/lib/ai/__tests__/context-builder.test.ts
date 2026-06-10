@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { buildContext, type ContextProject, type StoryMemory } from "@/lib/ai/context-builder";
+import { buildContext, buildStaticContext, type ContextProject, type StoryMemory } from "@/lib/ai/context-builder";
 import type { Character, Chapter } from "@/types";
 
 // ---------------------------------------------------------------------------
@@ -201,5 +201,44 @@ describe("buildContext", () => {
     );
     expect(ctx).toContain("just-happened-fact");
     expect(ctx).not.toContain("ancient-fact");
+  });
+});
+
+describe("buildStaticContext — token budget", () => {
+  it("does not include a trim marker for small projects", () => {
+    const ctx = buildStaticContext(baseProject({ characters: [makeCharacter({ name: "Alice" })] }));
+    expect(ctx).not.toContain("[Context trimmed");
+  });
+
+  it("appends a trim marker and stays within budget for very large projects", () => {
+    const longText = "x".repeat(1000);
+    const characters = Array.from({ length: 10 }, (_, i) =>
+      makeCharacter({
+        id: `c${i}`,
+        name: `Character${i}`,
+        appearance: longText,
+        personality: longText,
+        thinkingStyle: longText,
+        behavior: longText,
+        habits: longText,
+        speechPattern: longText,
+        arc: longText,
+        backstory: longText,
+      })
+    );
+    const ctx = buildStaticContext(baseProject({ characters }));
+    expect(ctx).toContain("[Context trimmed — project too large]");
+    // 8,000-token budget ≈ 32,000 chars; allow slack for the header section
+    // (always included) plus the trim marker itself.
+    expect(ctx.length).toBeLessThan(40_000);
+  });
+
+  it("produces identical output for identical project data (deterministic truncation)", () => {
+    const longText = "y".repeat(1000);
+    const characters = Array.from({ length: 10 }, (_, i) =>
+      makeCharacter({ id: `c${i}`, name: `Character${i}`, backstory: longText, personality: longText })
+    );
+    const project = baseProject({ characters });
+    expect(buildStaticContext(project)).toBe(buildStaticContext(project));
   });
 });
