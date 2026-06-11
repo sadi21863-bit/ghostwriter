@@ -3,8 +3,14 @@
 // Modal shown when a user hits a tier gate.
 
 import { useState } from "react";
+import Script from "next/script";
+import { useSession } from "next-auth/react";
 import type { FeatureGate } from "@/types/subscription";
-import { UPGRADE_COPY } from "@/types/subscription";
+import { UPGRADE_COPY, UPGRADE_TIER } from "@/types/subscription";
+
+declare global {
+  interface Window { Razorpay: any; }
+}
 
 interface UpgradePromptProps {
   feature: FeatureGate;
@@ -12,30 +18,62 @@ interface UpgradePromptProps {
 }
 
 export function UpgradePrompt({ feature, onClose }: UpgradePromptProps) {
+  const { data: session } = useSession();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const copy = UPGRADE_COPY[feature];
+  const tier = UPGRADE_TIER[feature];
 
   const handleUpgrade = async () => {
+    if (typeof window === "undefined" || !window.Razorpay) {
+      setError("Checkout is still loading — try again in a moment.");
+      return;
+    }
     setLoading(true);
     setError(null);
     try {
       const res = await fetch("/api/subscription", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          tier: "story_pro",
-          successUrl: window.location.href + "?upgraded=true",
-          cancelUrl: window.location.href,
-        }),
+        body: JSON.stringify({ tier, billingPeriod: "monthly" }),
       });
       const data = await res.json();
-      if (data.url) {
-        window.location.href = data.url;
-      } else {
-        setError("Failed to create checkout session. Please try again.");
+      if (!res.ok || !data.subscriptionId) {
+        setError(data.error ?? "Failed to create checkout session. Please try again.");
         setLoading(false);
+        return;
       }
+
+      const checkout = new window.Razorpay({
+        key: data.keyId,
+        subscription_id: data.subscriptionId,
+        name: "GhostWriter",
+        description: `${tier.replace("_", " ")} subscription`,
+        prefill: {
+          name: session?.user?.name ?? undefined,
+          email: session?.user?.email ?? undefined,
+        },
+        theme: { color: "#4F46E5" },
+        modal: { ondismiss: () => setLoading(false) },
+        handler: async (response: { razorpay_payment_id: string; razorpay_subscription_id: string; razorpay_signature: string }) => {
+          const verifyRes = await fetch("/api/subscription/verify", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ ...response, tier }),
+          });
+          setLoading(false);
+          if (verifyRes.ok) {
+            onClose();
+          } else {
+            setError("Payment received but verification failed — contact support if your plan doesn't update shortly.");
+          }
+        },
+      });
+      checkout.on("payment.failed", () => {
+        setError("Payment failed. Please try again.");
+        setLoading(false);
+      });
+      checkout.open();
     } catch {
       setError("Something went wrong. Please try again.");
       setLoading(false);
@@ -43,6 +81,8 @@ export function UpgradePrompt({ feature, onClose }: UpgradePromptProps) {
   };
 
   return (
+    <>
+    <Script src="https://checkout.razorpay.com/v1/checkout.js" strategy="lazyOnload" />
     <div style={{
       position: "fixed", inset: 0, zIndex: 2000,
       background: "rgba(0,0,0,0.6)", display: "flex",
@@ -110,5 +150,6 @@ export function UpgradePrompt({ feature, onClose }: UpgradePromptProps) {
         </div>
       </div>
     </div>
+    </>
   );
 }

@@ -101,6 +101,25 @@ export const FREE_TIER_LIMITS = {
   outlines_per_day:      3,
 } as const;
 
+// ── Tier to purchase for each feature gate's upgrade CTA ───────────────────
+// Must match the tier named in UPGRADE_COPY[feature].cta — e.g. "creator_tools_advanced"
+// and "virality_predict" advertise Creator Pro, so they map to "creator_pro" here.
+
+export const UPGRADE_TIER: Record<FeatureGate, SubscriptionTier> = {
+  story_modes_advanced: "story_pro",
+  style_dna:            "story_pro",
+  story_memories:       "story_pro",
+  character_evolution:  "story_pro",
+  ai_suggestion_active: "story_pro",
+  export:               "story_pro",
+  comic_studio:         "story_pro",
+  composition_layer:    "story_pro",
+  unlimited_generations: "story_pro",
+  audio_novel:            "story_pro",
+  creator_tools_advanced: "creator_pro",
+  virality_predict:       "creator_pro",
+};
+
 // ── Upgrade prompt copy ────────────────────────────────────────────────────
 
 export const UPGRADE_COPY: Record<FeatureGate, { title: string; description: string; cta: string }> = {
