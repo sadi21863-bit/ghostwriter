@@ -22,6 +22,23 @@ function getRazorpay() {
   });
 }
 
+// The Razorpay test-mode API intermittently returns a 401 "Authentication failed"
+// (~30% of calls) for reasons unrelated to the actual credentials — a short retry
+// loop with backoff resolves it almost every time.
+async function withAuthRetry<T>(fn: () => Promise<T>, attempts = 4): Promise<T> {
+  for (let i = 0; i < attempts; i++) {
+    try {
+      return await fn();
+    } catch (err) {
+      const e = err as { statusCode?: number; error?: { code?: string } };
+      const isAuthGlitch = e?.statusCode === 401 && e?.error?.code === 'BAD_REQUEST_ERROR';
+      if (!isAuthGlitch || i === attempts - 1) throw err;
+      await new Promise(resolve => setTimeout(resolve, 250 * (i + 1)));
+    }
+  }
+  throw new Error('unreachable');
+}
+
 // GET — current subscription info (returns tier, status, currentPeriodEnd, emailVerified for settings UI)
 export async function GET() {
   const session = await getRequiredSession();
@@ -91,12 +108,12 @@ export async function POST(req: Request) {
 
   // total_count = number of billing cycles before the subscription auto-expires.
   // Set to ~10 years out — the subscription effectively renews until the user cancels.
-  const subscription = await razorpay.subscriptions.create({
+  const subscription = await withAuthRetry(() => razorpay.subscriptions.create({
     plan_id: planId,
     customer_notify: 1,
     total_count: period === 'annual' ? 10 : 120,
     notes: { userId: session.user.id, tier, billingPeriod: period },
-  });
+  }));
 
   await track(session.user.id, 'checkout_started', { tier });
   return NextResponse.json({
@@ -128,7 +145,7 @@ export async function DELETE() {
     return NextResponse.json({ error: "No active subscription" }, { status: 404 });
   }
 
-  await razorpay.subscriptions.cancel(sub.razorpaySubscriptionId, true);
+  await withAuthRetry(() => razorpay.subscriptions.cancel(sub.razorpaySubscriptionId!, true));
 
   return NextResponse.json({ success: true, cancelledAtPeriodEnd: true });
 }

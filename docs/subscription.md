@@ -10,7 +10,7 @@ How tiers work, what each tier unlocks, how Stripe is integrated, and how featur
 |---|---|---|
 | `free` | — (no payment) | ₹0 |
 | `story_pro` | `RAZORPAY_STORY_PRO_MONTHLY_PLAN_ID` / `RAZORPAY_STORY_PRO_ANNUAL_PLAN_ID` | ₹1,500 |
-| `creator_pro` | `RAZORPAY_CREATOR_PRO_MONTHLY_PLAN_ID` / `RAZORPAY_CREATOR_PRO_ANNUAL_PLAN_ID` | ₹2,000 |
+| `creator_pro` | `RAZORPAY_CREATOR_PRO_MONTHLY_PLAN_ID` / `RAZORPAY_CREATOR_PRO_ANNUAL_PLAN_ID` | ₹1,000 |
 | `all_access` | `RAZORPAY_ALL_ACCESS_MONTHLY_PLAN_ID` / `RAZORPAY_ALL_ACCESS_ANNUAL_PLAN_ID` | ₹2,500 |
 
 Tier names are the values stored in `subscriptions.tier` column. Prices are in Indian Rupees (INR) — GhostWriter is India-first.
@@ -21,15 +21,15 @@ Tier names are the values stored in `subscriptions.tier` column. Prices are in I
 
 ### Free Tier
 - 10 AI generations per month (routed to Claude Haiku for low cost)
-- 7-day full trial on signup (all features unlocked)
+- 7-day Story Pro trial on signup: `users.trialEndAt = now + 7d` (set at registration); while unexpired, `getUserTier()` returns `story_pro` regardless of the underlying `subscriptions` row, so the user gets full Story Pro access (500 gens/month, all library modes, Style DNA, etc.) for 7 days, then drops back to the free limits below
 - 1 project · 2 characters
 - Core modes only: Brainstorm, Outline, Write
-- All 22 library modes blocked (403 → upgrade prompt)
+- All 21 library modes blocked (403 → upgrade prompt)
 - No Style DNA, no AIisms check, no library modes
 
 ### Story Pro (`story_pro`)
 - 500 generations/month (Claude Sonnet)
-- All 22 library modes (dialogue, combat, atmosphere, etc.)
+- All 21 library modes (dialogue, combat, atmosphere, etc.)
 - Full character intelligence (NVC, language profiles, contextVisibility toggles)
 - Style DNA (reference works → style fingerprint)
 - Voice fingerprinting (stylometric constraints from your last 5 chapters)
@@ -153,21 +153,50 @@ GhostWriter switched from Stripe to Razorpay (Sprint 24) to support Indian payme
 
 ### Payment Flow
 
-1. User clicks "Upgrade" on `/settings` → `UpgradePrompt.tsx`
-2. Frontend calls `POST /api/subscription` with `{ tier, billingCycle }` (monthly or annual)
-3. Route creates a Razorpay subscription using the plan ID from `src/types/subscription.ts`:
+1. User clicks "Upgrade" on `/settings` (or any `UpgradePrompt.tsx` paywall) → `POST /api/subscription` with `{ tier, billingPeriod }` (`'monthly' | 'annual'`)
+2. Route creates a Razorpay subscription using the plan ID from `RAZORPAY_PLANS` in `src/types/subscription.ts`:
    ```typescript
-   const subscriptionId = await razorpay.subscriptions.create({
-     plan_id: RAZORPAY_PLANS[tier][billingCycle],
-     total_count: billingCycle === 'annual' ? 12 : 120,
-     notes: { tier, userId },
-   });
+   const subscription = await withAuthRetry(() => razorpay.subscriptions.create({
+     plan_id: planId,
+     customer_notify: 1,
+     total_count: period === 'annual' ? 10 : 120,
+     notes: { userId: session.user.id, tier, billingPeriod: period },
+   }));
    ```
-4. Returns `subscriptionId` to the client
-5. Client opens Razorpay Checkout overlay (no redirect — modal flow)
-6. User pays with UPI / card / netbanking / wallet
-7. Razorpay sends webhook to `/api/webhooks/razorpay`
-8. Webhook handler creates/updates `subscriptions` row
+   `withAuthRetry()` (4 attempts, 250ms·i backoff) retries on Razorpay test-mode's intermittent `401 BAD_REQUEST_ERROR` — see [gotchas.md](gotchas.md).
+3. Returns `{ subscriptionId, keyId }` to the client
+4. Client opens the Razorpay Checkout overlay (no redirect — modal flow)
+5. User pays with UPI / card / netbanking / wallet
+6. On success, the client immediately calls `POST /api/subscription/verify` with `{ razorpay_payment_id, razorpay_subscription_id, razorpay_signature }` — this is the primary activation path (see "Subscription Activation" below)
+7. Razorpay also sends an async webhook to `/api/webhooks/razorpay` (`subscription.activated`/`charged`) as a backup/reconciliation path — same upsert logic, idempotent if verify already activated the row
+
+### Subscription Row Lifecycle
+
+Every user has exactly one `subscriptions` row from the moment their account exists — `subscriptions.userId` is `unique()`, so it's always a valid `onConflictDoUpdate` target:
+
+- **Created at registration**: `POST /api/auth/register` does `db.insert(subscriptions).values({ userId: user.id })` (defaults: `tier: "free"`, `status: "active"`).
+- **Created for OAuth signups**: `events.createUser` in `src/lib/auth.ts` does the same insert with `.onConflictDoNothing()`.
+- **Backfilled for pre-existing accounts**: `scripts/backfill-subscriptions.js` (one-off, already run in prod).
+
+This closes the original bug where a user could pay successfully but `/api/subscription/verify`'s `UPDATE` matched zero rows and silently no-op'd.
+
+### Subscription Activation — Tier Verification (security-critical)
+
+`POST /api/subscription/verify` is the primary activation path. After validating the HMAC signature (`payment_id|subscription_id` signed with `RAZORPAY_KEY_SECRET`), it fetches the Razorpay subscription and reads the **authoritative tier from `notes`** — never from the client request body:
+
+```typescript
+const razorpaySub = await razorpay.subscriptions.fetch(razorpay_subscription_id);
+
+if (razorpaySub.notes?.userId !== session.user.id) {
+  return NextResponse.json({ error: "Subscription does not belong to this user" }, { status: 403 });
+}
+const tier = (razorpaySub.notes?.tier ?? "free") as SubscriptionTier;
+
+await db.insert(subscriptions).values({ userId: session.user.id, tier, status: "active", ... })
+  .onConflictDoUpdate({ target: subscriptions.userId, set: { tier, status: "active", ... } });
+```
+
+`notes.tier` and `notes.userId` are set server-side at subscription-creation time (`POST /api/subscription`, step 2 above) and cannot be influenced by the client at verify time. A user who tampers the verify request body to claim a higher tier than they paid for is rejected/ignored — the DB always reflects what `notes.tier` says was actually purchased.
 
 ### Webhook Events Handled
 

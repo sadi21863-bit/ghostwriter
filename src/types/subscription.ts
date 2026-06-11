@@ -126,57 +126,57 @@ export const UPGRADE_COPY: Record<FeatureGate, { title: string; description: str
   story_modes_advanced: {
     title: "Unlock Advanced Writing Modes",
     description: "Dialogue, Combat, Emotional, Atmosphere, and Tension modes are available on Story Pro. Each is grounded in academic research — FACS, Polyvagal Theory, Brewer & Lichtenstein SAT.",
-    cta: "Upgrade to Story Pro — ₹799/month",
+    cta: "Upgrade to Story Pro — ₹1,500/month",
   },
   composition_layer: {
     title: "Unlock Composition Mode",
     description: "Mix multiple libraries in one generation. Combat + Dread + Rage. Dark Romance. Cosmic Horror. The only tool where genre mixing is systematic and academically grounded.",
-    cta: "Upgrade to Story Pro — ₹799/month",
+    cta: "Upgrade to Story Pro — ₹1,500/month",
   },
   creator_tools_advanced: {
     title: "Unlock Creator Pro Tools",
     description: "Video Dissection, Trend Intelligence, Retention Editor, and Guest Intel. Reverse-engineer why videos go viral, then make yours.",
-    cta: "Upgrade to Creator Pro — ₹399/month",
+    cta: "Upgrade to Creator Pro — ₹1,000/month",
   },
   style_dna: {
     title: "Unlock Style DNA",
     description: "Analyse your favourite books or scripts and teach GhostWriter your style across 6 dimensions. Every generation then inherits that voice.",
-    cta: "Upgrade to Story Pro — ₹799/month",
+    cta: "Upgrade to Story Pro — ₹1,500/month",
   },
   story_memories: {
     title: "Unlock Story Memory Engine",
     description: "Automatically extract and track facts across your story. The AI never contradicts what already happened.",
-    cta: "Upgrade to Story Pro — ₹799/month",
+    cta: "Upgrade to Story Pro — ₹1,500/month",
   },
   character_evolution: {
     title: "Unlock Character Evolution",
     description: "Characters change based on what happens to them. Track how each character evolves across chapters.",
-    cta: "Upgrade to Story Pro — ₹799/month",
+    cta: "Upgrade to Story Pro — ₹1,500/month",
   },
   ai_suggestion_active: {
     title: "Unlock AI Story Review",
     description: "One-click check for continuity errors, character voice drift, world rule violations, and pacing issues.",
-    cta: "Upgrade to Story Pro — ₹799/month",
+    cta: "Upgrade to Story Pro — ₹1,500/month",
   },
   export: {
     title: "Unlock Export",
     description: "Export your completed story as PDF, DOCX, or Final Draft format.",
-    cta: "Upgrade to Story Pro — ₹799/month",
+    cta: "Upgrade to Story Pro — ₹1,500/month",
   },
   comic_studio: {
     title: "Unlock Comic Studio",
     description: "Generate panels with consistent character visual profiles. 30 panels/month on Story Pro.",
-    cta: "Upgrade to Story Pro — ₹799/month",
+    cta: "Upgrade to Story Pro — ₹1,500/month",
   },
   unlimited_generations: {
     title: "Daily Limit Reached",
     description: "Free tier includes 10 AI generations per day. Upgrade for unlimited generations.",
-    cta: "Upgrade to Story Pro — ₹799/month",
+    cta: "Upgrade to Story Pro — ₹1,500/month",
   },
   virality_predict: {
     title: "Unlock Virality Predictor",
     description: "Predict engagement scores, hook strength, and retention risk before you publish. Get AI-powered improvement suggestions.",
-    cta: "Upgrade to Creator Pro — ₹399/month",
+    cta: "Upgrade to Creator Pro — ₹1,000/month",
   },
   audio_novel: {
     title: "Audio Novel — Add-on",

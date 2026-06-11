@@ -85,6 +85,20 @@ await db.insert(characters).values({ projectId, name, role, age, ... });
 
 This prevents clients from overriding server-assigned fields (`id`, `projectId`, `createdAt`) or injecting columns they should not control.
 
+### Layer 5b — Public Endpoint Foreign-Key Scoping
+
+`/api/reader/[token]` is unauthenticated (readers access via a share token, not a session). Its POST handler validates the token but must also confirm any client-supplied foreign key belongs to that token's project before writing:
+
+```typescript
+const chapter = await db.query.chapters.findFirst({
+  where: and(eq(chapters.id, chapterId), eq(chapters.projectId, session.projectId)),
+  columns: { id: true },
+});
+if (!chapter) return NextResponse.json({ error: "Invalid chapter" }, { status: 400 });
+```
+
+Without this, a reaction POST with an arbitrary `chapterId` would write a reaction record against any project's chapter, not just the one the reader token grants access to.
+
 ### Layer 5 — Feature Gate Enforcement
 
 All paid features are gated at the API level, not just the UI level:
@@ -111,7 +125,9 @@ Four sliding-window limiters via Upstash Redis (`src/lib/ratelimit.ts`):
 | `freeGenerationLimit` | 1 day | 10 requests | userId | Free-tier generation |
 | `authRatelimit` | 1 hour | 5 requests | IP address | `/api/auth/register`, `/api/auth/forgot-password` |
 
-All limiters are **fail-open**: if `UPSTASH_REDIS_REST_URL` is not configured, requests pass through. In production, both Upstash env vars must be set.
+**`aiRatelimit` fails CLOSED in production** (`checkAiRateLimit` in `src/lib/ratelimit.ts`): if `UPSTASH_REDIS_REST_URL`/`TOKEN` are missing, or the Upstash call itself throws, AI routes return `503` rather than allowing unlimited requests. In development without Upstash configured it fails open (returns `null`). The other limiters (`generalRatelimit`, `authRatelimit`, `freeGenerationLimit`) remain fail-open if Upstash is unconfigured — acceptable since they aren't the primary cost-control surface.
+
+**Known open item:** `freeGenerationLimit` (10/day) and `MONTHLY_GENERATION_LIMITS.free` (10/month, in `src/lib/subscription.ts`) are two separate caps on the same thing — the monthly cap is checked first and wins in practice, so the daily limiter rarely fires. Not yet reconciled (tracked as a copy/logic cleanup item).
 
 When rate-limited, responses include standard headers:
 ```
@@ -157,6 +173,16 @@ If the webhook fires twice (Razorpay retries on timeout), the second call is a s
 
 ---
 
+## Subscription Tier Integrity
+
+`POST /api/subscription/verify` activates a user's paid tier after Razorpay checkout. The HMAC signature only proves `payment_id|subscription_id` are authentic — it says nothing about *which tier* was purchased. The route therefore:
+
+1. Fetches the Razorpay subscription server-side: `razorpay.subscriptions.fetch(razorpay_subscription_id)`.
+2. Rejects (403) if `razorpaySub.notes.userId !== session.user.id` — the subscription must have been created by this same session (`POST /api/subscription` stamps `notes.userId` server-side).
+3. Reads `tier = razorpaySub.notes.tier` and writes **that** tier to the DB — the client-supplied `tier` field (if any) in the verify request body is never trusted.
+
+The `/api/webhooks/razorpay` handler follows the same `notes.tier`/`notes.userId` pattern. This closes a self-serve tier-escalation hole where a user could buy `story_pro` and tamper the verify request to claim `all_access`.
+
 ## Sensitive Data Handling
 
 ### Higgsfield API Keys
@@ -187,6 +213,10 @@ Prevents duplicate accounts from `User@Example.com` vs `user@example.com`.
 
 Single-use UUIDs stored in `verificationTokens` table with 1-hour expiry. Tokens are deleted immediately after successful use.
 
+### Email Verification Tokens
+
+Single-use random tokens (32-byte hex) stored in `email_verification_tokens` with 24-hour expiry, issued at registration. `/api/auth/verify-email?token=...` sets `users.emailVerified = now()`. Verification is non-blocking (registration and login both succeed unverified) — `GET /api/subscription` returns `emailVerified` so the UI can show a resend banner.
+
 ---
 
 ## Security Headers
@@ -212,3 +242,5 @@ When adding new routes, these invariants must always hold:
 4. **Every collection POST uses explicit field allowlisting — no spreading `req.json()`.**
 5. **Every gated feature calls `canAccessFeature(tier, featureName)` before the operation.**
 6. **Webhook handlers verify signatures before processing any payload.**
+7. **Unauthenticated/token-scoped endpoints verify any client-supplied foreign key belongs to that token's own scope before writing (see Layer 5b).**
+8. **Subscription tier written to the DB always comes from Razorpay `notes`, never from a client request body (see Subscription Tier Integrity).**

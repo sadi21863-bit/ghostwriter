@@ -8,12 +8,15 @@ export function GrowthBookClientProvider({ children }: { children: React.ReactNo
   const [sdk, setSdk] = useState<{ Provider: typeof GrowthBookProvider; instance: GrowthBook } | null>(null);
 
   useEffect(() => {
+    const clientKey = process.env.NEXT_PUBLIC_GROWTHBOOK_CLIENT_KEY ?? "";
+    if (!clientKey) return;
+
     let cancelled = false;
     import("@growthbook/growthbook-react").then(({ GrowthBook: GB, GrowthBookProvider: Provider }) => {
       if (cancelled) return;
       const instance = new GB({
         apiHost: process.env.NEXT_PUBLIC_GROWTHBOOK_API_HOST ?? "",
-        clientKey: process.env.NEXT_PUBLIC_GROWTHBOOK_CLIENT_KEY ?? "",
+        clientKey,
         enableDevMode: process.env.NODE_ENV === "development",
       });
       instance.loadFeatures({ autoRefresh: true });
