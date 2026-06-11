@@ -2,12 +2,12 @@ export const dynamic = 'force-dynamic';
 
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
-import { users, referrals, subscriptions } from "@/db/schema";
+import { users, referrals, subscriptions, emailVerificationTokens } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { randomBytes } from "crypto";
 import bcrypt from "bcryptjs";
 import { sendEmail } from "@/lib/email";
-import { welcomeEmail } from "@/lib/email/templates";
+import { welcomeEmail, verificationEmail } from "@/lib/email/templates";
 import { checkAuthRateLimit } from "@/lib/ratelimit";
 
 export async function POST(req: NextRequest) {
@@ -59,6 +59,14 @@ export async function POST(req: NextRequest) {
   // Send welcome email (non-blocking)
   const { subject, html, text } = welcomeEmail(name ?? "");
   sendEmail({ to: email, subject, html, text }).catch(() => {});
+
+  // Issue an email-verification token (non-blocking — never blocks registration)
+  const verifyToken = randomBytes(32).toString('hex');
+  const verifyExpiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+  await db.insert(emailVerificationTokens).values({ userId: user.id, token: verifyToken, expiresAt: verifyExpiresAt });
+  const verifyUrl = `${process.env.NEXTAUTH_URL}/api/auth/verify-email?token=${verifyToken}`;
+  const verification = verificationEmail(name ?? "", verifyUrl);
+  sendEmail({ to: email, subject: verification.subject, html: verification.html, text: verification.text }).catch(() => {});
 
   return NextResponse.json(user, { status: 201 });
 }

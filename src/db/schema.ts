@@ -415,6 +415,15 @@ export const passwordResetTokens = pgTable("password_reset_tokens", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+export const emailVerificationTokens = pgTable("email_verification_tokens", {
+  id:        uuid("id").defaultRandom().primaryKey(),
+  userId:    uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  token:     text("token").notNull().unique(),
+  expiresAt: timestamp("expires_at").notNull(),
+  usedAt:    timestamp("used_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 export const platformEvents = pgTable("platform_events", {
   id:         uuid("id").defaultRandom().primaryKey(),
   userId:     uuid("user_id").references(() => users.id, { onDelete: "set null" }),

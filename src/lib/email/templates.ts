@@ -71,6 +71,27 @@ export function passwordResetEmail(name: string, resetUrl: string): { subject: s
   };
 }
 
+export function verificationEmail(name: string, verifyUrl: string): { subject: string; html: string; text: string } {
+  return {
+    subject: "Verify your email — GhostWriter",
+    text: `Hi ${name || 'there'},\n\nVerify your email to confirm your GhostWriter account:\n${verifyUrl}\n\nThis link expires in 24 hours.\n\n— GhostWriter`,
+    html: `
+      <div style="font-family:Georgia,serif;max-width:600px;margin:0 auto;padding:40px 24px;">
+        <h2 style="font-size:20px;margin-bottom:16px;">Verify your email</h2>
+        <p style="font-size:15px;line-height:1.7;color:#333;">
+          Confirm your email address to finish setting up your GhostWriter account.
+          This link expires in 24 hours.
+        </p>
+        <a href="${verifyUrl}"
+           style="display:inline-block;margin-top:20px;padding:12px 28px;
+                  background:#4F46E5;color:#fff;text-decoration:none;
+                  border-radius:8px;font-size:15px;">
+          Verify email →
+        </a>
+      </div>`,
+  };
+}
+
 export function trialStartEmail(name: string): { subject: string; html: string; text: string } {
   return {
     subject: "Your GhostWriter Pro trial has started",
