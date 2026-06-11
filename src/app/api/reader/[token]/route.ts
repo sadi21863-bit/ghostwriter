@@ -40,6 +40,12 @@ export async function POST(req: Request, { params }: Ctx) {
   if (!chapterId || textOffset === undefined || !reactionType)
     return NextResponse.json({ error: "chapterId, textOffset, and reactionType required" }, { status: 400 });
 
+  const chapter = await db.query.chapters.findFirst({
+    where: and(eq(chapters.id, chapterId), eq(chapters.projectId, session.projectId)),
+    columns: { id: true },
+  });
+  if (!chapter) return NextResponse.json({ error: "Invalid chapter" }, { status: 400 });
+
   const [reaction] = await db.insert(readerReactions).values({
     sessionId: session.id,
     chapterId,
