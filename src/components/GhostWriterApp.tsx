@@ -62,7 +62,10 @@ export default function GhostWriterApp({ projectId }: { projectId: string }) {
   const [activeInfluence, setActiveInfluence] = useState<any | null>(null);
   const [activePatterns, setActivePatterns] = useState<any[]>([]);
   const [mobileToolbarOpen, setMobileToolbarOpen] = useState(false);
-  const [subscription, setSubscription] = useState<{ status: string; currentPeriodEnd: string | null } | null>(null);
+  const [subscription, setSubscription] = useState<{ status: string; currentPeriodEnd: string | null; emailVerified?: boolean } | null>(null);
+  const [verifyBannerDismissed, setVerifyBannerDismissed] = useState(false);
+  const [resendingVerification, setResendingVerification] = useState(false);
+  const [resendSent, setResendSent] = useState(false);
 
   useEffect(() => {
     fetch('/api/subscription').then(r => r.json()).then(setSubscription).catch(() => {});
@@ -202,6 +205,33 @@ export default function GhostWriterApp({ projectId }: { projectId: string }) {
             ? <><strong>{trialDaysLeft} day{trialDaysLeft !== 1 ? 's' : ''} left</strong> in your free trial — you have full Story Pro access.{' '}<a href="/settings" style={{ color: '#d97706', fontWeight: 700 }}>Upgrade to keep it →</a></>
             : <>Your trial has ended.{' '}<a href="/settings" style={{ color: '#d97706', fontWeight: 700 }}>Upgrade to continue →</a></>
           }
+        </div>
+      )}
+      {subscription?.emailVerified === false && !verifyBannerDismissed && (
+        <div style={{ background: 'rgba(79,70,229,0.1)', borderBottom: '1px solid rgba(79,70,229,0.2)', padding: '7px 16px', fontSize: 12, textAlign: 'center', color: '#4F46E5', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
+          <span>Verify your email to secure your account.</span>
+          <button
+            onClick={async () => {
+              setResendingVerification(true);
+              try {
+                await fetch('/api/auth/resend-verification', { method: 'POST' });
+                setResendSent(true);
+              } finally {
+                setResendingVerification(false);
+              }
+            }}
+            disabled={resendingVerification || resendSent}
+            style={{ background: 'none', border: '1px solid #4F46E5', color: '#4F46E5', borderRadius: 6, padding: '3px 10px', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}
+          >
+            {resendSent ? 'Sent!' : resendingVerification ? 'Sending…' : 'Resend email'}
+          </button>
+          <button
+            onClick={() => setVerifyBannerDismissed(true)}
+            style={{ background: 'none', border: 'none', color: '#4F46E5', cursor: 'pointer', fontSize: 14, lineHeight: 1, padding: 0 }}
+            aria-label="Dismiss"
+          >
+            ×
+          </button>
         </div>
       )}
       <div style={{ display: "flex", flex: 1, overflow: "hidden" }}>

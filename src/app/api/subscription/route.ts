@@ -22,7 +22,7 @@ function getRazorpay() {
   });
 }
 
-// GET — current subscription info (returns tier, status, currentPeriodEnd for settings UI)
+// GET — current subscription info (returns tier, status, currentPeriodEnd, emailVerified for settings UI)
 export async function GET() {
   const session = await getRequiredSession();
   const { db } = await import('@/db');
@@ -34,27 +34,29 @@ export async function GET() {
     columns: { tier: true, status: true, currentPeriodEnd: true },
   });
 
+  const user = await db.query.users.findFirst({
+    where: eq(users.id, session.user.id),
+    columns: { trialEndAt: true, emailVerified: true },
+  });
+  const emailVerified = user?.emailVerified != null;
+
   const tier = sub?.tier ?? 'free';
 
   // 7-day Story Pro trial: report story_pro/trialing so the existing trial banner renders.
-  if (tier === 'free') {
-    const user = await db.query.users.findFirst({
-      where: eq(users.id, session.user.id),
-      columns: { trialEndAt: true },
+  if (tier === 'free' && user?.trialEndAt && new Date(user.trialEndAt) > new Date()) {
+    return NextResponse.json({
+      tier: 'story_pro',
+      status: 'trialing',
+      currentPeriodEnd: user.trialEndAt.toISOString(),
+      emailVerified,
     });
-    if (user?.trialEndAt && new Date(user.trialEndAt) > new Date()) {
-      return NextResponse.json({
-        tier: 'story_pro',
-        status: 'trialing',
-        currentPeriodEnd: user.trialEndAt.toISOString(),
-      });
-    }
   }
 
   return NextResponse.json({
     tier,
     status: sub?.status ?? 'active',
     currentPeriodEnd: sub?.currentPeriodEnd?.toISOString() ?? null,
+    emailVerified,
   });
 }
 
