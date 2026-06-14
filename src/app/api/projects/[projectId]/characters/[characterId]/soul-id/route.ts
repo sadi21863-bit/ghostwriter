@@ -30,7 +30,7 @@ export async function POST(
   if (!project) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const char = await db.query.characters.findFirst({
-    where: eq(characters.id, (await params).characterId),
+    where: and(eq(characters.id, (await params).characterId), eq(characters.projectId, (await params).projectId)),
   });
   if (!char) return NextResponse.json({ error: "Character not found" }, { status: 404 });
 
@@ -89,7 +89,7 @@ export async function GET(
   if (result.status === "completed" && result.soulId) {
     await db.update(characters)
       .set({ soulId: result.soulId })
-      .where(eq(characters.id, (await params).characterId));
+      .where(and(eq(characters.id, (await params).characterId), eq(characters.projectId, (await params).projectId)));
 
     return NextResponse.json({
       status: "completed",

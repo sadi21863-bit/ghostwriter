@@ -8,6 +8,22 @@ import { CAMERA_PRESETS, VIRAL_PRESETS } from "./presets";
 const SEGMIND_BASE  = "https://api.segmind.com/v1";
 const HF_CLOUD_BASE = "https://cloud.higgsfield.ai/v1";
 
+/** Wraps fetch with an abort timeout so a hung provider response can't block a request indefinitely. */
+async function fetchWithTimeout(url: string, opts: RequestInit, ms = 120_000): Promise<Response> {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), ms);
+  try {
+    return await fetch(url, { ...opts, signal: ctrl.signal });
+  } catch (err) {
+    if (err instanceof Error && err.name === "AbortError") {
+      throw new Error("Generation timed out. Please try again.");
+    }
+    throw err;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 // ── IMAGE GENERATION (Soul 2.0) ──────────────────────────────────────────────
 
 export async function generateSoulImage(params: {
@@ -40,7 +56,7 @@ export async function generateSoulImage(params: {
   if (params.width)  body.width  = params.width;
   if (params.height) body.height = params.height;
 
-  const res = await fetch(`${SEGMIND_BASE}/higgsfield-text2image-soul`, {
+  const res = await fetchWithTimeout(`${SEGMIND_BASE}/higgsfield-text2image-soul`, {
     method: "POST",
     headers: { "x-api-key": params.apiKey, "Content-Type": "application/json" },
     body: JSON.stringify(body),
@@ -70,7 +86,7 @@ export async function trainSoulId(params: {
     throw new Error("Soul ID training requires at least 3 reference images");
   }
 
-  const res = await fetch(`${HF_CLOUD_BASE}/characters/train`, {
+  const res = await fetchWithTimeout(`${HF_CLOUD_BASE}/characters/train`, {
     method: "POST",
     headers: {
       "Authorization": `Bearer ${params.apiKey}:${params.apiSecret}`,
@@ -96,7 +112,7 @@ export async function pollSoulIdTraining(params: {
   apiSecret: string;
   jobId: string;
 }): Promise<{ status: "processing" | "completed" | "failed"; soulId?: string }> {
-  const res = await fetch(`${HF_CLOUD_BASE}/characters/train/${params.jobId}`, {
+  const res = await fetchWithTimeout(`${HF_CLOUD_BASE}/characters/train/${params.jobId}`, {
     headers: {
       "Authorization": `Bearer ${params.apiKey}:${params.apiSecret}`,
     },
@@ -128,7 +144,7 @@ export async function generateDoPVideo(params: {
     finalPrompt += `. ${CAMERA_PRESETS[params.cameraPreset].promptInjection}`;
   }
 
-  const res = await fetch(`${SEGMIND_BASE}/higgsfield-image2video`, {
+  const res = await fetchWithTimeout(`${SEGMIND_BASE}/higgsfield-image2video`, {
     method: "POST",
     headers: { "x-api-key": params.apiKey, "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -201,7 +217,7 @@ export async function generateTextVideo(params: {
     if (vp) finalPrompt += `. ${vp.promptInjection}`;
   }
 
-  const res = await fetch(`${SEGMIND_BASE}/${endpoint}`, {
+  const res = await fetchWithTimeout(`${SEGMIND_BASE}/${endpoint}`, {
     method: "POST",
     headers: { "x-api-key": params.apiKey, "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -233,7 +249,7 @@ export async function generateLipsync(params: {
     finalPrompt += `. Maintain character consistency with Soul ID reference.`;
   }
 
-  const res = await fetch(`${SEGMIND_BASE}/higgsfield-wan-text2video`, {
+  const res = await fetchWithTimeout(`${SEGMIND_BASE}/higgsfield-wan-text2video`, {
     method: "POST",
     headers: { "x-api-key": params.apiKey, "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -262,7 +278,7 @@ export async function pollJob(params: {
   apiKey: string;
   pollingUrl: string;
 }): Promise<{ status: JobStatus; mediaUrl?: string }> {
-  const res = await fetch(params.pollingUrl, {
+  const res = await fetchWithTimeout(params.pollingUrl, {
     headers: { "x-api-key": params.apiKey },
   });
   if (!res.ok) return { status: "ERROR" };

@@ -33,6 +33,6 @@ export const toast = {
     toastEmitter.emit({ message, type: 'warning', duration: 6000, action }),
   success: (message: string) =>
     toastEmitter.emit({ message, type: 'success', duration: 4000 }),
-  info:    (message: string) =>
-    toastEmitter.emit({ message, type: 'info', duration: 5000 }),
+  info:    (message: string, action?: Toast['action']) =>
+    toastEmitter.emit({ message, type: 'info', duration: 5000, action }),
 };

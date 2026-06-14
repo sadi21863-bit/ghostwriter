@@ -1,7 +1,7 @@
 export const dynamic = 'force-dynamic';
 
 import { NextResponse } from "next/server";
-import { getRequiredSession } from "@/lib/auth-helpers";
+import { getRequiredSession, verifyChildOwnership } from "@/lib/auth-helpers";
 import { db } from "@/db";
 import { comicPages, comicPanels, projects, users } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
@@ -23,11 +23,13 @@ export async function POST(_: Request, { params }: { params: Promise<{ projectId
   const user = await db.query.users.findFirst({ where: eq(users.id, s.user.id) });
   if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
 
-  const panel = await db.query.comicPanels.findFirst({ where: eq(comicPanels.id, (await params).panelId) });
+  const panel = await db.query.comicPanels.findFirst({
+    where: and(eq(comicPanels.id, (await params).panelId), eq(comicPanels.projectId, (await params).projectId)),
+  });
   if (!panel) return NextResponse.json({ error: "Panel not found" }, { status: 404 });
 
-  const page = await db.query.comicPages.findFirst({ where: eq(comicPages.id, (await params).pageId) });
-  if (!page) return NextResponse.json({ error: "Page not found" }, { status: 404 });
+  const pageOwned = await verifyChildOwnership(comicPages, (await params).pageId, (await params).projectId);
+  if (!pageOwned) return NextResponse.json({ error: "Page not found" }, { status: 404 });
 
   const imageProviderId = user.imageProviderId || "segmind_soul";
   const provider = getImageProvider(imageProviderId);

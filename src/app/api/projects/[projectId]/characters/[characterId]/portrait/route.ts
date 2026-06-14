@@ -1,4 +1,5 @@
 export const dynamic = 'force-dynamic';
+export const maxDuration = 300;
 
 import { NextResponse } from "next/server";
 import { getRequiredSession } from "@/lib/auth-helpers";
@@ -41,7 +42,7 @@ export async function POST(_: Request, { params }: { params: Promise<{ projectId
   const [updated] = await db
     .update(characters)
     .set({ portraitUrl })
-    .where(eq(characters.id, (await params).characterId))
+    .where(and(eq(characters.id, (await params).characterId), eq(characters.projectId, (await params).projectId)))
     .returning();
 
   return NextResponse.json({ portraitUrl: updated.portraitUrl });

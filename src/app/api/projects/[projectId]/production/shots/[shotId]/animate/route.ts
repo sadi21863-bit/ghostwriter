@@ -1,4 +1,5 @@
 export const dynamic = 'force-dynamic';
+export const maxDuration = 300;
 
 import { NextResponse } from "next/server";
 import { getRequiredSession } from "@/lib/auth-helpers";
@@ -24,7 +25,9 @@ export async function POST(req: Request, { params }: { params: Promise<{ project
   if (!higgsfieldKey)
     return NextResponse.json({ error: "Add your Higgsfield API key in Settings." }, { status: 400 });
 
-  const shot = await db.query.productionShots.findFirst({ where: eq(productionShots.id, (await params).shotId) });
+  const shot = await db.query.productionShots.findFirst({
+    where: and(eq(productionShots.id, (await params).shotId), eq(productionShots.projectId, (await params).projectId)),
+  });
   if (!shot) return NextResponse.json({ error: "Shot not found" }, { status: 404 });
   if (!shot.previewImageUrl)
     return NextResponse.json({ error: "Generate a preview image first." }, { status: 400 });

@@ -28,7 +28,7 @@ export async function POST(_: Request, { params }: { params: Promise<{ projectId
     return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const chapter = await db.query.chapters.findFirst({
-    where: eq(chapters.id, chapterId),
+    where: and(eq(chapters.id, chapterId), eq(chapters.projectId, projectId)),
   });
   if (!chapter?.content?.trim()) return NextResponse.json({ memories: [] });
 

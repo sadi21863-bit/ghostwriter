@@ -5,6 +5,7 @@ import { SHOT_TYPES, CAMERA_MOVEMENTS, LIGHTING_MOODS, TIME_OF_DAY, buildShotPro
 import { CAMERA_PRESETS, CAMERA_PRESET_GROUPS, VIRAL_PRESETS } from "@/lib/higgsfield/presets";
 import SeriesPipelinePanel from "@/components/panels/SeriesPipelinePanel";
 import { EmptyState } from "@/components/EmptyState";
+import { toast } from "@/lib/toast";
 
 type Shot = {
   id: string;
@@ -182,6 +183,11 @@ export default function ProductionStudio({ project, higgsfieldKey }: { project: 
     if (!res.ok) { setError(data.error || "Preview all failed"); return; }
     await loadShots();
     if (data.errors?.length) setError(`${data.errors.length} shot(s) failed to preview.`);
+    if (data.remaining > 0) {
+      toast.info(`${data.remaining} shot(s) still need previews. Click Preview All again to continue.`, {
+        label: "Continue", onClick: previewAll,
+      });
+    }
   }
 
   const debounceTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});

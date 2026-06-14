@@ -20,7 +20,9 @@ export async function GET(_: Request, { params }: { params: Promise<{ projectId:
   if (!await verifyOwnership((await params).projectId, s.user.id))
     return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  const shot = await db.query.productionShots.findFirst({ where: eq(productionShots.id, (await params).shotId) });
+  const shot = await db.query.productionShots.findFirst({
+    where: and(eq(productionShots.id, (await params).shotId), eq(productionShots.projectId, (await params).projectId)),
+  });
   if (!shot) return NextResponse.json({ error: "Shot not found" }, { status: 404 });
 
   if (shot.generationStatus === "final_ready")

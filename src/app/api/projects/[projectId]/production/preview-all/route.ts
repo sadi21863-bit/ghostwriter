@@ -1,4 +1,5 @@
 export const dynamic = 'force-dynamic';
+export const maxDuration = 300;
 
 import { NextResponse } from "next/server";
 import { getRequiredSession } from "@/lib/auth-helpers";
@@ -36,14 +37,18 @@ export async function POST(_: Request, { params }: { params: Promise<{ projectId
 
   const pending = shots.filter(s => !s.previewImageUrl);
   if (pending.length === 0)
-    return NextResponse.json({ completed: 0, total: 0, errors: [] });
+    return NextResponse.json({ completed: 0, total: 0, errors: [], remaining: 0 });
+
+  const CEILING = 20;
+  const toProcess = pending.slice(0, CEILING);
+  const remaining = pending.length - toProcess.length;
 
   const BATCH = 3;
   let completed = 0;
   const errors: string[] = [];
 
-  for (let i = 0; i < pending.length; i += BATCH) {
-    const batch = pending.slice(i, i + BATCH);
+  for (let i = 0; i < toProcess.length; i += BATCH) {
+    const batch = toProcess.slice(i, i + BATCH);
     const results = await Promise.allSettled(
       batch.map(async shot => {
         await db.update(productionShots)
@@ -81,5 +86,5 @@ export async function POST(_: Request, { params }: { params: Promise<{ projectId
     }
   }
 
-  return NextResponse.json({ completed, total: pending.length, errors });
+  return NextResponse.json({ completed, total: toProcess.length, errors, remaining });
 }
