@@ -240,7 +240,7 @@ Before going live:
 - [x] Sprint 22 schema pushed: `universes`, `universe_characters`, `project_character_states`, `universe_events` tables; `story_type`/`universe_id`/`timeline_sort`/`phase`/`series_parent_id` on projects; `storyline_id` on chapters *(done 2026-06-06)*
 - [x] Razorpay integrated (Sprint 24): switched from Stripe. Webhook handler at `/api/webhooks/razorpay` *(done)*
 - [x] Sprint 25 schema pushed: `updated_at` columns added to `characters`, `locations`, `plot_threads` tables *(done 2026-06-09)*
-- [x] Razorpay plans created (6 plans: 3 tiers × monthly+annual), plan IDs in `.env.local` *(done — see CLAUDE.md item 10; push plan IDs + new key pair to Vercel before launch)*
+- [x] Razorpay plans created (6 plans: 3 tiers × monthly+annual), plan IDs in `.env.local` *(done — see CLAUDE.md item 10; key pair + plan IDs pushed to Vercel production 2026-06-14)*
 - [ ] Razorpay webhook endpoint configured at `ghost-writer.cc/api/webhooks/razorpay`
 - [x] Resend domain verified and DNS propagated *(done 2026-06-05)*
 - [x] Automated Razorpay TEST-mode E2E (create → webhook activate → tier flip → webhook cancel) — 8/9 PASS *(done 2026-06-13/14, see docs/testing.md §9d)*. Remaining: real-browser Checkout overlay in live mode (manual, not automatable).

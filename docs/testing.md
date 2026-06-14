@@ -123,7 +123,7 @@ This was an **external Razorpay test-account/key issue**, not a code defect in t
 - 3/3 `POST /api/subscription` calls succeeded immediately (200, real `subscriptionId` returned), **zero retries** needed via `withAuthRetry`.
 - A subsequent full E2E run (§9d) also succeeded on the first `subscriptions.create` call.
 
-No code changes were needed — purely a credential swap. Push the new `RAZORPAY_KEY_ID`/`RAZORPAY_KEY_SECRET` to Vercel before launch.
+No code changes were needed — purely a credential swap. Pushed to Vercel production 2026-06-14.
 
 ### 9c. Webhook Handler Logic — Fully Verified (Synthetic Subscription)
 
