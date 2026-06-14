@@ -2,6 +2,7 @@ node_modules
 .next
 .env
 .env.local
+.env.vercel-check*
 *.tsbuildinfo
 next-env.d.ts
 .vercel

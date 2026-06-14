@@ -241,7 +241,7 @@ Before going live:
 - [x] Razorpay integrated (Sprint 24): switched from Stripe. Webhook handler at `/api/webhooks/razorpay` *(done)*
 - [x] Sprint 25 schema pushed: `updated_at` columns added to `characters`, `locations`, `plot_threads` tables *(done 2026-06-09)*
 - [x] Razorpay plans created (6 plans: 3 tiers × monthly+annual), plan IDs in `.env.local` *(done — see CLAUDE.md item 10; key pair + plan IDs pushed to Vercel production 2026-06-14)*
-- [ ] Razorpay webhook endpoint configured at `ghost-writer.cc/api/webhooks/razorpay`
+- [x] Razorpay webhook endpoint configured at `ghost-writer.cc/api/webhooks/razorpay` *(test-mode webhook created via API 2026-06-14, id `T1V6G4FY41VWlu`; live-mode webhook was already configured previously)*. **Verified live 2026-06-14**: a synthetic HMAC-signed `subscription.cancelled` POST to `https://ghost-writer.cc/api/webhooks/razorpay` returned `200 {"received":true}`; an invalid signature was correctly rejected with `400`. Fixed a real production gap found during this test — `RAZORPAY_WEBHOOK_SECRET` in Vercel production was a "Sensitive" var (always reads back empty via `vercel env pull`, masking its true value); it was reset to match `.env`/`.env.local` and the production deployment was redeployed (`vercel redeploy ... --target production`) to pick up the change.
 - [x] Resend domain verified and DNS propagated *(done 2026-06-05)*
 - [x] Automated Razorpay TEST-mode E2E (create → webhook activate → tier flip → webhook cancel) — 8/9 PASS *(done 2026-06-13/14, see docs/testing.md §9d)*. Remaining: real-browser Checkout overlay in live mode (manual, not automatable).
 - [x] `NEXTAUTH_URL` set to `https://www.ghost-writer.cc` *(done 2026-06-06 — www required; apex 308s to www)*

@@ -25,6 +25,7 @@ Scope was "sample per tier": one live AI call per model tier (Haiku/Sonnet/Opus)
 | Razorpay webhook (activate/charged/halted/cancelled, signature verification) | ✅ PASS (14/14, synthetic subscription) |
 | Razorpay live `subscriptions.create` | ✅ RESOLVED 2026-06-13 — new test key pair, 100% success (was 100% failure) |
 | Razorpay full E2E (create → webhook activate → tier flip → webhook cancel) | ✅ PASS (8/9, see §9d) |
+| Razorpay production webhook endpoint (live signature verification) | ❌ found broken (Sensitive env var masked stale secret) → ✅ fixed & verified (§9e) |
 | Actual AI spend this session | $0.08 (well under the $3 budget) |
 
 ---
@@ -167,6 +168,19 @@ With the new key pair (§9b), re-ran the full chain using a **real** Razorpay su
 This is a `400`, not the documented `401` auth-glitch, so `withAuthRetry` correctly does **not** retry it (by design — retries are only for the 401 auth-glitch), and the route's catch-all correctly returns a clean `503` instead of crashing (the §9a fix working as intended). In production, `DELETE /api/subscription` is only ever called on a subscription that completed real Checkout (status `active`, with a billing cycle running), so this 400 would not occur in practice — and the webhook-driven cancellation path (which doesn't require an active billing cycle) is verified working in §9c.
 
 **Conclusion:** the only remaining unverified step in the full Razorpay flow is the literal browser Checkout overlay (real card/UPI authorization), which requires manual/browser-automation testing. Every server-side code path — create, both webhook signature cases, tier flips, and cancellation (via webhook) — is now verified against the live Razorpay API.
+
+### 9e. Production Webhook Endpoint — Verified Live (2026-06-14)
+
+After creating a TEST-mode Razorpay webhook (`id=T1V6G4FY41VWlu`) pointing at `https://ghost-writer.cc/api/webhooks/razorpay`, sent a synthetic HMAC-signed `subscription.cancelled` payload (fake `razorpaySubscriptionId`, a safe no-op against the `subscriptions` update-by-id path) directly to the live production endpoint:
+
+| Check | Result |
+|---|---|
+| Invalid `x-razorpay-signature` → `400 {"error":"Webhook signature verification failed"}` | ✅ PASS |
+| Valid HMAC-SHA256 signature (signed with `RAZORPAY_WEBHOOK_SECRET`) → `200 {"received":true}` | ✅ PASS |
+
+**Bug found and fixed during this test:** the first run returned `400` for *both* the invalid and the "valid" signature. Root cause — Vercel production's `RAZORPAY_WEBHOOK_SECRET` was stored as a **"Sensitive"** environment variable, which `vercel env pull` always reads back as an empty string regardless of its actual value. The deployed function's `process.env.RAZORPAY_WEBHOOK_SECRET` did not match the value in `.env`/`.env.local`. Fix: removed and re-added `RAZORPAY_WEBHOOK_SECRET` in Vercel production to match `.env`/`.env.local`, then ran `vercel redeploy <current-prod-deployment> --target production` (~2 min build) so the live function picked up the corrected value. Retest after redeploy: both checks PASS as shown above.
+
+**Implication:** prior to this fix, no Razorpay webhook (test or live) could have been verified successfully in production — every delivery would have hit the `400` signature-failure path. This is now resolved for both the new TEST-mode webhook and the pre-existing LIVE-mode webhook (same secret, per project convention).
 
 ## 10. Rate Limiting
 
