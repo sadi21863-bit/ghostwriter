@@ -55,10 +55,10 @@ The right panel is a mode selector + the active mode's panel:
 
 ```
 ToolbarPanel.tsx
-  ├─ Mode grid (25 mode buttons)
+  ├─ Mode grid (26 mode buttons)
   └─ Active panel (conditionally rendered)
-      ├─ modes/ (25 writing mode panels)
-      └─ tools/ (19 creator tool panels)
+      ├─ modes/ (26 writing mode panels)
+      └─ tools/ (18 creator tool panels)
 ```
 
 Each mode button click sets `activeMode` in state, which swaps in the corresponding panel component.
@@ -129,6 +129,9 @@ Same pattern as writing mode panels but calling creator tool routes:
 | `PipelinePanel.tsx` | `/api/ai/pipeline` |
 | `ResearchScaffoldPanel.tsx` | `/api/ai/research-scaffold` |
 | `ProsePanel.tsx` | `/api/ai/prose` |
+| `AltDraftPanel.tsx` | `/api/projects/[projectId]/chapters/[chapterId]/alt-draft` |
+| `InfluencePanel.tsx` | `/api/work-packets/*`, `/api/research/work-packet` |
+| `TrendNichePanel.tsx` | `/api/ai/trend-niche` |
 
 ### DissectPanel Polling Pattern
 
@@ -223,6 +226,30 @@ Emotional arc visualization using Recharts. Plots per-chapter emotional intensit
 ## Tension Curve: `src/components/TensionCurve.tsx`
 
 Similar to ArcHeatMap but visualizing narrative tension. Data from `/api/projects/[projectId]/tension-curve`. Overlays multiple tension threads (plot thread A vs. plot thread B vs. overall).
+
+---
+
+## "One Path, Five Stages" UI Redesign (behind GrowthBook flags, both OFF by default)
+
+An alternative shell that replaces the toolbar-driven editor above with a guided, stage-based flow. Gated behind two GrowthBook flags — `writingRoomShell` (`writing_room_shell`) and `homeRedesign` (`home_redesign`) — both **default OFF**, so the architecture above is what users see until these are enabled.
+
+```
+src/components/
+├─ Home.tsx              ← replaces the dashboard (homeRedesign flag)
+├─ WritingRoom.tsx        ← replaces GhostWriterApp's toolbar flow (writingRoomShell flag)
+│   ├─ stages/            ← Idea → Structure → Draft → Polish → Export stage components
+│   ├─ GuideBar.tsx        ← surfaces nextAction() suggestions; guide_clicked/guide_dismissed events
+│   ├─ SlashMenu.tsx       ← "/" command menu, routes into ToolbarPanel via an Actions overlay
+│   ├─ BeatDetectionChip.tsx     ← classifyBeat() match against LIBRARY_MODES keywords (Draft stage)
+│   ├─ EntitySuggestionsChip.tsx ← Story Bible field-update suggestions from generated text
+│   └─ BraindumpModal.tsx
+└─ StoryBible.tsx         ← full-screen Cast/World/Threads CRUD overlay (writingRoomShell-gated)
+```
+
+- **Stage ladder:** `currentStage(project)` / `nextAction(project)` in `src/lib/guide/next-action.ts` map a project's chapter-level progress onto Idea/Structure/Draft/Polish/Export. Creator-format projects (TikTok, YouTube, etc.) get remapped stage labels (Angle/Outline-Hooks/Script/Retention edit/Publish pack) with their own per-stage tool rows.
+- **Story Bible:** `src/components/StoryBible.tsx` is a full-screen Cast/World/Threads CRUD overlay. `src/lib/ai/entity-extraction.ts` (`matchEntities`/`diffEntity`) auto-extracts entity updates from generated `write`-mode text, surfaced via `EntitySuggestionsChip`.
+- **Beat detection:** `classifyBeat()` in `src/lib/modes/classify.ts` matches a drafted beat's text against each of the 23 `LIBRARY_MODES`' keyword lists; `BeatDetectionChip` surfaces the best match in the Draft stage.
+- **Dismissal state:** `projects.dismissedGuideIds` (jsonb array) persists which guide suggestions a user has dismissed.
 
 ---
 

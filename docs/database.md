@@ -51,6 +51,7 @@ Key columns:
 - `timelineSort` — integer — position within a series or universe timeline
 - `phase` — text — optional grouping label within a universe ("Phase 1", "The First Saga")
 - `seriesParentId` — uuid — points to the previous story in a series; null = first story
+- `dismissedGuideIds` — jsonb array, default `[]` — Guide Engine suggestion IDs the user has dismissed (migration 0005)
 
 **Format values:** `novel`, `screenplay`, `youtube_longform`, `youtube_short`, `podcast`
 

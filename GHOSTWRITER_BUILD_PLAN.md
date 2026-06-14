@@ -1,6 +1,6 @@
 # GhostWriter — Master Build Plan v3
 **For Claude Code | Updated May 2026**
-**Status: Phase 1 complete. Start at Phase 2.**
+**Status: All phases (1-9) complete, plus Sprints 10-25, Mode Registry Plans 1-2, and the "One Path, Five Stages" UI redesign (Phases 0-5). This document is a historical record of the original roadmap — see `CLAUDE.md` for the current architecture/state and `docs/testing.md` for the latest smoke test results.**
 
 ---
 
@@ -56,6 +56,8 @@ BLOB_READ_WRITE_TOKEN=   # Phase 8 — Vercel Blob image storage
 ✅ moveChapter now persists sortOrder to database
 ✅ Project load error state added
 ✅ Anthropic SDK updated to latest
+
+**Update (2026-06-14):** Phases 2-9 below are also complete, as are 16 further sprints (10-25), the Mode Registry refactor (Plans 1-2, `src/lib/modes/registry.ts`), and the "One Path, Five Stages" UI redesign (Phases 0-5: `WritingRoom`/`Home`/`StoryBible`/Guide Engine, behind `writingRoomShell`/`homeRedesign` GrowthBook flags, both default OFF). For the current architecture and pre-launch checklist, see `CLAUDE.md`.
 
 ---
 

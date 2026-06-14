@@ -24,22 +24,23 @@ export const MODELS = {
 };
 ```
 
-These are the **only** place model strings appear in the codebase. All 28 route files import `{ MODELS }` from here. This means you can upgrade the entire platform by changing one line.
+These are the **only** place model strings appear in the codebase. All 42 route files import `{ MODELS }` from here. This means you can upgrade the entire platform by changing one line.
 
 ---
 
-## The 25 Writing Modes
+## The 26 Writing Modes
 
-### Core Modes (always available)
+All 26 `GenerationMode`s are defined in `src/lib/modes/registry.ts` (`MODE_REGISTRY` — single source of truth for label, model tier, gate, quality check, visibility, slash command, and keywords).
+
+### Core Modes (always available, ungated)
 
 | Mode | Model | What it does |
 |---|---|---|
 | `brainstorm` | default | Generates story ideas, "what if" scenarios, premise variations |
 | `outline` | default | Story structure, act breaks, chapter-by-chapter outline |
 | `write` | default | Pure prose generation — the main writing mode |
-| `dialogue` | default | Conversation-driven scenes with speech act theory grounding |
 
-### Library Modes (Story Pro+)
+### Library Modes (Story Pro+, 23 modes)
 
 Each library mode has its own system prompt in `engine.ts` backed by academic research. The system prompt is cached (ephemeral block); the project context is dynamic.
 
@@ -47,6 +48,7 @@ Each library mode has its own system prompt in `engine.ts` backed by academic re
 |---|---|---|---|
 | `action` | default | Narrative momentum principles | High-paced physical sequences |
 | `atmosphere` | default | Ulrich stress recovery theory, Merleau-Ponty phenomenology | Environment as emotional character |
+| `chase` | quality | Terrain logic, resource depletion (energy/time/options) | Chase/escape scenes driven by decisions, not just speed |
 | `combat` | default | Biomechanical accuracy, kinesics | Fight choreography with physical realism |
 | `comedy` | default | Incongruity theory, Bergson | Comic timing, situational humor |
 | `composition` | quality | Multi-layer narrative theory | Mixes up to 5 modes simultaneously |
@@ -56,6 +58,7 @@ Each library mode has its own system prompt in `engine.ts` backed by academic re
 | `ethics` | default | Applied ethics frameworks | Moral dilemmas with no clean answer |
 | `historical` | default | Period-accurate detail | Historical fiction with sourced specifics |
 | `horror` | default | Dread-building, Lovecraftian theory | Psychological + visceral horror |
+| `interrogation` | quality | Psychological pressure architecture (false concession, strategic silence) | Interrogation scenes as psychological operations, not Q&A |
 | `isekai` | default | Isekai trope taxonomy | Portal fantasy with genre-aware execution |
 | `monologue` | default | Dramatic monologue theory | Character soliloquies, internal conflict |
 | `mystery` | default | Clue-chain theory, fair-play rules | Plot-integral mystery with planted clues |
@@ -208,12 +211,12 @@ The cache hit saves both latency (no re-tokenization) and cost (cached tokens bi
 
 ---
 
-## Genre Libraries: `src/lib/ai/[genre]/`
+## Genre Libraries: `src/lib/[genre]/`
 
-Each of the 20 library modes has its own folder in `src/lib/ai/`:
+20 of the 23 library modes have their own folder directly under `src/lib/` (sibling of `ai/`, not nested inside it):
 
 ```
-src/lib/ai/
+src/lib/
 ├─ action/
 │   ├─ index.ts         — main logic, system prompt construction
 │   ├─ context.ts       — rules injected into context
@@ -226,6 +229,8 @@ src/lib/ai/
 ```
 
 The genre library is selected in `engine.ts` based on the `mode` parameter passed to `generate()`. The selected library's `getContext()` and archetype list supplement the base system prompt.
+
+The remaining 3 library modes (`composition`, `interrogation`, `chase`) don't follow the archetype-folder pattern — `composition` is handled by `src/lib/ai/composer.ts`, and `interrogation`/`chase` are single-file system prompts in `src/lib/modes/`.
 
 ---
 

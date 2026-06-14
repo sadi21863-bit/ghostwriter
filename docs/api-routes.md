@@ -34,7 +34,7 @@ Response format for errors:
 
 | Method | Route | Auth | Tier | Description |
 |---|---|---|---|---|
-| POST | `/api/ai/generate` | Required | mode-dependent | Main generation — `mode` param selects which of 21 modes to use |
+| POST | `/api/ai/generate` | Required | mode-dependent | Main generation — `mode` param selects which of 26 modes (3 core + 23 library, see `MODE_REGISTRY`) to use |
 | POST | `/api/ai/entity` | Required | any | Generate character/location/plot thread |
 | POST | `/api/ai/suggest` | Required | any | Inline suggestions while writing |
 | POST | `/api/ai/summarize` | Required | any | Summarize a chapter |

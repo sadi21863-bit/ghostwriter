@@ -1,6 +1,6 @@
 # GhostWriter AI
 
-An AI-powered writing platform for novelists, screenwriters, and content creators. Write fiction across 25 specialized modes, generate video production packages, analyse YouTube trends, and repurpose content for TikTok and Instagram — all within a single continuity-aware workspace.
+An AI-powered writing platform for novelists, screenwriters, and content creators. Write fiction across 23 specialized library modes, generate video production packages, analyse YouTube trends, and repurpose content for TikTok and Instagram — all within a single continuity-aware workspace.
 
 Built with Next.js 16 App Router, Drizzle ORM, Neon PostgreSQL, and Anthropic Claude.
 
@@ -12,7 +12,7 @@ GhostWriter is a full-stack SaaS writing studio. The core idea: every AI generat
 
 On top of that continuity engine sit two product surfaces:
 
-**Fiction writing** — 25 specialized modes (dialogue, combat, atmosphere, tension, emotional, horror, romance, mystery, etc.), each backed by academic research in their system prompts. A Style DNA system reads your reference novels and applies their voice fingerprint to every generation.
+**Fiction writing** — 23 library modes (dialogue, combat, atmosphere, tension, emotional, horror, romance, mystery, etc.) on top of Brainstorm/Outline/Write, each backed by academic research in their system prompts. A Style DNA system reads your reference novels and applies their voice fingerprint to every generation.
 
 **Creator tools** — YouTube trend dissection, TikTok script generation, hook A/B testing, channel autopsy, SEO optimization, virality prediction, guest intelligence, and content repurposing.
 
@@ -22,7 +22,7 @@ On top of that continuity engine sit two product surfaces:
 
 | Surface | Features |
 |---|---|
-| Writing modes | Brainstorm, Outline, Write + 20 library modes (action, atmosphere, combat, comedy, composition, dialogue, emotional, endings, ethics, historical, horror, isekai, monologue, mystery, romance, sci-tech, setting, sports, tension, thriller, voice) |
+| Writing modes | Brainstorm, Outline, Write + 23 library modes (action, atmosphere, chase, combat, comedy, composition, dialogue, emotional, endings, ethics, historical, horror, interrogation, isekai, monologue, mystery, romance, sci-tech, setting, sports, tension, thriller, voice) |
 | Continuity engine | Per-chapter summarization, story memory extraction, character evolution log, chapter forking |
 | World Bible | Characters (personality, desires, NVC profile, language patterns), locations, plot threads — all injected into every prompt |
 | Style DNA | Upload reference works → 6-attribute style fingerprint → applied to all generations |
@@ -177,11 +177,14 @@ Next.js 16 App Router
 src/
 ├─ lib/
 │   ├─ ai/
-│   │   ├─ engine.ts           — MODELS constants, all 21 generation modes, system prompts
+│   │   ├─ engine.ts           — MODELS constants, all 26 generation modes, system prompts
 │   │   ├─ context-builder.ts  — Assembles project context string from DB data
 │   │   ├─ composer.ts         — Multi-layer composition mixing
 │   │   ├─ embeddings.ts       — OpenAI embedding calls
-│   │   └─ [genre]/            — 20 genre libraries (each: archetypes, context, types)
+│   │   └─ entity-extraction.ts — Story Bible auto-extraction from generated text
+│   ├─ modes/                  — Mode Registry: `registry.ts` (single source of truth for all modes), `classify.ts` (LIBRARY_MODES + beat detection)
+│   ├─ guide/                  — Guide Engine: `next-action.ts` (currentStage/nextAction for the 5-stage ladder)
+│   ├─ [genre]/                — 20 genre libraries (each: archetypes, context, types)
 │   ├─ auth-helpers.ts         — getRequiredSession() — throws 401 if unauthenticated
 │   ├─ ratelimit.ts            — Upstash rate limiting (fail-open)
 │   ├─ subscription.ts         — Tier lookup + feature gate enforcement
@@ -189,13 +192,16 @@ src/
 │   └─ formats.ts              — Story format rules (Novel, Screenplay, YouTube, etc.)
 │
 ├─ db/
-│   ├─ schema.ts               — All 23+ Drizzle tables
+│   ├─ schema.ts               — All 37 Drizzle tables
 │   └─ index.ts                — Neon serverless DB client
 │
 └─ components/
     ├─ GhostWriterApp.tsx       — Root app shell
-    ├─ panels/toolbar/modes/    — 25 writing mode panels
-    ├─ panels/toolbar/tools/    — 19 creator tool panels
+    ├─ panels/toolbar/modes/    — 26 writing mode panels
+    ├─ panels/toolbar/tools/    — 18 creator tool panels
+    ├─ WritingRoom.tsx          — "One Path, Five Stages" stage-ladder UI (writingRoomShell flag, OFF by default)
+    ├─ Home.tsx                 — Redesigned dashboard (homeRedesign flag, OFF by default)
+    ├─ StoryBible.tsx           — Cast/World/Threads overlay (writingRoomShell-gated)
     └─ ProductionStudio.tsx     — Video production UI
 ```
 
@@ -206,7 +212,7 @@ src/
 | All Anthropic/OpenAI calls in route handlers | API keys never reach the browser; components only call fetch |
 | Application-level ownership checks, no RLS | Every route queries `WHERE userId = session.user.id`; simpler than Supabase RLS and works with any Postgres |
 | `getRequiredSession()` throws 401 response | Eliminates null-check boilerplate in every protected route handler |
-| MODELS constants in `engine.ts` | Single source of truth — all 28 route files import `MODELS.default` / `MODELS.fast`; changing models means editing one file |
+| MODELS constants in `engine.ts` | Single source of truth — all 42 route files import `MODELS.default` / `MODELS.fast`; changing models means editing one file |
 | Rate limiter fail-open | Dev and demo environments work without Redis configured; missing env vars don't crash the app |
 | Video dissection via GitHub Actions | Gemini video analysis takes 2-4 minutes, far exceeding Vercel's 60s function limit |
 | Upstash Redis for rate limiting | Serverless-native; no persistent connections; free tier covers development |
@@ -220,7 +226,7 @@ src/
 | Tier | Monthly | Unlocks |
 |---|---|---|
 | Free | — | 10 AI generations/month (Haiku), 3 core modes only |
-| Story Pro | ₹1,500 | 500 generations/month (Sonnet), all 22 library modes, Style DNA, Story Memory, Comic Studio, Production Studio |
+| Story Pro | ₹1,500 | 500 generations/month (Sonnet), all 23 library modes, Style DNA, Story Memory, Comic Studio, Production Studio |
 | Creator Pro | ₹2,000 | All creator tools (trend search, dissection, hook A/B, retention, guest intel, TikTok, repurpose) |
 | All Access | ₹2,500 | Everything — unlimited generations, Higgsfield pipeline, YouTube reference video analysis |
 
@@ -248,8 +254,8 @@ See the [docs/](docs/) folder for deep-dives:
 | File | Covers |
 |---|---|
 | [docs/architecture.md](docs/architecture.md) | Full request lifecycle, data flow, how all layers connect |
-| [docs/ai-engine.md](docs/ai-engine.md) | MODELS constants, all 25 modes, prompt caching, context assembly |
-| [docs/database.md](docs/database.md) | All 30+ tables, relationships, schema decisions |
+| [docs/ai-engine.md](docs/ai-engine.md) | MODELS constants, all 26 modes, prompt caching, context assembly |
+| [docs/database.md](docs/database.md) | All 37 tables, relationships, schema decisions |
 | [docs/auth-and-security.md](docs/auth-and-security.md) | Auth flow, rate limiting, ownership checks, encryption |
 | [docs/security.md](docs/security.md) | Threat model, defense in depth, security invariants, all protections |
 | [docs/subscription.md](docs/subscription.md) | Tier system, feature gates, Razorpay integration, grace period logic |

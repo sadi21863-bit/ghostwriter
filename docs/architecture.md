@@ -155,12 +155,12 @@ All model selections are centralized in `src/lib/ai/engine.ts`:
 export const MODELS = {
   fast:    "claude-haiku-4-5-20251001",   // lightweight tasks
   default: "claude-sonnet-4-6",           // most generation
-  quality: "claude-opus-4-6",             // deep reasoning
+  quality: "claude-opus-4-8",             // deep reasoning
 };
 ```
 
 **Dynamic imports** — panels loaded lazily (not in main bundle):
-`StoryHealthPanel`, `ExportPanel`, `AltDraftPanel`, `SprintMode`, `UpgradePrompt`, `CommandPalette`, `QualityReviewPanel`, `WorldBiblePanel`, `ToolbarPanel`
+`StoryHealthPanel`, `ExportPanel`, `AltDraftPanel`, `SprintMode`, `UpgradePrompt`, `CommandPalette`, `QualityReviewPanel`, `WorldBiblePanel`, `ToolbarPanel`, `StoryBible`
 
 **MODELS.fast** — used for:
 - All free-tier generation (overrideModel routing)
