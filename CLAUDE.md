@@ -4,15 +4,18 @@ AI ghostwriting platform.
 ## Stack
 Next.js 16, Drizzle ORM 0.45.x, Neon PostgreSQL, NextAuth, Anthropic Claude, Tailwind v4, Vercel.
 
+## OpenAI policy
+"No OpenAI for generation" applies to story/text generation only (Claude-only). OpenAI is permitted for: embeddings (`text-embedding-3-small`, craft library search) and Audio Novel TTS (`tts-1`, `src/app/api/audio/generate/route.ts`). Higgsfield replaces OpenAI for image/video.
+
 ## Architecture
 - Continuity engine: chapter summaries in AI context
 - Style DNA: reference works to 6 attributes
-- Modes: Brainstorm / Outline / Write / 22 library modes + creator tools
+- Modes: Brainstorm / Outline / Write / 23 library modes + creator tools
 - World Bible: characters (with contextVisibility), locations, plot threads
 - Prompt caching: static/dynamic context split; static block cached (ephemeral)
 - Context budget: buildStaticContext caps at 8,000 tokens via priority-ordered section assembly (`[Context trimmed — project too large]` marker if exceeded); /api/ai/generate re-caps per subscription tier via capContextForTier (free/story_pro/creator_pro/all_access char limits; line-boundary-aware re-trim with `[Context truncated for tier limit]` marker if it re-trims)
 - Model tiers: Haiku (free-tier generation + summaries/grading), Sonnet-4-6 (default generation), Opus-4-6 (quality/composition modes)
-- Free tier: 10 gen/month on Haiku; 21 library modes gated (403 for free users)
+- Free tier: 10 gen/month on Haiku; 23 library modes gated (403 for free users)
 - Voice fingerprinting: 10 stylometric markers extracted from last 5 chapters → injected as binding constraints
 - AIisms check: opt-in per project (Story Pro+) — 20 fiction tells blocked post-generation
 - Quality check: Tier 1 Haiku + Tier 2 Sonnet in parallel, non-blocking
@@ -64,7 +67,7 @@ Application-level ownership checks only. Never use Supabase RLS. Always call get
 | CRON_SECRET | Secret header for cron job routes |
 | HIGGSFIELD_API_KEY | Higgsfield API key for video generation (optional) |
 | GEMINI_API_KEY | Google Gemini key for video dissection (optional) |
-| OPENAI_API_KEY | OpenAI key for embeddings only (text-embedding-3-small) |
+| OPENAI_API_KEY | OpenAI key for embeddings (text-embedding-3-small) and Audio Novel TTS (tts-1); fallback when a user has no own key set |
 | NEXT_PUBLIC_SENTRY_DSN | Sentry DSN for error monitoring (DSN hardcoded as fallback in sentry.*.config.ts) |
 
 ## Pre-launch checklist
@@ -77,10 +80,10 @@ Application-level ownership checks only. Never use Supabase RLS. Always call get
 7. ✅ Resend domain + DNS configured
 8. ✅ DB indexes restored via `node scripts/add-indexes.js` (10 indexes, 2026-06-06)
 9. ✅ Switched from Stripe to Razorpay (Sprint 24) — webhook at /api/webhooks/razorpay; Stripe fully removed 2026-06-10 (dead routes/portal/webhook, `STRIPE_PRICES`, `stripe`/`@stripe/stripe-js` deps, copy)
-10. ✅ Razorpay plans created (6 plans: 3 tiers × monthly+annual), plan IDs in `.env.local`. ⏳ Current local test key intermittently fails (~30%+ "Authentication failed" on `subscriptions.create`, plus checkout reports "api key has expired" even on a freshly-verified key) — appears to be a Razorpay test-account/environment issue (3 different key pairs all show the same symptoms), unresolved as of 2026-06-11. Push working `RAZORPAY_KEY_ID`/`RAZORPAY_KEY_SECRET`/plan IDs to Vercel once resolved.
+10. ✅ Razorpay plans created (6 plans: 3 tiers × monthly+annual), plan IDs in `.env.local`. ✅ Previous ~30%+ "Authentication failed" issue on `subscriptions.create` (3 prior key pairs, unresolved as of 2026-06-11) is RESOLVED as of 2026-06-13 — swapped to a new test key pair (`RAZORPAY_KEY_ID`/`RAZORPAY_KEY_SECRET` updated in both `.env` and `.env.local`; `RAZORPAY_WEBHOOK_SECRET` is independent and unchanged). New key pair: `subscriptions.create` succeeded 3/3 then 1/1 with zero retries needed. Push the new `RAZORPAY_KEY_ID`/`RAZORPAY_KEY_SECRET` to Vercel before launch.
 11. ✅ NEXTAUTH_URL set to https://www.ghost-writer.cc in Vercel (2026-06-06)
 12. ✅ Sprint 22 schema pushed: universes, universe_characters, project_character_states, universe_events tables; storyType/universeId/timelineSort/phase/seriesParentId on projects; storylineId on chapters (2026-06-06)
 13. ✅ Sprint 25 schema pushed: updated_at columns on characters, locations, plot_threads (2026-06-09)
 14. ✅ Launch-blocking security/trial/Stripe-cleanup block shipped 2026-06-10/11 (commits afe8c48..3f975ae): subscription-row seeding + upserts, server-side tier verification from Razorpay `notes`, 7-day trial, AI rate limiter fails closed, full Stripe removal, email verification (C-3). Schema for `email_verification_tokens`/`trial_end_at`/`razorpay_*` columns confirmed live in prod DB (2026-06-11).
-15. ⏳ Manual Razorpay TEST-mode E2E (register → subscriptions row → trial tier → pay → tier flips → tamper-tier rejected → cancel → referral reward) — BLOCKED by item 10's Razorpay account issue. Code paths for all of the above are implemented and verified by reading; only the live checkout step is unverified.
+15. ✅ Automated Razorpay TEST-mode E2E run 2026-06-13/14 (unblocked by item 10's fix): register → subscriptions row (story_pro/trialing) → `subscriptions.create` (real Razorpay API call, status=created) → webhook signature verification (invalid sig rejected 400, valid sig accepted 200) → `subscription.activated` webhook flips tier to story_pro/active → `subscription.cancelled` webhook sets status=cancelled while preserving tier — 8/9 checks PASS. The 1 remaining check (`DELETE /api/subscription` direct cancel) is not a bug: confirmed via direct SDK call that Razorpay rejects cancelling a `created`-status subscription with `400 BAD_REQUEST_ERROR: "Subscription cannot be cancelled since no billing cycle is going on"` — a subscription must complete real Checkout (first billing cycle) before the cancel API accepts it. Only the literal browser-Checkout UI step remains unverified by automation; webhook-driven cancellation (the path that doesn't require it) is verified working.
 16. Production URL: https://www.ghost-writer.cc

@@ -1,0 +1,1 @@
+ALTER TABLE "projects" ADD COLUMN "dismissed_guide_ids" jsonb DEFAULT '[]'::jsonb;

@@ -108,12 +108,19 @@ export async function POST(req: Request) {
 
   // total_count = number of billing cycles before the subscription auto-expires.
   // Set to ~10 years out — the subscription effectively renews until the user cancels.
-  const subscription = await withAuthRetry(() => razorpay.subscriptions.create({
-    plan_id: planId,
-    customer_notify: 1,
-    total_count: period === 'annual' ? 10 : 120,
-    notes: { userId: session.user.id, tier, billingPeriod: period },
-  }));
+  let subscription;
+  try {
+    subscription = await withAuthRetry(() => razorpay.subscriptions.create({
+      plan_id: planId,
+      customer_notify: 1,
+      total_count: period === 'annual' ? 10 : 120,
+      notes: { userId: session.user.id, tier, billingPeriod: period },
+    }));
+  } catch {
+    return NextResponse.json({
+      error: 'Payment provider is temporarily unavailable. Please try again in a moment.',
+    }, { status: 503 });
+  }
 
   await track(session.user.id, 'checkout_started', { tier });
   return NextResponse.json({
@@ -145,7 +152,13 @@ export async function DELETE() {
     return NextResponse.json({ error: "No active subscription" }, { status: 404 });
   }
 
-  await withAuthRetry(() => razorpay.subscriptions.cancel(sub.razorpaySubscriptionId!, true));
+  try {
+    await withAuthRetry(() => razorpay.subscriptions.cancel(sub.razorpaySubscriptionId!, true));
+  } catch {
+    return NextResponse.json({
+      error: 'Payment provider is temporarily unavailable. Please try again in a moment.',
+    }, { status: 503 });
+  }
 
   return NextResponse.json({ success: true, cancelledAtPeriodEnd: true });
 }

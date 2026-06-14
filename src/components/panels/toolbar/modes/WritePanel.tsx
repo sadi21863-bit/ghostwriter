@@ -17,6 +17,7 @@ import { SceneView } from "@/components/editor/SceneView";
 import type { Scene } from "@/types";
 import { isStoryFormat, isCreatorFormat } from "@/lib/formats";
 import { CAMERA_PRESETS, VIRAL_PRESETS } from "@/lib/higgsfield/presets";
+import { parseBeatList } from "@/lib/modes/beats";
 
 function parseBrainstormOptions(text: string): { label: string; name: string; content: string }[] | null {
   const headerRe = /OPTION\s+([A-C])\s+[-—–]\s+([^\n:]+)/gi;
@@ -31,12 +32,6 @@ function parseBrainstormOptions(text: string): { label: string; name: string; co
     const end = i + 1 < 3 ? headers[i + 1].pos : text.length;
     return { label: h.label, name: h.name, content: text.slice(start, end).trim() };
   });
-}
-
-function parseBeatList(text: string): string[] | null {
-  const lines = text.split('\n').filter(l => l.trim().startsWith('BEAT:'));
-  if (lines.length < 3) return null;
-  return lines.map(l => l.replace(/^BEAT:\s*/, '').trim());
 }
 
 interface Props {

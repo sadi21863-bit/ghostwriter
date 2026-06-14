@@ -1,3 +1,5 @@
+import { MODE_REGISTRY, type GenerationMode, type ModeConfig } from "@/lib/modes/registry";
+
 export type RealismDomain = 'body' | 'injury' | 'combat' | 'chase';
 
 export const REALISM_DIRECTIVES: Record<RealismDomain, string> = {
@@ -60,12 +62,9 @@ export function buildRealismContext(domains: RealismDomain[]): string {
   return domains.map(d => REALISM_DIRECTIVES[d]).join('\n\n');
 }
 
-export function getRealismDomainsForMode(mode: string): RealismDomain[] {
-  const modeMap: Record<string, RealismDomain[]> = {
-    combat:    ['combat', 'body', 'injury'],
-    action:    ['chase', 'body'],
-    horror:    ['body', 'injury'],
-    emotional: ['body'],
-  };
-  return modeMap[mode] ?? [];
+export function getRealismDomainsForMode(mode: string): readonly RealismDomain[] {
+  // `| undefined`: "cohost" (and any other non-mode string) isn't a MODE_REGISTRY key,
+  // so the lookup is `undefined` at runtime despite the `as GenerationMode` cast.
+  const config = MODE_REGISTRY[mode as GenerationMode] as ModeConfig | undefined;
+  return config?.realismDomains ?? [];
 }

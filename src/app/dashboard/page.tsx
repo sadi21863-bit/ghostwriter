@@ -3,9 +3,12 @@ import type { FormEvent } from "react";
 import { useEffect, useState } from "react";
 import { useSession, signOut } from "next-auth/react";
 import { useRouter } from "next/navigation";
+import { useFeatureIsOn } from "@growthbook/growthbook-react";
 import Onboarding from "@/components/Onboarding";
 import { EmptyState } from "@/components/EmptyState";
 import { FORMATS } from "@/lib/formats";
+import { FLAGS } from "@/lib/growthbook";
+import Home from "@/components/Home";
 
 type Project = {
   id: string;
@@ -23,6 +26,7 @@ interface BraindumpResult {
 }
 
 export default function Dashboard() {
+  const homeRedesign = useFeatureIsOn(FLAGS.homeRedesign);
   const { data: session, status } = useSession();
   const router = useRouter();
   const [projects, setProjects] = useState<Project[]>([]);
@@ -276,6 +280,8 @@ export default function Dashboard() {
     p.name.toLowerCase().includes(search.toLowerCase()) &&
     (filterFormat === "All" || p.format === filterFormat)
   );
+
+  if (homeRedesign) return <Home />;
 
   if (status === "loading" || (status === "authenticated" && loading)) {
     return (

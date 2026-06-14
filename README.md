@@ -115,11 +115,11 @@ When absent, rate limiting is **fail-open** — the app works, just unmetered. A
 | `GITHUB_REPO_OWNER` | GitHub username that owns the workflow repo |
 | `GITHUB_REPO_NAME` | Repo with the `dissect-video` GitHub Actions workflow |
 
-### Optional — OpenAI (Embeddings Only)
+### Optional — OpenAI (Embeddings + Audio Novel TTS)
 
 | Variable | Notes |
 |---|---|
-| `OPENAI_API_KEY` | Used **only** for `text-embedding-3-small` in `/api/work-packets/embed`. Not used for any generation. |
+| `OPENAI_API_KEY` | Used for `text-embedding-3-small` in `/api/work-packets/embed`, and as a fallback `tts-1` key for Audio Novel (`/api/audio/generate`). Not used for any text generation. |
 
 ### Optional — Video Generation
 

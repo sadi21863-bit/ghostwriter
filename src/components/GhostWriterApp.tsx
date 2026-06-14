@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import dynamic from "next/dynamic";
 import type { SkillSuggestion } from "@/lib/ai/skill-router";
 import { useProjectState } from "@/hooks/useProjectState";
@@ -10,6 +10,13 @@ import { ToastContainer } from "@/components/ToastContainer";
 import type { FeatureGate } from "@/types/subscription";
 import type { CompositionLayer } from "@/lib/ai/composer";
 import { co, sBtn, sBtnSm } from "@/lib/styles";
+import { GuideBar } from "@/components/GuideBar";
+import { nextAction, type GuideAction } from "@/lib/guide/next-action";
+import { useFeatureIsOn } from "@growthbook/growthbook-react";
+import { FLAGS } from "@/lib/growthbook";
+import WritingRoom from "@/components/WritingRoom";
+import EntitySuggestionsChip from "@/components/EntitySuggestionsChip";
+import type { GenerationMode } from "@/lib/modes/registry";
 
 const StoryHealthPanel  = dynamic(() => import("@/components/panels/StoryHealthPanel").then(m => ({ default: m.StoryHealthPanel })), { ssr: false });
 const ExportPanel       = dynamic(() => import("@/components/panels/ExportPanel").then(m => ({ default: m.ExportPanel })), { ssr: false });
@@ -20,6 +27,7 @@ const CommandPalette    = dynamic(() => import("@/components/CommandPalette").th
 const QualityReviewPanel = dynamic(() => import("@/components/panels/QualityReviewPanel").then(m => ({ default: m.QualityReviewPanel })), { ssr: false });
 const WorldBiblePanel    = dynamic(() => import("@/components/panels/WorldBiblePanel"), { ssr: false });
 const ToolbarPanel       = dynamic(() => import("@/components/panels/ToolbarPanel"), { ssr: false });
+const StoryBible         = dynamic(() => import("@/components/StoryBible"), { ssr: false });
 
 export default function GhostWriterApp({ projectId }: { projectId: string }) {
   const [mode, setMode] = useState("brainstorm");
@@ -29,6 +37,7 @@ export default function GhostWriterApp({ projectId }: { projectId: string }) {
   const [showComicStudio, setShowComicStudio] = useState(false);
   const [showProductionStudio, setShowProductionStudio] = useState(false);
   const [leftCollapsed, setLeftCollapsed] = useState(false);
+  const [storyBibleOpen, setStoryBibleOpen] = useState(false);
   const [rightCollapsed, setRightCollapsed] = useState(false);
   const [cohostVoice, setCohostVoice] = useState("curious_generalist");
   const [dialogueArchetype, setDialogueArchetype] = useState("Argument");
@@ -66,6 +75,8 @@ export default function GhostWriterApp({ projectId }: { projectId: string }) {
   const [verifyBannerDismissed, setVerifyBannerDismissed] = useState(false);
   const [resendingVerification, setResendingVerification] = useState(false);
   const [resendSent, setResendSent] = useState(false);
+  const writingRoomEnabled = useFeatureIsOn(FLAGS.writingRoomShell);
+  const [actionsOpen, setActionsOpen] = useState(false);
 
   useEffect(() => {
     fetch('/api/subscription').then(r => r.json()).then(setSubscription).catch(() => {});
@@ -97,6 +108,10 @@ export default function GhostWriterApp({ projectId }: { projectId: string }) {
     document.documentElement.style.setProperty("--library-tint", tint);
   }, [mode]);
 
+  useEffect(() => {
+    if (writingRoomEnabled) setLeftCollapsed(true);
+  }, [writingRoomEnabled]);
+
   const projectState = useProjectState(projectId);
   const {
     project, loadError,
@@ -111,12 +126,33 @@ export default function GhostWriterApp({ projectId }: { projectId: string }) {
     || project?.chapters?.[0]
     || { id: "", title: "Chapter 1", content: "", summary: "" };
 
+  const guideAction = useMemo(() => nextAction({
+    format: project?.format ?? "",
+    controllingIdea: project?.controllingIdea,
+    characters: project?.characters || [],
+    chapters: project?.chapters || [],
+    dismissedGuideIds: project?.dismissedGuideIds,
+  }), [project?.format, project?.controllingIdea, project?.characters, project?.chapters, project?.dismissedGuideIds]);
+
+  // In the writing room, default to "write" unless the Actions overlay is open for
+  // a mode the user picked via the slash menu (see handleSelectMode below).
+  const effectiveMode = writingRoomEnabled ? (actionsOpen ? mode : "write") : mode;
+  const effectivePrompt = writingRoomEnabled && effectiveMode === "write"
+    ? (prompt.trim() || guideAction?.run.prompt || "Continue this scene.")
+    : prompt;
+
+  const handleSelectMode = (selected: GenerationMode) => {
+    setMode(selected);
+    if (selected !== "write") setActionsOpen(true);
+  };
+
   const aiActions = useAIActions({
     project: project || {},
-    mode,
-    prompt,
+    mode: effectiveMode,
+    prompt: effectivePrompt,
     activeChap,
     updateChapter: projectState.updateChapter,
+    updateProject: projectState.updateProject,
     setErrorMsg,
     setSavedMsg,
     creatorBible: projectState.creatorBible,
@@ -124,6 +160,7 @@ export default function GhostWriterApp({ projectId }: { projectId: string }) {
     setUpgradeRequired: (f) => setUpgradeRequired(f as FeatureGate),
     activeInfluence,
     activePatterns,
+    writingRoomEnabled,
   });
 
   const worldBible = useWorldBible({
@@ -197,6 +234,172 @@ export default function GhostWriterApp({ projectId }: { projectId: string }) {
     <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100vh", fontFamily: "system-ui" }}>Loading...</div>
   );
 
+  const handleGuideRun = (action: GuideAction) => {
+    fetch("/api/events", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ event: "guide_clicked", properties: { actionId: action.id, stage: action.stage } }),
+    }).catch(() => {});
+
+    const { mode: runMode, prompt: runPrompt, chapterId: runChapterId } = action.run;
+    if (runMode === "story_health") { setShowStoryHealth(true); return; }
+    if (runMode === "export") { setShowExport(true); return; }
+    setMode(runMode);
+    setPrompt(runPrompt ?? "");
+    if (runChapterId && runChapterId !== project.activeChapter) {
+      projectState.updateProject((p: any) => ({ ...p, activeChapter: runChapterId }));
+    }
+  };
+
+  const handleGuideDismiss = (id: string) => {
+    fetch("/api/events", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ event: "guide_dismissed", properties: { actionId: id } }),
+    }).catch(() => {});
+
+    const next = [...(project.dismissedGuideIds ?? []), id];
+    projectState.updateProject((p: any) => ({ ...p, dismissedGuideIds: next }));
+    fetch(`/api/projects/${project.id}`, {
+      method: "PATCH", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ dismissedGuideIds: next }),
+    }).catch(() => {});
+  };
+
+  const toolbarPanelElement = (
+    <ToolbarPanel
+      project={project}
+      higgsfieldKey={higgsfieldKey}
+      mode={mode}
+      setMode={setMode}
+      activeChap={activeChap}
+      updateChapter={projectState.updateChapter}
+      prompt={prompt}
+      setPrompt={setPrompt}
+      expandedPrompt={expandedPrompt}
+      setExpandedPrompt={setExpandedPrompt}
+      showAgents={showAgents}
+      setShowAgents={setShowAgents}
+      showComicStudio={showComicStudio}
+      setShowComicStudio={setShowComicStudio}
+      showProductionStudio={showProductionStudio}
+      setShowProductionStudio={setShowProductionStudio}
+      generating={aiActions.generating}
+      genTarget={aiActions.genTarget}
+      streamText={aiActions.streamText}
+      setStreamText={aiActions.setStreamText}
+      undoStack={aiActions.undoStack}
+      undoGeneration={aiActions.undoGeneration}
+      pipelineRunning={aiActions.pipelineRunning}
+      pipelineResults={aiActions.pipelineResults}
+      setPipelineResults={aiActions.setPipelineResults}
+      expandedAgent={aiActions.expandedAgent}
+      setExpandedAgent={aiActions.setExpandedAgent}
+      activePipelineId={aiActions.activePipelineId}
+      runPipeline={aiActions.runPipeline}
+      usePipelineOutput={aiActions.usePipelineOutput}
+      selectedText={aiActions.selectedText}
+      setSelectedText={aiActions.setSelectedText}
+      setSelectedRange={aiActions.setSelectedRange}
+      proseLoading={aiActions.proseLoading}
+      proseResult={aiActions.proseResult}
+      setProseResult={aiActions.setProseResult}
+      runProse={aiActions.runProse}
+      replaceSelection={aiActions.replaceSelection}
+      hookScore={aiActions.hookScore}
+      hookScoring={aiActions.hookScoring}
+      scoreHook={aiActions.scoreHook}
+      generate={aiActions.generate}
+      expandBeat={aiActions.expandBeat}
+      generateDialogue={aiActions.generateDialogue}
+      updateProject={projectState.updateProject}
+      handleTextareaSelect={aiActions.handleTextareaSelect}
+      setSavedMsg={setSavedMsg}
+      dialogueCharA={dialogueCharA}
+      setDialogueCharA={setDialogueCharA}
+      dialogueCharB={dialogueCharB}
+      setDialogueCharB={setDialogueCharB}
+      cohostVoice={cohostVoice}
+      setCohostVoice={setCohostVoice}
+      dialogueArchetype={dialogueArchetype}
+      setDialogueArchetype={setDialogueArchetype}
+      combatStyleA={combatStyleA}
+      setCombatStyleA={setCombatStyleA}
+      combatStyleB={combatStyleB}
+      setCombatStyleB={setCombatStyleB}
+      generateCombat={aiActions.generateCombat}
+      emotionalEmotion={emotionalEmotion}
+      setEmotionalEmotion={setEmotionalEmotion}
+      atmosphereEnvironment={atmosphereEnvironment}
+      setAtmosphereEnvironment={setAtmosphereEnvironment}
+      tensionType={tensionType}
+      setTensionType={setTensionType}
+      generateEmotionalScene={aiActions.generateEmotionalScene}
+      generateAtmosphere={aiActions.generateAtmosphere}
+      generateTension={aiActions.generateTension}
+      horrorArchetype={horrorArchetype}
+      setHorrorArchetype={setHorrorArchetype}
+      generateHorror={aiActions.generateHorror}
+      comedyArchetype={comedyArchetype}
+      setComedyArchetype={setComedyArchetype}
+      generateComedy={aiActions.generateComedy}
+      mysteryArchetype={mysteryArchetype}
+      setMysteryArchetype={setMysteryArchetype}
+      generateMystery={aiActions.generateMystery}
+      romanceArchetype={romanceArchetype}
+      setRomanceArchetype={setRomanceArchetype}
+      generateRomance={aiActions.generateRomance}
+      actionArchetype={actionArchetype}
+      setActionArchetype={setActionArchetype}
+      generateAction={aiActions.generateAction}
+      monologueArchetype={monologueArchetype}
+      setMonologueArchetype={setMonologueArchetype}
+      generateMonologue={aiActions.generateMonologue}
+      voiceProfile={voiceProfile}
+      setVoiceProfile={setVoiceProfile}
+      generateVoice={aiActions.generateVoice}
+      thrillerArchetype={thrillerArchetype}
+      setThrillerArchetype={setThrillerArchetype}
+      generateThriller={aiActions.generateThriller}
+      sportsArchetype={sportsArchetype}
+      setSportsArchetype={setSportsArchetype}
+      generateSports={aiActions.generateSports}
+      settingArchetype={settingArchetype}
+      setSettingArchetype={setSettingArchetype}
+      generateSetting={aiActions.generateSetting}
+      historicalArchetype={historicalArchetype}
+      setHistoricalArchetype={setHistoricalArchetype}
+      generateHistorical={aiActions.generateHistorical}
+      scitechArchetype={scitechArchetype}
+      setScitechArchetype={setScitechArchetype}
+      generateScitech={aiActions.generateScitech}
+      ethicsArchetype={ethicsArchetype}
+      setEthicsArchetype={setEthicsArchetype}
+      generateEthics={aiActions.generateEthics}
+      endingsArchetype={endingsArchetype}
+      setEndingsArchetype={setEndingsArchetype}
+      generateEndings={aiActions.generateEndings}
+      isekaiArchetype={isekaiArchetype}
+      setIsekaiArchetype={setIsekaiArchetype}
+      generateIsekai={aiActions.generateIsekai}
+      generateInterrogation={aiActions.generateInterrogation}
+      generateChase={aiActions.generateChase}
+      compositionLayers={compositionLayers}
+      setCompositionLayers={setCompositionLayers}
+      generateComposition={aiActions.generateComposition}
+      setUpgradeRequired={(f) => setUpgradeRequired(f as FeatureGate)}
+      onShowStoryHealth={() => setShowStoryHealth(true)}
+      onShowExport={() => setShowExport(true)}
+      onSlashCommand={handleSlashCommand}
+      skillSuggestion={skillSuggestion}
+      onSkillSuggestionChange={setSkillSuggestion}
+      onDismissSkillSuggestion={() => setSkillSuggestion(null)}
+      onAcceptSkillSuggestion={handleAcceptSkillSuggestion}
+      activeInfluence={activeInfluence}
+      setActiveInfluence={setActiveInfluence}
+      activePatterns={activePatterns}
+      setActivePatterns={setActivePatterns}
+    />
+  );
+
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100vh", fontFamily: "'Inter',system-ui,sans-serif", background: co.bg, color: co.text, overflow: "hidden" }}>
       {trialDaysLeft !== null && (
@@ -234,6 +437,7 @@ export default function GhostWriterApp({ projectId }: { projectId: string }) {
           </button>
         </div>
       )}
+      <GuideBar action={guideAction} onRun={handleGuideRun} onDismiss={handleGuideDismiss} />
       <div style={{ display: "flex", flex: 1, overflow: "hidden" }}>
       {aiActions.violationBanner && (
         <div style={{ position: "fixed", top: 0, left: 0, right: 0, background: "#92400e", color: "#fef3c7", padding: "12px 20px", zIndex: 1999, borderBottom: "1px solid #d97706" }}>
@@ -292,172 +496,106 @@ export default function GhostWriterApp({ projectId }: { projectId: string }) {
         setLeftCollapsed={setLeftCollapsed}
       />
 
-      <div className={`gw-toolbar-panel${mobileToolbarOpen ? " mobile-open" : ""}`}>
-      <ToolbarPanel
-        project={project}
-        higgsfieldKey={higgsfieldKey}
-        mode={mode}
-        setMode={setMode}
-        activeChap={activeChap}
-        updateChapter={projectState.updateChapter}
-        prompt={prompt}
-        setPrompt={setPrompt}
-        expandedPrompt={expandedPrompt}
-        setExpandedPrompt={setExpandedPrompt}
-        showAgents={showAgents}
-        setShowAgents={setShowAgents}
-        showComicStudio={showComicStudio}
-        setShowComicStudio={setShowComicStudio}
-        showProductionStudio={showProductionStudio}
-        setShowProductionStudio={setShowProductionStudio}
-        generating={aiActions.generating}
-        genTarget={aiActions.genTarget}
-        streamText={aiActions.streamText}
-        setStreamText={aiActions.setStreamText}
-        undoStack={aiActions.undoStack}
-        undoGeneration={aiActions.undoGeneration}
-        pipelineRunning={aiActions.pipelineRunning}
-        pipelineResults={aiActions.pipelineResults}
-        setPipelineResults={aiActions.setPipelineResults}
-        expandedAgent={aiActions.expandedAgent}
-        setExpandedAgent={aiActions.setExpandedAgent}
-        activePipelineId={aiActions.activePipelineId}
-        runPipeline={aiActions.runPipeline}
-        usePipelineOutput={aiActions.usePipelineOutput}
-        selectedText={aiActions.selectedText}
-        setSelectedText={aiActions.setSelectedText}
-        setSelectedRange={aiActions.setSelectedRange}
-        proseLoading={aiActions.proseLoading}
-        proseResult={aiActions.proseResult}
-        setProseResult={aiActions.setProseResult}
-        runProse={aiActions.runProse}
-        replaceSelection={aiActions.replaceSelection}
-        hookScore={aiActions.hookScore}
-        hookScoring={aiActions.hookScoring}
-        scoreHook={aiActions.scoreHook}
-        generate={aiActions.generate}
-        expandBeat={aiActions.expandBeat}
-        generateDialogue={aiActions.generateDialogue}
-        updateProject={projectState.updateProject}
-        handleTextareaSelect={aiActions.handleTextareaSelect}
-        setSavedMsg={setSavedMsg}
-        dialogueCharA={dialogueCharA}
-        setDialogueCharA={setDialogueCharA}
-        dialogueCharB={dialogueCharB}
-        setDialogueCharB={setDialogueCharB}
-        cohostVoice={cohostVoice}
-        setCohostVoice={setCohostVoice}
-        dialogueArchetype={dialogueArchetype}
-        setDialogueArchetype={setDialogueArchetype}
-        combatStyleA={combatStyleA}
-        setCombatStyleA={setCombatStyleA}
-        combatStyleB={combatStyleB}
-        setCombatStyleB={setCombatStyleB}
-        generateCombat={aiActions.generateCombat}
-        emotionalEmotion={emotionalEmotion}
-        setEmotionalEmotion={setEmotionalEmotion}
-        atmosphereEnvironment={atmosphereEnvironment}
-        setAtmosphereEnvironment={setAtmosphereEnvironment}
-        tensionType={tensionType}
-        setTensionType={setTensionType}
-        generateEmotionalScene={aiActions.generateEmotionalScene}
-        generateAtmosphere={aiActions.generateAtmosphere}
-        generateTension={aiActions.generateTension}
-        horrorArchetype={horrorArchetype}
-        setHorrorArchetype={setHorrorArchetype}
-        generateHorror={aiActions.generateHorror}
-        comedyArchetype={comedyArchetype}
-        setComedyArchetype={setComedyArchetype}
-        generateComedy={aiActions.generateComedy}
-        mysteryArchetype={mysteryArchetype}
-        setMysteryArchetype={setMysteryArchetype}
-        generateMystery={aiActions.generateMystery}
-        romanceArchetype={romanceArchetype}
-        setRomanceArchetype={setRomanceArchetype}
-        generateRomance={aiActions.generateRomance}
-        actionArchetype={actionArchetype}
-        setActionArchetype={setActionArchetype}
-        generateAction={aiActions.generateAction}
-        monologueArchetype={monologueArchetype}
-        setMonologueArchetype={setMonologueArchetype}
-        generateMonologue={aiActions.generateMonologue}
-        voiceProfile={voiceProfile}
-        setVoiceProfile={setVoiceProfile}
-        generateVoice={aiActions.generateVoice}
-        thrillerArchetype={thrillerArchetype}
-        setThrillerArchetype={setThrillerArchetype}
-        generateThriller={aiActions.generateThriller}
-        sportsArchetype={sportsArchetype}
-        setSportsArchetype={setSportsArchetype}
-        generateSports={aiActions.generateSports}
-        settingArchetype={settingArchetype}
-        setSettingArchetype={setSettingArchetype}
-        generateSetting={aiActions.generateSetting}
-        historicalArchetype={historicalArchetype}
-        setHistoricalArchetype={setHistoricalArchetype}
-        generateHistorical={aiActions.generateHistorical}
-        scitechArchetype={scitechArchetype}
-        setScitechArchetype={setScitechArchetype}
-        generateScitech={aiActions.generateScitech}
-        ethicsArchetype={ethicsArchetype}
-        setEthicsArchetype={setEthicsArchetype}
-        generateEthics={aiActions.generateEthics}
-        endingsArchetype={endingsArchetype}
-        setEndingsArchetype={setEndingsArchetype}
-        generateEndings={aiActions.generateEndings}
-        isekaiArchetype={isekaiArchetype}
-        setIsekaiArchetype={setIsekaiArchetype}
-        generateIsekai={aiActions.generateIsekai}
-        generateInterrogation={aiActions.generateInterrogation}
-        generateChase={aiActions.generateChase}
-        compositionLayers={compositionLayers}
-        setCompositionLayers={setCompositionLayers}
-        generateComposition={aiActions.generateComposition}
-        setUpgradeRequired={(f) => setUpgradeRequired(f as FeatureGate)}
-        onShowStoryHealth={() => setShowStoryHealth(true)}
-        onShowExport={() => setShowExport(true)}
-        onSlashCommand={handleSlashCommand}
-        skillSuggestion={skillSuggestion}
-        onSkillSuggestionChange={setSkillSuggestion}
-        onDismissSkillSuggestion={() => setSkillSuggestion(null)}
-        onAcceptSkillSuggestion={handleAcceptSkillSuggestion}
-        activeInfluence={activeInfluence}
-        setActiveInfluence={setActiveInfluence}
-        activePatterns={activePatterns}
-        setActivePatterns={setActivePatterns}
-      />
-      </div>
+      {writingRoomEnabled ? (
+        <>
+          <WritingRoom
+            project={project}
+            activeChap={activeChap}
+            updateProject={projectState.updateProject}
+            updateChapter={projectState.updateChapter}
+            generating={aiActions.generating}
+            generate={aiActions.generate}
+            onOpenBible={() => setStoryBibleOpen(true)}
+            onOpenActions={() => setActionsOpen(true)}
+            prompt={prompt}
+            setPrompt={setPrompt}
+            onSelectMode={handleSelectMode}
+            onGuideRun={handleGuideRun}
+            onGuideDismiss={handleGuideDismiss}
+            qualityReview={aiActions.qualityReview}
+            onOpenProductionStudio={() => { setShowProductionStudio(true); setActionsOpen(true); }}
+            mode={mode}
+            setSavedMsg={setSavedMsg}
+            onUpgradeRequired={(f) => setUpgradeRequired(f as FeatureGate)}
+          />
+          {actionsOpen && (
+            <div
+              style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.3)", zIndex: 1500, display: "flex", justifyContent: "flex-end" }}
+              onClick={() => setActionsOpen(false)}
+            >
+              <div
+                style={{ width: 420, maxWidth: "100%", height: "100%", background: co.surface, overflow: "auto", position: "relative" }}
+                onClick={(e) => e.stopPropagation()}
+              >
+                <button
+                  onClick={() => setActionsOpen(false)}
+                  style={{ position: "absolute", top: 10, right: 10, background: "none", border: "none", fontSize: 22, lineHeight: 1, cursor: "pointer", color: co.muted, zIndex: 1 }}
+                  aria-label="Close"
+                >
+                  ×
+                </button>
+                {toolbarPanelElement}
+              </div>
+            </div>
+          )}
+        </>
+      ) : (
+        <>
+          <div className={`gw-toolbar-panel${mobileToolbarOpen ? " mobile-open" : ""}`}>
+          {toolbarPanelElement}
+          </div>
 
-      {/* Mobile toolbar toggle — hidden on desktop via CSS */}
-      <button
-        className="mobile-toolbar-toggle"
-        onClick={() => setMobileToolbarOpen(p => !p)}
-        style={{
-          display: 'none',
-          position: 'fixed', bottom: 24, right: 24, zIndex: 200,
-          width: 52, height: 52, borderRadius: '50%',
-          background: 'var(--color-accent)', color: '#fff', border: 'none',
-          cursor: 'pointer', fontSize: 22,
-          alignItems: 'center', justifyContent: 'center',
-          boxShadow: '0 4px 20px rgba(0,0,0,0.3)',
-        }}
-      >
-        {mobileToolbarOpen ? '✕' : '☰'}
-      </button>
+          {/* Mobile toolbar toggle — hidden on desktop via CSS */}
+          <button
+            className="mobile-toolbar-toggle"
+            onClick={() => setMobileToolbarOpen(p => !p)}
+            style={{
+              display: 'none',
+              position: 'fixed', bottom: 24, right: 24, zIndex: 200,
+              width: 52, height: 52, borderRadius: '50%',
+              background: 'var(--color-accent)', color: '#fff', border: 'none',
+              cursor: 'pointer', fontSize: 22,
+              alignItems: 'center', justifyContent: 'center',
+              boxShadow: '0 4px 20px rgba(0,0,0,0.3)',
+            }}
+          >
+            {mobileToolbarOpen ? '✕' : '☰'}
+          </button>
 
-      <ChapterEditor
-        project={project}
-        updateProject={projectState.updateProject}
-        updateChapter={projectState.updateChapter}
-        addChapter={projectState.addChapter}
-        deleteChapter={projectState.deleteChapter}
-        moveChapter={projectState.moveChapter}
-        rightCollapsed={rightCollapsed}
-        setRightCollapsed={setRightCollapsed}
-        passiveSuggestions={projectState.passiveSuggestions}
-        setPassiveSuggestions={projectState.setPassiveSuggestions}
-        setUpgradeRequired={(f) => setUpgradeRequired(f as FeatureGate)}
-      />
+          <ChapterEditor
+            project={project}
+            updateProject={projectState.updateProject}
+            updateChapter={projectState.updateChapter}
+            addChapter={projectState.addChapter}
+            deleteChapter={projectState.deleteChapter}
+            moveChapter={projectState.moveChapter}
+            rightCollapsed={rightCollapsed}
+            setRightCollapsed={setRightCollapsed}
+            passiveSuggestions={projectState.passiveSuggestions}
+            setPassiveSuggestions={projectState.setPassiveSuggestions}
+            setUpgradeRequired={(f) => setUpgradeRequired(f as FeatureGate)}
+          />
+        </>
+      )}
+
+      {writingRoomEnabled && (
+        <StoryBible
+          project={project}
+          updateProject={projectState.updateProject}
+          open={storyBibleOpen}
+          onClose={() => setStoryBibleOpen(false)}
+          onOpenAdvanced={() => { setStoryBibleOpen(false); setLeftCollapsed(false); }}
+          setConfirmModal={setConfirmModal}
+        />
+      )}
+
+      {writingRoomEnabled && (
+        <EntitySuggestionsChip
+          suggestions={aiActions.entitySuggestions}
+          onAccept={aiActions.acceptEntitySuggestion}
+          onReject={aiActions.rejectEntitySuggestion}
+        />
+      )}
 
       {showStoryHealth && (
         <StoryHealthPanel
@@ -538,3 +676,4 @@ export default function GhostWriterApp({ projectId }: { projectId: string }) {
     </div>
   );
 }
+

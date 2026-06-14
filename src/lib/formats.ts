@@ -1,3 +1,5 @@
+import { MODE_REGISTRY, type GenerationMode } from "@/lib/modes/registry";
+
 export const FORMATS = [
   "Novel", "Screenplay", "Web Series",
   "YouTube Long-form", "YouTube Short",
@@ -11,7 +13,8 @@ export const getChapterLabel = (format: string): string =>
   (({ Novel: "Chapter", Screenplay: "Scene", "Web Series": "Episode", "YouTube Long-form": "Section", "YouTube Short": "Beat", "TikTok Script": "Beat", "TikTok Native": "Beat", "Instagram Reel": "Beat", "Podcast Episode": "Segment" } as Record<string, string>)[format] ?? "Chapter");
 
 export const GENRES = ["Fantasy", "Sci-Fi", "Horror", "Thriller", "Romance", "Drama", "Comedy", "Mystery", "Literary Fiction", "Action", "Historical", "Dystopian", "Noir", "Satire"];
-export const MODES = ["brainstorm", "outline", "write", "dialogue", "combat", "emotional", "atmosphere", "tension", "composition", "horror", "comedy", "mystery", "romance", "action", "monologue", "voice", "thriller", "sports", "setting", "historical", "scitech", "ethics", "endings", "isekai", "interrogation", "chase"];
+// Order = MODE_REGISTRY's key order = mode tab display order in ToolbarPanel.tsx's visibleModes.
+export const MODES = Object.keys(MODE_REGISTRY) as GenerationMode[];
 export const PODCAST_MODES = ["brainstorm", "outline", "write", "cohost"];
 export const STYLE_ATTRS = ["Pacing", "Tone", "POV Style", "Dialogue Style", "Sentence Structure", "Atmosphere"];
 

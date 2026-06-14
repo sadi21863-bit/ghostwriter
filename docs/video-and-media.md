@@ -12,7 +12,7 @@ GhostWriter uses two providers for media generation:
 |---|---|---|
 | **Higgsfield** | Soul ID training, image-to-video (DoP), text-to-video, lipsync | Native Higgsfield API |
 | **Segmind** | Soul 2.0 image generation, some video models | Segmind proxy API |
-| **OpenAI** | Embeddings ONLY (`text-embedding-3-small`) | NOT used for image or video |
+| **OpenAI** | Embeddings (`text-embedding-3-small`) + Audio Novel TTS (`tts-1`) | NOT used for image, video, or text generation |
 
 **Why Segmind as a proxy?**
 Segmind provides access to multiple open-source models (Stable Diffusion variants, Soul 2.0) through a unified API. It's cheaper than generating through each model's native API and simplifies integration.
@@ -204,22 +204,30 @@ POST /api/audio/lipsync
 
 ---
 
-## OpenAI: Embeddings Only
+## OpenAI: Embeddings + Audio Novel TTS
 
-OpenAI is used **exclusively** for generating text embeddings for the craft library:
+OpenAI is used for two non-generation features — never for story/text generation, which is Claude-only:
 
-```typescript
-// src/lib/ai/embeddings.ts
-const response = await openai.embeddings.create({
-  model: "text-embedding-3-small",
-  input: text,
-});
-```
+1. **Embeddings** (`src/lib/ai/embeddings.ts`):
+   ```typescript
+   const response = await openai.embeddings.create({
+     model: "text-embedding-3-small",
+     input: text,
+   });
+   ```
+   Powers semantic search in the Work Packets craft library.
 
-This powers semantic search in the Work Packets craft library. It has nothing to do with text generation — Anthropic Claude handles all AI writing.
+2. **Audio Novel TTS** (`src/app/api/audio/generate/route.ts`):
+   ```typescript
+   const response = await openai.audio.speech.create({
+     model: "tts-1",
+     ...
+   });
+   ```
+   Converts a chapter to narrated audio (Story Pro+ feature, gated by `audio_novel`). Uses the user's own OpenAI key if set, falling back to `OPENAI_API_KEY`.
 
-**Why OpenAI for embeddings when we use Claude for everything else?**
-Anthropic does not offer a text embedding API. `text-embedding-3-small` is the industry standard for semantic search at low cost. The `OPENAI_API_KEY` is only needed if you use the craft library search feature.
+**Why OpenAI for these when we use Claude for everything else?**
+Anthropic does not offer text embedding or TTS APIs. `text-embedding-3-small` and `tts-1` are the industry-standard low-cost options for these specific, non-generation tasks. `OPENAI_API_KEY` is only needed for the craft library search feature and as a fallback for Audio Novel.
 
 ---
 

@@ -20,4 +20,6 @@ export const FLAGS = {
   commandPalette:      "command_palette",
   adaptiveOnboarding:  "adaptive_onboarding",
   newDesignTokens:     "new_design_tokens",
+  writingRoomShell:    "writing_room_shell",
+  homeRedesign:        "home_redesign",
 } as const;

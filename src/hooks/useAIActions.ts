@@ -1,16 +1,14 @@
 "use client";
 import { useState, useRef } from "react";
-
-const QUALITY_CHECK_MODES = new Set([
-  'write', 'emotional', 'combat', 'atmosphere', 'tension',
-  'horror', 'mystery', 'romance', 'thriller', 'action', 'dialogue',
-]);
 import { toast } from "@/lib/toast";
 import { buildStaticContext, buildDynamicContext, buildBeginnerContext, buildCreatorContext } from "@/lib/ai/context-builder";
 import { getPipelines, type Pipeline } from "@/lib/ai/pipelines";
 import { isCreatorFormat } from "@/lib/formats";
+import { MODE_REGISTRY, type GenerationMode } from "@/lib/modes/registry";
 import type { CompositionLayer } from "@/lib/ai/composer";
 import { plainTextToTipTap, isValidTipTapJson, getWordCount } from "@/lib/editor/content-migration";
+import { parseBeatList } from "@/lib/modes/beats";
+import { matchEntities, diffEntity, ENTITY_API_PATH, ENTITY_TYPE, type EntitySuggestion } from "@/lib/ai/entity-extraction";
 
 function appendToTipTap(existingContent: string, newText: string): string {
   const existing = isValidTipTapJson(existingContent)
@@ -25,12 +23,13 @@ function appendToTipTap(existingContent: string, newText: string): string {
 
 export function useAIActions({
   project, mode, prompt, activeChap,
-  updateChapter, setErrorMsg, setSavedMsg,
+  updateChapter, updateProject, setErrorMsg, setSavedMsg,
   creatorBible, cohostVoice, setUpgradeRequired,
-  activeInfluence, activePatterns,
+  activeInfluence, activePatterns, writingRoomEnabled,
 }: {
   project: any; mode: string; prompt: string; activeChap: any;
   updateChapter: (f: string, v: any) => void;
+  updateProject?: (fn: (p: any) => any) => void;
   setErrorMsg: (msg: string | null) => void;
   setSavedMsg: (msg: string) => void;
   creatorBible: any;
@@ -38,6 +37,7 @@ export function useAIActions({
   setUpgradeRequired?: (feature: string) => void;
   activeInfluence?: any;
   activePatterns?: any[];
+  writingRoomEnabled?: boolean;
 }) {
   const lastGenRef = useRef<{ fn: () => Promise<void> } | null>(null);
   const retryCountRef = useRef(0);
@@ -59,6 +59,7 @@ export function useAIActions({
   const [hookScoring, setHookScoring] = useState(false);
   const [qualityReview, setQualityReview] = useState<any | null>(null);
   const [violationBanner, setViolationBanner] = useState<{ violationType: string; flagMessage: string; supportMode: string } | null>(null);
+  const [entitySuggestions, setEntitySuggestions] = useState<EntitySuggestion[]>([]);
 
   const callAI = async (endpoint: string, body: any) => {
     const res = await fetch("/api/ai/" + endpoint, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
@@ -175,9 +176,19 @@ export function useAIActions({
           updateChapter("wordCount", getWordCount(merged));
         } else {
           setStreamText(r.text);
+          if (mode === "outline" && parseBeatList(r.text)) {
+            updateProject?.((p: any) => ({ ...p, notes: r.text }));
+            fetch(`/api/projects/${project.id}`, {
+              method: "PATCH", headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ notes: r.text }),
+            }).catch(() => {});
+          }
         }
-        if (QUALITY_CHECK_MODES.has(mode) && (project as any).qualityGradingEnabled) {
+        if (MODE_REGISTRY[mode as GenerationMode]?.qualityCheck && (project as any).qualityGradingEnabled) {
           runQualityCheck(r.text, project.id);
+        }
+        if (mode === "write" && writingRoomEnabled) {
+          runEntityExtraction(r.text);
         }
       }
     } catch (e: any) {
@@ -253,6 +264,46 @@ export function useAIActions({
       const result = await res.json();
       if (result.hasIssues) setQualityReview(result);
     } catch { /* quality check must never break writing flow */ }
+  };
+
+  const runEntityExtraction = async (text: string) => {
+    const matches = matchEntities(text, project, 3);
+    if (!matches.length) return;
+    const context = text.slice(0, 4000);
+    for (const { type, entity } of matches) {
+      try {
+        const res = await fetch("/api/ai/entity", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ type: ENTITY_TYPE[type], existing: entity, projectContext: context }),
+        });
+        const proposed = await res.json();
+        const changes = diffEntity(type, entity, proposed);
+        if (changes.length) {
+          setEntitySuggestions(s => [...s, { type, entity, changes }]);
+        }
+      } catch { /* extraction must never break the writing flow */ }
+    }
+  };
+
+  const acceptEntitySuggestion = async (suggestion: EntitySuggestion) => {
+    const patch: Record<string, string> = {};
+    suggestion.changes.forEach(c => { patch[c.field] = c.newValue; });
+    try {
+      const res = await fetch(`/api/projects/${project.id}/${ENTITY_API_PATH[suggestion.type]}/${suggestion.entity.id}`, {
+        method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(patch),
+      });
+      if (!res.ok) throw new Error("save failed");
+      const updated = await res.json();
+      updateProject?.((p: any) => ({ ...p, [suggestion.type]: p[suggestion.type].map((x: any) => x.id === updated.id ? updated : x) }));
+      setEntitySuggestions(s => s.filter(x => x !== suggestion));
+    } catch {
+      toast.error("Couldn't save that update — please try again.");
+    }
+  };
+
+  const rejectEntitySuggestion = (suggestion: EntitySuggestion) => {
+    setEntitySuggestions(s => s.filter(x => x !== suggestion));
   };
 
   const undoGeneration = () => {
@@ -829,6 +880,7 @@ export function useAIActions({
     proseResult, setProseResult, proseLoading,
     hookScore, hookScoring,
     qualityReview, setQualityReview,
+    entitySuggestions, acceptEntitySuggestion, rejectEntitySuggestion,
     callAI, buildNeighbourContext, buildFullContext,
     generate, expandBeat, undoGeneration, autoSummarize, generateDialogue, generateCombat,
     generateEmotionalScene, generateAtmosphere, generateTension, generateComposition,

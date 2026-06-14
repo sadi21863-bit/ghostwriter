@@ -127,7 +127,7 @@ Four sliding-window limiters via Upstash Redis (`src/lib/ratelimit.ts`):
 
 **`aiRatelimit` fails CLOSED in production** (`checkAiRateLimit` in `src/lib/ratelimit.ts`): if `UPSTASH_REDIS_REST_URL`/`TOKEN` are missing, or the Upstash call itself throws, AI routes return `503` rather than allowing unlimited requests. In development without Upstash configured it fails open (returns `null`). The other limiters (`generalRatelimit`, `authRatelimit`, `freeGenerationLimit`) remain fail-open if Upstash is unconfigured — acceptable since they aren't the primary cost-control surface.
 
-**Known open item:** `freeGenerationLimit` (10/day) and `MONTHLY_GENERATION_LIMITS.free` (10/month, in `src/lib/subscription.ts`) are two separate caps on the same thing — the monthly cap is checked first and wins in practice, so the daily limiter rarely fires. Not yet reconciled (tracked as a copy/logic cleanup item).
+`freeGenerationLimit` (10/24h, fixed window) and `MONTHLY_GENERATION_LIMITS.free` (10/month, in `src/lib/subscription.ts`) are two separate caps with the same numeric value. The monthly cap is the advertised user-facing quota; the daily limiter is a defense-in-depth burst guard and never becomes the binding constraint for normal usage. All user-facing copy and 429/403 messages use "per month" framing — see [subscription.md](subscription.md#free-tier-limits).
 
 When rate-limited, responses include standard headers:
 ```

@@ -1,6 +1,8 @@
 // src/types/subscription.ts
 // Subscription tier types, feature gates, and constants.
 
+import { MODE_REGISTRY } from "@/lib/modes/registry";
+
 export type SubscriptionTier = "free" | "story_pro" | "creator_pro" | "all_access";
 export type SubscriptionStatus = "active" | "cancelled" | "past_due" | "trialing";
 
@@ -46,30 +48,13 @@ export const FEATURE_ACCESS: Record<FeatureGate, SubscriptionTier[]> = {
 };
 
 // ── Which AI modes require which gate ─────────────────────────────────────
+// Derived from MODE_REGISTRY (src/lib/modes/registry.ts) — add new gated modes there, not here.
 
-export const GATED_MODES: Record<string, FeatureGate> = {
-  dialogue:    "story_modes_advanced",
-  combat:      "story_modes_advanced",
-  emotional:   "story_modes_advanced",
-  atmosphere:  "story_modes_advanced",
-  tension:     "story_modes_advanced",
-  composition: "composition_layer",
-  horror:      "story_modes_advanced",
-  comedy:      "story_modes_advanced",
-  mystery:     "story_modes_advanced",
-  romance:     "story_modes_advanced",
-  action:      "story_modes_advanced",
-  monologue:   "story_modes_advanced",
-  voice:       "story_modes_advanced",
-  thriller:    "story_modes_advanced",
-  sports:      "story_modes_advanced",
-  setting:     "story_modes_advanced",
-  historical:  "story_modes_advanced",
-  scitech:     "story_modes_advanced",
-  ethics:      "story_modes_advanced",
-  endings:     "story_modes_advanced",
-  isekai:      "story_modes_advanced",
-};
+export const GATED_MODES: Record<string, FeatureGate> = Object.fromEntries(
+  Object.entries(MODE_REGISTRY)
+    .filter(([, cfg]) => cfg.gate !== null)
+    .map(([mode, cfg]) => [mode, cfg.gate as FeatureGate])
+);
 
 // ── Razorpay plan IDs (created manually in Razorpay dashboard) ─────────────
 
@@ -169,8 +154,8 @@ export const UPGRADE_COPY: Record<FeatureGate, { title: string; description: str
     cta: "Upgrade to Story Pro — ₹1,500/month",
   },
   unlimited_generations: {
-    title: "Daily Limit Reached",
-    description: "Free tier includes 10 AI generations per day. Upgrade for unlimited generations.",
+    title: "Monthly Limit Reached",
+    description: "Free tier includes 10 AI generations per month. Upgrade for unlimited generations.",
     cta: "Upgrade to Story Pro — ₹1,500/month",
   },
   virality_predict: {

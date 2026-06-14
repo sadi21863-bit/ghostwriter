@@ -2,6 +2,7 @@
 import { useState } from "react";
 import dynamic from "next/dynamic";
 import { MODES, PODCAST_MODES, isStoryFormat, isCreatorFormat } from "@/lib/formats";
+import { MODE_REGISTRY, type GenerationMode } from "@/lib/modes/registry";
 import { co, sBtn, sBtnSm } from "@/lib/styles";
 
 // Mode panels
@@ -187,18 +188,7 @@ interface Props {
   setActivePatterns?: (p: any[]) => void;
 }
 
-const modeLabel = (m: string) => (
-  ({
-    brainstorm: "Brainstorm", outline: "Outline", write: "Write",
-    dialogue: "Dialogue", combat: "Combat", cohost: "Co-host",
-    emotional: "Emotional", atmosphere: "Atmosphere", tension: "Tension",
-    composition: "Composition", horror: "Horror", comedy: "Comedy",
-    mystery: "Mystery", romance: "Romance", action: "Action",
-    monologue: "Monologue", voice: "Voice", thriller: "Thriller", sports: "Sports",
-    setting: "Setting", historical: "Historical", scitech: "Sci/Tech", ethics: "Ethics", endings: "Endings",
-    isekai: "Isekai ⚔️", interrogation: "Interrogation", chase: "Chase",
-  } as Record<string, string>)[m] ?? m
-);
+const modeLabel = (m: string) => (m === "cohost" ? "Co-host" : MODE_REGISTRY[m as GenerationMode]?.label ?? m);
 
 export default function ToolbarPanel(props: Props) {
   const {
@@ -259,7 +249,7 @@ export default function ToolbarPanel(props: Props) {
     ? PODCAST_MODES
     : isStoryFormat(project.format)
     ? MODES
-    : MODES.filter(m => m !== "dialogue" && m !== "combat" && m !== "horror" && m !== "comedy" && m !== "isekai");
+    : MODES.filter(m => MODE_REGISTRY[m as GenerationMode]?.visibility !== "story_only");
 
   const isCreator = isCreatorFormat(project.format);
 

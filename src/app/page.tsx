@@ -146,7 +146,7 @@ export default async function Home() {
             },
             {
               name: 'Story Pro', price: '₹1,500', period: '/month',
-              features: ['500 generations/month', 'All 26 writing modes', 'Full character intelligence', 'Quality grading', 'Manuscript export (DOCX/PDF/EPUB)', 'Series Bible'],
+              features: ['500 generations/month', 'All 23 library modes', 'Full character intelligence', 'Quality grading', 'Manuscript export (DOCX/PDF/EPUB)', 'Series Bible'],
               cta: 'Start 7-day trial', highlighted: true, annualNote: 'or ₹14,400/year',
             },
             {

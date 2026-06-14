@@ -40,7 +40,10 @@ export const authRatelimit = redis
     })
   : null;
 
-// 10 AI generations per free user per day
+// Burst-rate guard for free tier (10 per rolling day). Numerically matches
+// MONTHLY_GENERATION_LIMITS.free in subscription.ts (10/month), which is the
+// advertised user-facing quota — this limiter exists as defense-in-depth and
+// should not be the source of any user-facing "X per day/month" copy.
 export const freeGenerationLimit = redis
   ? new Ratelimit({
       redis,

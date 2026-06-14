@@ -45,7 +45,11 @@ export function useProjectState(projectId: string) {
   useEffect(() => {
     fetch("/api/projects/" + projectId)
       .then(r => { if (!r.ok) throw new Error("Failed to load project"); return r.json(); })
-      .then(data => setProject({ ...data, activeChapter: data.chapters?.[0]?.id || null }))
+      .then(data => {
+        const requestedChapterId = new URLSearchParams(window.location.search).get("chapter");
+        const requestedChapter = data.chapters?.find((c: any) => c.id === requestedChapterId);
+        setProject({ ...data, activeChapter: requestedChapter?.id || data.chapters?.[0]?.id || null });
+      })
       .catch(() => setLoadError("Failed to load project. Please refresh."));
   }, [projectId]);
 

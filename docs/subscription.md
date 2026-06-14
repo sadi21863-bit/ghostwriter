@@ -24,12 +24,12 @@ Tier names are the values stored in `subscriptions.tier` column. Prices are in I
 - 7-day Story Pro trial on signup: `users.trialEndAt = now + 7d` (set at registration); while unexpired, `getUserTier()` returns `story_pro` regardless of the underlying `subscriptions` row, so the user gets full Story Pro access (500 gens/month, all library modes, Style DNA, etc.) for 7 days, then drops back to the free limits below
 - 1 project · 2 characters
 - Core modes only: Brainstorm, Outline, Write
-- All 21 library modes blocked (403 → upgrade prompt)
+- All 23 library modes blocked (403 → upgrade prompt)
 - No Style DNA, no AIisms check, no library modes
 
 ### Story Pro (`story_pro`)
 - 500 generations/month (Claude Sonnet)
-- All 21 library modes (dialogue, combat, atmosphere, etc.)
+- All 23 library modes (dialogue, combat, atmosphere, etc.)
 - Full character intelligence (NVC, language profiles, contextVisibility toggles)
 - Style DNA (reference works → style fingerprint)
 - Voice fingerprinting (stylometric constraints from your last 5 chapters)
@@ -254,7 +254,9 @@ Free users are also routed to `MODELS.fast` (Haiku) to keep inference cost near 
 const overrideModel = tier === 'free' ? MODELS.fast : undefined;
 ```
 
-The 22 library modes are hard-blocked for free users regardless of generation count:
+22 of the 23 library modes are hard-blocked for free users via this set regardless of
+generation count (the 23rd, `dialogue`, is blocked earlier via the `GATED_MODES`/
+`canAccessFeature` check, since it predates this set):
 
 ```typescript
 if (tier === 'free' && LIBRARY_MODES.has(mode)) {

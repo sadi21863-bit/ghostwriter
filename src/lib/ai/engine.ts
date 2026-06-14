@@ -17,6 +17,9 @@ import { ISEKAI_SYSTEM_PROMPT } from "@/lib/isekai";
 import { INTERROGATION_SYSTEM_PROMPT } from "@/lib/modes/interrogation";
 import { CHASE_SYSTEM_PROMPT } from "@/lib/modes/chase";
 import { checkSemanticCache, writeSemanticCache } from "@/lib/semantic-cache";
+import { MODE_REGISTRY, type GenerationMode } from "@/lib/modes/registry";
+export type { GenerationMode } from "@/lib/modes/registry";
+
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! });
 
 export const MODELS = {
@@ -24,17 +27,6 @@ export const MODELS = {
   default: 'claude-sonnet-4-6',
   quality: 'claude-opus-4-8',
 } as const;
-
-const QUALITY_MODES = new Set([
-  // Only modes with specialized research-depth libraries justify Opus
-  'combat', 'emotional', 'atmosphere', 'tension', 'horror',
-  'comedy', 'mystery', 'romance', 'action', 'monologue',
-  'voice', 'thriller', 'sports', 'setting', 'historical',
-  'scitech', 'ethics', 'endings', 'isekai', 'composition',
-  'interrogation', 'chase',
-  // write → MODELS.default (Sonnet — 18K context does the heavy lifting)
-  // dialogue → MODELS.default (character profiles in context are sufficient)
-]);
 
 function getNarrativeStructureInstruction(structure?: string): string {
   if (!structure || structure === 'linear') return '';
@@ -57,7 +49,6 @@ function safeParseJson(raw: string): Record<string, unknown> | null {
   console.error('[safeParseJson] Failed to parse model response:', clean.slice(0, 200));
   return null;
 }
-export type GenerationMode = "brainstorm" | "outline" | "write" | "dialogue" | "combat" | "emotional" | "atmosphere" | "tension" | "composition" | "horror" | "comedy" | "mystery" | "romance" | "action" | "monologue" | "voice" | "thriller" | "sports" | "setting" | "historical" | "scitech" | "ethics" | "endings" | "isekai" | "interrogation" | "chase";
 
 const DIALOGUE_SYSTEM_PROMPT = `You are writing a scene driven by dialogue. Your work operates on three simultaneous levels: the verbal (what is said), the physical (what the body is doing), and the structural (the information management between reader and character).
 
@@ -211,7 +202,7 @@ FAILURE MODES TO AVOID:
 • The threat resolves at first appearance.
 • The prose style changes to announce the frightening moment — dread and paranoia require ordinary prose.`;
 
-const MI = {
+export const MI = {
   brainstorm: (_f: string) => `You are a creative brainstorming partner for writers. Generate specific, surprising, and vivid ideas. Avoid clichés. Every idea must be concrete and actionable — not "a mysterious stranger" but "a tax auditor who moonlights as a forger." Push beyond the obvious. Match the genre, tone, and style established in the project context — brainstorm ideas that fit this specific world, not generic ones.`,
   outline: (f: string) => `You are a structural editor for ${f} writing. Create tight, purposeful outlines where every scene advances character, plot, or both. Identify turning points explicitly. Show the cause-and-effect chain between events. Label each beat with its structural function (inciting incident, midpoint shift, dark night, climax). Match the established tone and genre from the project context. Be specific — no vague placeholders.`,
   write: (f: string) => `You are a ghostwriter producing ${f} content.
@@ -264,7 +255,7 @@ COMPOSITION RULES (non-negotiable):
 • The writing succeeds when a reader who knows only ONE active layer still notices the others are operating beneath the surface.
 
 Write only the scene. No preamble. No explanation of what you are doing. No summary of the active layers.`,
-};
+} satisfies Record<GenerationMode, (format: string) => string>;
 
 const STORY_FORMAT_RULES: Record<string, string> = {
   "Novel": `NOVEL FORMAT RULES:
@@ -349,14 +340,14 @@ export async function generate({ mode, prompt, context, staticContext, dynamicCo
   narrativeStructure?: string;
   overrideModel?: string;
 }) {
-  const model = overrideModel ?? (QUALITY_MODES.has(mode) ? MODELS.quality : MODELS.default);
+  const model = overrideModel ?? MODELS[MODE_REGISTRY[mode as GenerationMode]?.modelTier ?? 'default'];
   const formatRules = FORMAT_RULES[format]
     ? "\n\n" + FORMAT_RULES[format]
     : STORY_FORMAT_RULES[format]
     ? "\n\n" + STORY_FORMAT_RULES[format]
     : "";
   const craftDirectives = getCraftDirectives(format);
-  const modeInstruction = (MI as Record<string, (f: string) => string>)[mode](format);
+  const modeInstruction = MI[mode as GenerationMode](format);
   const narrativeNote = getNarrativeStructureInstruction(narrativeStructure);
 
   let systemBlocks: any[];
@@ -397,7 +388,7 @@ export async function analyzeWork(title: string) {
   if (Object.keys(result).length > 0) { writeSemanticCache('style_dna', semanticKey, result as Record<string, unknown>); }
   return result;
 }
-export async function generateEntity(type: string, prompt: string, ctx: string, existing: any) { const schemas: Record<string, string> = { character: "name,role,age,appearance,personality,thinkingStyle,behavior,habits,fears,desires,speechPattern,backstory,arc", location: "name,description,atmosphere,history,sensoryDetails", plotThread: "name,description,status,stakes,connections", creatorBible: "channelName,niche,audienceAge,audienceInterests,audiencePainPoints,channelVoice,contentPillars,defaultCta,competitorNotes" }; const userMsg = existing ? "Improve:\n" + JSON.stringify(existing) + "\nReturn JSON: {" + schemas[type] + "}" : prompt + "\nReturn JSON: {" + schemas[type] + "}"; const msg = await client.messages.create({ model: MODELS.default, max_tokens: 1500, system: "Create " + type + "s. ONLY JSON. Context: " + ctx, messages: [{ role: "user", content: userMsg }] }); const result = safeParseJson(msg.content.filter(b => b.type === "text").map(b => (b as any).text).join("").trim()); if (!result) { console.error('[generateEntity] Invalid JSON from model for type:', type); return {}; } return result; }
+export async function generateEntity(type: string, prompt: string, ctx: string, existing: any) { const schemas: Record<string, string> = { character: "name,role,age,appearance,personality,thinkingStyle,behavior,habits,fears,desires,speechPattern,backstory,arc", location: "name,description,atmosphere,history,sensoryDetails", plotThread: "name,description,status,stakes,connections", creatorBible: "channelName,niche,audienceAge,audienceInterests,audiencePainPoints,channelVoice,contentPillars,defaultCta,competitorNotes" }; const userMsg = existing ? "Improve:\n" + JSON.stringify(existing) + "\nReturn JSON: {" + schemas[type] + "}" : prompt + "\nReturn JSON: {" + schemas[type] + "}"; const msg = await client.messages.create({ model: MODELS.default, max_tokens: 1500, system: "Create " + type + "s. ONLY JSON. Every field value must be a plain string (no nested objects or arrays) — write multi-part details like appearance as a single descriptive paragraph. Context: " + ctx, messages: [{ role: "user", content: userMsg }] }); const result = safeParseJson(msg.content.filter(b => b.type === "text").map(b => (b as any).text).join("").trim()); if (!result) { console.error('[generateEntity] Invalid JSON from model for type:', type); return {}; } return result; }
 export async function summarizeChapter(
   content: string,
   chapterTitle?: string,

@@ -1,4 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
+import { MODE_REGISTRY, type GenerationMode } from "@/lib/modes/registry";
 
 vi.mock("@anthropic-ai/sdk", () => ({
   default: vi.fn().mockImplementation(function () {
@@ -31,5 +32,16 @@ describe("getCraftDirectives", () => {
 
   it("returns an empty string for unrecognized formats", () => {
     expect(getCraftDirectives("Some Custom Format")).toBe("");
+  });
+});
+
+describe("MI", () => {
+  it("has a system-prompt function for every mode in MODE_REGISTRY", async () => {
+    const { MI } = await import("@/lib/ai/engine");
+    for (const mode of Object.keys(MODE_REGISTRY) as GenerationMode[]) {
+      expect(typeof MI[mode]).toBe("function");
+      expect(MI[mode]("Novel")).toBeTypeOf("string");
+      expect(MI[mode]("Novel").length).toBeGreaterThan(0);
+    }
   });
 });

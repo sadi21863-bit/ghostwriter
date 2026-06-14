@@ -1,4 +1,4 @@
-export interface Project { id: string; name: string; format: string; skillLevel: "beginner" | "expert"; genres: string[]; notes: string; characters: Character[]; locations: Location[]; plotThreads: PlotThread[]; chapters: Chapter[]; referenceWorks: ReferenceWork[]; characterRelationships?: any[]; storyMemories?: any[]; aiRules?: any[]; }
+export interface Project { id: string; name: string; format: string; skillLevel: "beginner" | "expert"; genres: string[]; notes: string; controllingIdea?: string; characters: Character[]; locations: Location[]; plotThreads: PlotThread[]; chapters: Chapter[]; referenceWorks: ReferenceWork[]; characterRelationships?: any[]; storyMemories?: any[]; aiRules?: any[]; dismissedGuideIds?: string[]; }
 
 export interface Character {
   id: string; projectId: string; name: string; role: string; age: string;

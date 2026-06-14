@@ -1937,7 +1937,7 @@ PHASE 9 — Production Studio
 5. **Comics, Production Studio, and Relationship Graph are story formats only.** Check `isStoryFormat()` before rendering these features.
 6. **All Higgsfield calls go through `src/lib/higgsfield/client.ts`.** No direct fetch to Higgsfield from components or other files.
 7. **All Anthropic Claude calls stay in `src/lib/ai/engine.ts` and route handlers.** No direct SDK use in components.
-8. **OpenAI is not used in this project.** Do not install or import openai package. Higgsfield replaces it entirely.
+8. **OpenAI is permitted only for embeddings (`text-embedding-3-small`, craft library search) and Audio Novel TTS (`tts-1`).** The "no OpenAI for generation" intent applies to story/text generation only — Higgsfield replaces OpenAI for image/video. Do not add new OpenAI usage outside these two features without updating this rule.
 9. **Higgsfield API key is the user's own key** — fetched from user.higgsfieldApiKey record and passed to client functions. Never use a hardcoded key.
 10. **Never return higgsfieldApiKey in full from any GET route.** Return `higgsfieldKeySet: boolean` and `higgsfieldKeyLast4: string` only.
 11. **Story Memory extraction uses `claude-haiku-4-5`** — cheap background job. All other Claude calls use `claude-sonnet-4-20250514`.

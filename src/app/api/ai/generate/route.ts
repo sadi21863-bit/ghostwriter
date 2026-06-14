@@ -10,7 +10,7 @@ import { capContextForTier } from "@/lib/ai/context-caps";
 import { buildAiismsInstruction } from "@/lib/ai/aiisms";
 import { db } from "@/db";
 import { generations, projects, users } from "@/db/schema";
-import { and, eq, sql, lte, ne } from "drizzle-orm";
+import { and, eq, sql, lte, lt, ne } from "drizzle-orm";
 import { universeEvents, universeCharacters, projectCharacterStates } from "@/db/schema";
 import { track } from "@/lib/analytics";
 
@@ -185,14 +185,15 @@ export async function POST(req: Request) {
     return NextResponse.json({
       error: 'upgrade_required',
       feature: 'story_modes_advanced',
-      message: 'Library modes require Story Pro. Upgrade for all 26 writing modes.',
+      message: 'Library modes require Story Pro. Upgrade for all 23 library modes.',
     }, { status: 403 });
   }
 
   // Free tier: route to Haiku (4.5x cheaper, proves value, drives upgrades)
   const overrideModel = tier === 'free' ? MODELS.fast : undefined;
 
-  // Daily limit: free tier gets 10 generations/day
+  // Burst-rate guard: defense-in-depth Upstash limiter (10/24h), numerically aligned
+  // with MONTHLY_GENERATION_LIMITS.free below — the monthly cap is the user-facing quota.
   if (tier === "free" && freeGenerationLimit) {
     const { success } = await freeGenerationLimit.limit(session.user.id);
     if (!success) {
@@ -200,17 +201,25 @@ export async function POST(req: Request) {
         error: "upgrade_required",
         feature: "unlimited_generations",
         tier,
-        message: "Free tier limit: 10 generations per day. Upgrade for unlimited.",
+        message: "Free tier limit: 10 generations per month. Upgrade for unlimited.",
       }, { status: 429 });
     }
   }
 
-  // Monthly generation cap
+  const totalLength = (context || "").length + (prompt || "").length;
+  if (totalLength > 150000) {
+    return NextResponse.json({ error: "Context too large. Try reducing your World Bible or clearing old memories." }, { status: 400 });
+  }
+
+  // Monthly generation cap — atomic check-and-increment. Gating on the row returned by
+  // a conditional UPDATE (rather than a separately-read count) closes a TOCTOU race where
+  // concurrent requests could each pass a stale "under limit" check before either incremented.
   const monthlyLimit = MONTHLY_GENERATION_LIMITS[tier] ?? 30;
+  let countedThisRequest = false;
   if (monthlyLimit !== -1) {
     const user = await db.query.users.findFirst({
       where: eq(users.id, session.user.id),
-      columns: { monthlyGenerations: true, monthlyGenerationsResetAt: true },
+      columns: { monthlyGenerationsResetAt: true },
     });
     const now = new Date();
     const resetAt = user?.monthlyGenerationsResetAt;
@@ -222,7 +231,14 @@ export async function POST(req: Request) {
         monthlyGenerations: 0,
         monthlyGenerationsResetAt: now,
       }).where(eq(users.id, session.user.id));
-    } else if ((user?.monthlyGenerations ?? 0) >= monthlyLimit) {
+    }
+
+    const [updated] = await db.update(users)
+      .set({ monthlyGenerations: sql`${users.monthlyGenerations} + 1` })
+      .where(and(eq(users.id, session.user.id), lt(users.monthlyGenerations, monthlyLimit)))
+      .returning({ monthlyGenerations: users.monthlyGenerations });
+
+    if (!updated) {
       const resetsAt = new Date(now.getFullYear(), now.getMonth() + 1, 1).toISOString();
       return NextResponse.json({
         error: "upgrade_required",
@@ -232,11 +248,7 @@ export async function POST(req: Request) {
         resetsAt,
       }, { status: 403 });
     }
-  }
-
-  const totalLength = (context || "").length + (prompt || "").length;
-  if (totalLength > 150000) {
-    return NextResponse.json({ error: "Context too large. Try reducing your World Bible or clearing old memories." }, { status: 400 });
+    countedThisRequest = true;
   }
 
   try {
@@ -305,15 +317,16 @@ Do NOT write the scene — just provide the accurate factual grounding.`,
       projectId, chapterId: chapterId || null, mode, prompt: cappedPrompt,
       output: r.text, model: r.model, tokensUsed: r.tokensUsed,
     });
-    // Increment monthly generation counter
-    if (monthlyLimit !== -1) {
-      await db.update(users)
-        .set({ monthlyGenerations: sql`${users.monthlyGenerations} + 1` })
-        .where(eq(users.id, session.user.id));
-    }
     await track(session.user.id, 'ai_generation', { mode, format: format ?? '' });
     return NextResponse.json(r);
   } catch (e: any) {
+    // Generation failed after the quota was already counted — refund it so failed
+    // requests don't consume the user's monthly allowance.
+    if (countedThisRequest) {
+      await db.update(users)
+        .set({ monthlyGenerations: sql`${users.monthlyGenerations} - 1` })
+        .where(eq(users.id, session.user.id));
+    }
     const msg = e?.message || "";
     console.error(`[gen] ${e?.status} ${msg.slice(0, 300)}`);
     if (msg.includes("rate_limit") || msg.includes("529"))

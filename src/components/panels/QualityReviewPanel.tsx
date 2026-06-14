@@ -7,7 +7,7 @@ interface Issue {
   entity?: string; state?: string; text?: string; suggestion?: string; severity?: string;
 }
 
-interface QualityReview {
+export interface QualityReview {
   ruleViolations: Issue[];
   knowledgeViolations: Issue[];
   slopMarkers: Issue[];
