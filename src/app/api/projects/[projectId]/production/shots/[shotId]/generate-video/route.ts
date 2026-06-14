@@ -6,7 +6,8 @@ import { getRequiredSession } from "@/lib/auth-helpers";
 import { db } from "@/db";
 import { projects, productionShots, users } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
-import { generateTextVideo, type VideoModel } from "@/lib/higgsfield/client";
+import { generateTextVideo } from "@/lib/higgsfield/client";
+import { ACTIVE_VIDEO_MODELS, type VideoModelId } from "@/lib/higgsfield/models";
 import { decrypt } from "@/lib/crypto";
 
 async function verifyOwnership(projectId: string, userId: string) {
@@ -32,14 +33,14 @@ export async function POST(req: Request, { params }: { params: Promise<{ project
   if (!shot) return NextResponse.json({ error: "Shot not found" }, { status: 404 });
 
   const { model } = await req.json();
-  const validModels: VideoModel[] = ["kling", "veo", "sora", "seedance", "wan", "hailuo"];
-  if (!validModels.includes(model as VideoModel))
+  const validModels = ACTIVE_VIDEO_MODELS.map(m => m.id);
+  if (!validModels.includes(model))
     return NextResponse.json({ error: "Invalid model" }, { status: 400 });
 
   const { requestId, pollingUrl } = await generateTextVideo({
     apiKey: higgsfieldKey,
     prompt: shot.videoPrompt || shot.soulPrompt || "Cinematic scene",
-    model: model as VideoModel,
+    model: model as VideoModelId,
     cameraPreset: shot.cameraPreset || undefined,
     viralPreset: shot.viralPreset || undefined,
   });

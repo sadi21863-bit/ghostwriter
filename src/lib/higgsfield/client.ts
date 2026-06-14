@@ -4,6 +4,7 @@
 // Soul ID training uses Higgsfield native cloud API (cloud.higgsfield.ai).
 
 import { CAMERA_PRESETS, VIRAL_PRESETS } from "./presets";
+import { VIDEO_ENDPOINTS, type VideoModelId } from "./models";
 
 const SEGMIND_BASE  = "https://api.segmind.com/v1";
 const HF_CLOUD_BASE = "https://cloud.higgsfield.ai/v1";
@@ -167,36 +168,10 @@ export async function generateDoPVideo(params: {
 
 // ── TEXT-TO-VIDEO ─────────────────────────────────────────────────────────────
 
-export type VideoModel = "kling" | "veo" | "sora" | "seedance" | "wan" | "hailuo";
-
-export const VIDEO_ENDPOINTS: Record<VideoModel, string> = {
-  kling:    "higgsfield-kling-text2video",
-  veo:      "higgsfield-veo-text2video",
-  sora:     "higgsfield-sora-text2video",
-  seedance: "higgsfield-seedance-text2video",
-  wan:      "higgsfield-wan-text2video",
-  hailuo:   "higgsfield-hailuo-text2video",
-};
-
-export const VIDEO_MODEL_INFO: Record<VideoModel, {
-  label: string;
-  note: string;
-  badge: string | null;
-  bestFor: string[];
-  generatesAudio: boolean;
-}> = {
-  kling:    { label: "Kling 3.0",    note: "Physics-aware · 4K · Best for action",         badge: null,    bestFor: ["action", "combat"],              generatesAudio: false },
-  veo:      { label: "Veo 3.1",      note: "Realistic · Cinematic · Native audio",          badge: "AUDIO", bestFor: ["realism", "drama", "nature"],    generatesAudio: true  },
-  sora:     { label: "Sora 2",       note: "Stylized · Narrative · Best for drama",         badge: null,    bestFor: ["drama", "fantasy", "stylized"],  generatesAudio: false },
-  seedance: { label: "Seedance 2.0", note: "Fast · Social content · Best for shorts",       badge: null,    bestFor: ["social", "shorts", "quick"],     generatesAudio: false },
-  wan:      { label: "WAN 2.5",      note: "Talking heads · Lip-sync · Avatars",            badge: null,    bestFor: ["avatar", "talking_head", "lipsync"], generatesAudio: false },
-  hailuo:   { label: "Hailuo 02",    note: "Smooth motion · Cinematic quality",             badge: "NEW",   bestFor: ["cinematic", "smooth", "general"], generatesAudio: false },
-};
-
 export async function generateTextVideo(params: {
   apiKey: string;
   prompt: string;
-  model: VideoModel;
+  model: VideoModelId;
   aspectRatio?: "16:9" | "9:16" | "1:1";
   duration?: 5 | 10 | 15;
   cameraPreset?: string;

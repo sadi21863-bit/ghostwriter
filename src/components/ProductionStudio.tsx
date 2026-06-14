@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import type { CSSProperties } from "react";
 import { SHOT_TYPES, CAMERA_MOVEMENTS, LIGHTING_MOODS, TIME_OF_DAY, buildShotPromptFragment } from "@/lib/ai/shot-parameters";
 import { CAMERA_PRESETS, CAMERA_PRESET_GROUPS, VIRAL_PRESETS } from "@/lib/higgsfield/presets";
+import { ACTIVE_VIDEO_MODELS } from "@/lib/higgsfield/models";
 import SeriesPipelinePanel from "@/components/panels/SeriesPipelinePanel";
 import { EmptyState } from "@/components/EmptyState";
 import { toast } from "@/lib/toast";
@@ -45,15 +46,6 @@ type Brief = {
 
 type CharSheet = { name: string; role: string; soulIdPrompt: string; voiceNotes: string };
 type LocSheet = { name: string; visualDescription: string; moodKeywords: string[] };
-
-const VIDEO_MODELS = [
-  { id: "kling",    label: "Kling 3.0",    note: "Physics-aware · 4K · Best for action",   badge: null    },
-  { id: "veo",      label: "Veo 3.1",      note: "Realistic · Cinematic · Native audio",    badge: "AUDIO" },
-  { id: "sora",     label: "Sora 2",       note: "Stylized · Narrative · Best for drama",   badge: null    },
-  { id: "seedance", label: "Seedance 2.0", note: "Fast · Social content · Best for shorts", badge: null    },
-  { id: "wan",      label: "WAN 2.5",      note: "Talking heads · Lip-sync · Avatars",      badge: null    },
-  { id: "hailuo",   label: "Hailuo 02",    note: "Smooth motion · Cinematic quality",        badge: "NEW"   },
-];
 
 const STATUS_LABELS: Record<string, string> = {
   idle: "Ready",
@@ -539,7 +531,7 @@ function ShotCard({
           {status === "animated" && (
             <>
               <select value={videoModel} onChange={e => onModelChange(e.target.value)} style={sel}>
-                {VIDEO_MODELS.map(m => <option key={m.id} value={m.id}>{m.label}{m.badge ? ` [${m.badge}]` : ""}</option>)}
+                {ACTIVE_VIDEO_MODELS.map(m => <option key={m.id} value={m.id}>{m.label}{m.badge ? ` [${m.badge}]` : ""}</option>)}
               </select>
               {videoModel === "veo" && (
                 <div style={{ fontSize: 9, color: "#d97706", marginTop: 2 }}>Veo 3.1 generates native audio alongside video.</div>

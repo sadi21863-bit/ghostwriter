@@ -8,22 +8,11 @@ import { getRequiredSession } from "@/lib/auth-helpers";
 import { checkAiRateLimit } from "@/lib/ratelimit";
 import { getUserTier, canAccessFeature } from "@/lib/subscription";
 import { CAMERA_PRESETS, VIRAL_PRESETS, getRecommendedViralPreset } from "@/lib/higgsfield/presets";
+import { ACTIVE_VIDEO_MODELS, VIDEO_MODELS, MODE_TO_MODEL } from "@/lib/higgsfield/models";
 import Anthropic from "@anthropic-ai/sdk";
 import { MODELS } from "@/lib/ai/engine";
 
 const anthropic = new Anthropic();
-
-const MODE_TO_MODEL: Record<string, string> = {
-  combat:     "kling",
-  horror:     "sora",
-  comedy:     "seedance",
-  romance:    "veo",
-  dialogue:   "veo",
-  atmosphere: "veo",
-  tension:    "kling",
-  emotional:  "veo",
-  default:    "kling",
-};
 
 export async function POST(req: Request) {
   const session = await getRequiredSession();
@@ -89,7 +78,7 @@ Return ONLY valid JSON:
       "timeOfDay": "Dawn | Morning | Noon | Afternoon | Dusk | Night"
     }
   ],
-  "suggestedModel": "kling | veo | sora | seedance | wan | hailuo",
+  "suggestedModel": "${ACTIVE_VIDEO_MODELS.map(m => m.id).join(" | ")}",
   "modelReason": "One sentence explaining why this model fits the scene best"
 }`;
 
@@ -110,7 +99,9 @@ Return ONLY valid JSON:
   }
 
   result.suggestedViralPreset = suggestedViral ?? null;
-  result.suggestedModel = result.suggestedModel ?? MODE_TO_MODEL[activeMode ?? "default"] ?? "kling";
+  const suggested = result.suggestedModel;
+  const suggestedIsUsable = suggested && VIDEO_MODELS[suggested] && !VIDEO_MODELS[suggested].deprecated;
+  result.suggestedModel = suggestedIsUsable ? suggested : (MODE_TO_MODEL[activeMode ?? "default"] ?? "kling");
 
   return NextResponse.json(result);
 }
