@@ -33,7 +33,7 @@ export function useAIActions({
     const extended = { ...p, activeMode: mode, currentPrompt: prompt, activeInfluence, activePatterns };
     let base: string;
     if (isCreatorFormat(p.format)) { base = buildCreatorContext({ ...extended, creatorBible }); }
-    else { base = p.skillLevel === "beginner" ? buildBeginnerContext(extended) : (buildStaticContext(extended) + '\n' + buildDynamicContext(extended)); }
+    else { base = p.skillLevel === "beginner" ? buildBeginnerContext(extended) : (buildStaticContext(extended, mode) + '\n' + buildDynamicContext(extended, mode)); }
     const neighbourContext = buildNeighbourContext(p);
     return neighbourContext ? base + "\n\n" + neighbourContext : base;
   };

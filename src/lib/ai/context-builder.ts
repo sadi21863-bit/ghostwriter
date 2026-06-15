@@ -4,6 +4,8 @@ import { buildInfluenceContext } from "@/lib/ai/influence-context";
 import { buildAccuracyContext, detectAccuracyDomains } from "@/lib/accuracy";
 import { buildRealismContext, getRealismDomainsForMode } from "@/lib/realism";
 import { extractVoiceFingerprint, fingerprintToConstraints } from "@/lib/ai/voice-fingerprint";
+import { MODE_REGISTRY, type ContextPolicy } from "@/lib/modes/registry";
+import { CONTEXT_CHAR_CAPS } from "@/lib/ai/context-caps";
 
 export interface CharacterRelationship {
   characterAId: string;
@@ -115,7 +117,36 @@ function estimateTokens(text: string): number {
 
 const STATIC_CONTEXT_BUDGET = 8_000;
 
-export function buildStaticContext(p: ContextProject): string {
+const FULL_CONTEXT_POLICY: ContextPolicy = {
+  needsCharacters: true,
+  needsLocations: true,
+  needsMemories: true,
+  needsPlotThreads: true,
+  needsRealism: true,
+  charDepth: "full",
+};
+
+// Callers that don't pass a mode (quick-start, alt-draft) get the pre-C-2
+// behaviour: every section included, full character depth, no policy gating.
+function resolveContextPolicy(mode?: string): ContextPolicy {
+  if (!mode) return FULL_CONTEXT_POLICY;
+  const config = (MODE_REGISTRY as Record<string, { contextPolicy?: ContextPolicy }>)[mode];
+  return config?.contextPolicy ?? FULL_CONTEXT_POLICY;
+}
+
+function buildBriefCharacterLine(c: Character): string {
+  const parts = ["- " + c.name + (c.role ? " (" + c.role + ")" : "") + (c.age ? ", age " + c.age : "")];
+  if (c.appearance)  parts.push("  " + c.appearance);
+  if (c.personality) parts.push("  " + c.personality);
+  if (c.arc)         parts.push("  Arc: " + c.arc);
+  return parts.join("\n");
+}
+
+export function buildStaticContext(p: ContextProject, mode?: string, tier?: string): string {
+  const policy = resolveContextPolicy(mode);
+  const tierCap = tier ? CONTEXT_CHAR_CAPS[tier] : undefined;
+  const budget = tierCap !== undefined ? Math.min(STATIC_CONTEXT_BUDGET, Math.floor(tierCap / 4)) : STATIC_CONTEXT_BUDGET;
+
   let r: string[] = [];
   const sections: string[][] = [r];
 
@@ -210,7 +241,7 @@ export function buildStaticContext(p: ContextProject): string {
   r = [];
   sections.push(r);
 
-  if (p.characters?.length) {
+  if (policy.needsCharacters && p.characters?.length) {
     r.push("CHARACTERS:");
     const activeIdx = p.chapters?.findIndex((ch: any) => ch.id === p.activeChapter) ?? 0;
     const searchText = (
@@ -231,6 +262,10 @@ export function buildStaticContext(p: ContextProject): string {
 
       if (c.alwaysInContext === false) {
         r.push("- " + c.name + (c.role ? " (" + c.role + ", minor)" : " (minor)"));
+        return;
+      }
+      if (policy.charDepth === "brief") {
+        r.push(buildBriefCharacterLine(c));
         return;
       }
       const parts = ["- " + c.name + (c.role ? " (" + c.role + ")" : "") + (c.age ? ", age " + c.age : "")];
@@ -554,7 +589,7 @@ export function buildStaticContext(p: ContextProject): string {
     });
   }
 
-  if (p.characterRelationships?.length) {
+  if (policy.needsCharacters && policy.charDepth === "full" && p.characterRelationships?.length) {
     const charMap = new Map((p.characters ?? []).map((c: Character) => [c.id, c.name]));
     const significantRels = p.characterRelationships.filter((rel: CharacterRelationship) =>
       rel.relationshipType || rel.knowledgeAsymmetry || (rel.trustLevel !== undefined && rel.trustLevel !== 50)
@@ -618,7 +653,7 @@ export function buildStaticContext(p: ContextProject): string {
   r = [];
   sections.push(r);
 
-  if (p.locations?.length) {
+  if (policy.needsLocations && p.locations?.length) {
     r.push("LOCATIONS:");
     p.locations.forEach((l: Location) => {
       if (l.alwaysInContext === false) {
@@ -636,7 +671,7 @@ export function buildStaticContext(p: ContextProject): string {
   r = [];
   sections.push(r);
 
-  if (p.plotThreads?.length) {
+  if (policy.needsPlotThreads && p.plotThreads?.length) {
     r.push("PLOTS:");
     p.plotThreads.forEach((t: PlotThread) => {
       if (t.alwaysInContext === false) {
@@ -659,7 +694,7 @@ export function buildStaticContext(p: ContextProject): string {
     const sectionLines = sections[i];
     if (sectionLines.length === 0) continue;
     const candidate = [...result, ...sectionLines].join("\n");
-    if (i > 0 && estimateTokens(candidate) > STATIC_CONTEXT_BUDGET) {
+    if (i > 0 && estimateTokens(candidate) > budget) {
       result.push('[Context trimmed — project too large]');
       break;
     }
@@ -668,10 +703,11 @@ export function buildStaticContext(p: ContextProject): string {
   return result.join("\n");
 }
 
-export function buildDynamicContext(p: ContextProject): string {
+export function buildDynamicContext(p: ContextProject, mode?: string): string {
+  const policy = resolveContextPolicy(mode);
   const r: string[] = [];
 
-  if (p.storyMemories?.length) {
+  if (policy.needsMemories && p.storyMemories?.length) {
     const salient = scoredMemories(p.storyMemories, p.chapters ?? [], p.activeChapter ?? "");
     r.push("STORY MEMORY — key facts from previous chapters:");
     salient.forEach((m) => {
@@ -694,13 +730,15 @@ export function buildDynamicContext(p: ContextProject): string {
   }
 
   // ── OPEN STORY PROMISES ───────────────────────────────────────────────────
-  const openPromises = ((p as any).storyPromises ?? []).filter((sp: any) => sp.status === 'open');
-  if (openPromises.length > 0) {
-    r.push('OPEN STORY PROMISES (these must eventually be paid off — do not forget them):');
-    const priorityA = openPromises.filter((sp: any) => sp.priority === 'A');
-    const others    = openPromises.filter((sp: any) => sp.priority !== 'A');
-    priorityA.forEach((sp: any) => r.push(`★ [HIGH PRIORITY] ${sp.setup}${sp.payoffIntent ? ' — intended: ' + sp.payoffIntent : ''}`));
-    others.slice(0, 5).forEach((sp: any) => r.push(`- ${sp.setup}`));
+  if (policy.needsMemories) {
+    const openPromises = ((p as any).storyPromises ?? []).filter((sp: any) => sp.status === 'open');
+    if (openPromises.length > 0) {
+      r.push('OPEN STORY PROMISES (these must eventually be paid off — do not forget them):');
+      const priorityA = openPromises.filter((sp: any) => sp.priority === 'A');
+      const others    = openPromises.filter((sp: any) => sp.priority !== 'A');
+      priorityA.forEach((sp: any) => r.push(`★ [HIGH PRIORITY] ${sp.setup}${sp.payoffIntent ? ' — intended: ' + sp.payoffIntent : ''}`));
+      others.slice(0, 5).forEach((sp: any) => r.push(`- ${sp.setup}`));
+    }
   }
 
   // ── EMOTIONAL ARC CONTEXT ─────────────────────────────────────────────────
@@ -740,19 +778,21 @@ export function buildDynamicContext(p: ContextProject): string {
   }
 
   // ── DOMAIN REALISM INJECTION ───────────────────────────────────────────────
-  const realismDomains = [
-    ...getRealismDomainsForMode(p.activeMode ?? ''),
-    ...((p.activeRealismDomains ?? []) as any),
-  ].filter((v, i, arr) => arr.indexOf(v) === i);
-  if (realismDomains.length > 0) {
-    r.push(buildRealismContext(realismDomains as any));
+  if (policy.needsRealism) {
+    const realismDomains = [
+      ...getRealismDomainsForMode(p.activeMode ?? ''),
+      ...((p.activeRealismDomains ?? []) as any),
+    ].filter((v, i, arr) => arr.indexOf(v) === i);
+    if (realismDomains.length > 0) {
+      r.push(buildRealismContext(realismDomains as any));
+    }
   }
 
   return r.join("\n");
 }
 
-export function buildContext(p: ContextProject): string {
-  return buildStaticContext(p) + "\n" + buildDynamicContext(p);
+export function buildContext(p: ContextProject, mode?: string, tier?: string): string {
+  return buildStaticContext(p, mode, tier) + "\n" + buildDynamicContext(p, mode);
 }
 
 export function buildCreatorContext(p: ContextProject): string {

@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { buildContext, buildStaticContext, type ContextProject, type StoryMemory } from "@/lib/ai/context-builder";
-import type { Character, Chapter } from "@/types";
+import { buildContext, buildStaticContext, buildDynamicContext, type ContextProject, type StoryMemory } from "@/lib/ai/context-builder";
+import type { Character, Chapter, Location, PlotThread } from "@/types";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -55,6 +55,37 @@ function makeMemory(
   chapterIndex = 0
 ): StoryMemory {
   return { id: Math.random().toString(36).slice(2), category, fact, chapterIndex };
+}
+
+function makeLocation(overrides: Partial<Location> = {}): Location {
+  return {
+    id: "l1",
+    projectId: "p1",
+    name: "The Old Mill",
+    description: "",
+    atmosphere: "",
+    history: "",
+    sensoryDetails: "",
+    sortOrder: 0,
+    alwaysInContext: true,
+    linkedCharacterIds: [],
+    ...overrides,
+  };
+}
+
+function makePlotThread(overrides: Partial<PlotThread> = {}): PlotThread {
+  return {
+    id: "t1",
+    projectId: "p1",
+    name: "The Conspiracy",
+    description: "",
+    status: "Active",
+    stakes: "",
+    connections: "",
+    sortOrder: 0,
+    alwaysInContext: true,
+    ...overrides,
+  };
 }
 
 function makeChapter(id: string, sortOrder: number): Chapter {
@@ -240,6 +271,96 @@ describe("buildStaticContext — token budget", () => {
     );
     const project = baseProject({ characters });
     expect(buildStaticContext(project)).toBe(buildStaticContext(project));
+  });
+});
+
+describe("contextPolicy — mode-aware section gating (C-2)", () => {
+  it("uses brief character depth (no backstory/profile detail) for modes with charDepth: 'brief'", () => {
+    const char = makeCharacter({
+      name: "Alice",
+      personality: "Brave and determined",
+      backstory: "Grew up in a war zone.",
+      arc: "Redemption",
+    });
+    const ctx = buildStaticContext(baseProject({ characters: [char] }), "setting");
+    expect(ctx).toContain("Alice");
+    expect(ctx).toContain("Brave and determined");
+    expect(ctx).toContain("Arc: Redemption");
+    expect(ctx).not.toContain("Backstory:");
+  });
+
+  it("uses full character depth (including backstory) when no mode is passed", () => {
+    const char = makeCharacter({
+      name: "Alice",
+      personality: "Brave and determined",
+      backstory: "Grew up in a war zone.",
+    });
+    const ctx = buildStaticContext(baseProject({ characters: [char] }));
+    expect(ctx).toContain("Backstory: Grew up in a war zone.");
+  });
+
+  it("omits the LOCATIONS section for modes with needsLocations: false (dialogue)", () => {
+    const project = baseProject({
+      characters: [makeCharacter({ name: "Alice", backstory: "Grew up in a war zone." })],
+      locations: [makeLocation({ name: "The Old Mill" })],
+    });
+
+    const withoutMode = buildStaticContext(project);
+    expect(withoutMode).toContain("LOCATIONS:");
+    expect(withoutMode).toContain("The Old Mill");
+
+    const dialogueCtx = buildStaticContext(project, "dialogue");
+    expect(dialogueCtx).not.toContain("LOCATIONS:");
+    // dialogue still gets full character depth
+    expect(dialogueCtx).toContain("Backstory: Grew up in a war zone.");
+  });
+
+  it("omits the PLOTS section for modes with needsPlotThreads: false (combat)", () => {
+    const project = baseProject({ plotThreads: [makePlotThread({ name: "The Conspiracy" })] });
+    expect(buildStaticContext(project)).toContain("PLOTS:");
+    expect(buildStaticContext(project, "combat")).not.toContain("PLOTS:");
+  });
+
+  it("omits STORY MEMORY for modes with needsMemories: false (combat)", () => {
+    const memories: StoryMemory[] = [makeMemory("general", "the bridge collapsed last winter")];
+    const project = baseProject({ storyMemories: memories });
+    expect(buildDynamicContext(project)).toContain("STORY MEMORY");
+    expect(buildDynamicContext(project, "combat")).not.toContain("STORY MEMORY");
+  });
+
+  it("suppresses realism injection for modes with needsRealism: false even when activeMode has domains", () => {
+    const project = baseProject({ activeMode: "combat" });
+    // No policy passed (defaults to full policy, needsRealism: true) — picks up
+    // realism domains from p.activeMode.
+    expect(buildDynamicContext(project)).toContain("COMBAT REALISM");
+    // "write" mode's policy sets needsRealism: false, suppressing it.
+    expect(buildDynamicContext(project, "write")).not.toContain("COMBAT REALISM");
+  });
+
+  it("applies a tighter static-context budget for lower subscription tiers via the tier param", () => {
+    const longField = "x".repeat(1500);
+    const characters = Array.from({ length: 5 }, (_, i) =>
+      makeCharacter({ id: `c${i}`, name: `Character${i}`, personality: longField, backstory: longField })
+    );
+    const project = baseProject({ characters });
+
+    const noTier = buildStaticContext(project, "write");
+    expect(noTier).not.toContain("[Context trimmed");
+
+    const freeTier = buildStaticContext(project, "write", "free");
+    expect(freeTier).toContain("[Context trimmed — project too large]");
+    expect(freeTier.length).toBeLessThan(noTier.length);
+  });
+
+  it("buildContext threads mode and tier through to both static and dynamic context", () => {
+    const project = baseProject({
+      characters: [makeCharacter({ name: "Alice", backstory: "Grew up in a war zone." })],
+      locations: [makeLocation({ name: "The Old Mill" })],
+      activeMode: "dialogue",
+    });
+    const ctx = buildContext(project, "dialogue");
+    expect(ctx).not.toContain("LOCATIONS:");
+    expect(ctx).toContain("Backstory: Grew up in a war zone.");
   });
 });
 
