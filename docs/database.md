@@ -327,7 +327,6 @@ Canon events with `timelineSort` < current story's `timelineSort` are automatica
 #### `subscriptions`
 
 - `userId`
-- `stripeCustomerId`, `stripeSubscriptionId` — legacy Stripe fields (kept for historical rows)
 - `razorpaySubscriptionId`, `razorpayPaymentId` — active payment provider (Razorpay)
 - `tier` — `free | story_pro | creator_pro | all_access`
 - `status` — `active | cancelled | past_due | trialing`

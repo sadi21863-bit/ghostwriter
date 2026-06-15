@@ -121,6 +121,10 @@ score = weight[category] + recencyBonus
 
 This means the AI always gets the most plot-critical, most recent facts, without the context window ballooning on long projects.
 
+### Mode-Aware Context Policy
+
+`buildStaticContext`/`buildDynamicContext`/`buildContext` accept an optional `mode` (and `tier` for the static budget). Each `MODE_REGISTRY` entry carries a `contextPolicy` (`needsCharacters`/`needsLocations`/`needsMemories`/`needsPlotThreads`/`needsRealism`/`charDepth: "full"|"brief"`) that gates which of the sections above are included — e.g. `horror`/`combat`/`action` skip story memories and plot threads in favor of realism injection; `brainstorm`/`outline`/`atmosphere` use brief one-line character summaries. Calls with no `mode` (quick-start, alt-draft) fall back to the pre-policy "include everything" behavior. See `docs/ai-engine.md` for the full policy table.
+
 ---
 
 ## Prompt Caching Strategy
@@ -185,6 +189,22 @@ Every route file imports `{ MODELS }` from `@/lib/ai/engine`. There are zero har
 
 ---
 
+## Client-Side Hooks: `useAIActions`
+
+`GhostWriterApp.tsx` calls a single `useAIActions(...)` hook, but the implementation is a thin (~67 line) composition of 5 focused hooks in `src/hooks/`:
+
+| Hook | Responsibility |
+|---|---|
+| `ai-shared.ts` | Shared `callAI()` fetch wrapper + `buildNeighbourContext()` — not a hook itself, imported by the others |
+| `useGeneration.ts` | Core `generate()` (brainstorm/outline/write + 23 library modes), undo stack, quality check + entity-extraction fire-and-forget calls |
+| `useEntitySync.ts` | Auto-extraction suggestion state (`entitySuggestions`, `acceptEntitySuggestion`, `rejectEntitySuggestion`) |
+| `usePipelines.ts` | Multi-agent pipeline mode (`/api/ai/pipeline`) |
+| `useProseTools.ts` | Prose sub-operations (expand/tighten/show-dont-tell/subtext/rewrite) |
+
+`useAIActions.ts` wires shared state (`undoStack`, `streamText`, `buildFullContext`) and spreads each sub-hook's exports — callers see one hook with the same surface as before the split.
+
+---
+
 ## Authentication Flow
 
 ```
@@ -224,6 +244,8 @@ if (!project) return NextResponse.json({ error: "Not found" }, { status: 404 });
 ```
 
 Returning 404 instead of 403 on unauthorized access is intentional — it doesn't reveal whether the project ID exists.
+
+For routes that look up a child resource by its own ID (a shot, a comic panel, a chapter) and need to confirm it belongs to the caller's project, `verifyChildOwnership(table, childId, projectId)` in `src/lib/auth-helpers.ts` runs the same `id = childId AND projectId = projectId` check generically against any table with `id`/`projectId` columns, returning a boolean.
 
 ---
 
@@ -351,11 +373,26 @@ POST /api/.../shots/[shotId]/preview
         │
 POST /api/.../shots/[shotId]/animate  or  /generate-video
   ├─ animate: Higgsfield DoP (image-to-video, camera movement)
-  └─ generate-video: Higgsfield text-to-video (6 models: Kling, Veo, Sora, etc.)
+  └─ generate-video: Higgsfield text-to-video, model from VIDEO_MODELS
         │
 Status polling via /status routes
   └─ Higgsfield job ID → poll until complete → video URL
 ```
+
+### Video model registry: `src/lib/higgsfield/models.ts`
+
+`VIDEO_MODELS` is the single source of truth for every Higgsfield text-to-video model — `VIDEO_ENDPOINTS`, `VIDEO_MODEL_INFO`, `ACTIVE_VIDEO_MODELS`, and `MODE_TO_MODEL` are all derived from it.
+
+| Model | Best for | Notes |
+|---|---|---|
+| `kling` (Kling 3.0) | action, combat | physics-aware, 4K |
+| `veo` (Veo 3.1) | realism, drama, nature | native audio (`generatesAudio: true`) |
+| `sora` (Sora 2) | drama, fantasy, stylized | **deprecated** — excluded from `ACTIVE_VIDEO_MODELS` and auto-selection |
+| `seedance` (Seedance 2.0) | social, shorts, quick | fast |
+| `wan` (WAN 2.5) | avatar, talking_head, lipsync | |
+| `hailuo` (Hailuo 02) | cinematic, smooth, general | |
+
+`MODE_TO_MODEL` maps a generation mode to its best-fit model for auto-selection (e.g. `combat`→`kling`, `horror`→`veo`, `comedy`→`seedance`; `default`→`kling`). Marking a model `deprecated: true` removes it from `ACTIVE_VIDEO_MODELS` and `MODE_TO_MODEL` candidates without deleting historical data referencing it.
 
 ---
 

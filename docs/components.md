@@ -17,6 +17,8 @@ src/app/project/[projectId]/page.tsx
 
 `GhostWriterApp.tsx` holds the central state: which project, which chapter is open, which mode is selected, and what the current generation output is.
 
+All AI calls go through `useAIActions(...)`, a thin composition of 5 hooks in `src/hooks/` (`useGeneration`, `useEntitySync`, `usePipelines`, `useProseTools`, plus the shared `ai-shared.ts` fetch wrapper) — see "Client-Side Hooks" in `docs/architecture.md` for the breakdown.
+
 ---
 
 ## Panel Architecture

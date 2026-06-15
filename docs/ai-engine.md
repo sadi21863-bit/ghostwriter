@@ -94,6 +94,17 @@ These do not use the `generate()` function — they are standalone route handler
 
 ---
 
+## Centralized System Prompts: `src/lib/ai/prompts.ts`
+
+The inline `system: "..."` template-string prompts used by the creator-tool routes above (plus several analysis routes — `knowledge-audit`, `tension-curve`, `transportation-check`, `villain-pov`, `alt-draft`, `production/generate-package`, `pipeline`, and the prose sub-operations) are extracted into named exports in `src/lib/ai/prompts.ts`:
+
+- `SCREAMING_SNAKE_CASE` consts ending `_SYSTEM_PROMPT` for prompts with no interpolation (e.g. `RETENTION_EDIT_SYSTEM_PROMPT`, `HOOK_STRATEGIST_SYSTEM_PROMPT`)
+- camelCase functions ending `SystemPrompt` for prompts that interpolate per-request values (e.g. `scoreHookSystemPrompt(format)`, `villainPovSystemPrompt(name, role, profileNote, personality, desires)`, `pipelineSceneWriterSystemPrompt(ctx, fmt)`)
+
+This is a pure refactor — prompt wording is unchanged from the original inline literals, just moved to one file and given names. It does **not** change the `MI` dispatch map (the 26-mode system prompts described above, which remain in `engine.ts`/genre library files) — `prompts.ts` covers the standalone routes that bypass `generate()`.
+
+---
+
 ## Context Assembly: `src/lib/ai/context-builder.ts`
 
 Every generation call passes through `buildContextString(projectId, userId)` which queries the database and assembles a structured context string. This is what makes GhostWriter "continuity-aware."
@@ -186,6 +197,25 @@ Top 8 by score are injected. This keeps the context window lean on long projects
 
 **8. Chapter Summaries** — last 3 chapters' summaries
 
+### Mode-Aware Context Policy
+
+`buildStaticContext(p, mode?, tier?)` / `buildDynamicContext(p, mode?)` / `buildContext(p, mode?, tier?)` resolve a `ContextPolicy` for the given mode via `resolveContextPolicy(mode)` in `context-builder.ts`, and gate the CHARACTERS / RELATIONSHIPS / LOCATIONS / PLOT THREADS / STORY MEMORY / OPEN PROMISES / REALISM sections accordingly:
+
+```typescript
+interface ContextPolicy {
+  needsCharacters: boolean;
+  needsLocations: boolean;
+  needsMemories: boolean;
+  needsPlotThreads: boolean;
+  needsRealism: boolean;
+  charDepth: "full" | "brief";
+}
+```
+
+Each of the 26 `MODE_REGISTRY` entries carries a `contextPolicy`, built from two base templates (`FULL`, `BRIEF`) and overridden per mode — e.g. `horror`/`combat`/`action` set `needsRealism: true` and drop memories/plot threads (the realism injection covers that ground); `brainstorm`/`outline`/`atmosphere`/`setting`/`scitech` use `BRIEF` (no full character profiles, `charDepth: "brief"` via `buildBriefCharacterLine()` — name/role/age/appearance/personality/arc only). If `mode` is undefined or unrecognized (e.g. `quick-start`/`alt-draft`, which don't pass a mode), `resolveContextPolicy` falls back to `FULL_CONTEXT_POLICY` — identical to pre-policy behavior.
+
+**Tier-aware budget:** `buildStaticContext` also accepts an optional `tier`. When provided, the context budget is `Math.min(STATIC_CONTEXT_BUDGET, Math.floor(CONTEXT_CHAR_CAPS[tier] / 4))` instead of the flat `STATIC_CONTEXT_BUDGET = 8_000` — so lower tiers get a smaller static context budget on top of the per-route `capContextForTier` re-cap.
+
 ---
 
 ## Prompt Caching
@@ -208,6 +238,17 @@ Anthropic's ephemeral prompt caching (5-minute TTL per conversation prefix) is a
 ```
 
 The cache hit saves both latency (no re-tokenization) and cost (cached tokens billed at ~10% of normal rate). For modes like `write` that are called many times per session, this adds up.
+
+### Verified: cache reads confirmed live (2026-06-15)
+
+Console's caching view is ambiguous about reads vs. writes, so this was confirmed directly against the API response `usage` object — the ground truth. Two `generate({ mode: 'write', format: 'Novel', ... })` calls were made back-to-back (~2s apart) with an identical ~14.4k-char static block (hash-verified equal across both calls):
+
+| Call | `input_tokens` | `cache_creation_input_tokens` | `cache_read_input_tokens` | `output_tokens` |
+|---|---|---|---|---|
+| 1 (cold) | 31 | 2634 | 0 | 20 |
+| 2 (~2s later, same static block) | 3 | 28 | 2634 | 22 |
+
+Call 1 writes the static block to cache (2634 tokens). Call 2 reads those same 2634 tokens from cache (`cache_read_input_tokens: 2634`) instead of re-billing/re-tokenizing them — confirming prompt caching produces real cache **reads**, not just writes, on repeat calls within the 5-minute TTL.
 
 ---
 
