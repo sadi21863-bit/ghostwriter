@@ -229,9 +229,9 @@ Similar to ArcHeatMap but visualizing narrative tension. Data from `/api/project
 
 ---
 
-## "One Path, Five Stages" UI Redesign (behind GrowthBook flags, both OFF by default)
+## "One Path, Five Stages" UI Redesign (behind GrowthBook flags — `writingRoomShell` ON, `homeRedesign` OFF)
 
-An alternative shell that replaces the toolbar-driven editor above with a guided, stage-based flow. Gated behind two GrowthBook flags — `writingRoomShell` (`writing_room_shell`) and `homeRedesign` (`home_redesign`) — both **default OFF**, so the architecture above is what users see until these are enabled.
+An alternative shell that replaces the toolbar-driven editor above with a guided, stage-based flow. Gated behind two GrowthBook flags — `writingRoomShell` (`writing_room_shell`) and `homeRedesign` (`home_redesign`). As of 2026-06-15, **`writingRoomShell` is enabled in production** — `GhostWriterApp` renders `WritingRoom` (not the legacy toolbar flow described above) for all users. `homeRedesign` remains **OFF**, so the dashboard architecture above is still what users see at `/dashboard`.
 
 ```
 src/components/

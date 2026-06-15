@@ -248,7 +248,7 @@ Before going live:
 - [x] `NEXTAUTH_URL` set to `https://www.ghost-writer.cc` *(done 2026-06-06 — www required; apex 308s to www)*
 - [x] Custom domain `ghost-writer.cc` added to Vercel and env vars updated *(done 2026-06-05)*
 - [x] Sentry configured — DSN hardcoded in `sentry.*.config.ts`; add `NEXT_PUBLIC_SENTRY_DSN` to Vercel for explicitness *(done 2026-06-05)*
-- [ ] GrowthBook configured for feature flags (optional)
+- [x] GrowthBook configured for feature flags *(done 2026-06-15 — `NEXT_PUBLIC_GROWTHBOOK_CLIENT_KEY`/`NEXT_PUBLIC_GROWTHBOOK_API_HOST` set in Vercel, production redeployed; `writing_room_shell` enabled and confirmed live)*
 - [ ] Test password reset email flow
 
 ---

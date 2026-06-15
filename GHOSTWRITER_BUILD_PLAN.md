@@ -59,6 +59,8 @@ BLOB_READ_WRITE_TOKEN=   # Phase 8 — Vercel Blob image storage
 
 **Update (2026-06-14):** Phases 2-9 below are also complete, as are 16 further sprints (10-25), the Mode Registry refactor (Plans 1-2, `src/lib/modes/registry.ts`), and the "One Path, Five Stages" UI redesign (Phases 0-5: `WritingRoom`/`Home`/`StoryBible`/Guide Engine, behind `writingRoomShell`/`homeRedesign` GrowthBook flags, both default OFF). For the current architecture and pre-launch checklist, see `CLAUDE.md`.
 
+**Update (2026-06-15):** GrowthBook wired up in production; `writingRoomShell` flag enabled — `WritingRoom` is now live for all users. `homeRedesign` remains OFF.
+
 ---
 
 ## Phases at a Glance
