@@ -43,6 +43,13 @@
       "when": 1781417739554,
       "tag": "0005_previous_cable",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1781501008163,
+      "tag": "0006_fantastic_luminals",
+      "breakpoints": true
     }
   ]
 }

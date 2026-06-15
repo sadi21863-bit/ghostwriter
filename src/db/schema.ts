@@ -349,8 +349,6 @@ export const storyPromises = pgTable("story_promises", {
 export const subscriptions = pgTable("subscriptions", {
   id: uuid("id").defaultRandom().primaryKey(),
   userId: uuid("user_id").notNull().unique().references(() => users.id, { onDelete: "cascade" }),
-  stripeCustomerId: text("stripe_customer_id").notNull().default(""),
-  stripeSubscriptionId: text("stripe_subscription_id"),
   razorpaySubscriptionId: text("razorpay_subscription_id"),
   razorpayPaymentId: text("razorpay_payment_id"),
   // "free" | "story_pro" | "creator_pro" | "all_access"

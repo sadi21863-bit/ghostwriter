@@ -10,8 +10,6 @@ export interface UserSubscription {
   tier: SubscriptionTier;
   status: SubscriptionStatus;
   currentPeriodEnd: Date | null;
-  stripeCustomerId: string | null;
-  stripeSubscriptionId: string | null;
 }
 
 // ── Feature gate keys ──────────────────────────────────────────────────────
