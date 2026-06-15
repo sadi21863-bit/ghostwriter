@@ -6,6 +6,7 @@ import { checkAiRateLimit } from "@/lib/ratelimit";
 import { getUserTier, canAccessFeature } from "@/lib/subscription";
 import Anthropic from "@anthropic-ai/sdk";
 import { MODELS } from "@/lib/ai/engine";
+import { RETENTION_EDIT_SYSTEM_PROMPT } from "@/lib/ai/prompts";
 
 const anthropic = new Anthropic();
 
@@ -28,9 +29,7 @@ export async function POST(req: Request) {
     max_tokens: 2500,
     system: [{
       type: "text",
-      text: `You are a watch-time analyst using the 4-mechanic framework from YouTube retention research.
-Score scripts on four dimensions and identify specific drop-risk moments with fixes.
-Return ONLY valid JSON.`,
+      text: RETENTION_EDIT_SYSTEM_PROMPT,
       cache_control: { type: "ephemeral" },
     }],
     messages: [{

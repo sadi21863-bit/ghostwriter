@@ -9,6 +9,7 @@ import { buildContext } from '@/lib/ai/context-builder';
 import { ALT_DRAFT_GOALS } from '@/lib/alt-draft/goals';
 import Anthropic from '@anthropic-ai/sdk';
 import type { AltDraftGoal, AlternateDraft } from '@/types';
+import { altDraftSystemPrompt } from '@/lib/ai/prompts';
 
 export async function POST(
   req: NextRequest,
@@ -40,19 +41,7 @@ export async function POST(
   const response = await client.messages.create({
     model: MODELS.quality,
     max_tokens: 4000,
-    system: `${baseContext}
-
-You are generating an ALTERNATE DRAFT - a parallel perspective, not a replacement.
-The writer will compare it to their original and decide what to use.
-
-GOAL: ${goalConfig.label}
-DIRECTIVE: ${goalConfig.directive}
-
-RULES:
-1. Preserve all plot events, character actions, and established facts.
-2. Do not add new characters, locations, or plot points.
-3. Match the approximate length of the original (within 20%).
-4. After the draft, write exactly "---INTENT---" on its own line, then 2-3 sentences explaining what specific changes you made and why.`,
+    system: altDraftSystemPrompt(baseContext, goalConfig.label, goalConfig.directive),
     messages: [{
       role: 'user',
       content: `Original:\n\n${chapter.content}\n\nGenerate the alternate draft now.`,

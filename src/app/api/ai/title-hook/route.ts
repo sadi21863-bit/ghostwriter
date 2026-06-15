@@ -6,6 +6,7 @@ import { checkAiRateLimit } from "@/lib/ratelimit";
 import { getUserTier, canAccessFeature } from "@/lib/subscription";
 import Anthropic from "@anthropic-ai/sdk";
 import { MODELS } from "@/lib/ai/engine";
+import { titleHookSystemPrompt } from "@/lib/ai/prompts";
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! });
 
 export async function POST(req: Request) {
@@ -21,7 +22,7 @@ export async function POST(req: Request) {
   try {
     const msg = await client.messages.create({
       model: MODELS.fast, max_tokens: 600,
-      system: `You are a title strategist for ${format || "YouTube"} content. Return ONLY JSON.`,
+      system: titleHookSystemPrompt(format),
       messages: [{ role: "user", content: `Hook: "${hook}"\nTopic: "${topic || ""}"\n\nGenerate 5 title variants. For each, state how it sets up the hook.\nReturn JSON: { "titles": [{ "title": "string", "alignment": "string", "ctrScore": 1 }] }` }],
     });
     const raw = msg.content.filter(b => b.type === "text").map(b => (b as any).text).join("");

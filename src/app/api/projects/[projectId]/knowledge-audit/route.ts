@@ -8,6 +8,7 @@ import { and, eq } from 'drizzle-orm';
 import Anthropic from '@anthropic-ai/sdk';
 import { MODELS } from '@/lib/ai/engine';
 import { getUserTier, canAccessFeature } from '@/lib/subscription';
+import { knowledgeAuditSystemPrompt } from '@/lib/ai/prompts';
 
 export async function POST(
   req: NextRequest,
@@ -54,33 +55,7 @@ export async function POST(
   const msg = await client.messages.create({
     model: MODELS.default,
     max_tokens: 1500,
-    system: `You are a developmental editor performing a consistency audit on a manuscript.
-Your job is to find SPECIFIC, CONCRETE inconsistencies — not vague style observations.
-Every issue you flag must include the chapter number and approximate location.
-
-Focus on:
-1. CHARACTER CONSISTENCY — physical description, knowledge state, voice, behavioral patterns
-2. CONTINUITY — timeline violations, objects that appear/disappear, locations described differently
-3. KNOWLEDGE VIOLATIONS — characters acting on information they shouldn't have yet
-4. PROMISE/PAYOFF — story promises planted but not paid off (or paid off but not planted)
-
-Return JSON with this structure:
-{
-  "issues": [
-    {
-      "type": "character_consistency|continuity|knowledge_violation|broken_promise",
-      "severity": "high|medium|low",
-      "chapter": 3,
-      "title": "Brief title of the issue",
-      "description": "Specific description of what's inconsistent and where",
-      "suggestion": "Brief suggestion for how to fix"
-    }
-  ],
-  "strengths": ["One concrete strength observed in the manuscript"],
-  "chaptersAudited": ${chapters.length}
-}
-
-Return at most 10 issues. Prioritize high-severity issues.`,
+    system: knowledgeAuditSystemPrompt(chapters.length),
     messages: [{
       role: 'user',
       content: `WORLD BIBLE (character reference):

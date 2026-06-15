@@ -6,6 +6,14 @@ import { checkAiRateLimit } from "@/lib/ratelimit";
 import { getUserTier, canAccessFeature } from "@/lib/subscription";
 import Anthropic from "@anthropic-ai/sdk";
 import { MODELS } from "@/lib/ai/engine";
+import {
+  pipelineStoryArchitectSystemPrompt,
+  pipelineSceneWriterSystemPrompt,
+  pipelineCharacterVoiceSystemPrompt,
+  pipelineContinuityEditorSystemPrompt,
+  pipelineHookWriterSystemPrompt,
+  pipelineSeoOptimizerSystemPrompt,
+} from "@/lib/ai/prompts";
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! });
 
@@ -19,23 +27,17 @@ const AGENT_MODELS: Record<string, string> = {
 };
 
 const AGENT_SYSTEM: Record<string, (ctx: string, fmt: string) => string> = {
-  story_architect: (ctx, fmt) =>
-    `You are a Story Architect. Output a numbered structural outline only — acts, beats, turning points. No prose. Format: ${fmt}.\nContext:\n${ctx}`,
+  story_architect: pipelineStoryArchitectSystemPrompt,
 
-  scene_writer: (ctx, fmt) =>
-    `You are a Scene Writer. Turn the outline or prompt into vivid, grounded prose. Show don't tell. Sensory detail in every scene. Match ${fmt} conventions.\nContext:\n${ctx}`,
+  scene_writer: pipelineSceneWriterSystemPrompt,
 
-  character_voice: (ctx, fmt) =>
-    `You are a Character Voice Specialist. Rewrite dialogue so each character sounds distinct. Reference character profiles from context. No exposition through dialogue.\nContext:\n${ctx}`,
+  character_voice: pipelineCharacterVoiceSystemPrompt,
 
-  continuity_editor: (ctx, fmt) =>
-    `You are a Continuity Editor. Find inconsistencies with established facts, character profiles, and timeline. Flag each issue then output the corrected version.\nContext:\n${ctx}`,
+  continuity_editor: pipelineContinuityEditorSystemPrompt,
 
-  hook_writer: (ctx, fmt) =>
-    `You are a Hook Specialist for ${fmt}. YouTube/Podcast: open loop that demands resolution. TikTok/Shorts/Reels: first 3 words stop the scroll, no setup, no intro. Novel/Screenplay: first line makes stopping impossible. Output ONLY the hook.\nContext:\n${ctx}`,
+  hook_writer: pipelineHookWriterSystemPrompt,
 
-  seo_optimizer: (ctx, _) =>
-    `Output a structured SEO package with exactly these sections:\n1. TITLE OPTIONS (3 variants, ranked by CTR)\n2. DESCRIPTION (150 words, keyword-rich but natural)\n3. TAGS (15 tags)\n4. THUMBNAIL CONCEPT (one sentence)\nContext:\n${ctx}`,
+  seo_optimizer: pipelineSeoOptimizerSystemPrompt,
 };
 
 export async function POST(req: Request) {

@@ -6,6 +6,7 @@ import { checkAiRateLimit } from "@/lib/ratelimit";
 import { getUserTier, canAccessFeature } from "@/lib/subscription";
 import Anthropic from "@anthropic-ai/sdk";
 import { MODELS } from "@/lib/ai/engine";
+import { TIKTOK_SCRIPT_SYSTEM_PROMPT } from "@/lib/ai/prompts";
 
 const anthropic = new Anthropic();
 
@@ -66,7 +67,7 @@ Return ONLY valid JSON: { "hooks": [{ "hook": "string", "pattern": "pattern used
   const response = await anthropic.messages.create({
     model: MODELS.default,
     max_tokens: 1500,
-    system: [{ type: "text", text: "You are a TikTok scriptwriter. Write for the sound-first, attention-fragmented TikTok environment. Return only valid JSON.", cache_control: { type: "ephemeral" } }],
+    system: [{ type: "text", text: TIKTOK_SCRIPT_SYSTEM_PROMPT, cache_control: { type: "ephemeral" } }],
     messages: [{
       role: "user",
       content: `Write a TikTok script for: ${topic}

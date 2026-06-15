@@ -9,6 +9,7 @@ import { db } from "@/db";
 import { projects } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { MODELS } from "@/lib/ai/engine";
+import { seriesPlanSystemPrompt } from "@/lib/ai/prompts";
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! });
 
 export async function POST(req: Request) {
@@ -42,7 +43,7 @@ export async function POST(req: Request) {
   try {
     const msg = await client.messages.create({
       model: MODELS.default, max_tokens: 2000,
-      system: `You are a content strategist for ${format} creators. Return ONLY JSON.`,
+      system: seriesPlanSystemPrompt(format),
       messages: [{ role: "user", content: `Channel: ${creatorBible?.channelName || ""}\nNiche: ${creatorBible?.niche || ""}\nAudience: ${creatorBible?.audienceAge || ""}, interests: ${creatorBible?.audienceInterests || ""}\nPillars: ${(creatorBible?.contentPillars || []).join(", ")}\nVoice: ${creatorBible?.channelVoice || ""}\n\nPast content (already covered):\n${pastTitles.map((t: string) => "- " + t).join("\n") || "None yet"}\n\nGenerate a 4-week content plan. Avoid repeating past angles.\nReturn JSON: { "gaps": ["string"], "weeks": [{ "week": 1, "videos": [{ "title": "string", "hook": "string", "pillar": "string", "angle": "string", "seriesConnection": null }] }] }` }],
     });
     const raw = msg.content.filter(b => b.type === "text").map(b => (b as any).text).join("");

@@ -9,6 +9,7 @@ import { projects } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import Anthropic from "@anthropic-ai/sdk";
 import { MODELS } from "@/lib/ai/engine";
+import { TRANSPORTATION_CHECK_SYSTEM_PROMPT } from "@/lib/ai/prompts";
 
 const anthropic = new Anthropic();
 
@@ -37,7 +38,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ project
     max_tokens: 2000,
     system: [{
       type: "text",
-      text: "You are a narrative transportation analyst. Analyse prose for Green & Brock's six transportation ejection mechanisms. Return only valid JSON.",
+      text: TRANSPORTATION_CHECK_SYSTEM_PROMPT,
       cache_control: { type: "ephemeral" },
     }],
     messages: [{

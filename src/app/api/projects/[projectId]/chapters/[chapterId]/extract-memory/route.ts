@@ -7,6 +7,7 @@ import { storyMemories, chapters, projects } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import Anthropic from "@anthropic-ai/sdk";
 import { MODELS } from "@/lib/ai/engine";
+import { EXTRACT_MEMORY_SYSTEM_PROMPT } from "@/lib/ai/prompts";
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! });
 
@@ -35,10 +36,7 @@ export async function POST(_: Request, { params }: { params: Promise<{ projectId
   const msg = await client.messages.create({
     model: MODELS.fast,
     max_tokens: 800,
-    system: `Extract established facts from this chapter. Return ONLY a JSON array:
-[{ "fact": string, "category": "character_decision|world_rule|relationship|event|general" }]
-Include: character decisions made, world rules revealed, relationship changes, key events that cannot be undone.
-Max 8 facts. No summaries. Only hard facts that affect continuity.`,
+    system: EXTRACT_MEMORY_SYSTEM_PROMPT,
     messages: [{ role: "user", content: chapter.content }],
   });
 

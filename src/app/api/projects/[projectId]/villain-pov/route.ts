@@ -9,6 +9,7 @@ import { projects, characters } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import Anthropic from "@anthropic-ai/sdk";
 import { MODELS } from "@/lib/ai/engine";
+import { villainPovSystemPrompt } from "@/lib/ai/prompts";
 
 const anthropic = new Anthropic();
 
@@ -52,21 +53,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ project
   const response = await anthropic.messages.create({
     model: MODELS.default,
     max_tokens: 2000,
-    system: `You are writing a scene from the antagonist's point of view. In this scene, the antagonist is correct and the protagonist is an obstacle.
-
-VILLAIN PERSPECTIVE RULES (non-negotiable):
-• The antagonist does not experience themselves as the antagonist. They are the protagonist of their own story.
-• The protagonist appears as an obstacle to a comprehensible, legitimate goal — not as the hero.
-• The antagonist's motivation must be internally coherent. The reader should be able to understand — not necessarily agree with — their position.
-• No mustache-twirling. No self-aware villainy. No "I am evil." The antagonist believes they are right.
-• The antagonist's internal logic is complete. They have a version of events in which they are fully justified.
-
-CHARACTER PROFILE: ${character.name}${character.role ? ` (${character.role})` : ""}
-${profileNote}
-${character.personality ? `Personality: ${character.personality}` : ""}
-${character.desires ? `Core desire: ${character.desires}` : ""}
-
-Write only the scene. No preamble.`,
+    system: villainPovSystemPrompt(character.name, character.role, profileNote, character.personality, character.desires),
     messages: [{
       role: "user",
       content: sceneDescription,

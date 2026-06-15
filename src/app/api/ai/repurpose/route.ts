@@ -6,6 +6,7 @@ import { checkAiRateLimit } from "@/lib/ratelimit";
 import { getUserTier, canAccessFeature } from "@/lib/subscription";
 import Anthropic from "@anthropic-ai/sdk";
 import { MODELS } from "@/lib/ai/engine";
+import { REPURPOSE_SYSTEM_PROMPT } from "@/lib/ai/prompts";
 
 const anthropic = new Anthropic();
 
@@ -30,9 +31,7 @@ export async function POST(req: Request) {
     max_tokens: 4000,
     system: [{
       type: "text",
-      text: `You are a multi-platform content strategist. You write natively for each platform — not copy-paste reformats.
-Each platform has a completely different psychology, format, and audience expectation.
-Return only valid JSON.`,
+      text: REPURPOSE_SYSTEM_PROMPT,
       cache_control: { type: "ephemeral" },
     }],
     messages: [{

@@ -9,6 +9,7 @@ import { creatorBibles } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import Anthropic from "@anthropic-ai/sdk";
 import { MODELS } from "@/lib/ai/engine";
+import { trendAnglesSystemPrompt } from "@/lib/ai/prompts";
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! });
 
@@ -39,12 +40,7 @@ export async function POST(req: Request) {
       model: MODELS.fast,
       max_tokens: 1200,
       tools: [{ type: "web_search_20250305", name: "web_search" } as any],
-      system: `You are a short-form content strategist. Search for what's currently trending around a topic, then identify 5 unique angles for ${format || "short-form"} content. Each angle must:
-- Be tied to something actively trending NOW (not generic)
-- Have a clear hook that works in the first 3 seconds
-- Feel fresh — not something every creator is already making${nicheContext}
-Return ONLY valid JSON: {"angles":[{"angle":"...","hook":"...","trendScore":8,"why":"..."}],"trendingSources":["..."]}
-trendScore is 1-10 based on how hot the trend is right now.`,
+      system: trendAnglesSystemPrompt(format, nicheContext),
       messages: [{
         role: "user",
         content: `Find trending angles for ${format || "short-form video"} content about: "${topic}"\n\nSearch what's trending NOW and return 5 specific angles with hooks. JSON only.`,

@@ -8,6 +8,7 @@ import { projects, productionShots } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import Anthropic from "@anthropic-ai/sdk";
 import { MODELS } from "@/lib/ai/engine";
+import { PRODUCTION_PACKAGE_SYSTEM_PROMPT } from "@/lib/ai/prompts";
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! });
 
@@ -53,7 +54,7 @@ export async function POST(_: Request, { params }: { params: Promise<{ projectId
     .map((l: any) => `${l.name}: ${l.description || ""}`)
     .join("\n");
 
-  const systemPrompt = `You are a professional cinematographer and director. Analyze the story and generate a complete production package. Return ONLY valid JSON with no markdown fences.`;
+  const systemPrompt = PRODUCTION_PACKAGE_SYSTEM_PROMPT;
 
   const userPrompt = `Project: "${project.name}" | Format: ${project.format} | Genres: ${(project.genres as string[]).join(", ")}
 

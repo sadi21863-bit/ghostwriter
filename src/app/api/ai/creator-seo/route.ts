@@ -6,6 +6,7 @@ import { checkAiRateLimit } from "@/lib/ratelimit";
 import { getUserTier, canAccessFeature } from "@/lib/subscription";
 import Anthropic from "@anthropic-ai/sdk";
 import { MODELS } from "@/lib/ai/engine";
+import { CREATOR_SEO_SYSTEM_PROMPT } from "@/lib/ai/prompts";
 
 const anthropic = new Anthropic();
 
@@ -26,7 +27,7 @@ export async function POST(req: Request) {
     max_tokens: 3000,
     system: [{
       type: "text",
-      text: "You are a YouTube SEO specialist. Generate optimised metadata. Return only valid JSON.",
+      text: CREATOR_SEO_SYSTEM_PROMPT,
       cache_control: { type: "ephemeral" },
     }],
     messages: [{

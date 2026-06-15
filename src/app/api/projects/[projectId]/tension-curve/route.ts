@@ -9,6 +9,7 @@ import { projects, chapters } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import Anthropic from "@anthropic-ai/sdk";
 import { MODELS } from "@/lib/ai/engine";
+import { TENSION_CURVE_SYSTEM_PROMPT } from "@/lib/ai/prompts";
 
 const anthropic = new Anthropic();
 
@@ -54,7 +55,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ project
   const response = await anthropic.messages.create({
     model: MODELS.default,
     max_tokens: 2000,
-    system: [{ type: "text", text: "You are a narrative structure analyst. Score each chapter on narrative tension dimensions. Return only valid JSON.", cache_control: { type: "ephemeral" } }],
+    system: [{ type: "text", text: TENSION_CURVE_SYSTEM_PROMPT, cache_control: { type: "ephemeral" } }],
     messages: [{
       role: "user",
       content: `Score each chapter on three dimensions using Brewer & Lichtenstein's structural affect theory:

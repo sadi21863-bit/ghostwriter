@@ -9,6 +9,7 @@ import { videoAnalysisJobs } from "@/db/schema";
 import { eq, and, inArray } from "drizzle-orm";
 import Anthropic from "@anthropic-ai/sdk";
 import { MODELS } from "@/lib/ai/engine";
+import { CHANNEL_AUTOPSY_SYSTEM_PROMPT } from "@/lib/ai/prompts";
 
 const anthropic = new Anthropic();
 
@@ -56,7 +57,7 @@ export async function POST(req: Request) {
     max_tokens: 3000,
     system: [{
       type: "text",
-      text: "You are a channel strategy analyst. Find patterns across multiple video analyses and identify content gaps. Return only valid JSON.",
+      text: CHANNEL_AUTOPSY_SYSTEM_PROMPT,
       cache_control: { type: "ephemeral" },
     }],
     messages: [{

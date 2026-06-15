@@ -6,6 +6,7 @@ import { checkAiRateLimit } from "@/lib/ratelimit";
 import { getUserTier, canAccessFeature } from "@/lib/subscription";
 import Anthropic from "@anthropic-ai/sdk";
 import { MODELS } from "@/lib/ai/engine";
+import { RESEARCH_SCAFFOLD_SYSTEM_PROMPT } from "@/lib/ai/prompts";
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! });
 
@@ -28,12 +29,7 @@ export async function POST(req: Request) {
       model: MODELS.default,
       max_tokens: 2000,
       tools: [{ type: "web_search_20250305", name: "web_search" } as any],
-      system: `You are a research assistant for YouTube creators. Search for current, credible information to support long-form video content. Always prioritize:
-1. Specific statistics with sources (not vague claims)
-2. Counter-arguments the creator should address
-3. Expert quotes or positions
-4. Recent developments (last 2 years)
-Return ONLY valid JSON with this shape: {"claims":[{"claim":"...","source":"...","url":"..."}],"counterArguments":["..."],"quotes":["..."],"angles":["..."],"searchedFor":"..."}`,
+      system: RESEARCH_SCAFFOLD_SYSTEM_PROMPT,
       messages: [{
         role: "user",
         content: `Research this YouTube video topic: "${topic}"${angle ? `\nSpecific angle: "${angle}"` : ""}\n\nSearch for supporting evidence, statistics, counter-arguments, and expert perspectives. Return JSON only.`,

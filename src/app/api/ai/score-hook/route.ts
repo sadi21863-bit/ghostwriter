@@ -6,6 +6,7 @@ import { checkAiRateLimit } from "@/lib/ratelimit";
 import { getUserTier, canAccessFeature } from "@/lib/subscription";
 import Anthropic from "@anthropic-ai/sdk";
 import { MODELS } from "@/lib/ai/engine";
+import { scoreHookSystemPrompt } from "@/lib/ai/prompts";
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! });
 
@@ -31,7 +32,7 @@ export async function POST(req: Request) {
     const msg = await client.messages.create({
       model: MODELS.fast,
       max_tokens: 200,
-      system: `You are a viral content expert specializing in ${format}. Rate the given hook 1-10 on scroll-stopping power for that platform. Explain in exactly 2 sentences why it works or doesn't. Return ONLY JSON with no markdown: {"score":N,"feedback":"string"}`,
+      system: scoreHookSystemPrompt(format),
       messages: [{ role: "user", content: hook }],
     });
 
