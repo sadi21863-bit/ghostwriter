@@ -74,6 +74,8 @@ Application-level ownership checks only. Never use Supabase RLS. Always call get
 | GEMINI_API_KEY | Google Gemini key for video dissection (optional) |
 | OPENAI_API_KEY | OpenAI key for embeddings (text-embedding-3-small) and Audio Novel TTS (tts-1); fallback when a user has no own key set |
 | NEXT_PUBLIC_SENTRY_DSN | Sentry DSN for error monitoring (DSN hardcoded as fallback in sentry.*.config.ts) |
+| NEXT_PUBLIC_GROWTHBOOK_CLIENT_KEY | GrowthBook SDK Connection client key (feature flags: `writingRoomShell`/`homeRedesign`, both default OFF) |
+| NEXT_PUBLIC_GROWTHBOOK_API_HOST | GrowthBook API host (optional — defaults to https://cdn.growthbook.io for GrowthBook Cloud) |
 
 ## Pre-launch checklist
 1. ✅ Set all env vars in Vercel dashboard
