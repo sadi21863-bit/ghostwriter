@@ -95,6 +95,7 @@ In the Vercel dashboard → Project → Settings → Environment Variables, add:
 | `NEXT_PUBLIC_SENTRY_DSN` | From Sentry project settings |
 | `SENTRY_AUTH_TOKEN` | Sentry auth token for source maps |
 | `NEXT_PUBLIC_GROWTHBOOK_CLIENT_KEY` | GrowthBook client key |
+| `NEXT_PUBLIC_GROWTHBOOK_API_HOST` | GrowthBook API host (optional, defaults to GrowthBook Cloud CDN) |
 
 ### 3. Deploy
 

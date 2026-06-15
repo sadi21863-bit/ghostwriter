@@ -135,6 +135,7 @@ When absent, rate limiting is **fail-open** — the app works, just unmetered. A
 | `NEXT_PUBLIC_SENTRY_DSN` | Sentry project DSN — client error tracking |
 | `SENTRY_AUTH_TOKEN` | Sentry — upload source maps |
 | `NEXT_PUBLIC_GROWTHBOOK_CLIENT_KEY` | GrowthBook — feature flags |
+| `NEXT_PUBLIC_GROWTHBOOK_API_HOST` | GrowthBook — API host (optional, defaults to GrowthBook Cloud CDN) |
 
 ---
 
