@@ -76,7 +76,7 @@ describe("nextAction", () => {
     expect(action?.run.chapterId).toBe("ch-2");
   });
 
-  it("suggests a story health review once every chapter has a draft and one crosses the threshold", () => {
+  it("suggests a story health review once the first chapter crosses the threshold", () => {
     const action = nextAction({
       ...base,
       controllingIdea: "Premise.",
@@ -86,7 +86,7 @@ describe("nextAction", () => {
         { id: "ch-2", title: "Chapter 2", wordCount: 100, sortOrder: 1 },
       ],
     });
-    expect(action?.id).toBe("polish-review-ch-1");
+    expect(action?.id).toBe("polish-review-manuscript");
     expect(action?.run.mode).toBe("story_health");
     expect(action?.run.chapterId).toBe("ch-1");
   });
@@ -105,7 +105,7 @@ describe("nextAction", () => {
     expect(action?.run.chapterId).toBe("ch-2");
   });
 
-  it("suggests exporting once every chapter is past the review threshold and all reviews are dismissed", () => {
+  it("suggests exporting once all chapters are past the threshold and the review is dismissed", () => {
     const action = nextAction({
       ...base,
       controllingIdea: "Premise.",
@@ -114,7 +114,7 @@ describe("nextAction", () => {
         { id: "ch-1", title: "Chapter 1", wordCount: 600, sortOrder: 0 },
         { id: "ch-2", title: "Chapter 2", wordCount: 700, sortOrder: 1 },
       ],
-      dismissedGuideIds: ["polish-review-ch-1", "polish-review-ch-2"],
+      dismissedGuideIds: ["polish-review-manuscript"],
     });
     expect(action?.id).toBe("export-manuscript");
     expect(action?.run.mode).toBe("export");
@@ -133,7 +133,7 @@ describe("nextAction", () => {
       chapters: [
         { id: "ch-1", title: "Chapter 1", wordCount: 600, sortOrder: 0 },
       ],
-      dismissedGuideIds: ["polish-review-ch-1", "export-manuscript"],
+      dismissedGuideIds: ["polish-review-manuscript", "export-manuscript"],
     });
     expect(action).toBeNull();
   });
@@ -150,7 +150,7 @@ describe("currentStage", () => {
       controllingIdea: "Premise.",
       characters: [{ id: "char-1" }],
       chapters: [{ id: "ch-1", title: "Chapter 1", wordCount: 600, sortOrder: 0 }],
-      dismissedGuideIds: ["polish-review-ch-1", "export-manuscript"],
+      dismissedGuideIds: ["polish-review-manuscript", "export-manuscript"],
     };
     expect(nextAction(project)).toBeNull();
     expect(currentStage(project)).toBe("export");

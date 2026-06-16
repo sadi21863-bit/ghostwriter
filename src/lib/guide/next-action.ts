@@ -105,16 +105,14 @@ function computeAction(project: GuideProject): GuideAction | null {
   }
 
   const dismissed = project.dismissedGuideIds ?? [];
-  const needsReview = sortedChapters.find(
-    (c) => c.wordCount >= REVIEW_THRESHOLD && !dismissed.includes(`polish-review-${c.id}`)
-  );
-  if (needsReview) {
+  const longChapters = sortedChapters.filter((c) => c.wordCount >= REVIEW_THRESHOLD);
+  if (longChapters.length > 0 && !dismissed.includes("polish-review-manuscript")) {
     return {
-      id: `polish-review-${needsReview.id}`,
+      id: "polish-review-manuscript",
       stage: "polish",
-      message: `"${needsReview.title}" is ${needsReview.wordCount} words — let's check its story health.`,
+      message: `Your manuscript is ready for a story health check.`,
       cta: "Review story health",
-      run: { mode: "story_health", chapterId: needsReview.id },
+      run: { mode: "story_health", chapterId: longChapters[0].id },
     };
   }
 
