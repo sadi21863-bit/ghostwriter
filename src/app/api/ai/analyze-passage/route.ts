@@ -3,10 +3,7 @@ export const dynamic = 'force-dynamic';
 import { NextRequest, NextResponse } from "next/server";
 import { getRequiredSession } from "@/lib/auth-helpers";
 import { checkAiRateLimit } from "@/lib/ratelimit";
-import { getUserTier, MONTHLY_GENERATION_LIMITS } from "@/lib/subscription";
-import { db } from "@/db";
-import { users } from "@/db/schema";
-import { eq, sql } from "drizzle-orm";
+import { meterAndGate, refundCredits } from "@/lib/metering/meter";
 import Anthropic from "@anthropic-ai/sdk";
 import { MODELS } from "@/lib/ai/engine";
 
@@ -17,33 +14,14 @@ export async function POST(req: NextRequest) {
   const rl = await checkAiRateLimit(session.user.id);
   if (rl) return rl;
 
-  const tier = await getUserTier(session.user.id);
-  const monthlyLimit = MONTHLY_GENERATION_LIMITS[tier] ?? 10;
-
-  if (monthlyLimit !== -1) {
-    const user = await db.query.users.findFirst({
-      where: eq(users.id, session.user.id),
-      columns: { monthlyGenerations: true, monthlyGenerationsResetAt: true },
-    });
-    const now = new Date();
-    const resetAt = user?.monthlyGenerationsResetAt;
-    const firstOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-    const isNewMonth = !resetAt || resetAt < firstOfMonth;
-
-    if (isNewMonth) {
-      await db.update(users)
-        .set({ monthlyGenerations: 0, monthlyGenerationsResetAt: now })
-        .where(eq(users.id, session.user.id));
-    } else if ((user?.monthlyGenerations ?? 0) >= monthlyLimit) {
-      return NextResponse.json({ error: "monthly_limit_reached", directives: "" }, { status: 429 });
-    }
-  }
-
   const { passage } = await req.json();
 
   if (!passage || passage.length < 30) {
     return NextResponse.json({ directives: "" });
   }
+
+  const gate = await meterAndGate(session.user.id, "analyze-passage");
+  if (gate) return gate;
 
   try {
     const msg = await client.messages.create({
@@ -63,14 +41,9 @@ Start each line with a verb. Be specific enough that an AI could apply these tec
 
     const text = msg.content.filter(b => b.type === "text").map(b => (b as any).text).join("").trim();
 
-    if (text && monthlyLimit !== -1) {
-      await db.update(users)
-        .set({ monthlyGenerations: sql`${users.monthlyGenerations} + 1` })
-        .where(eq(users.id, session.user.id));
-    }
-
     return NextResponse.json({ directives: text ? `REFERENCE PASSAGE TECHNIQUE:\n${text}` : "" });
   } catch {
+    await refundCredits(session.user.id, "analyze-passage");
     return NextResponse.json({ directives: "" });
   }
 }

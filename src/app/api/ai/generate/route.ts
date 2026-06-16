@@ -2,15 +2,16 @@ export const dynamic = 'force-dynamic';
 
 import { NextResponse } from "next/server";
 import { getRequiredSession } from "@/lib/auth-helpers";
-import { checkAiRateLimit, freeGenerationLimit } from "@/lib/ratelimit";
-import { getUserTier, canAccessFeature, MONTHLY_GENERATION_LIMITS } from "@/lib/subscription";
+import { checkAiRateLimit } from "@/lib/ratelimit";
+import { getUserTier, canAccessFeature } from "@/lib/subscription";
+import { meterAndGate, refundCredits } from "@/lib/metering/meter";
 import { GATED_MODES } from "@/types/subscription";
 import { generate, MODELS } from "@/lib/ai/engine";
 import { capContextForTier } from "@/lib/ai/context-caps";
 import { buildAiismsInstruction } from "@/lib/ai/aiisms";
 import { db } from "@/db";
 import { generations, projects, users } from "@/db/schema";
-import { and, eq, sql, lte, lt, ne } from "drizzle-orm";
+import { and, eq, sql, lte, ne } from "drizzle-orm";
 import { universeEvents, universeCharacters, projectCharacterStates } from "@/db/schema";
 import { track } from "@/lib/analytics";
 
@@ -192,63 +193,12 @@ export async function POST(req: Request) {
   // Free tier: route to Haiku (4.5x cheaper, proves value, drives upgrades)
   const overrideModel = tier === 'free' ? MODELS.fast : undefined;
 
-  // Burst-rate guard: defense-in-depth Upstash limiter (10/24h), numerically aligned
-  // with MONTHLY_GENERATION_LIMITS.free below — the monthly cap is the user-facing quota.
-  if (tier === "free" && freeGenerationLimit) {
-    const { success } = await freeGenerationLimit.limit(session.user.id);
-    if (!success) {
-      return NextResponse.json({
-        error: "upgrade_required",
-        feature: "unlimited_generations",
-        tier,
-        message: "Free tier limit: 10 generations per month. Upgrade for unlimited.",
-      }, { status: 429 });
-    }
-  }
+  const gate = await meterAndGate(session.user.id, "generate");
+  if (gate) return gate;
 
   const totalLength = (context || "").length + (prompt || "").length;
   if (totalLength > 150000) {
     return NextResponse.json({ error: "Context too large. Try reducing your World Bible or clearing old memories." }, { status: 400 });
-  }
-
-  // Monthly generation cap — atomic check-and-increment. Gating on the row returned by
-  // a conditional UPDATE (rather than a separately-read count) closes a TOCTOU race where
-  // concurrent requests could each pass a stale "under limit" check before either incremented.
-  const monthlyLimit = MONTHLY_GENERATION_LIMITS[tier] ?? 30;
-  let countedThisRequest = false;
-  if (monthlyLimit !== -1) {
-    const user = await db.query.users.findFirst({
-      where: eq(users.id, session.user.id),
-      columns: { monthlyGenerationsResetAt: true },
-    });
-    const now = new Date();
-    const resetAt = user?.monthlyGenerationsResetAt;
-    const firstOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-    const isNewMonth = !resetAt || resetAt < firstOfMonth;
-
-    if (isNewMonth) {
-      await db.update(users).set({
-        monthlyGenerations: 0,
-        monthlyGenerationsResetAt: now,
-      }).where(eq(users.id, session.user.id));
-    }
-
-    const [updated] = await db.update(users)
-      .set({ monthlyGenerations: sql`${users.monthlyGenerations} + 1` })
-      .where(and(eq(users.id, session.user.id), lt(users.monthlyGenerations, monthlyLimit)))
-      .returning({ monthlyGenerations: users.monthlyGenerations });
-
-    if (!updated) {
-      const resetsAt = new Date(now.getFullYear(), now.getMonth() + 1, 1).toISOString();
-      return NextResponse.json({
-        error: "upgrade_required",
-        feature: "monthly_limit",
-        tier,
-        message: `You've used your ${monthlyLimit} generations this month. Upgrade for more.`,
-        resetsAt,
-      }, { status: 403 });
-    }
-    countedThisRequest = true;
   }
 
   try {
@@ -322,11 +272,7 @@ Do NOT write the scene — just provide the accurate factual grounding.`,
   } catch (e: any) {
     // Generation failed after the quota was already counted — refund it so failed
     // requests don't consume the user's monthly allowance.
-    if (countedThisRequest) {
-      await db.update(users)
-        .set({ monthlyGenerations: sql`${users.monthlyGenerations} - 1` })
-        .where(eq(users.id, session.user.id));
-    }
+    await refundCredits(session.user.id, "generate");
     const msg = e?.message || "";
     console.error(`[gen] ${e?.status} ${msg.slice(0, 300)}`);
     if (msg.includes("rate_limit") || msg.includes("529"))
