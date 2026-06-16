@@ -1,4 +1,4 @@
-# Smoke Test Results (2026-06-13, updated 2026-06-14)
+# Smoke Test Results (2026-06-13, updated 2026-06-16)
 
 Full-application smoke test run against the local dev server (`npm run dev`, port 3000/Turbopack) covering auth, projects, AI generation, World Bible, Guide Engine, tier gating, settings, and the Razorpay subscription/webhook flow. Two real bugs were found and fixed during this pass (see "Bugs Found & Fixed" below). On 2026-06-14, a new Razorpay test key pair resolved the previously-blocking 401 issue (§9b) and a full live E2E was run (§9d).
 
@@ -26,6 +26,7 @@ Scope was "sample per tier": one live AI call per model tier (Haiku/Sonnet/Opus)
 | Razorpay live `subscriptions.create` | ✅ RESOLVED 2026-06-13 — new test key pair, 100% success (was 100% failure) |
 | Razorpay full E2E (create → webhook activate → tier flip → webhook cancel) | ✅ PASS (8/9, see §9d) |
 | Razorpay production webhook endpoint (live signature verification) | ❌ found broken (Sensitive env var masked stale secret) → ✅ fixed & verified (§9e) |
+| Razorpay live payment end-to-end (real card, live mode) | ✅ PASS 2026-06-16 — full checkout→webhook→DB upgrade verified in production logs |
 | Actual AI spend this session | $0.08 (well under the $3 budget) |
 
 ---

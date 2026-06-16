@@ -184,7 +184,17 @@ In Razorpay Dashboard → Settings → Webhooks → Add Webhook:
 
 Copy the Signing Secret to `RAZORPAY_WEBHOOK_SECRET`.
 
-### 3. Test the Flow
+### 3. Push Env Vars Safely
+
+⚠️ **BOM gotcha**: piping values via PowerShell `echo`/pipe can silently prepend a BOM character to the stored value, causing persistent 401 "Authentication failed" errors even with correct credentials. Always push Razorpay secrets via Bash using `printf`:
+
+```bash
+printf '%s' "rzp_live_xxxx" | vercel env add RAZORPAY_KEY_ID production
+```
+
+To fix corrupted vars: `vercel env rm VARNAME production --yes` then re-add with `printf '%s'`.
+
+### 4. Test the Flow
 
 Use Razorpay's test mode (test API keys). Create a test subscription, verify the webhook fires, check the `subscriptions` table in Drizzle Studio.
 
@@ -241,7 +251,7 @@ Before going live:
 - [x] Sprint 22 schema pushed: `universes`, `universe_characters`, `project_character_states`, `universe_events` tables; `story_type`/`universe_id`/`timeline_sort`/`phase`/`series_parent_id` on projects; `storyline_id` on chapters *(done 2026-06-06)*
 - [x] Razorpay integrated (Sprint 24): switched from Stripe. Webhook handler at `/api/webhooks/razorpay` *(done)*
 - [x] Sprint 25 schema pushed: `updated_at` columns added to `characters`, `locations`, `plot_threads` tables *(done 2026-06-09)*
-- [x] Razorpay plans created (6 plans: 3 tiers × monthly+annual), plan IDs in `.env.local` *(done — see CLAUDE.md item 10; key pair + plan IDs pushed to Vercel production 2026-06-14)*
+- [x] Razorpay live keys + 6 live plan IDs pushed to Vercel production *(2026-06-16 — BOM corruption fixed; first real payment processed and verified)*
 - [x] Razorpay webhook endpoint configured at `ghost-writer.cc/api/webhooks/razorpay` *(test-mode webhook created via API 2026-06-14, id `T1V6G4FY41VWlu`; live-mode webhook was already configured previously)*. **Verified live 2026-06-14**: a synthetic HMAC-signed `subscription.cancelled` POST to `https://ghost-writer.cc/api/webhooks/razorpay` returned `200 {"received":true}`; an invalid signature was correctly rejected with `400`. Fixed a real production gap found during this test — `RAZORPAY_WEBHOOK_SECRET` in Vercel production was a "Sensitive" var (always reads back empty via `vercel env pull`, masking its true value); it was reset to match `.env`/`.env.local` and the production deployment was redeployed (`vercel redeploy ... --target production`) to pick up the change.
 - [x] Resend domain verified and DNS propagated *(done 2026-06-05)*
 - [x] Automated Razorpay TEST-mode E2E (create → webhook activate → tier flip → webhook cancel) — 8/9 PASS *(done 2026-06-13/14, see docs/testing.md §9d)*. Remaining: real-browser Checkout overlay in live mode (manual, not automatable).
