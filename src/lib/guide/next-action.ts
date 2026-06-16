@@ -30,6 +30,7 @@ export interface GuideChapter {
 export interface GuideProject {
   format: string;
   controllingIdea?: string;
+  biggestChallenge?: string;
   characters: { id: string }[];
   chapters: GuideChapter[];
   dismissedGuideIds?: string[];
@@ -61,12 +62,19 @@ export function currentStage(project: GuideProject): GuideStage {
 
 function computeAction(project: GuideProject): GuideAction | null {
   if (!project.controllingIdea?.trim()) {
+    const challengeLabel = project.biggestChallenge ?? "";
+    const prompt = challengeLabel
+      ? `Help me develop a story premise. My biggest challenge is: ${challengeLabel}. Give me a controlling idea that addresses this directly.`
+      : "Help me develop a story premise and controlling idea for this project.";
+    const message = challengeLabel
+      ? `Let's tackle your challenge: "${challengeLabel}". Start with the premise.`
+      : "Let's start with your story idea — tell me the premise and I'll help shape it.";
     return {
       id: "idea-premise",
       stage: "idea",
-      message: "Let's start with your story idea — tell me the premise and I'll help shape it.",
+      message,
       cta: "Brainstorm premise",
-      run: { mode: "brainstorm", prompt: "Help me develop a story premise and controlling idea for this project." },
+      run: { mode: "brainstorm", prompt },
     };
   }
 

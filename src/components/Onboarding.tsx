@@ -57,7 +57,7 @@ export default function Onboarding({ onDismiss }: Props) {
         const projRes = await fetch("/api/projects", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ name: "My First Story", format, skillLevel: "beginner" }),
+          body: JSON.stringify({ name: "My First Story", format, skillLevel: "beginner", biggestChallenge: challenge }),
         });
         const proj = await projRes.json();
         if (!proj.id) throw new Error("project creation failed");
@@ -84,6 +84,7 @@ export default function Onboarding({ onDismiss }: Props) {
       // Blank path
       const body: any = { name: "My First Story", format, skillLevel: "beginner" };
       if (chosenPremise?.trim()) body.controllingIdea = chosenPremise.trim();
+      body.biggestChallenge = challenge;
       const res = await fetch("/api/projects", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
