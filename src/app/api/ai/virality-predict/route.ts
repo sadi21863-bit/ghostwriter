@@ -10,6 +10,7 @@ import { checkAiRateLimit } from "@/lib/ratelimit";
 import { getUserTier, canAccessFeature } from "@/lib/subscription";
 import Anthropic from "@anthropic-ai/sdk";
 import { MODELS } from "@/lib/ai/engine";
+import { meterAndGate, refundCredits } from "@/lib/metering/meter";
 
 const anthropic = new Anthropic();
 
@@ -17,6 +18,8 @@ export async function POST(req: Request) {
   const session = await getRequiredSession();
   const rl = await checkAiRateLimit(session.user.id);
   if (rl) return rl;
+  const gate = await meterAndGate(session.user.id, "virality-predict");
+  if (gate) return gate;
 
   const tier = await getUserTier(session.user.id);
   if (!canAccessFeature(tier, "virality_predict")) {
@@ -72,19 +75,25 @@ Rules:
 - improvements: 2-4 specific, actionable suggestions
 - recommendedModel: best Higgsfield model for this content type`;
 
-  const response = await anthropic.messages.create({
-    model: MODELS.default,
-    max_tokens: 800,
-    messages: [{ role: "user", content: analysisPrompt }],
-  });
-
-  const text = response.content[0].type === "text" ? response.content[0].text : "{}";
-  const clean = text.replace(/```json\n?|```/g, "").trim();
-
   try {
-    const result = JSON.parse(clean);
-    return NextResponse.json(result);
-  } catch {
-    return NextResponse.json({ error: "Failed to parse virality analysis." }, { status: 500 });
+    const response = await anthropic.messages.create({
+      model: MODELS.default,
+      max_tokens: 800,
+      messages: [{ role: "user", content: analysisPrompt }],
+    });
+
+    const text = response.content[0].type === "text" ? response.content[0].text : "{}";
+    const clean = text.replace(/```json\n?|```/g, "").trim();
+
+    try {
+      const result = JSON.parse(clean);
+      return NextResponse.json(result);
+    } catch {
+      await refundCredits(session.user.id, "virality-predict");
+      return NextResponse.json({ error: "Failed to parse virality analysis." }, { status: 500 });
+    }
+  } catch (e: any) {
+    await refundCredits(session.user.id, "virality-predict");
+    return NextResponse.json({ error: e.message || "Virality prediction failed." }, { status: 500 });
   }
 }

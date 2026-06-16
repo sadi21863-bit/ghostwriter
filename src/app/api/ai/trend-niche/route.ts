@@ -14,6 +14,7 @@ import { projects, creatorBibles } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import Anthropic from "@anthropic-ai/sdk";
 import { MODELS } from "@/lib/ai/engine";
+import { meterAndGate, refundCredits } from "@/lib/metering/meter";
 
 const anthropic = new Anthropic();
 
@@ -35,6 +36,8 @@ export async function POST(req: Request) {
   const session = await getRequiredSession();
   const rl = await checkAiRateLimit(session.user.id);
   if (rl) return rl;
+  const gate = await meterAndGate(session.user.id, "trend-niche");
+  if (gate) return gate;
 
   const tier = await getUserTier(session.user.id);
   if (!canAccessFeature(tier, "creator_tools_advanced")) {
@@ -100,28 +103,30 @@ Return ONLY valid JSON:
   "nicheInsight": "One paragraph: what makes this specific niche's audience different from a general YouTube audience, and what they consistently respond to"
 }`;
 
-  const trendResponse = await anthropic.messages.create({
-    model: MODELS.default,
-    max_tokens: 2000,
-    messages: [{ role: "user", content: trendPrompt }],
-  });
-
-  const trendText = trendResponse.content[0].type === "text"
-    ? trendResponse.content[0].text
-    : "{}";
-  const trendClean = trendText.replace(/```json\n?|```/g, "").trim();
-
-  let trendResult: { trends: NicheTrend[]; nicheInsight: string };
   try {
-    trendResult = JSON.parse(trendClean);
-  } catch {
-    return NextResponse.json({ error: "Failed to parse trend analysis" }, { status: 500 });
-  }
+    const trendResponse = await anthropic.messages.create({
+      model: MODELS.default,
+      max_tokens: 2000,
+      messages: [{ role: "user", content: trendPrompt }],
+    });
 
-  let performancePatterns: string[] = [];
+    const trendText = trendResponse.content[0].type === "text"
+      ? trendResponse.content[0].text
+      : "{}";
+    const trendClean = trendText.replace(/```json\n?|```/g, "").trim();
 
-  if (pastVideoData && pastVideoData.length >= 5) {
-    const perfPrompt = `Analyse the performance patterns in these past videos for a ${bible.niche} creator.
+    let trendResult: { trends: NicheTrend[]; nicheInsight: string };
+    try {
+      trendResult = JSON.parse(trendClean);
+    } catch {
+      await refundCredits(session.user.id, "trend-niche");
+      return NextResponse.json({ error: "Failed to parse trend analysis" }, { status: 500 });
+    }
+
+    let performancePatterns: string[] = [];
+
+    if (pastVideoData && pastVideoData.length >= 5) {
+      const perfPrompt = `Analyse the performance patterns in these past videos for a ${bible.niche} creator.
 
 Past videos (title, views):
 ${pastVideoData.map((v: PastVideo) => `- "${v.title}" — ${v.views ?? "?"} views`).join("\n")}
@@ -138,29 +143,33 @@ Return ONLY valid JSON:
   ]
 }`;
 
-    const perfResponse = await anthropic.messages.create({
-      model: MODELS.default,
-      max_tokens: 800,
-      messages: [{ role: "user", content: perfPrompt }],
-    });
+      const perfResponse = await anthropic.messages.create({
+        model: MODELS.default,
+        max_tokens: 800,
+        messages: [{ role: "user", content: perfPrompt }],
+      });
 
-    const perfText = perfResponse.content[0].type === "text"
-      ? perfResponse.content[0].text
-      : "{}";
-    const perfClean = perfText.replace(/```json\n?|```/g, "").trim();
+      const perfText = perfResponse.content[0].type === "text"
+        ? perfResponse.content[0].text
+        : "{}";
+      const perfClean = perfText.replace(/```json\n?|```/g, "").trim();
 
-    try {
-      const perfResult = JSON.parse(perfClean);
-      performancePatterns = perfResult.patterns ?? [];
-    } catch {
-      // Non-fatal — trends still returned
+      try {
+        const perfResult = JSON.parse(perfClean);
+        performancePatterns = perfResult.patterns ?? [];
+      } catch {
+        // Non-fatal — trends still returned
+      }
     }
-  }
 
-  return NextResponse.json({
-    trends: trendResult.trends,
-    nicheInsight: trendResult.nicheInsight,
-    performancePatterns,
-    niche: bible.niche,
-  });
+    return NextResponse.json({
+      trends: trendResult.trends,
+      nicheInsight: trendResult.nicheInsight,
+      performancePatterns,
+      niche: bible.niche,
+    });
+  } catch (error) {
+    await refundCredits(session.user.id, "trend-niche");
+    return NextResponse.json({ error: "Trend analysis failed. Please try again." }, { status: 500 });
+  }
 }

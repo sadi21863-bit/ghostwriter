@@ -7,6 +7,7 @@ import { getUserTier, canAccessFeature } from "@/lib/subscription";
 import Anthropic from "@anthropic-ai/sdk";
 import { MODELS } from "@/lib/ai/engine";
 import { GUEST_INTEL_SYSTEM_PROMPT } from "@/lib/ai/prompts";
+import { meterAndGate, refundCredits } from "@/lib/metering/meter";
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! });
 
@@ -14,6 +15,8 @@ export async function POST(req: Request) {
   const session = await getRequiredSession();
   const rl = await checkAiRateLimit(session.user.id);
   if (rl) return rl;
+  const gate = await meterAndGate(session.user.id, "guest-intel");
+  if (gate) return gate;
   const tier = await getUserTier(session.user.id);
   if (!canAccessFeature(tier, "creator_tools_advanced")) {
     return NextResponse.json({ error: "upgrade_required", feature: "creator_tools_advanced", tier }, { status: 403 });
@@ -43,6 +46,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ intel: { background: textContent, recentWork: [], strongOpinions: [], questions: [], topicsToAvoid: [], audienceKnows: "" } });
     }
   } catch (e: any) {
+    await refundCredits(session.user.id, "guest-intel");
     if (e.message?.includes("web_search")) {
       return NextResponse.json({ error: "Web search unavailable on this API tier." }, { status: 503 });
     }

@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getRequiredSession } from "@/lib/auth-helpers";
 import { checkAiRateLimit } from "@/lib/ratelimit";
 import { generateQuickStory, generateBeginnerCharacters, generateEntity, bootstrapCharacterIntelligence } from "@/lib/ai/engine";
+import { meterAndGate, refundCredits } from "@/lib/metering/meter";
 import { db } from "@/db";
 import { projects, characters, locations, plotThreads } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
@@ -12,6 +13,8 @@ export async function POST(req: NextRequest) {
     const session = await getRequiredSession();
     const rl = await checkAiRateLimit(session.user.id);
     if (rl) return rl;
+    const gate = await meterAndGate(session.user.id, "quick-start");
+    if (gate) return gate;
     const { projectId, title, format, genres } = await req.json();
 
     const owned = await db.query.projects.findFirst({
@@ -134,6 +137,7 @@ export async function POST(req: NextRequest) {
         });
     } catch (error) {
         console.error("Quick start error:", error);
+        await refundCredits(session.user.id, "quick-start");
         return NextResponse.json(
             { error: "Failed to generate story skeleton" },
             { status: 500 }

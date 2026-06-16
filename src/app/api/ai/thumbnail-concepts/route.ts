@@ -10,6 +10,7 @@ import { checkAiRateLimit } from "@/lib/ratelimit";
 import { getUserTier, canAccessFeature } from "@/lib/subscription";
 import Anthropic from "@anthropic-ai/sdk";
 import { MODELS } from "@/lib/ai/engine";
+import { meterAndGate, refundCredits } from "@/lib/metering/meter";
 
 const anthropic = new Anthropic();
 
@@ -17,6 +18,8 @@ export async function POST(req: Request) {
   const session = await getRequiredSession();
   const rl = await checkAiRateLimit(session.user.id);
   if (rl) return rl;
+  const gate = await meterAndGate(session.user.id, "thumbnail-concepts");
+  if (gate) return gate;
 
   const tier = await getUserTier(session.user.id);
   if (!canAccessFeature(tier, "creator_tools_advanced")) {
@@ -51,18 +54,23 @@ Return ONLY valid JSON:
   ]
 }`;
 
-  const response = await anthropic.messages.create({
-    model: MODELS.default,
-    max_tokens: 1400,
-    messages: [{ role: "user", content: prompt }],
-  });
-
-  const text = response.content[0].type === "text" ? response.content[0].text : "{}";
-  const clean = text.replace(/```json\n?|```/g, "").trim();
-
   try {
-    return NextResponse.json(JSON.parse(clean));
-  } catch {
-    return NextResponse.json({ concepts: [] });
+    const response = await anthropic.messages.create({
+      model: MODELS.default,
+      max_tokens: 1400,
+      messages: [{ role: "user", content: prompt }],
+    });
+
+    const text = response.content[0].type === "text" ? response.content[0].text : "{}";
+    const clean = text.replace(/```json\n?|```/g, "").trim();
+
+    try {
+      return NextResponse.json(JSON.parse(clean));
+    } catch {
+      return NextResponse.json({ concepts: [] });
+    }
+  } catch (e: any) {
+    await refundCredits(session.user.id, "thumbnail-concepts");
+    return NextResponse.json({ error: e.message || "Thumbnail concept generation failed." }, { status: 500 });
   }
 }

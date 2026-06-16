@@ -7,6 +7,7 @@ import { getUserTier, canAccessFeature } from "@/lib/subscription";
 import Anthropic from "@anthropic-ai/sdk";
 import { MODELS } from "@/lib/ai/engine";
 import { RETENTION_EDIT_SYSTEM_PROMPT } from "@/lib/ai/prompts";
+import { meterAndGate, refundCredits } from "@/lib/metering/meter";
 
 const anthropic = new Anthropic();
 
@@ -14,6 +15,8 @@ export async function POST(req: Request) {
   const session = await getRequiredSession();
   const rl = await checkAiRateLimit(session.user.id);
   if (rl) return rl;
+  const gate = await meterAndGate(session.user.id, "retention-edit");
+  if (gate) return gate;
   const tier = await getUserTier(session.user.id);
   if (!canAccessFeature(tier, "creator_tools_advanced")) {
     return NextResponse.json({ error: "upgrade_required", feature: "creator_tools_advanced" }, { status: 403 });
@@ -24,17 +27,18 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "script and format required" }, { status: 400 });
   }
 
-  const response = await anthropic.messages.create({
-    model: MODELS.default,
-    max_tokens: 2500,
-    system: [{
-      type: "text",
-      text: RETENTION_EDIT_SYSTEM_PROMPT,
-      cache_control: { type: "ephemeral" },
-    }],
-    messages: [{
-      role: "user",
-      content: `Analyse this ${format} script using the 4-mechanic watch-time framework.
+  try {
+    const response = await anthropic.messages.create({
+      model: MODELS.default,
+      max_tokens: 2500,
+      system: [{
+        type: "text",
+        text: RETENTION_EDIT_SYSTEM_PROMPT,
+        cache_control: { type: "ephemeral" },
+      }],
+      messages: [{
+        role: "user",
+        content: `Analyse this ${format} script using the 4-mechanic watch-time framework.
 
 THE FOUR MECHANICS:
 1. HOOK STRENGTH (first 30 seconds): Does the opening validate the title/thumbnail promise
@@ -80,13 +84,18 @@ Return JSON:
   "strongPoints": ["string"],
   "topPriority": "the single most important change to make first"
 }`,
-    }],
-  });
+      }],
+    });
 
-  const raw = response.content[0].type === "text" ? response.content[0].text : "{}";
-  try {
-    return NextResponse.json({ edit: JSON.parse(raw.replace(/```json\n?|```/g, "").trim()) });
-  } catch {
-    return NextResponse.json({ error: "Failed to parse analysis" }, { status: 500 });
+    const raw = response.content[0].type === "text" ? response.content[0].text : "{}";
+    try {
+      return NextResponse.json({ edit: JSON.parse(raw.replace(/```json\n?|```/g, "").trim()) });
+    } catch {
+      await refundCredits(session.user.id, "retention-edit");
+      return NextResponse.json({ error: "Failed to parse analysis" }, { status: 500 });
+    }
+  } catch (e: any) {
+    await refundCredits(session.user.id, "retention-edit");
+    return NextResponse.json({ error: e.message || "Retention edit analysis failed." }, { status: 500 });
   }
 }

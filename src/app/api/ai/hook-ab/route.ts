@@ -10,6 +10,7 @@ import { eq } from "drizzle-orm";
 import Anthropic from "@anthropic-ai/sdk";
 import { MODELS } from "@/lib/ai/engine";
 import { HOOK_STRATEGIST_SYSTEM_PROMPT } from "@/lib/ai/prompts";
+import { meterAndGate, refundCredits } from "@/lib/metering/meter";
 
 const anthropic = new Anthropic();
 
@@ -32,6 +33,8 @@ export async function POST(req: Request) {
   const session = await getRequiredSession();
   const rl = await checkAiRateLimit(session.user.id);
   if (rl) return rl;
+  const gate = await meterAndGate(session.user.id, "hook-ab");
+  if (gate) return gate;
   const tier = await getUserTier(session.user.id);
   if (!canAccessFeature(tier, "creator_tools_advanced")) {
     return NextResponse.json({ error: "upgrade_required", feature: "creator_tools_advanced" }, { status: 403 });
@@ -101,28 +104,34 @@ Return ONLY valid JSON:
   "overusedWarning": ${JSON.stringify(overused.length > 0 ? `You've used ${overused.join(", ")} heavily recently. These results avoid them.` : null)}
 }`;
 
-  const response = await anthropic.messages.create({
-    model: MODELS.default,
-    max_tokens: 1500,
-    system: [{ type: "text", text: HOOK_STRATEGIST_SYSTEM_PROMPT, cache_control: { type: "ephemeral" } }],
-    messages: [{ role: "user", content: prompt }],
-  });
-
-  const raw = response.content[0].type === "text" ? response.content[0].text : "{}";
-  let parsed: any;
   try {
-    parsed = JSON.parse(raw.replace(/```json\n?|```/g, "").trim());
-  } catch {
-    return NextResponse.json({ error: "Failed to parse hook response" }, { status: 500 });
-  }
+    const response = await anthropic.messages.create({
+      model: MODELS.default,
+      max_tokens: 1500,
+      system: [{ type: "text", text: HOOK_STRATEGIST_SYSTEM_PROMPT, cache_control: { type: "ephemeral" } }],
+      messages: [{ role: "user", content: prompt }],
+    });
 
-  if (projectId && bible && !isABMode && parsed.hooks) {
-    const newArchetypes = (parsed.hooks as any[]).map((h: any) => h.archetype).filter(Boolean);
-    const updatedMemory = [...hookMemory, ...newArchetypes].slice(-20);
-    await db.update(creatorBibles)
-      .set({ hookMemory: updatedMemory } as any)
-      .where(eq(creatorBibles.projectId, projectId));
-  }
+    const raw = response.content[0].type === "text" ? response.content[0].text : "{}";
+    let parsed: any;
+    try {
+      parsed = JSON.parse(raw.replace(/```json\n?|```/g, "").trim());
+    } catch {
+      await refundCredits(session.user.id, "hook-ab");
+      return NextResponse.json({ error: "Failed to parse hook response" }, { status: 500 });
+    }
 
-  return NextResponse.json(parsed);
+    if (projectId && bible && !isABMode && parsed.hooks) {
+      const newArchetypes = (parsed.hooks as any[]).map((h: any) => h.archetype).filter(Boolean);
+      const updatedMemory = [...hookMemory, ...newArchetypes].slice(-20);
+      await db.update(creatorBibles)
+        .set({ hookMemory: updatedMemory } as any)
+        .where(eq(creatorBibles.projectId, projectId));
+    }
+
+    return NextResponse.json(parsed);
+  } catch (e: any) {
+    await refundCredits(session.user.id, "hook-ab");
+    return NextResponse.json({ error: e.message || "Hook generation failed." }, { status: 500 });
+  }
 }

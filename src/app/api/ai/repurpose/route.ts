@@ -7,6 +7,7 @@ import { getUserTier, canAccessFeature } from "@/lib/subscription";
 import Anthropic from "@anthropic-ai/sdk";
 import { MODELS } from "@/lib/ai/engine";
 import { REPURPOSE_SYSTEM_PROMPT } from "@/lib/ai/prompts";
+import { meterAndGate, refundCredits } from "@/lib/metering/meter";
 
 const anthropic = new Anthropic();
 
@@ -14,6 +15,8 @@ export async function POST(req: Request) {
   const session = await getRequiredSession();
   const rl = await checkAiRateLimit(session.user.id);
   if (rl) return rl;
+  const gate = await meterAndGate(session.user.id, "repurpose");
+  if (gate) return gate;
   const tier = await getUserTier(session.user.id);
   if (!canAccessFeature(tier, "creator_tools_advanced")) {
     return NextResponse.json({ error: "upgrade_required", feature: "creator_tools_advanced" }, { status: 403 });
@@ -26,17 +29,18 @@ export async function POST(req: Request) {
 
   const targetPlatforms: string[] = platforms || ["youtube_short", "tiktok", "instagram", "twitter_thread", "linkedin", "newsletter", "youtube_description"];
 
-  const response = await anthropic.messages.create({
-    model: MODELS.default,
-    max_tokens: 4000,
-    system: [{
-      type: "text",
-      text: REPURPOSE_SYSTEM_PROMPT,
-      cache_control: { type: "ephemeral" },
-    }],
-    messages: [{
-      role: "user",
-      content: `Atomise this ${format || "YouTube"} script into native content for each requested platform.
+  try {
+    const response = await anthropic.messages.create({
+      model: MODELS.default,
+      max_tokens: 4000,
+      system: [{
+        type: "text",
+        text: REPURPOSE_SYSTEM_PROMPT,
+        cache_control: { type: "ephemeral" },
+      }],
+      messages: [{
+        role: "user",
+        content: `Atomise this ${format || "YouTube"} script into native content for each requested platform.
 
 ORIGINAL SCRIPT:
 ${script.slice(0, 4000)}
@@ -80,13 +84,18 @@ Return JSON where keys are platform names from the requested list:
   "youtube_description": "the description with timestamps"
 }
 Include only the platforms that were requested.`,
-    }],
-  });
+      }],
+    });
 
-  const raw = response.content[0].type === "text" ? response.content[0].text : "{}";
-  try {
-    return NextResponse.json(JSON.parse(raw.replace(/```json\n?|```/g, "").trim()));
-  } catch {
-    return NextResponse.json({ error: "Parse failed" }, { status: 500 });
+    const raw = response.content[0].type === "text" ? response.content[0].text : "{}";
+    try {
+      return NextResponse.json(JSON.parse(raw.replace(/```json\n?|```/g, "").trim()));
+    } catch {
+      await refundCredits(session.user.id, "repurpose");
+      return NextResponse.json({ error: "Parse failed" }, { status: 500 });
+    }
+  } catch (e: any) {
+    await refundCredits(session.user.id, "repurpose");
+    return NextResponse.json({ error: e.message || "Repurpose failed." }, { status: 500 });
   }
 }

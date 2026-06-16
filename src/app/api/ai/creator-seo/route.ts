@@ -7,6 +7,7 @@ import { getUserTier, canAccessFeature } from "@/lib/subscription";
 import Anthropic from "@anthropic-ai/sdk";
 import { MODELS } from "@/lib/ai/engine";
 import { CREATOR_SEO_SYSTEM_PROMPT } from "@/lib/ai/prompts";
+import { meterAndGate, refundCredits } from "@/lib/metering/meter";
 
 const anthropic = new Anthropic();
 
@@ -14,6 +15,8 @@ export async function POST(req: Request) {
   const session = await getRequiredSession();
   const rl = await checkAiRateLimit(session.user.id);
   if (rl) return rl;
+  const gate = await meterAndGate(session.user.id, "creator-seo");
+  if (gate) return gate;
   const tier = await getUserTier(session.user.id);
   if (!canAccessFeature(tier, "creator_tools_advanced")) {
     return NextResponse.json({ error: "upgrade_required", feature: "creator_tools_advanced" }, { status: 403 });
@@ -22,17 +25,18 @@ export async function POST(req: Request) {
   const { script, videoTitle, niche, channelName, chapterBreaks } = await req.json();
   if (!script?.trim()) return NextResponse.json({ error: "script required" }, { status: 400 });
 
-  const response = await anthropic.messages.create({
-    model: MODELS.default,
-    max_tokens: 3000,
-    system: [{
-      type: "text",
-      text: CREATOR_SEO_SYSTEM_PROMPT,
-      cache_control: { type: "ephemeral" },
-    }],
-    messages: [{
-      role: "user",
-      content: `Generate complete YouTube SEO metadata for this video.
+  try {
+    const response = await anthropic.messages.create({
+      model: MODELS.default,
+      max_tokens: 3000,
+      system: [{
+        type: "text",
+        text: CREATOR_SEO_SYSTEM_PROMPT,
+        cache_control: { type: "ephemeral" },
+      }],
+      messages: [{
+        role: "user",
+        content: `Generate complete YouTube SEO metadata for this video.
 
 Script excerpt (first 2000 chars):
 ${script.slice(0, 2000)}
@@ -60,13 +64,18 @@ Return ONLY valid JSON:
     "longTailOpportunity": "string"
   }
 }`,
-    }],
-  });
+      }],
+    });
 
-  const raw = response.content[0].type === "text" ? response.content[0].text : "{}";
-  try {
-    return NextResponse.json(JSON.parse(raw.replace(/```json\n?|```/g, "").trim()));
-  } catch {
-    return NextResponse.json({ error: "Parse failed" }, { status: 500 });
+    const raw = response.content[0].type === "text" ? response.content[0].text : "{}";
+    try {
+      return NextResponse.json(JSON.parse(raw.replace(/```json\n?|```/g, "").trim()));
+    } catch {
+      await refundCredits(session.user.id, "creator-seo");
+      return NextResponse.json({ error: "Parse failed" }, { status: 500 });
+    }
+  } catch (e: any) {
+    await refundCredits(session.user.id, "creator-seo");
+    return NextResponse.json({ error: e.message || "Creator SEO generation failed." }, { status: 500 });
   }
 }

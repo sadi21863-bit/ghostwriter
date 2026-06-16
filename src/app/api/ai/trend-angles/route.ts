@@ -10,6 +10,7 @@ import { eq } from "drizzle-orm";
 import Anthropic from "@anthropic-ai/sdk";
 import { MODELS } from "@/lib/ai/engine";
 import { trendAnglesSystemPrompt } from "@/lib/ai/prompts";
+import { meterAndGate, refundCredits } from "@/lib/metering/meter";
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! });
 
@@ -17,6 +18,8 @@ export async function POST(req: Request) {
   const session = await getRequiredSession();
   const rl = await checkAiRateLimit(session.user.id);
   if (rl) return rl;
+  const gate = await meterAndGate(session.user.id, "trend-angles");
+  if (gate) return gate;
   const tier = await getUserTier(session.user.id);
   if (!canAccessFeature(tier, "creator_tools_advanced")) {
     return NextResponse.json({ error: "upgrade_required", feature: "creator_tools_advanced", tier }, { status: 403 });
@@ -56,6 +59,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ trends: { angles: [], trendingSources: [], raw: textContent } });
     }
   } catch (e: any) {
+    await refundCredits(session.user.id, "trend-angles");
     if (e.message?.includes("web_search")) {
       return NextResponse.json({ error: "Web search unavailable on this API tier." }, { status: 503 });
     }

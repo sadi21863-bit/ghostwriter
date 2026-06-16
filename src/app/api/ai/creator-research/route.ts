@@ -6,6 +6,7 @@ import { checkAiRateLimit } from "@/lib/ratelimit";
 import Anthropic from "@anthropic-ai/sdk";
 import { MODELS } from "@/lib/ai/engine";
 import { checkSemanticCache, writeSemanticCache } from "@/lib/semantic-cache";
+import { meterAndGate, refundCredits } from "@/lib/metering/meter";
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! });
 
@@ -13,6 +14,8 @@ export async function POST(req: NextRequest) {
   const session = await getRequiredSession();
   const rl = await checkAiRateLimit(session.user.id);
   if (rl) return rl;
+  const gate = await meterAndGate(session.user.id, "creator-research");
+  if (gate) return gate;
 
   const { topic, format, targetAudience } = await req.json();
   if (!topic?.trim()) return NextResponse.json({ error: "topic required" }, { status: 400 });
@@ -55,6 +58,7 @@ TRENDING ANGLE (why this topic is relevant right now)`,
     if (fullText) { writeSemanticCache("domain_research", semanticKey, { researchBrief: fullText }); }
     return NextResponse.json({ researchBrief: fullText });
   } catch (e: any) {
+    await refundCredits(session.user.id, "creator-research");
     const msg = e?.message || "";
     if (msg.includes("rate_limit") || msg.includes("529"))
       return NextResponse.json({ error: "Rate limit hit. Please try again." }, { status: 429 });

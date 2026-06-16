@@ -7,6 +7,7 @@ import { getUserTier, canAccessFeature } from "@/lib/subscription";
 import Anthropic from "@anthropic-ai/sdk";
 import { MODELS } from "@/lib/ai/engine";
 import { scoreHookSystemPrompt } from "@/lib/ai/prompts";
+import { meterAndGate, refundCredits } from "@/lib/metering/meter";
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! });
 
@@ -19,6 +20,8 @@ export async function POST(req: Request) {
   const session = await getRequiredSession();
   const rl = await checkAiRateLimit(session.user.id);
   if (rl) return rl;
+  const gate = await meterAndGate(session.user.id, "score-hook");
+  if (gate) return gate;
   const tier = await getUserTier(session.user.id);
   if (!canAccessFeature(tier, "creator_tools_advanced")) {
     return NextResponse.json({ error: "upgrade_required", feature: "creator_tools_advanced" }, { status: 403 });
@@ -44,6 +47,7 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ score: parsed.score, feedback: parsed.feedback });
   } catch (e: any) {
+    await refundCredits(session.user.id, "score-hook");
     const msg = e?.message || "";
     if (msg.includes("rate_limit") || msg.includes("529"))
       return NextResponse.json({ error: "Anthropic rate limit hit. Wait a moment and try again." }, { status: 429 });

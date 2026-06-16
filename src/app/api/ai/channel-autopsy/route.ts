@@ -10,6 +10,7 @@ import { eq, and, inArray } from "drizzle-orm";
 import Anthropic from "@anthropic-ai/sdk";
 import { MODELS } from "@/lib/ai/engine";
 import { CHANNEL_AUTOPSY_SYSTEM_PROMPT } from "@/lib/ai/prompts";
+import { meterAndGate, refundCredits } from "@/lib/metering/meter";
 
 const anthropic = new Anthropic();
 
@@ -17,6 +18,8 @@ export async function POST(req: Request) {
   const session = await getRequiredSession();
   const rl = await checkAiRateLimit(session.user.id);
   if (rl) return rl;
+  const gate = await meterAndGate(session.user.id, "channel-autopsy");
+  if (gate) return gate;
   const tier = await getUserTier(session.user.id);
   if (!canAccessFeature(tier, "creator_tools_advanced")) {
     return NextResponse.json({ error: "upgrade_required", feature: "creator_tools_advanced" }, { status: 403 });
@@ -52,17 +55,18 @@ export async function POST(req: Request) {
     return `VIDEO ${i + 1} (${j.youtubeUrl}):\n${JSON.stringify(result, null, 2).slice(0, 1500)}`;
   }).join("\n\n---\n\n");
 
-  const response = await anthropic.messages.create({
-    model: MODELS.default,
-    max_tokens: 3000,
-    system: [{
-      type: "text",
-      text: CHANNEL_AUTOPSY_SYSTEM_PROMPT,
-      cache_control: { type: "ephemeral" },
-    }],
-    messages: [{
-      role: "user",
-      content: `Analyse these ${completed.length} video analyses for ${channelName || "this channel"}${niche ? ` in the ${niche} niche` : ""}.
+  try {
+    const response = await anthropic.messages.create({
+      model: MODELS.default,
+      max_tokens: 3000,
+      system: [{
+        type: "text",
+        text: CHANNEL_AUTOPSY_SYSTEM_PROMPT,
+        cache_control: { type: "ephemeral" },
+      }],
+      messages: [{
+        role: "user",
+        content: `Analyse these ${completed.length} video analyses for ${channelName || "this channel"}${niche ? ` in the ${niche} niche` : ""}.
 
 Find:
 1. Structural DNA: what patterns repeat across all/most videos (hook types, pacing, length, format)
@@ -91,13 +95,18 @@ Return JSON:
   "bestPerformingPattern": "string",
   "nextVideoRecommendation": { "title": "string", "hook": "string", "rationale": "string" }
 }`,
-    }],
-  });
+      }],
+    });
 
-  const raw = response.content[0].type === "text" ? response.content[0].text : "{}";
-  try {
-    return NextResponse.json(JSON.parse(raw.replace(/```json\n?|```/g, "").trim()));
-  } catch {
-    return NextResponse.json({ error: "Parse failed" }, { status: 500 });
+    const raw = response.content[0].type === "text" ? response.content[0].text : "{}";
+    try {
+      return NextResponse.json(JSON.parse(raw.replace(/```json\n?|```/g, "").trim()));
+    } catch {
+      await refundCredits(session.user.id, "channel-autopsy");
+      return NextResponse.json({ error: "Parse failed" }, { status: 500 });
+    }
+  } catch (e: any) {
+    await refundCredits(session.user.id, "channel-autopsy");
+    return NextResponse.json({ error: e.message || "Channel autopsy failed." }, { status: 500 });
   }
 }

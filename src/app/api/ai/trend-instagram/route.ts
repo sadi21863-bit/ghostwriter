@@ -11,6 +11,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { MODELS } from "@/lib/ai/engine";
 import { decrypt } from "@/lib/crypto";
 import { TREND_INSTAGRAM_SYSTEM_PROMPT } from "@/lib/ai/prompts";
+import { meterAndGate, refundCredits } from "@/lib/metering/meter";
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! });
 
@@ -18,6 +19,8 @@ export async function POST(req: Request) {
   const s = await getRequiredSession();
   const rl = await checkAiRateLimit(s.user.id);
   if (rl) return rl;
+  const gate = await meterAndGate(s.user.id, "trend-instagram");
+  if (gate) return gate;
   const tier = await getUserTier(s.user.id);
   if (!canAccessFeature(tier, "creator_tools_advanced")) {
     return NextResponse.json({ error: "upgrade_required", feature: "creator_tools_advanced", tier }, { status: 403 });
@@ -122,6 +125,7 @@ Analyse this data and return JSON:
     }
 
   } catch {
+    await refundCredits(s.user.id, "trend-instagram");
     return NextResponse.json({ error: "Trend analysis failed. Please try again." }, { status: 500 });
   }
 }

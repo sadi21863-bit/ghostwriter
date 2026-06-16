@@ -10,6 +10,7 @@ import { eq } from "drizzle-orm";
 import Anthropic from "@anthropic-ai/sdk";
 import { MODELS } from "@/lib/ai/engine";
 import { TREND_YOUTUBE_SYSTEM_PROMPT } from "@/lib/ai/prompts";
+import { meterAndGate, refundCredits } from "@/lib/metering/meter";
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! });
 
@@ -17,6 +18,8 @@ export async function POST(req: Request) {
   const session = await getRequiredSession();
   const rl = await checkAiRateLimit(session.user.id);
   if (rl) return rl;
+  const gate = await meterAndGate(session.user.id, "trend-youtube");
+  if (gate) return gate;
   const tier = await getUserTier(session.user.id);
   if (!canAccessFeature(tier, "creator_tools_advanced")) {
     return NextResponse.json({ error: "upgrade_required", feature: "creator_tools_advanced", tier }, { status: 403 });
@@ -124,6 +127,7 @@ Return JSON:
     }
 
   } catch (e: any) {
+    await refundCredits(session.user.id, "trend-youtube");
     const msg = e?.message || "";
     if (msg.includes("401") || msg.includes("authentication") || msg.includes("api_key")) {
       return NextResponse.json({ error: "AI service authentication failed. Contact support." }, { status: 500 });

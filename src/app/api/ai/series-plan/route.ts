@@ -10,12 +10,15 @@ import { projects } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { MODELS } from "@/lib/ai/engine";
 import { seriesPlanSystemPrompt } from "@/lib/ai/prompts";
+import { meterAndGate, refundCredits } from "@/lib/metering/meter";
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! });
 
 export async function POST(req: Request) {
   const s = await getRequiredSession();
   const rl = await checkAiRateLimit(s.user.id);
   if (rl) return rl;
+  const gate = await meterAndGate(s.user.id, "series-plan");
+  if (gate) return gate;
   const tier = await getUserTier(s.user.id);
   if (!canAccessFeature(tier, "creator_tools_advanced")) {
     return NextResponse.json({ error: "upgrade_required", feature: "creator_tools_advanced" }, { status: 403 });
@@ -50,6 +53,7 @@ export async function POST(req: Request) {
     try { return NextResponse.json({ plan: JSON.parse(raw.replace(/```json\n?|```/g, "").trim()) }); }
     catch { return NextResponse.json({ error: "Failed to parse plan" }, { status: 500 }); }
   } catch (e: any) {
+    await refundCredits(s.user.id, "series-plan");
     const msg = e?.message || "";
     if (msg.includes("rate_limit") || msg.includes("529"))
       return NextResponse.json({ error: "Rate limit hit. Try again in a moment." }, { status: 429 });
