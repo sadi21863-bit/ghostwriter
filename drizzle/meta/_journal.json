@@ -57,6 +57,13 @@
       "when": 1781603729700,
       "tag": "0007_silky_puppet_master",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1781610709881,
+      "tag": "0008_minor_human_robot",
+      "breakpoints": true
     }
   ]
 }
