@@ -116,7 +116,16 @@ export async function POST(req: Request) {
       total_count: period === 'annual' ? 10 : 120,
       notes: { userId: session.user.id, tier, billingPeriod: period },
     }));
-  } catch {
+  } catch (err) {
+    const e = err as { statusCode?: number; error?: { code?: string; description?: string } };
+    console.error('[subscription] Razorpay create failed:', JSON.stringify({
+      statusCode: e?.statusCode,
+      code: e?.error?.code,
+      description: e?.error?.description,
+      planId,
+      tier,
+      period,
+    }));
     return NextResponse.json({
       error: 'Payment provider is temporarily unavailable. Please try again in a moment.',
     }, { status: 503 });
