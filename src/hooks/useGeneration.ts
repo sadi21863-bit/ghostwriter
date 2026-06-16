@@ -5,7 +5,6 @@ import { buildStaticContext, buildDynamicContext, buildCreatorContext } from "@/
 import { isCreatorFormat } from "@/lib/formats";
 import { MODE_REGISTRY, type GenerationMode } from "@/lib/modes/registry";
 import type { CompositionLayer } from "@/lib/ai/composer";
-import { getWordCount } from "@/lib/editor/content-migration";
 import { parseBeatList } from "@/lib/modes/beats";
 import { appendToTipTap, buildNeighbourContext, callAI } from "./ai-shared";
 
@@ -118,7 +117,6 @@ export function useGeneration({
           setUndoStack(s => [...s.slice(-9), activeChap.content]);
           const merged = appendToTipTap(activeChap.content, r.text);
           updateChapter("content", merged);
-          updateChapter("wordCount", getWordCount(merged));
         } else {
           setStreamText(r.text);
           if (mode === "outline" && parseBeatList(r.text)) {
@@ -181,7 +179,6 @@ export function useGeneration({
     setUndoStack(s => [...s.slice(-9), activeChap.content]);
     const merged = appendToTipTap(activeChap.content, r.text);
     updateChapter("content", merged);
-    updateChapter("wordCount", getWordCount(merged));
   };
 
   const autoSummarize = async () => {
@@ -576,7 +573,6 @@ export function useGeneration({
         setUndoStack(s => [...s.slice(-9), activeChap.content]);
         const merged2 = appendToTipTap(activeChap.content, r.text);
         updateChapter("content", merged2);
-        updateChapter("wordCount", getWordCount(merged2));
       } else setStreamText(r.text);
     } catch { toast.error("Generation failed. Please try again."); }
     setGenerating(false); setGenTarget("");

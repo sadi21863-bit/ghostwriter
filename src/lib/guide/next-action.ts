@@ -1,6 +1,7 @@
 // src/lib/guide/next-action.ts
 import type { GenerationMode } from "@/lib/modes/registry";
 import { isCreatorFormat } from "@/lib/formats";
+import { tiptapToPlainText, isValidTipTapJson } from "@/lib/editor/content-migration";
 
 export type GuideStage = "idea" | "structure" | "draft" | "polish" | "export";
 
@@ -25,6 +26,7 @@ export interface GuideChapter {
   title: string;
   wordCount: number;
   sortOrder: number;
+  content?: string;
 }
 
 export interface GuideProject {
@@ -89,7 +91,13 @@ function computeAction(project: GuideProject): GuideAction | null {
   }
 
   const sortedChapters = [...project.chapters].sort((a, b) => a.sortOrder - b.sortOrder);
-  const hasAnyDraft = sortedChapters.some((c) => c.wordCount > 0);
+  const hasAnyDraft = sortedChapters.some((c) => {
+    if (c.content) {
+      const plain = isValidTipTapJson(c.content) ? tiptapToPlainText(JSON.parse(c.content)) : c.content;
+      return plain.trim().length > 0;
+    }
+    return c.wordCount > 0;
+  });
 
   if (!hasAnyDraft) {
     return {

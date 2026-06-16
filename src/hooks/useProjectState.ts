@@ -22,6 +22,7 @@ export function useProjectState(projectId: string) {
   const summarizeTimer = useRef<any>(null);
   const bibleSaveTimer = useRef<any>(null);
   const evolutionTriggeredRef = useRef<Set<number>>(new Set());
+  const pendingChangesRef = useRef<Record<string, any>>({});
 
   useEffect(() => {
     fetch("/api/user/settings").then(r => r.json()).then(data => {
@@ -73,12 +74,19 @@ export function useProjectState(projectId: string) {
     updateProject((p: any) => ({ ...p, chapters: p.chapters.map((c: any) => c.id === p.activeChapter ? { ...c, [f]: v } : c) }));
     const chapId = project.activeChapter;
     const projId = project.id;
+    // Accumulate pending changes so rapid successive calls (e.g. content + wordCount)
+    // are sent in a single PATCH instead of separate debounced calls that overwrite each other.
+    pendingChangesRef.current = { ...pendingChangesRef.current, [f]: v };
     clearTimeout(chapterSaveTimer.current);
     chapterSaveTimer.current = setTimeout(() => {
+      const batch = { ...pendingChangesRef.current };
+      pendingChangesRef.current = {};
+      const contentValue = batch["content"];
+      const hasContent = "content" in batch;
       fetch(`/api/projects/${projId}/chapters/${chapId}`, {
-        method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ [f]: v }),
+        method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(batch),
       }).then(() => {
-        if (f === "content" && v && v.trim().split(/\s+/).length > 300) {
+        if (hasContent && contentValue && contentValue.trim().split(/\s+/).length > 300) {
           fetch(`/api/projects/${projId}/chapters/${chapId}/extract-memory`, { method: "POST" })
             .then(r => r.json()).then(data => {
               if (data.memories?.length) {
@@ -90,17 +98,17 @@ export function useProjectState(projectId: string) {
             }).catch(() => {});
         }
         // Phase 4: Passive suggestions — algorithmic, zero-cost, runs on every content save
-        if (f === "content" && v) {
+        if (hasContent && contentValue) {
           const sortedChapters = [...(project.chapters || [])].sort((a: any, b: any) => a.sortOrder - b.sortOrder);
           const chapIdx = sortedChapters.findIndex((c: any) => c.id === chapId);
           const prevContent = chapIdx > 0 ? sortedChapters[chapIdx - 1]?.content : undefined;
-          const suggestions = runPassiveChecks(v, prevContent);
+          const suggestions = runPassiveChecks(contentValue, prevContent);
           setPassiveSuggestions(suggestions);
         }
         clearTimeout(summarizeTimer.current);
-        if (f === "content" && v && v.trim().split(/\s+/).length > 500) {
+        if (hasContent && contentValue && contentValue.trim().split(/\s+/).length > 500) {
           summarizeTimer.current = setTimeout(() => {
-            fetch(`/api/ai/summarize`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ content: v }) })
+            fetch(`/api/ai/summarize`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ content: contentValue }) })
               .then(r => r.json())
               .then(data => {
                 if (data.summary) {
