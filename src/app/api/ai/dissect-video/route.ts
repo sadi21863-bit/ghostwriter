@@ -3,6 +3,7 @@ export const dynamic = 'force-dynamic';
 import { NextResponse } from "next/server";
 import { getRequiredSession } from "@/lib/auth-helpers";
 import { checkAiRateLimit } from "@/lib/ratelimit";
+import { meterAndGate, refundCredits } from "@/lib/metering/meter";
 import { getUserTier, canAccessFeature } from "@/lib/subscription";
 import { checkGeminiKey } from "@/lib/env-check";
 import { db } from "@/db";
@@ -32,6 +33,9 @@ export async function POST(req: Request) {
   if (!canAccessFeature(tier, "creator_tools_advanced")) {
     return NextResponse.json({ error: "upgrade_required", feature: "creator_tools_advanced", tier }, { status: 403 });
   }
+
+  const gate = await meterAndGate(s.user.id, "dissect-video");
+  if (gate) return gate;
 
   const geminiError = checkGeminiKey();
   if (geminiError) {
@@ -85,6 +89,7 @@ export async function POST(req: Request) {
     );
 
     if (!dispatchRes.ok) {
+      await refundCredits(s.user.id, "dissect-video");
       await db
         .update(videoAnalysisJobs)
         .set({ status: "error", errorMessage: "Failed to start analysis workflow", updatedAt: new Date() })
@@ -92,6 +97,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Failed to start video analysis. Please try again." }, { status: 500 });
     }
   } catch {
+    await refundCredits(s.user.id, "dissect-video");
     return NextResponse.json({ error: "Failed to start video analysis. Please try again." }, { status: 500 });
   }
 

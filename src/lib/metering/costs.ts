@@ -8,6 +8,7 @@ export const OPERATION_CREDITS: Record<string, number> = {
   "virality-predict":  0.3, "series-plan": 0.4, "guest-intel": 0.3, "retention-edit": 0.4,
   "repurpose":         0.3, "creator-seo": 0.2, "creator-research": 0.5, "channel-autopsy": 0.4,
   "tiktok-native":     0.3,
+  "dissect-video":     1.5,
   "entity":            0.1, "suggest": 0.1, "summarize": 0.2,
 };
 

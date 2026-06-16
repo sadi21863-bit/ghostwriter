@@ -2,6 +2,7 @@ export const dynamic = 'force-dynamic';
 
 import { NextResponse } from "next/server";
 import { getRequiredSession } from "@/lib/auth-helpers";
+import { bootstrapCharacterIntelligence } from "@/lib/ai/engine";
 import { db } from "@/db";
 import { characters, projects } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
@@ -18,5 +19,19 @@ export async function POST(req: Request, { params }: { params: Promise<{ project
     projectId, name, role, age, appearance, personality, thinkingStyle, behavior, habits, fears,
     desires, speechPattern, backstory, arc, alwaysInContext, sortOrder, contextVisibility,
   }).returning();
+
+  if (r) {
+    bootstrapCharacterIntelligence(
+      { name: r.name, role: r.role ?? "", age: r.age ?? "", personality: r.personality ?? "" },
+      "",
+      project.format,
+    )
+      .then(async (intelligence) => {
+        if (Object.keys(intelligence).length === 0) return;
+        await db.update(characters).set(intelligence as any).where(eq(characters.id, r.id));
+      })
+      .catch((err) => console.error("[bootstrap] Failed for", r.name, err));
+  }
+
   return NextResponse.json(r, { status: 201 });
 }

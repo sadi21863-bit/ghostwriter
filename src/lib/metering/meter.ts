@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { db } from "@/db";
-import { users } from "@/db/schema";
+import { users, generations } from "@/db/schema";
 import { eq, sql, and } from "drizzle-orm";
 import { getUserTier, MONTHLY_GENERATION_LIMITS } from "@/lib/subscription";
 import { creditsFor } from "./costs";
@@ -56,6 +56,7 @@ export async function meterAndGate(
     await db.update(users)
       .set({ monthlyGenerations: sql`${users.monthlyGenerations} + ${cost}` })
       .where(eq(users.id, userId));
+    db.insert(generations).values({ projectId: null, mode: operation, prompt: "", output: "" }).catch(() => {});
     return null;
   }
 
@@ -79,6 +80,7 @@ export async function meterAndGate(
     );
   }
 
+  db.insert(generations).values({ projectId: null, mode: operation, prompt: "", output: "" }).catch(() => {});
   return null;
 }
 
