@@ -4,6 +4,7 @@ import { toast } from "@/lib/toast";
 import { isCreatorFormat, getChapterLabel } from "@/lib/formats";
 import { runPassiveChecks } from "@/lib/suggestions/passive";
 import type { PassiveSuggestion } from "@/lib/suggestions/passive";
+import { getWordCount } from "@/lib/editor/content-migration";
 
 export function useProjectState(projectId: string) {
   const [project, setProject] = useState<any>(null);
@@ -22,7 +23,7 @@ export function useProjectState(projectId: string) {
   const summarizeTimer = useRef<any>(null);
   const bibleSaveTimer = useRef<any>(null);
   const evolutionTriggeredRef = useRef<Set<number>>(new Set());
-  const pendingChangesRef = useRef<Record<string, any>>({});
+  const pendingChangesRef = useRef<{ chapId: string; projId: string; fields: Record<string, any> } | null>(null);
 
   useEffect(() => {
     fetch("/api/user/settings").then(r => r.json()).then(data => {
@@ -74,24 +75,40 @@ export function useProjectState(projectId: string) {
     updateProject((p: any) => ({ ...p, chapters: p.chapters.map((c: any) => c.id === p.activeChapter ? { ...c, [f]: v } : c) }));
     const chapId = project.activeChapter;
     const projId = project.id;
+
+    // If there's a pending batch for a DIFFERENT chapter, flush it immediately before starting new batch
+    const existing = pendingChangesRef.current;
+    if (existing && (existing.chapId !== chapId || existing.projId !== projId)) {
+      clearTimeout(chapterSaveTimer.current);
+      const { chapId: oldChapId, projId: oldProjId, fields: oldFields } = existing;
+      fetch(`/api/projects/${oldProjId}/chapters/${oldChapId}`, {
+        method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(oldFields),
+      }).catch(() => { toast.warning("Chapter save failed — retrying..."); });
+      pendingChangesRef.current = null;
+    }
+
     // Accumulate pending changes so rapid successive calls (e.g. content + wordCount)
     // are sent in a single PATCH instead of separate debounced calls that overwrite each other.
-    pendingChangesRef.current = { ...pendingChangesRef.current, [f]: v };
+    if (!pendingChangesRef.current) {
+      pendingChangesRef.current = { chapId, projId, fields: {} };
+    }
+    pendingChangesRef.current.fields[f] = v;
+
     clearTimeout(chapterSaveTimer.current);
     chapterSaveTimer.current = setTimeout(() => {
-      const batch = { ...pendingChangesRef.current };
-      pendingChangesRef.current = {};
+      const { chapId: batchChapId, projId: batchProjId, fields: batch } = pendingChangesRef.current!;
+      pendingChangesRef.current = null;
       const contentValue = batch["content"];
       const hasContent = "content" in batch;
-      fetch(`/api/projects/${projId}/chapters/${chapId}`, {
+      fetch(`/api/projects/${batchProjId}/chapters/${batchChapId}`, {
         method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(batch),
       }).then(() => {
-        if (hasContent && contentValue && contentValue.trim().split(/\s+/).length > 300) {
-          fetch(`/api/projects/${projId}/chapters/${chapId}/extract-memory`, { method: "POST" })
+        if (hasContent && contentValue && getWordCount(contentValue) > 300) {
+          fetch(`/api/projects/${batchProjId}/chapters/${batchChapId}/extract-memory`, { method: "POST" })
             .then(r => r.json()).then(data => {
               if (data.memories?.length) {
                 setStoryMemories(prev => [
-                  ...prev.filter((m: any) => !(m.chapterId === chapId && m.autoExtracted)),
+                  ...prev.filter((m: any) => !(m.chapterId === batchChapId && m.autoExtracted)),
                   ...data.memories,
                 ]);
               }
@@ -100,20 +117,20 @@ export function useProjectState(projectId: string) {
         // Phase 4: Passive suggestions — algorithmic, zero-cost, runs on every content save
         if (hasContent && contentValue) {
           const sortedChapters = [...(project.chapters || [])].sort((a: any, b: any) => a.sortOrder - b.sortOrder);
-          const chapIdx = sortedChapters.findIndex((c: any) => c.id === chapId);
+          const chapIdx = sortedChapters.findIndex((c: any) => c.id === batchChapId);
           const prevContent = chapIdx > 0 ? sortedChapters[chapIdx - 1]?.content : undefined;
           const suggestions = runPassiveChecks(contentValue, prevContent);
           setPassiveSuggestions(suggestions);
         }
         clearTimeout(summarizeTimer.current);
-        if (hasContent && contentValue && contentValue.trim().split(/\s+/).length > 500) {
+        if (hasContent && contentValue && getWordCount(contentValue) > 500) {
           summarizeTimer.current = setTimeout(() => {
             fetch(`/api/ai/summarize`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ content: contentValue }) })
               .then(r => r.json())
               .then(data => {
                 if (data.summary) {
-                  fetch(`/api/projects/${projId}/chapters/${chapId}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ summary: data.summary }) });
-                  updateProject((p: any) => ({ ...p, chapters: p.chapters.map((c: any) => c.id === chapId ? { ...c, summary: data.summary } : c) }));
+                  fetch(`/api/projects/${batchProjId}/chapters/${batchChapId}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ summary: data.summary }) });
+                  updateProject((p: any) => ({ ...p, chapters: p.chapters.map((c: any) => c.id === batchChapId ? { ...c, summary: data.summary } : c) }));
                 }
               }).catch(() => {});
           }, 8000);
