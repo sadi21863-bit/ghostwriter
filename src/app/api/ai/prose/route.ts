@@ -3,6 +3,7 @@ export const dynamic = 'force-dynamic';
 import { NextResponse } from "next/server";
 import { getRequiredSession } from "@/lib/auth-helpers";
 import { checkAiRateLimit } from "@/lib/ratelimit";
+import { meterAndGate, refundCredits } from "@/lib/metering/meter";
 import { getUserTier, canAccessFeature } from "@/lib/subscription";
 import Anthropic from "@anthropic-ai/sdk";
 import { MODELS } from "@/lib/ai/engine";
@@ -25,6 +26,8 @@ export async function POST(req: Request) {
   const session = await getRequiredSession();
   const rl = await checkAiRateLimit(session.user.id);
   if (rl) return rl;
+  const gate = await meterAndGate(session.user.id, "prose");
+  if (gate) return gate;
   const tier = await getUserTier(session.user.id);
   if (!canAccessFeature(tier, 'story_modes_advanced')) {
     return NextResponse.json({ error: 'upgrade_required', feature: 'prose_tools' }, { status: 403 });
@@ -75,6 +78,7 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ result: raw });
   } catch (e: any) {
+    await refundCredits(session.user.id, "prose");
     const msg = e?.message || "";
     if (msg.includes("rate_limit") || msg.includes("529"))
       return NextResponse.json({ error: "Anthropic rate limit hit. Wait a moment and try again." }, { status: 429 });

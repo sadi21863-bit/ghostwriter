@@ -3,6 +3,7 @@ export const dynamic = 'force-dynamic';
 import { NextResponse } from "next/server";
 import { getRequiredSession } from "@/lib/auth-helpers";
 import { checkAiRateLimit } from "@/lib/ratelimit";
+import { meterAndGate, refundCredits } from "@/lib/metering/meter";
 import { getUserTier, canAccessFeature } from "@/lib/subscription";
 import Anthropic from "@anthropic-ai/sdk";
 import { MODELS } from "@/lib/ai/engine";
@@ -44,6 +45,8 @@ export async function POST(req: Request) {
   const session = await getRequiredSession();
   const rl = await checkAiRateLimit(session.user.id);
   if (rl) return rl;
+  const gate = await meterAndGate(session.user.id, "pipeline");
+  if (gate) return gate;
   const tier = await getUserTier(session.user.id);
   if (!canAccessFeature(tier, 'story_modes_advanced')) {
     return NextResponse.json({ error: 'upgrade_required', feature: 'pipeline' }, { status: 403 });
@@ -77,6 +80,7 @@ export async function POST(req: Request) {
       currentInput = output;
     }
   } catch (e: any) {
+    await refundCredits(session.user.id, "pipeline");
     if (controller.signal.aborted)
       return NextResponse.json({ error: "Pipeline timed out. Try a shorter prompt or fewer agents." }, { status: 504 });
     return NextResponse.json({ error: "Pipeline failed. Please try again." }, { status: 500 });

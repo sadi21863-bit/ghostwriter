@@ -7,6 +7,7 @@ export const dynamic = 'force-dynamic';
 import { NextResponse } from "next/server";
 import { getRequiredSession } from "@/lib/auth-helpers";
 import { checkAiRateLimit } from "@/lib/ratelimit";
+import { meterAndGate, refundCredits } from "@/lib/metering/meter";
 import { getUserTier, canAccessFeature } from "@/lib/subscription";
 import { db } from "@/db";
 import { projects, characters, storyMemories } from "@/db/schema";
@@ -20,6 +21,8 @@ export async function POST(req: Request) {
   const session = await getRequiredSession();
   const rl = await checkAiRateLimit(session.user.id);
   if (rl) return rl;
+  const gate = await meterAndGate(session.user.id, "suggest");
+  if (gate) return gate;
 
   const tier = await getUserTier(session.user.id);
   if (!canAccessFeature(tier, "ai_suggestion_active")) {
@@ -87,19 +90,24 @@ Rules for suggestions:
 - Pacing issues: note if a chapter is all dialogue with no action, or all action with no interiority
 - If the chapter is good, return an empty suggestions array`;
 
-  const response = await anthropic.messages.create({
-    model: MODELS.default,
-    max_tokens: 1000,
-    messages: [{ role: "user", content: prompt }],
-  });
-
-  const text = response.content[0].type === "text" ? response.content[0].text : "{}";
-  const clean = text.replace(/```json\n?|```/g, "").trim();
-
   try {
-    const result = JSON.parse(clean);
-    return NextResponse.json(result);
-  } catch {
+    const response = await anthropic.messages.create({
+      model: MODELS.default,
+      max_tokens: 1000,
+      messages: [{ role: "user", content: prompt }],
+    });
+
+    const text = response.content[0].type === "text" ? response.content[0].text : "{}";
+    const clean = text.replace(/```json\n?|```/g, "").trim();
+
+    try {
+      const result = JSON.parse(clean);
+      return NextResponse.json(result);
+    } catch {
+      return NextResponse.json({ suggestions: [] });
+    }
+  } catch (e: any) {
+    await refundCredits(session.user.id, "suggest");
     return NextResponse.json({ suggestions: [] });
   }
 }

@@ -8,6 +8,7 @@ export const dynamic = 'force-dynamic';
 import { NextResponse } from "next/server";
 import { getRequiredSession } from "@/lib/auth-helpers";
 import { checkAiRateLimit } from "@/lib/ratelimit";
+import { meterAndGate, refundCredits } from "@/lib/metering/meter";
 import { getUserTier } from "@/lib/subscription";
 import { db } from "@/db";
 import { projects, characters, storyMemories, characterEvolutionLog } from "@/db/schema";
@@ -21,6 +22,8 @@ export async function POST(req: Request) {
   const session = await getRequiredSession();
   const rl = await checkAiRateLimit(session.user.id);
   if (rl) return rl;
+  const gate = await meterAndGate(session.user.id, "character-evolution");
+  if (gate) return gate;
 
   const tier = await getUserTier(session.user.id);
   if (!["story_pro", "all_access"].includes(tier)) {
@@ -147,6 +150,7 @@ Respond ONLY with valid JSON (no markdown, no explanation):
       });
 
     } catch {
+      await refundCredits(session.user.id, "character-evolution");
       continue;
     }
   }

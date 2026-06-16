@@ -6,6 +6,7 @@ export const dynamic = 'force-dynamic';
 import { NextResponse } from "next/server";
 import { getRequiredSession } from "@/lib/auth-helpers";
 import { checkAiRateLimit } from "@/lib/ratelimit";
+import { meterAndGate, refundCredits } from "@/lib/metering/meter";
 import { getUserTier, canAccessFeature } from "@/lib/subscription";
 import { CAMERA_PRESETS, VIRAL_PRESETS, getRecommendedViralPreset } from "@/lib/higgsfield/presets";
 import { ACTIVE_VIDEO_MODELS, VIDEO_MODELS, MODE_TO_MODEL } from "@/lib/higgsfield/models";
@@ -18,6 +19,8 @@ export async function POST(req: Request) {
   const session = await getRequiredSession();
   const rl = await checkAiRateLimit(session.user.id);
   if (rl) return rl;
+  const gate = await meterAndGate(session.user.id, "scene-to-video-prompt");
+  if (gate) return gate;
 
   const tier = await getUserTier(session.user.id);
   if (!canAccessFeature(tier, "story_modes_advanced")) {
@@ -82,26 +85,31 @@ Return ONLY valid JSON:
   "modelReason": "One sentence explaining why this model fits the scene best"
 }`;
 
-  const response = await anthropic.messages.create({
-    model: MODELS.default,
-    max_tokens: 2000,
-    messages: [{ role: "user", content: prompt }],
-  });
-
-  const text = response.content[0].type === "text" ? response.content[0].text : "{}";
-  const clean = text.replace(/```json\n?|```/g, "").trim();
-
-  let result: any;
   try {
-    result = JSON.parse(clean);
-  } catch {
-    return NextResponse.json({ error: "Failed to parse scene breakdown" }, { status: 500 });
+    const response = await anthropic.messages.create({
+      model: MODELS.default,
+      max_tokens: 2000,
+      messages: [{ role: "user", content: prompt }],
+    });
+
+    const text = response.content[0].type === "text" ? response.content[0].text : "{}";
+    const clean = text.replace(/```json\n?|```/g, "").trim();
+
+    let result: any;
+    try {
+      result = JSON.parse(clean);
+    } catch {
+      return NextResponse.json({ error: "Failed to parse scene breakdown" }, { status: 500 });
+    }
+
+    result.suggestedViralPreset = suggestedViral ?? null;
+    const suggested = result.suggestedModel;
+    const suggestedIsUsable = suggested && VIDEO_MODELS[suggested] && !VIDEO_MODELS[suggested].deprecated;
+    result.suggestedModel = suggestedIsUsable ? suggested : (MODE_TO_MODEL[activeMode ?? "default"] ?? "kling");
+
+    return NextResponse.json(result);
+  } catch (e: any) {
+    await refundCredits(session.user.id, "scene-to-video-prompt");
+    return NextResponse.json({ error: "Scene to video prompt failed. Please try again." }, { status: 500 });
   }
-
-  result.suggestedViralPreset = suggestedViral ?? null;
-  const suggested = result.suggestedModel;
-  const suggestedIsUsable = suggested && VIDEO_MODELS[suggested] && !VIDEO_MODELS[suggested].deprecated;
-  result.suggestedModel = suggestedIsUsable ? suggested : (MODE_TO_MODEL[activeMode ?? "default"] ?? "kling");
-
-  return NextResponse.json(result);
 }

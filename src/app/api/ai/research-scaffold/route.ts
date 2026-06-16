@@ -3,6 +3,7 @@ export const dynamic = 'force-dynamic';
 import { NextResponse } from "next/server";
 import { getRequiredSession } from "@/lib/auth-helpers";
 import { checkAiRateLimit } from "@/lib/ratelimit";
+import { meterAndGate, refundCredits } from "@/lib/metering/meter";
 import { getUserTier, canAccessFeature } from "@/lib/subscription";
 import Anthropic from "@anthropic-ai/sdk";
 import { MODELS } from "@/lib/ai/engine";
@@ -14,6 +15,8 @@ export async function POST(req: Request) {
   const session = await getRequiredSession();
   const rl = await checkAiRateLimit(session.user.id);
   if (rl) return rl;
+  const gate = await meterAndGate(session.user.id, "research-scaffold");
+  if (gate) return gate;
   const tier = await getUserTier(session.user.id);
   if (!canAccessFeature(tier, "creator_tools_advanced")) {
     return NextResponse.json({ error: "upgrade_required", feature: "creator_tools_advanced", tier }, { status: 403 });
@@ -45,6 +48,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ scaffold: { claims: [], counterArguments: [], quotes: [], angles: [], searchedFor: topic, raw: textContent } });
     }
   } catch (e: any) {
+    await refundCredits(session.user.id, "research-scaffold");
     if (e.message?.includes("web_search")) {
       return NextResponse.json({ error: "Web search unavailable on this API tier." }, { status: 503 });
     }

@@ -2,10 +2,16 @@ export const dynamic = 'force-dynamic';
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getRequiredSession } from '@/lib/auth-helpers';
+import { checkAiRateLimit } from '@/lib/ratelimit';
+import { meterAndGate, refundCredits } from '@/lib/metering/meter';
 import { getUserTier, canAccessFeature } from '@/lib/subscription';
 
 export async function POST(req: NextRequest) {
   const session = await getRequiredSession();
+  const rl = await checkAiRateLimit(session.user.id);
+  if (rl) return rl;
+  const gate = await meterAndGate(session.user.id, "analyze-reference-video");
+  if (gate) return gate;
   const tier = await getUserTier(session.user.id);
 
   if (!canAccessFeature(tier, 'creator_tools_advanced')) {
@@ -51,6 +57,7 @@ Be specific about what works — not generic observations.`,
     return NextResponse.json({ directives, success: true });
 
   } catch (err: any) {
+    await refundCredits(session.user.id, "analyze-reference-video");
     console.error('[analyze-reference-video]', err);
     if (err.message?.includes('private') || err.message?.includes('unavailable')) {
       return NextResponse.json({
