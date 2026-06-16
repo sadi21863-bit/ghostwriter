@@ -1,7 +1,7 @@
 "use client";
 import { useState, useRef } from "react";
 import { toast } from "@/lib/toast";
-import { buildStaticContext, buildDynamicContext, buildBeginnerContext, buildCreatorContext } from "@/lib/ai/context-builder";
+import { buildStaticContext, buildDynamicContext, buildCreatorContext } from "@/lib/ai/context-builder";
 import { isCreatorFormat } from "@/lib/formats";
 import { MODE_REGISTRY, type GenerationMode } from "@/lib/modes/registry";
 import type { CompositionLayer } from "@/lib/ai/composer";
@@ -60,9 +60,6 @@ export function useGeneration({
       let dynamicCtx: string;
       if (isCreatorFormat(project.format)) {
         staticCtx = buildCreatorContext({ ...extended, creatorBible });
-        dynamicCtx = '';
-      } else if (project.skillLevel === 'beginner') {
-        staticCtx = buildBeginnerContext(extended);
         dynamicCtx = '';
       } else {
         staticCtx = buildStaticContext(extended);
@@ -169,9 +166,6 @@ export function useGeneration({
     let dynamicCtx: string;
     if (isCreatorFormat(project.format)) {
       staticCtx = buildCreatorContext({ ...extended, creatorBible });
-      dynamicCtx = '';
-    } else if (project.skillLevel === 'beginner') {
-      staticCtx = buildBeginnerContext(extended);
       dynamicCtx = '';
     } else {
       staticCtx = buildStaticContext(extended);

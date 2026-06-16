@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import { buildStaticContext, buildDynamicContext, buildBeginnerContext, buildCreatorContext } from "@/lib/ai/context-builder";
+import { buildStaticContext, buildDynamicContext, buildCreatorContext } from "@/lib/ai/context-builder";
 import { isCreatorFormat } from "@/lib/formats";
 import { callAI, buildNeighbourContext } from "./ai-shared";
 import { useEntitySync } from "./useEntitySync";
@@ -33,7 +33,7 @@ export function useAIActions({
     const extended = { ...p, activeMode: mode, currentPrompt: prompt, activeInfluence, activePatterns };
     let base: string;
     if (isCreatorFormat(p.format)) { base = buildCreatorContext({ ...extended, creatorBible }); }
-    else { base = p.skillLevel === "beginner" ? buildBeginnerContext(extended) : (buildStaticContext(extended, mode) + '\n' + buildDynamicContext(extended, mode)); }
+    else { base = buildStaticContext(extended, mode) + '\n' + buildDynamicContext(extended, mode); }
     const neighbourContext = buildNeighbourContext(p);
     return neighbourContext ? base + "\n\n" + neighbourContext : base;
   };
