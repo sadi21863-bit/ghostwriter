@@ -99,32 +99,66 @@ export async function checkAiRateLimit(userId: string): Promise<NextResponse | n
 
 /**
  * IP-based rate limit for auth endpoints. 5 requests per hour per IP.
- * Fails open if Upstash is not configured.
+ * Fails CLOSED in production: if Upstash isn't configured, or the check throws, returns 503.
+ * Fails OPEN in development without Upstash configured (returns null).
  */
 export async function checkAuthRateLimit(ip: string): Promise<NextResponse | null> {
-  if (!authRatelimit) return null;
-  const { success } = await authRatelimit.limit(ip);
-  if (!success) {
+  if (!authRatelimit) {
+    if (process.env.NODE_ENV === "production") {
+      return NextResponse.json(
+        { error: "Rate limiting is not configured. Please try again later." },
+        { status: 503 }
+      );
+    }
+    return null;
+  }
+  try {
+    const { success } = await authRatelimit.limit(ip);
+    if (!success) {
+      return NextResponse.json(
+        { error: "Too many requests. Please wait before trying again." },
+        { status: 429 }
+      );
+    }
+    return null;
+  } catch (err) {
+    console.error('[checkAuthRateLimit] Upstash check failed:', err);
     return NextResponse.json(
-      { error: "Too many requests. Please wait before trying again." },
-      { status: 429 }
+      { error: "Rate limiting service unavailable. Please try again shortly." },
+      { status: 503 }
     );
   }
-  return null;
 }
 
 /**
  * General IP-based rate limit. 100 requests per minute per IP.
- * Fails open if Upstash is not configured.
+ * Fails CLOSED in production: if Upstash isn't configured, or the check throws, returns 503.
+ * Fails OPEN in development without Upstash configured (returns null).
  */
 export async function checkGeneralRateLimit(ip: string): Promise<NextResponse | null> {
-  if (!generalRatelimit) return null;
-  const { success } = await generalRatelimit.limit(ip);
-  if (!success) {
+  if (!generalRatelimit) {
+    if (process.env.NODE_ENV === "production") {
+      return NextResponse.json(
+        { error: "Rate limiting is not configured. Please try again later." },
+        { status: 503 }
+      );
+    }
+    return null;
+  }
+  try {
+    const { success } = await generalRatelimit.limit(ip);
+    if (!success) {
+      return NextResponse.json(
+        { error: "Too many requests. Please wait before trying again." },
+        { status: 429 }
+      );
+    }
+    return null;
+  } catch (err) {
+    console.error('[checkGeneralRateLimit] Upstash check failed:', err);
     return NextResponse.json(
-      { error: "Too many requests. Please wait before trying again." },
-      { status: 429 }
+      { error: "Rate limiting service unavailable. Please try again shortly." },
+      { status: 503 }
     );
   }
-  return null;
 }

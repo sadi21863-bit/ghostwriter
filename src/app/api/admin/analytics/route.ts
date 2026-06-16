@@ -3,7 +3,7 @@ export const dynamic = 'force-dynamic';
 import { NextResponse } from 'next/server';
 import { db } from '@/db';
 import { platformEvents } from '@/db/schema';
-import { gte } from 'drizzle-orm';
+import { gte, sql } from 'drizzle-orm';
 
 export async function GET(req: Request) {
   if (!process.env.ADMIN_SECRET) {
@@ -16,17 +16,17 @@ export async function GET(req: Request) {
 
   const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
 
-  const events = await db.query.platformEvents.findMany({
-    where: gte(platformEvents.createdAt, thirtyDaysAgo),
-    columns: { event: true, createdAt: true },
-    limit: 50000,
-    orderBy: (e, { desc }) => [desc(e.createdAt)],
-  });
+  const rows = await db
+    .select({
+      event: platformEvents.event,
+      count: sql<number>`cast(count(*) as int)`,
+    })
+    .from(platformEvents)
+    .where(gte(platformEvents.createdAt, thirtyDaysAgo))
+    .groupBy(platformEvents.event);
 
-  const counts = events.reduce((acc, e) => {
-    acc[e.event] = (acc[e.event] ?? 0) + 1;
-    return acc;
-  }, {} as Record<string, number>);
+  const counts = Object.fromEntries(rows.map(r => [r.event, r.count]));
+  const total = rows.reduce((s, r) => s + r.count, 0);
 
-  return NextResponse.json({ counts, total: events.length, since: thirtyDaysAgo });
+  return NextResponse.json({ counts, total, since: thirtyDaysAgo });
 }

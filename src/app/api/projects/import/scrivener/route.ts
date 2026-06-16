@@ -29,6 +29,15 @@ export async function POST(req: NextRequest) {
 
   if (!file) return NextResponse.json({ error: 'No file provided' }, { status: 400 });
 
+  const MAX_IMPORT_BYTES = 50 * 1024 * 1024; // 50MB
+  const isValidType = file.name.endsWith(".zip") || file.name.endsWith(".scriv") || file.type === "application/zip";
+  if (!isValidType) {
+    return NextResponse.json({ error: "Upload a .scriv or .zip file exported from Scrivener" }, { status: 400 });
+  }
+  if (file.size > MAX_IMPORT_BYTES) {
+    return NextResponse.json({ error: "File too large — max 50MB" }, { status: 413 });
+  }
+
   const buffer = Buffer.from(await file.arrayBuffer());
   const zip = await JSZip.loadAsync(buffer);
 
@@ -49,8 +58,15 @@ export async function POST(req: NextRequest) {
   } as any).returning();
 
   const createdChapters: any[] = [];
+  const MAX_EXTRACTED_BYTES = 200 * 1024 * 1024; // 200MB total extracted
+  let totalExtractedBytes = 0;
+
   for (let i = 0; i < rtfFiles.length; i++) {
     const rtfContent = await zip.files[rtfFiles[i]].async('string');
+    totalExtractedBytes += rtfContent.length;
+    if (totalExtractedBytes > MAX_EXTRACTED_BYTES) {
+      return NextResponse.json({ error: "Archive content too large when extracted (max 200MB)" }, { status: 413 });
+    }
     const plainText = stripRtf(rtfContent);
 
     if (!plainText.trim()) continue;
