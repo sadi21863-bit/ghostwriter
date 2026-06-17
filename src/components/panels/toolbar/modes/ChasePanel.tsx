@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import { co, sInput, sBtn, sBtnSm } from "@/lib/styles";
+import { appendToTipTap } from "@/hooks/ai-shared";
 
 interface Props {
   project: any;
@@ -12,11 +13,12 @@ interface Props {
   generateChase: (pursuedId: string, pursuerId: string, terrain: string, stakes: string, prompt: string) => Promise<void>;
   updateChapter: (field: string, value: any) => void;
   activeChap: any;
+  insertIntoEditor?: (text: string) => void;
 }
 
 export function ChasePanel({
   project, generating, streamText, setStreamText,
-  prompt, setPrompt, generateChase, updateChapter, activeChap,
+  prompt, setPrompt, generateChase, updateChapter, activeChap, insertIntoEditor,
 }: Props) {
   const [pursuedId, setPursuedId] = useState("");
   const [pursuerId, setPursuerId] = useState("");
@@ -72,7 +74,7 @@ export function ChasePanel({
         <div style={{ padding: "8px 16px", borderTop: "1px solid " + co.border, display: "flex", gap: 8, justifyContent: "flex-end", background: co.surfaceAlt, flexShrink: 0 }}>
           <button style={sBtnSm} onClick={() => setStreamText("")}>Discard</button>
           <button style={sBtn} onClick={() => {
-            updateChapter("content", (activeChap?.content || "") + (activeChap?.content ? "\n\n" : "") + streamText);
+            if (insertIntoEditor) { insertIntoEditor(streamText); } else { updateChapter("content", appendToTipTap(activeChap?.content || "", streamText)); }
             setStreamText("");
           }}>Insert into Chapter</button>
         </div>

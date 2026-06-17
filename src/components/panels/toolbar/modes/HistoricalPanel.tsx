@@ -1,6 +1,7 @@
 "use client";
 import { getHistoricalArchetypeNames } from "@/lib/historical";
 import { co, sInput, sBtn, sBtnSm } from "@/lib/styles";
+import { appendToTipTap } from "@/hooks/ai-shared";
 
 const HISTORICAL_DESCRIPTIONS: Record<string, string> = {
   "Longue Durée": "Braudel — the permanent material conditions of existence. Never named by characters; always present. Strip modern assumptions: light after dark has cost, cold requires management, distance is time.",
@@ -21,12 +22,13 @@ interface Props {
   generateHistorical: (archetypeName: string, prompt: string) => Promise<void>;
   updateChapter: (field: string, value: any) => void;
   activeChap: any;
+  insertIntoEditor?: (text: string) => void;
 }
 
 export function HistoricalPanel({
   historicalArchetype, setHistoricalArchetype,
   generating, streamText, setStreamText,
-  prompt, setPrompt, generateHistorical, updateChapter, activeChap,
+  prompt, setPrompt, generateHistorical, updateChapter, activeChap, insertIntoEditor,
 }: Props) {
   return (
     <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
@@ -62,7 +64,7 @@ export function HistoricalPanel({
         <div style={{ padding: "8px 16px", borderTop: "1px solid " + co.border, display: "flex", gap: 8, justifyContent: "flex-end", background: co.surfaceAlt, flexShrink: 0 }}>
           <button style={sBtnSm} onClick={() => setStreamText("")}>Discard</button>
           <button style={{ ...sBtn, background: "#fef3c7", color: "#92400E" }} onClick={() => {
-            updateChapter("content", (activeChap?.content || "") + (activeChap?.content ? "\n\n" : "") + streamText);
+            if (insertIntoEditor) { insertIntoEditor(streamText); } else { updateChapter("content", appendToTipTap(activeChap?.content || "", streamText)); }
             setStreamText("");
           }}>Insert into Chapter</button>
         </div>

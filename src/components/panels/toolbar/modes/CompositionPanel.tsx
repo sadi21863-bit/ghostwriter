@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import { co, sBtn, sBtnSm, sInput, sTextarea } from "@/lib/styles";
+import { appendToTipTap } from "@/hooks/ai-shared";
 import {
   COMPOSITION_PRESETS,
   LAYER_OPTIONS,
@@ -21,6 +22,7 @@ interface Props {
   generateComposition: (layers: CompositionLayer[], prompt: string) => Promise<void>;
   updateChapter: (f: string, v: any) => void;
   activeChap: any;
+  insertIntoEditor?: (text: string) => void;
 }
 
 const LAYER_TYPES: CompositionLayerType[] = ["emotional", "tension", "atmosphere", "combat"];
@@ -36,7 +38,7 @@ export function CompositionPanel({
   compositionLayers, setCompositionLayers,
   generating, streamText, setStreamText,
   prompt, setPrompt,
-  generateComposition, updateChapter, activeChap,
+  generateComposition, updateChapter, activeChap, insertIntoEditor,
 }: Props) {
   const [addType, setAddType] = useState<CompositionLayerType>("emotional");
   const [addParam, setAddParam] = useState(LAYER_OPTIONS["emotional"][0]);
@@ -187,7 +189,7 @@ export function CompositionPanel({
         <div style={{ padding: "8px 16px", borderTop: "1px solid " + co.border, display: "flex", gap: 8, justifyContent: "flex-end", background: co.surfaceAlt, flexShrink: 0 }}>
           <button style={sBtnSm} onClick={() => setStreamText("")}>Discard</button>
           <button style={{ ...sBtn, background: "#f0e6ff", color: "#7c3aed" }} onClick={() => {
-            updateChapter("content", (activeChap?.content || "") + (activeChap?.content ? "\n\n" : "") + streamText);
+            if (insertIntoEditor) { insertIntoEditor(streamText); } else { updateChapter("content", appendToTipTap(activeChap?.content || "", streamText)); }
             setStreamText("");
           }}>Insert into Chapter</button>
         </div>

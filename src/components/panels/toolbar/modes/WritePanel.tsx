@@ -9,6 +9,7 @@ import { TitleHookPanel } from "../tools/TitleHookPanel";
 import type { HookScore, ProseResult } from "../types";
 import { SlashCommandPalette } from "@/components/editor/SlashCommandPalette";
 import type { SlashCommandId } from "@/lib/slash-commands";
+import { appendToTipTap } from "@/hooks/ai-shared";
 import { suggestSkill } from "@/lib/ai/skill-router";
 import type { SkillSuggestion } from "@/lib/ai/skill-router";
 import { EMOTIONAL_TONES, ARC_POSITIONS } from "@/lib/arc";
@@ -69,6 +70,7 @@ interface Props {
   onSkillSuggestionChange?: (s: SkillSuggestion | null) => void;
   onDismissSkillSuggestion?: () => void;
   onAcceptSkillSuggestion?: (mode: string) => void;
+  insertIntoEditor?: (text: string) => void;
 }
 
 export function WritePanel({
@@ -80,6 +82,7 @@ export function WritePanel({
   hookScore, hookScoring, scoreHook,
   generate, expandBeat, cohostVoice, setCohostVoice, onUpgradeRequired, onSlashCommand,
   skillSuggestion, onSkillSuggestionChange, onDismissSkillSuggestion, onAcceptSkillSuggestion,
+  insertIntoEditor,
 }: Props) {
   const saveTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const [slashOpen, setSlashOpen] = useState(false);
@@ -385,7 +388,7 @@ export function WritePanel({
         <div style={{ padding: "8px 16px", borderTop: "1px solid " + co.border, display: "flex", gap: 8, justifyContent: "flex-end", background: co.surfaceAlt, flexShrink: 0 }}>
           <button style={sBtnSm} onClick={() => setStreamText("")}>Discard</button>
           <button style={sBtn} onClick={() => {
-            updateChapter("content", (activeChap?.content || "") + (activeChap?.content ? "\n\n" : "") + streamText);
+            if (insertIntoEditor) { insertIntoEditor(streamText); } else { updateChapter("content", appendToTipTap(activeChap?.content || "", streamText)); }
             setStreamText("");
           }}>Insert into Chapter</button>
         </div>

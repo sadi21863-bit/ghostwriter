@@ -1,6 +1,7 @@
 "use client";
 import { getScitechArchetypeNames } from "@/lib/scitech";
 import { co, sInput, sBtn, sBtnSm } from "@/lib/styles";
+import { appendToTipTap } from "@/hooks/ai-shared";
 
 const SCITECH_DESCRIPTIONS: Record<string, string> = {
   "Normal Science": "Kuhn — puzzle-solving inside an invisible paradigm. What the scientist is not asking is as important as what they are asking. The intellectual beauty of precision within bounded assumptions.",
@@ -21,12 +22,13 @@ interface Props {
   generateScitech: (archetypeName: string, prompt: string) => Promise<void>;
   updateChapter: (field: string, value: any) => void;
   activeChap: any;
+  insertIntoEditor?: (text: string) => void;
 }
 
 export function ScitechPanel({
   scitechArchetype, setScitechArchetype,
   generating, streamText, setStreamText,
-  prompt, setPrompt, generateScitech, updateChapter, activeChap,
+  prompt, setPrompt, generateScitech, updateChapter, activeChap, insertIntoEditor,
 }: Props) {
   return (
     <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
@@ -62,7 +64,7 @@ export function ScitechPanel({
         <div style={{ padding: "8px 16px", borderTop: "1px solid " + co.border, display: "flex", gap: 8, justifyContent: "flex-end", background: co.surfaceAlt, flexShrink: 0 }}>
           <button style={sBtnSm} onClick={() => setStreamText("")}>Discard</button>
           <button style={{ ...sBtn, background: "#e8eef5", color: "#1E3A5F" }} onClick={() => {
-            updateChapter("content", (activeChap?.content || "") + (activeChap?.content ? "\n\n" : "") + streamText);
+            if (insertIntoEditor) { insertIntoEditor(streamText); } else { updateChapter("content", appendToTipTap(activeChap?.content || "", streamText)); }
             setStreamText("");
           }}>Insert into Chapter</button>
         </div>

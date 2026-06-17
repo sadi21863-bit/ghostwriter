@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { getIsekaiArchetypeNames, ISEKAI_ARCHETYPES } from "@/lib/isekai";
 import { co, sInput, sBtn, sBtnSm } from "@/lib/styles";
+import { appendToTipTap } from "@/hooks/ai-shared";
 
 const PANEL_BG = "#1a0533";
 const PANEL_ACCENT = "#a855f7";
@@ -17,12 +18,13 @@ interface Props {
   generateIsekai: (archetypeName: string, prompt: string) => Promise<void>;
   updateChapter: (field: string, value: any) => void;
   activeChap: any;
+  insertIntoEditor?: (text: string) => void;
 }
 
 export function IsekaiPanel({
   isekaiArchetype, setIsekaiArchetype,
   generating, streamText, setStreamText,
-  prompt, setPrompt, generateIsekai, updateChapter, activeChap,
+  prompt, setPrompt, generateIsekai, updateChapter, activeChap, insertIntoEditor,
 }: Props) {
   const [showDetails, setShowDetails] = useState(false);
   const arch = ISEKAI_ARCHETYPES[isekaiArchetype];
@@ -92,7 +94,7 @@ export function IsekaiPanel({
         <div style={{ padding: "8px 16px", borderTop: "1px solid " + co.border, display: "flex", gap: 8, justifyContent: "flex-end", background: PANEL_BG, flexShrink: 0 }}>
           <button style={sBtnSm} onClick={() => setStreamText("")}>Discard</button>
           <button style={{ ...sBtn, background: PANEL_ACCENT + "30", color: PANEL_ACCENT, border: "1px solid " + PANEL_ACCENT }} onClick={() => {
-            updateChapter("content", (activeChap?.content || "") + (activeChap?.content ? "\n\n" : "") + streamText);
+            if (insertIntoEditor) { insertIntoEditor(streamText); } else { updateChapter("content", appendToTipTap(activeChap?.content || "", streamText)); }
             setStreamText("");
           }}>Insert into Chapter</button>
         </div>

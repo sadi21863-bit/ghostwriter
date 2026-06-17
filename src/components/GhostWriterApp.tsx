@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import dynamic from "next/dynamic";
 import type { SkillSuggestion } from "@/lib/ai/skill-router";
 import { useProjectState } from "@/hooks/useProjectState";
@@ -77,6 +77,7 @@ export default function GhostWriterApp({ projectId }: { projectId: string }) {
   const [resendSent, setResendSent] = useState(false);
   const writingRoomEnabled = useFeatureIsOn(FLAGS.writingRoomShell);
   const [actionsOpen, setActionsOpen] = useState(false);
+  const insertIntoEditorRef = useRef<((text: string) => void) | null>(null);
 
   useEffect(() => {
     fetch('/api/subscription').then(r => r.json()).then(setSubscription).catch(() => {});
@@ -309,6 +310,7 @@ export default function GhostWriterApp({ projectId }: { projectId: string }) {
       scoreHook={aiActions.scoreHook}
       generate={aiActions.generate}
       expandBeat={aiActions.expandBeat}
+      insertIntoEditor={insertIntoEditorRef.current ?? undefined}
       generateDialogue={aiActions.generateDialogue}
       updateProject={projectState.updateProject}
       handleTextareaSelect={aiActions.handleTextareaSelect}
@@ -517,6 +519,7 @@ export default function GhostWriterApp({ projectId }: { projectId: string }) {
             mode={mode}
             setSavedMsg={setSavedMsg}
             onUpgradeRequired={(f) => setUpgradeRequired(f as FeatureGate)}
+            onRegisterInsert={(fn) => { insertIntoEditorRef.current = fn; }}
           />
           {actionsOpen && (
             <div

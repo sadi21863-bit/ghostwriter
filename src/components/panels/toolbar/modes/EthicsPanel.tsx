@@ -1,6 +1,7 @@
 "use client";
 import { getEthicsArchetypeNames } from "@/lib/ethics";
 import { co, sInput, sBtn, sBtnSm } from "@/lib/styles";
+import { appendToTipTap } from "@/hooks/ai-shared";
 
 const ETHICS_DESCRIPTIONS: Record<string, string> = {
   "Moral Dumbfounding": "Haidt — the conviction arrives before the argument. When the argument is defeated, the conviction remains. The character who cannot be argued out of their position is not being unreasonable. They are being human.",
@@ -21,12 +22,13 @@ interface Props {
   generateEthics: (archetypeName: string, prompt: string) => Promise<void>;
   updateChapter: (field: string, value: any) => void;
   activeChap: any;
+  insertIntoEditor?: (text: string) => void;
 }
 
 export function EthicsPanel({
   ethicsArchetype, setEthicsArchetype,
   generating, streamText, setStreamText,
-  prompt, setPrompt, generateEthics, updateChapter, activeChap,
+  prompt, setPrompt, generateEthics, updateChapter, activeChap, insertIntoEditor,
 }: Props) {
   return (
     <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
@@ -62,7 +64,7 @@ export function EthicsPanel({
         <div style={{ padding: "8px 16px", borderTop: "1px solid " + co.border, display: "flex", gap: 8, justifyContent: "flex-end", background: co.surfaceAlt, flexShrink: 0 }}>
           <button style={sBtnSm} onClick={() => setStreamText("")}>Discard</button>
           <button style={{ ...sBtn, background: "#f5f0ff", color: "#3B0764" }} onClick={() => {
-            updateChapter("content", (activeChap?.content || "") + (activeChap?.content ? "\n\n" : "") + streamText);
+            if (insertIntoEditor) { insertIntoEditor(streamText); } else { updateChapter("content", appendToTipTap(activeChap?.content || "", streamText)); }
             setStreamText("");
           }}>Insert into Chapter</button>
         </div>

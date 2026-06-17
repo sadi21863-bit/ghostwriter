@@ -7,7 +7,7 @@ import Typography from '@tiptap/extension-typography';
 import Focus from '@tiptap/extension-focus';
 import Highlight from '@tiptap/extension-highlight';
 import Underline from '@tiptap/extension-underline';
-import { useEffect, useRef } from 'react';
+import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react';
 import { isValidTipTapJson, plainTextToTipTap, getWordCount } from '@/lib/editor/content-migration';
 import { FormatToolbar } from './FormatToolbar';
 
@@ -19,7 +19,13 @@ interface Props {
   autoFocus?: boolean;
 }
 
-export function ChapterEditor({ content, onChange, placeholder, readOnly, autoFocus }: Props) {
+export interface ChapterEditorHandle {
+  insertContent: (text: string) => void;
+}
+
+export const ChapterEditor = forwardRef<ChapterEditorHandle, Props>(function ChapterEditor(
+  { content, onChange, placeholder, readOnly, autoFocus }, ref
+) {
   const saveTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   const getInitialContent = () => {
@@ -56,6 +62,14 @@ export function ChapterEditor({ content, onChange, placeholder, readOnly, autoFo
     },
   });
 
+  useImperativeHandle(ref, () => ({
+    insertContent: (text: string) => {
+      if (!editor) return;
+      const nodes = (plainTextToTipTap(text) as any).content ?? [];
+      editor.commands.insertContentAt(editor.state.doc.content.size, nodes);
+    },
+  }), [editor]);
+
   useEffect(() => {
     if (!editor) return;
     const currentJson = JSON.stringify(editor.getJSON());
@@ -76,4 +90,4 @@ export function ChapterEditor({ content, onChange, placeholder, readOnly, autoFo
       <EditorContent editor={editor} />
     </div>
   );
-}
+});

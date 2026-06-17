@@ -41,7 +41,7 @@ export function useGeneration({
   const [hookScoring, setHookScoring] = useState(false);
   const [violationBanner, setViolationBanner] = useState<{ violationType: string; flagMessage: string; supportMode: string } | null>(null);
 
-  const generate = async (opts?: { cameraPresetId?: string; referencePassage?: string; additionalContext?: string }) => {
+  const generate = async (opts?: { cameraPresetId?: string; referencePassage?: string; additionalContext?: string; insertViaEditor?: (text: string) => void }) => {
     if (!prompt.trim()) return;
     retryCountRef.current = 0;
     lastGenRef.current = { fn: () => generate(opts) };
@@ -115,8 +115,12 @@ export function useGeneration({
       else {
         if (mode === "write") {
           setUndoStack(s => [...s.slice(-9), activeChap.content]);
-          const merged = appendToTipTap(activeChap.content, r.text);
-          updateChapter("content", merged);
+          if (opts?.insertViaEditor) {
+            opts.insertViaEditor(r.text);
+          } else {
+            const merged = appendToTipTap(activeChap.content, r.text);
+            updateChapter("content", merged);
+          }
         } else {
           setStreamText(r.text);
           if (mode === "outline" && parseBeatList(r.text)) {
@@ -157,7 +161,7 @@ export function useGeneration({
     setGenerating(false); setGenTarget("");
   };
 
-  const expandBeat = async (beatText: string) => {
+  const expandBeat = async (beatText: string, expandOpts?: { insertViaEditor?: (text: string) => void }) => {
     const effectivePrompt = `Write this scene: ${beatText}`;
     const extended = { ...project, activeMode: 'write', currentPrompt: effectivePrompt, activeInfluence, activePatterns };
     let staticCtx: string;
@@ -177,8 +181,12 @@ export function useGeneration({
       throw new Error(r.error || 'Expansion failed');
     }
     setUndoStack(s => [...s.slice(-9), activeChap.content]);
-    const merged = appendToTipTap(activeChap.content, r.text);
-    updateChapter("content", merged);
+    if (expandOpts?.insertViaEditor) {
+      expandOpts.insertViaEditor(r.text);
+    } else {
+      const merged = appendToTipTap(activeChap.content, r.text);
+      updateChapter("content", merged);
+    }
   };
 
   const autoSummarize = async () => {

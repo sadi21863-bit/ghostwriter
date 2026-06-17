@@ -1,6 +1,7 @@
 "use client";
 import { getEmotionNames } from "@/lib/emotional";
 import { co, sInput, sBtn, sBtnSm } from "@/lib/styles";
+import { appendToTipTap } from "@/hooks/ai-shared";
 
 interface Props {
   emotionalEmotion: string;
@@ -13,6 +14,7 @@ interface Props {
   generateEmotionalScene: (emotionName: string, prompt: string) => Promise<void>;
   updateChapter: (field: string, value: any) => void;
   activeChap: any;
+  insertIntoEditor?: (text: string) => void;
 }
 
 const EMOTION_DESCRIPTIONS: Record<string, string> = {
@@ -28,7 +30,7 @@ const EMOTION_DESCRIPTIONS: Record<string, string> = {
 export function EmotionalPanel({
   emotionalEmotion, setEmotionalEmotion,
   generating, streamText, setStreamText,
-  prompt, setPrompt, generateEmotionalScene, updateChapter, activeChap,
+  prompt, setPrompt, generateEmotionalScene, updateChapter, activeChap, insertIntoEditor,
 }: Props) {
   return (
     <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
@@ -62,7 +64,7 @@ export function EmotionalPanel({
         <div style={{ padding: "8px 16px", borderTop: "1px solid " + co.border, display: "flex", gap: 8, justifyContent: "flex-end", background: co.surfaceAlt, flexShrink: 0 }}>
           <button style={sBtnSm} onClick={() => setStreamText("")}>Discard</button>
           <button style={sBtn} onClick={() => {
-            updateChapter("content", (activeChap?.content || "") + (activeChap?.content ? "\n\n" : "") + streamText);
+            if (insertIntoEditor) { insertIntoEditor(streamText); } else { updateChapter("content", appendToTipTap(activeChap?.content || "", streamText)); }
             setStreamText("");
           }}>Insert into Chapter</button>
         </div>

@@ -1,6 +1,7 @@
 "use client";
 import { getMonologueArchetypeNames } from "@/lib/monologue";
 import { co, sInput, sBtn, sBtnSm } from "@/lib/styles";
+import { appendToTipTap } from "@/hooks/ai-shared";
 
 const MONOLOGUE_DESCRIPTIONS: Record<string, string> = {
   "Interior Monologue": "Sokolov's 3:1 compression — organized, directed thought with dropped pronouns and implicit time. The character is thinking through something, not narrating it. Complete sentences permitted but not required.",
@@ -21,12 +22,13 @@ interface Props {
   generateMonologue: (archetypeName: string, prompt: string) => Promise<void>;
   updateChapter: (field: string, value: any) => void;
   activeChap: any;
+  insertIntoEditor?: (text: string) => void;
 }
 
 export function MonologuePanel({
   monologueArchetype, setMonologueArchetype,
   generating, streamText, setStreamText,
-  prompt, setPrompt, generateMonologue, updateChapter, activeChap,
+  prompt, setPrompt, generateMonologue, updateChapter, activeChap, insertIntoEditor,
 }: Props) {
   return (
     <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
@@ -62,7 +64,7 @@ export function MonologuePanel({
         <div style={{ padding: "8px 16px", borderTop: "1px solid " + co.border, display: "flex", gap: 8, justifyContent: "flex-end", background: co.surfaceAlt, flexShrink: 0 }}>
           <button style={sBtnSm} onClick={() => setStreamText("")}>Discard</button>
           <button style={{ ...sBtn, background: "#f5f3ff", color: "#6d28d9" }} onClick={() => {
-            updateChapter("content", (activeChap?.content || "") + (activeChap?.content ? "\n\n" : "") + streamText);
+            if (insertIntoEditor) { insertIntoEditor(streamText); } else { updateChapter("content", appendToTipTap(activeChap?.content || "", streamText)); }
             setStreamText("");
           }}>Insert into Chapter</button>
         </div>

@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import { co, sInput, sBtn, sBtnSm } from "@/lib/styles";
+import { appendToTipTap } from "@/hooks/ai-shared";
 
 interface Props {
   project: any;
@@ -12,11 +13,12 @@ interface Props {
   generateInterrogation: (interrogatorId: string, subjectId: string, goal: string, prompt: string) => Promise<void>;
   updateChapter: (field: string, value: any) => void;
   activeChap: any;
+  insertIntoEditor?: (text: string) => void;
 }
 
 export function InterrogationPanel({
   project, generating, streamText, setStreamText,
-  prompt, setPrompt, generateInterrogation, updateChapter, activeChap,
+  prompt, setPrompt, generateInterrogation, updateChapter, activeChap, insertIntoEditor,
 }: Props) {
   const [interrogatorId, setInterrogatorId] = useState("");
   const [subjectId, setSubjectId] = useState("");
@@ -92,7 +94,7 @@ export function InterrogationPanel({
         <div style={{ padding: "8px 16px", borderTop: "1px solid " + co.border, display: "flex", gap: 8, justifyContent: "flex-end", background: co.surfaceAlt, flexShrink: 0 }}>
           <button style={sBtnSm} onClick={() => setStreamText("")}>Discard</button>
           <button style={sBtn} onClick={() => {
-            updateChapter("content", (activeChap?.content || "") + (activeChap?.content ? "\n\n" : "") + streamText);
+            if (insertIntoEditor) { insertIntoEditor(streamText); } else { updateChapter("content", appendToTipTap(activeChap?.content || "", streamText)); }
             setStreamText("");
           }}>Insert into Chapter</button>
         </div>

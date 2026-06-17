@@ -1,6 +1,7 @@
 "use client";
 import { getAtmosphereNames } from "@/lib/atmosphere";
 import { co, sInput, sBtn, sBtnSm } from "@/lib/styles";
+import { appendToTipTap } from "@/hooks/ai-shared";
 
 interface Props {
   atmosphereEnvironment: string;
@@ -13,6 +14,7 @@ interface Props {
   generateAtmosphere: (environmentName: string, prompt: string) => Promise<void>;
   updateChapter: (field: string, value: any) => void;
   activeChap: any;
+  insertIntoEditor?: (text: string) => void;
 }
 
 const ENV_DESCRIPTIONS: Record<string, string> = {
@@ -26,7 +28,7 @@ const ENV_DESCRIPTIONS: Record<string, string> = {
 export function AtmospherePanel({
   atmosphereEnvironment, setAtmosphereEnvironment,
   generating, streamText, setStreamText,
-  prompt, setPrompt, generateAtmosphere, updateChapter, activeChap,
+  prompt, setPrompt, generateAtmosphere, updateChapter, activeChap, insertIntoEditor,
 }: Props) {
   return (
     <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
@@ -60,7 +62,7 @@ export function AtmospherePanel({
         <div style={{ padding: "8px 16px", borderTop: "1px solid " + co.border, display: "flex", gap: 8, justifyContent: "flex-end", background: co.surfaceAlt, flexShrink: 0 }}>
           <button style={sBtnSm} onClick={() => setStreamText("")}>Discard</button>
           <button style={sBtn} onClick={() => {
-            updateChapter("content", (activeChap?.content || "") + (activeChap?.content ? "\n\n" : "") + streamText);
+            if (insertIntoEditor) { insertIntoEditor(streamText); } else { updateChapter("content", appendToTipTap(activeChap?.content || "", streamText)); }
             setStreamText("");
           }}>Insert into Chapter</button>
         </div>

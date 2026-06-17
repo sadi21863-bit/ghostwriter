@@ -1,6 +1,7 @@
 "use client";
 import { getComedyArchetypeNames } from "@/lib/comedy";
 import { co, sInput, sBtn, sBtnSm } from "@/lib/styles";
+import { appendToTipTap } from "@/hooks/ai-shared";
 
 const COMEDY_DESCRIPTIONS: Record<string, string> = {
   "Situation": "Benign Violation Theory — circumstances gone wrong but never dangerous. Establish the want, then make everything that can go wrong go wrong. Three escalations minimum.",
@@ -21,12 +22,13 @@ interface Props {
   generateComedy: (archetypeName: string, prompt: string) => Promise<void>;
   updateChapter: (field: string, value: any) => void;
   activeChap: any;
+  insertIntoEditor?: (text: string) => void;
 }
 
 export function ComedyPanel({
   comedyArchetype, setComedyArchetype,
   generating, streamText, setStreamText,
-  prompt, setPrompt, generateComedy, updateChapter, activeChap,
+  prompt, setPrompt, generateComedy, updateChapter, activeChap, insertIntoEditor,
 }: Props) {
   return (
     <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
@@ -67,7 +69,7 @@ export function ComedyPanel({
         <div style={{ padding: "8px 16px", borderTop: "1px solid " + co.border, display: "flex", gap: 8, justifyContent: "flex-end", background: co.surfaceAlt, flexShrink: 0 }}>
           <button style={sBtnSm} onClick={() => setStreamText("")}>Discard</button>
           <button style={{ ...sBtn, background: "#fffbeb", color: "#d97706" }} onClick={() => {
-            updateChapter("content", (activeChap?.content || "") + (activeChap?.content ? "\n\n" : "") + streamText);
+            if (insertIntoEditor) { insertIntoEditor(streamText); } else { updateChapter("content", appendToTipTap(activeChap?.content || "", streamText)); }
             setStreamText("");
           }}>Insert into Chapter</button>
         </div>

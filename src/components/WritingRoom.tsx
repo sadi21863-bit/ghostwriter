@@ -1,6 +1,7 @@
 "use client";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ChapterEditor } from "@/components/editor/ChapterEditor";
+import type { ChapterEditorHandle } from "@/components/editor/ChapterEditor";
 import { co, sBtn, sBtnSm } from "@/lib/styles";
 import { getChapterLabel, isCreatorFormat } from "@/lib/formats";
 import { currentStage, STAGE_ORDER, type GuideStage, type GuideAction } from "@/lib/guide/next-action";
@@ -40,7 +41,7 @@ interface WritingRoomProps {
   updateProject: (fn: (p: any) => any) => void;
   updateChapter: (field: string, value: any) => void;
   generating: boolean;
-  generate: () => Promise<void>;
+  generate: (opts?: { insertViaEditor?: (text: string) => void }) => Promise<void>;
   onOpenBible: () => void;
   onOpenActions: () => void;
   prompt: string;
@@ -53,6 +54,7 @@ interface WritingRoomProps {
   mode: string;
   setSavedMsg: (msg: string) => void;
   onUpgradeRequired: (feature: string) => void;
+  onRegisterInsert?: (fn: (text: string) => void) => void;
 }
 
 export default function WritingRoom({
@@ -60,12 +62,20 @@ export default function WritingRoom({
   generating, generate, onOpenBible, onOpenActions,
   prompt, setPrompt, onSelectMode,
   onGuideRun, onGuideDismiss, qualityReview, onOpenProductionStudio,
-  mode, setSavedMsg, onUpgradeRequired,
+  mode, setSavedMsg, onUpgradeRequired, onRegisterInsert,
 }: WritingRoomProps) {
   const [bibleOpen, setBibleOpen] = useState(true);
+  const [forceEditor, setForceEditor] = useState(false);
+  const editorRef = useRef<ChapterEditorHandle>(null);
 
   useEffect(() => {
     if (window.innerWidth < 900) setBibleOpen(false);
+  }, []);
+
+  useEffect(() => {
+    if (onRegisterInsert) {
+      onRegisterInsert((text: string) => editorRef.current?.insertContent(text));
+    }
   }, []);
 
   const sortedChapters = [...(project.chapters || [])].sort((a: any, b: any) => a.sortOrder - b.sortOrder);
@@ -104,13 +114,8 @@ export default function WritingRoom({
     if (target) updateProject((p: any) => ({ ...p, activeChapter: target.id }));
   };
 
-  const handleEditorChange = (json: string, wordCount: number) => {
+  const handleEditorChange = (json: string, _wordCount: number) => {
     updateChapter("content", json);
-    updateChapter("wordCount", wordCount);
-    fetch(`/api/projects/${project.id}/chapters/${activeChap.id}`, {
-      method: "PATCH", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ content: json }),
-    }).catch(() => {});
   };
 
   const stageLabels = isCreatorFormat(project.format) ? CREATOR_STAGE_LABELS : STAGE_LABELS;
@@ -128,7 +133,7 @@ export default function WritingRoom({
             <button style={{ ...sBtnSm, padding: "2px 8px" }} disabled={chapIndex < 0 || chapIndex >= sortedChapters.length - 1} onClick={() => goToChapter(chapIndex + 1)}>›</button>
           </div>
         </div>
-        <div style={{ display: "flex", gap: 4, fontSize: 11 }}>
+        <div style={{ display: "flex", gap: 4, fontSize: 11, alignItems: "center" }}>
           {STAGE_ORDER.map((s, i) => (
             <span key={s} style={{
               padding: "2px 8px", borderRadius: 6,
@@ -139,21 +144,26 @@ export default function WritingRoom({
               {i < stageIdx ? "✓ " : ""}{stageLabels[s]}
             </span>
           ))}
+          <button
+            style={{
+              marginLeft: "auto", padding: "2px 10px", borderRadius: 6, fontSize: 11,
+              background: forceEditor ? co.accent : "transparent",
+              color: forceEditor ? "#fff" : co.muted,
+              border: `1px solid ${forceEditor ? co.accent : co.border}`,
+              cursor: "pointer",
+            }}
+            onClick={() => setForceEditor(f => !f)}
+          >
+            Write
+          </button>
         </div>
       </div>
 
       {/* Body: stage view, or editor + bible glance rail */}
-      {stage === "idea" ? (
-        <IdeaStageView project={project} updateProject={updateProject} onOpenBible={onOpenBible} prompt={prompt} setPrompt={setPrompt} onUpgradeRequired={onUpgradeRequired} onOpenActions={onOpenActions} />
-      ) : stage === "structure" ? (
-        <StructureStageView project={project} setPrompt={setPrompt} onSelectMode={onSelectMode} prompt={prompt} mode={mode} topic={activeChap.title} setSavedMsg={setSavedMsg} onUpgradeRequired={onUpgradeRequired} onOpenActions={onOpenActions} />
-      ) : stage === "polish" ? (
-        <PolishStageView project={project} qualityReview={qualityReview} onGuideRun={onGuideRun} onGuideDismiss={onGuideDismiss} mode={mode} content={activeChap.content} updateProject={updateProject} setSavedMsg={setSavedMsg} onUpgradeRequired={onUpgradeRequired} onOpenActions={onOpenActions} />
-      ) : stage === "export" ? (
-        <ExportStageView project={project} onGuideRun={onGuideRun} onOpenProductionStudio={onOpenProductionStudio} />
-      ) : (
+      {forceEditor || stage === "draft" ? (
         <div style={{ flex: 1, display: "flex", overflow: "hidden" }}>
           <ChapterEditor
+            ref={editorRef}
             content={activeChap.content ?? ""}
             onChange={handleEditorChange}
             placeholder="Begin writing..."
@@ -186,7 +196,15 @@ export default function WritingRoom({
             )}
           </div>
         </div>
-      )}
+      ) : stage === "idea" ? (
+        <IdeaStageView project={project} updateProject={updateProject} onOpenBible={onOpenBible} prompt={prompt} setPrompt={setPrompt} onUpgradeRequired={onUpgradeRequired} onOpenActions={onOpenActions} />
+      ) : stage === "structure" ? (
+        <StructureStageView project={project} setPrompt={setPrompt} onSelectMode={onSelectMode} prompt={prompt} mode={mode} topic={activeChap.title} setSavedMsg={setSavedMsg} onUpgradeRequired={onUpgradeRequired} onOpenActions={onOpenActions} />
+      ) : stage === "polish" ? (
+        <PolishStageView project={project} qualityReview={qualityReview} onGuideRun={onGuideRun} onGuideDismiss={onGuideDismiss} mode={mode} content={activeChap.content} updateProject={updateProject} setSavedMsg={setSavedMsg} onUpgradeRequired={onUpgradeRequired} onOpenActions={onOpenActions} />
+      ) : stage === "export" ? (
+        <ExportStageView project={project} onGuideRun={onGuideRun} onOpenProductionStudio={onOpenProductionStudio} />
+      ) : null}
 
       {/* Footer */}
       <div style={{ flexShrink: 0, borderTop: `1px solid ${co.border}`, padding: "10px 20px", display: "flex", flexDirection: "column", gap: 8 }}>
@@ -208,7 +226,7 @@ export default function WritingRoom({
                 if (slashQuery !== null) {
                   if (filteredModes.length > 0) handleSelect(filteredModes[0]);
                 } else {
-                  generate();
+                  generate({ insertViaEditor: (text) => editorRef.current?.insertContent(text) });
                 }
               } else if (e.key === "Escape" && slashQuery !== null) {
                 setPrompt("");
@@ -220,7 +238,7 @@ export default function WritingRoom({
         </div>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <button style={sBtnSm} onClick={onOpenActions}>Actions</button>
-          <button style={{ ...sBtn, opacity: generating ? 0.6 : 1 }} disabled={generating} onClick={() => generate()}>
+          <button style={{ ...sBtn, opacity: generating ? 0.6 : 1 }} disabled={generating} onClick={() => generate({ insertViaEditor: (text) => editorRef.current?.insertContent(text) })}>
             {generating ? `${MODE_REGISTRY.write.label}…` : MODE_REGISTRY.write.label}
           </button>
         </div>

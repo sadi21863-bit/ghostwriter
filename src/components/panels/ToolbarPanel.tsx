@@ -186,6 +186,7 @@ interface Props {
   setActiveInfluence?: (p: any | null) => void;
   activePatterns?: any[];
   setActivePatterns?: (p: any[]) => void;
+  insertIntoEditor?: (text: string) => void;
 }
 
 const modeLabel = (m: string) => (m === "cohost" ? "Co-host" : MODE_REGISTRY[m as GenerationMode]?.label ?? m);
@@ -237,6 +238,7 @@ export default function ToolbarPanel(props: Props) {
     setActiveInfluence,
     activePatterns,
     setActivePatterns,
+    insertIntoEditor,
   } = props;
 
   // Local UI toggle (not business logic)
@@ -460,6 +462,7 @@ export default function ToolbarPanel(props: Props) {
             prompt={prompt} setPrompt={setPrompt}
             generateDialogue={generateDialogue}
             updateChapter={updateChapter} activeChap={activeChap}
+            insertIntoEditor={insertIntoEditor}
           />
         : mode === "combat"
         ? <CombatPanel
@@ -469,6 +472,7 @@ export default function ToolbarPanel(props: Props) {
             prompt={prompt} setPrompt={setPrompt}
             generateCombat={generateCombat}
             updateChapter={updateChapter} activeChap={activeChap}
+            insertIntoEditor={insertIntoEditor}
           />
         : mode === "emotional"
         ? <EmotionalPanel
@@ -477,6 +481,7 @@ export default function ToolbarPanel(props: Props) {
             prompt={prompt} setPrompt={setPrompt}
             generateEmotionalScene={generateEmotionalScene}
             updateChapter={updateChapter} activeChap={activeChap}
+            insertIntoEditor={insertIntoEditor}
           />
         : mode === "atmosphere"
         ? <AtmospherePanel
@@ -485,6 +490,7 @@ export default function ToolbarPanel(props: Props) {
             prompt={prompt} setPrompt={setPrompt}
             generateAtmosphere={generateAtmosphere}
             updateChapter={updateChapter} activeChap={activeChap}
+            insertIntoEditor={insertIntoEditor}
           />
         : mode === "tension"
         ? <TensionPanel
@@ -493,6 +499,7 @@ export default function ToolbarPanel(props: Props) {
             prompt={prompt} setPrompt={setPrompt}
             generateTension={generateTension}
             updateChapter={updateChapter} activeChap={activeChap}
+            insertIntoEditor={insertIntoEditor}
           />
         : mode === "composition"
         ? <CompositionPanel
@@ -506,6 +513,7 @@ export default function ToolbarPanel(props: Props) {
             generateComposition={generateComposition}
             updateChapter={updateChapter}
             activeChap={activeChap}
+            insertIntoEditor={insertIntoEditor}
           />
         : mode === "horror"
         ? <HorrorPanel
@@ -514,6 +522,7 @@ export default function ToolbarPanel(props: Props) {
             prompt={prompt} setPrompt={setPrompt}
             generateHorror={generateHorror}
             updateChapter={updateChapter} activeChap={activeChap}
+            insertIntoEditor={insertIntoEditor}
           />
         : mode === "comedy"
         ? <ComedyPanel
@@ -522,6 +531,7 @@ export default function ToolbarPanel(props: Props) {
             prompt={prompt} setPrompt={setPrompt}
             generateComedy={generateComedy}
             updateChapter={updateChapter} activeChap={activeChap}
+            insertIntoEditor={insertIntoEditor}
           />
         : mode === "mystery"
         ? <MysteryPanel
@@ -530,6 +540,7 @@ export default function ToolbarPanel(props: Props) {
             prompt={prompt} setPrompt={setPrompt}
             generateMystery={generateMystery}
             updateChapter={updateChapter} activeChap={activeChap}
+            insertIntoEditor={insertIntoEditor}
           />
         : mode === "romance"
         ? <RomancePanel
@@ -538,6 +549,7 @@ export default function ToolbarPanel(props: Props) {
             prompt={prompt} setPrompt={setPrompt}
             generateRomance={generateRomance}
             updateChapter={updateChapter} activeChap={activeChap}
+            insertIntoEditor={insertIntoEditor}
           />
         : mode === "action"
         ? <ActionPanel
@@ -546,6 +558,7 @@ export default function ToolbarPanel(props: Props) {
             prompt={prompt} setPrompt={setPrompt}
             generateAction={generateAction}
             updateChapter={updateChapter} activeChap={activeChap}
+            insertIntoEditor={insertIntoEditor}
           />
         : mode === "monologue"
         ? <MonologuePanel
@@ -554,6 +567,7 @@ export default function ToolbarPanel(props: Props) {
             prompt={prompt} setPrompt={setPrompt}
             generateMonologue={generateMonologue}
             updateChapter={updateChapter} activeChap={activeChap}
+            insertIntoEditor={insertIntoEditor}
           />
         : mode === "voice"
         ? <VoicePanel
@@ -562,6 +576,7 @@ export default function ToolbarPanel(props: Props) {
             prompt={prompt} setPrompt={setPrompt}
             generateVoice={generateVoice}
             updateChapter={updateChapter} activeChap={activeChap}
+            insertIntoEditor={insertIntoEditor}
           />
         : mode === "thriller"
         ? <ThrillerPanel
@@ -570,6 +585,7 @@ export default function ToolbarPanel(props: Props) {
             prompt={prompt} setPrompt={setPrompt}
             generateThriller={generateThriller}
             updateChapter={updateChapter} activeChap={activeChap}
+            insertIntoEditor={insertIntoEditor}
           />
         : mode === "sports"
         ? <SportsPanel
@@ -578,6 +594,7 @@ export default function ToolbarPanel(props: Props) {
             prompt={prompt} setPrompt={setPrompt}
             generateSports={generateSports}
             updateChapter={updateChapter} activeChap={activeChap}
+            insertIntoEditor={insertIntoEditor}
           />
         : mode === "setting"
         ? <SettingPanel
@@ -586,6 +603,7 @@ export default function ToolbarPanel(props: Props) {
             prompt={prompt} setPrompt={setPrompt}
             generateSetting={generateSetting}
             updateChapter={updateChapter} activeChap={activeChap}
+            insertIntoEditor={insertIntoEditor}
           />
         : mode === "historical"
         ? <HistoricalPanel
@@ -594,6 +612,7 @@ export default function ToolbarPanel(props: Props) {
             prompt={prompt} setPrompt={setPrompt}
             generateHistorical={generateHistorical}
             updateChapter={updateChapter} activeChap={activeChap}
+            insertIntoEditor={insertIntoEditor}
           />
         : mode === "scitech"
         ? <ScitechPanel
@@ -602,6 +621,7 @@ export default function ToolbarPanel(props: Props) {
             prompt={prompt} setPrompt={setPrompt}
             generateScitech={generateScitech}
             updateChapter={updateChapter} activeChap={activeChap}
+            insertIntoEditor={insertIntoEditor}
           />
         : mode === "ethics"
         ? <EthicsPanel
@@ -610,6 +630,7 @@ export default function ToolbarPanel(props: Props) {
             prompt={prompt} setPrompt={setPrompt}
             generateEthics={generateEthics}
             updateChapter={updateChapter} activeChap={activeChap}
+            insertIntoEditor={insertIntoEditor}
           />
         : mode === "endings"
         ? <EndingsPanel
@@ -618,6 +639,7 @@ export default function ToolbarPanel(props: Props) {
             prompt={prompt} setPrompt={setPrompt}
             generateEndings={generateEndings}
             updateChapter={updateChapter} activeChap={activeChap}
+            insertIntoEditor={insertIntoEditor}
           />
         : mode === "isekai"
         ? <IsekaiPanel
@@ -626,6 +648,7 @@ export default function ToolbarPanel(props: Props) {
             prompt={prompt} setPrompt={setPrompt}
             generateIsekai={generateIsekai}
             updateChapter={updateChapter} activeChap={activeChap}
+            insertIntoEditor={insertIntoEditor}
           />
         : mode === "interrogation"
         ? <InterrogationPanel
@@ -634,6 +657,7 @@ export default function ToolbarPanel(props: Props) {
             prompt={prompt} setPrompt={setPrompt}
             generateInterrogation={generateInterrogation}
             updateChapter={updateChapter} activeChap={activeChap}
+            insertIntoEditor={insertIntoEditor}
           />
         : mode === "chase"
         ? <ChasePanel
@@ -642,6 +666,7 @@ export default function ToolbarPanel(props: Props) {
             prompt={prompt} setPrompt={setPrompt}
             generateChase={generateChase}
             updateChapter={updateChapter} activeChap={activeChap}
+            insertIntoEditor={insertIntoEditor}
           />
         : <WritePanel
             mode={mode}
@@ -678,6 +703,7 @@ export default function ToolbarPanel(props: Props) {
             onSkillSuggestionChange={onSkillSuggestionChange}
             onDismissSkillSuggestion={onDismissSkillSuggestion}
             onAcceptSkillSuggestion={onAcceptSkillSuggestion}
+            insertIntoEditor={insertIntoEditor}
           />
       }
     </div>

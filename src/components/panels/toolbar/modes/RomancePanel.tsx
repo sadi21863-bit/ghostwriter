@@ -1,6 +1,7 @@
 "use client";
 import { getRomanceArchetypeNames } from "@/lib/romance";
 import { co, sInput, sBtn, sBtnSm } from "@/lib/styles";
+import { appendToTipTap } from "@/hooks/ai-shared";
 
 const ROMANCE_DESCRIPTIONS: Record<string, string> = {
   "First Recognition": "Fisher Stage 2 begins — dopamine/norepinephrine spike. The character notices before they decide to notice. One specific non-generic detail registers. Disrupted automatic behavior. End in unsettled ambiguity, not certainty.",
@@ -21,12 +22,13 @@ interface Props {
   generateRomance: (archetypeName: string, prompt: string) => Promise<void>;
   updateChapter: (field: string, value: any) => void;
   activeChap: any;
+  insertIntoEditor?: (text: string) => void;
 }
 
 export function RomancePanel({
   romanceArchetype, setRomanceArchetype,
   generating, streamText, setStreamText,
-  prompt, setPrompt, generateRomance, updateChapter, activeChap,
+  prompt, setPrompt, generateRomance, updateChapter, activeChap, insertIntoEditor,
 }: Props) {
   return (
     <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
@@ -64,7 +66,7 @@ export function RomancePanel({
         <div style={{ padding: "8px 16px", borderTop: "1px solid " + co.border, display: "flex", gap: 8, justifyContent: "flex-end", background: co.surfaceAlt, flexShrink: 0 }}>
           <button style={sBtnSm} onClick={() => setStreamText("")}>Discard</button>
           <button style={{ ...sBtn, background: "#fdf2f8", color: "#be185d" }} onClick={() => {
-            updateChapter("content", (activeChap?.content || "") + (activeChap?.content ? "\n\n" : "") + streamText);
+            if (insertIntoEditor) { insertIntoEditor(streamText); } else { updateChapter("content", appendToTipTap(activeChap?.content || "", streamText)); }
             setStreamText("");
           }}>Insert into Chapter</button>
         </div>

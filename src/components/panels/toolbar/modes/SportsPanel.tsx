@@ -1,6 +1,7 @@
 "use client";
 import { getSportsArchetypeNames } from "@/lib/sports";
 import { co, sInput, sBtn, sBtnSm } from "@/lib/styles";
+import { appendToTipTap } from "@/hooks/ai-shared";
 
 const SPORTS_DESCRIPTIONS: Record<string, string> = {
   "Flow State": "Csikszentmihalyi's absorption — action and awareness merged, self-monitoring absent, time distorted. Write from inside the movement, not observing it. The self that watches is not present. Flow breaks with a specific trigger.",
@@ -21,12 +22,13 @@ interface Props {
   generateSports: (archetypeName: string, prompt: string) => Promise<void>;
   updateChapter: (field: string, value: any) => void;
   activeChap: any;
+  insertIntoEditor?: (text: string) => void;
 }
 
 export function SportsPanel({
   sportsArchetype, setSportsArchetype,
   generating, streamText, setStreamText,
-  prompt, setPrompt, generateSports, updateChapter, activeChap,
+  prompt, setPrompt, generateSports, updateChapter, activeChap, insertIntoEditor,
 }: Props) {
   return (
     <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
@@ -62,7 +64,7 @@ export function SportsPanel({
         <div style={{ padding: "8px 16px", borderTop: "1px solid " + co.border, display: "flex", gap: 8, justifyContent: "flex-end", background: co.surfaceAlt, flexShrink: 0 }}>
           <button style={sBtnSm} onClick={() => setStreamText("")}>Discard</button>
           <button style={{ ...sBtn, background: "#f0fdf4", color: "#166534" }} onClick={() => {
-            updateChapter("content", (activeChap?.content || "") + (activeChap?.content ? "\n\n" : "") + streamText);
+            if (insertIntoEditor) { insertIntoEditor(streamText); } else { updateChapter("content", appendToTipTap(activeChap?.content || "", streamText)); }
             setStreamText("");
           }}>Insert into Chapter</button>
         </div>

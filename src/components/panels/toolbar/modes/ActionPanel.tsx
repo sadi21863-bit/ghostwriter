@@ -1,6 +1,7 @@
 "use client";
 import { getActionArchetypeNames } from "@/lib/action";
 import { co, sInput, sBtn, sBtnSm } from "@/lib/styles";
+import { appendToTipTap } from "@/hooks/ai-shared";
 
 const ACTION_DESCRIPTIONS: Record<string, string> = {
   "Chase": "The gap is the tension. State it explicitly, change it at each obstacle. Three causally connected obstacles. Consequence cascade. Sentences shorten as the gap closes. No internal monologue at pace.",
@@ -21,12 +22,13 @@ interface Props {
   generateAction: (archetypeName: string, prompt: string) => Promise<void>;
   updateChapter: (field: string, value: any) => void;
   activeChap: any;
+  insertIntoEditor?: (text: string) => void;
 }
 
 export function ActionPanel({
   actionArchetype, setActionArchetype,
   generating, streamText, setStreamText,
-  prompt, setPrompt, generateAction, updateChapter, activeChap,
+  prompt, setPrompt, generateAction, updateChapter, activeChap, insertIntoEditor,
 }: Props) {
   return (
     <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
@@ -64,7 +66,7 @@ export function ActionPanel({
         <div style={{ padding: "8px 16px", borderTop: "1px solid " + co.border, display: "flex", gap: 8, justifyContent: "flex-end", background: co.surfaceAlt, flexShrink: 0 }}>
           <button style={sBtnSm} onClick={() => setStreamText("")}>Discard</button>
           <button style={{ ...sBtn, background: "#fffbeb", color: "#b45309" }} onClick={() => {
-            updateChapter("content", (activeChap?.content || "") + (activeChap?.content ? "\n\n" : "") + streamText);
+            if (insertIntoEditor) { insertIntoEditor(streamText); } else { updateChapter("content", appendToTipTap(activeChap?.content || "", streamText)); }
             setStreamText("");
           }}>Insert into Chapter</button>
         </div>

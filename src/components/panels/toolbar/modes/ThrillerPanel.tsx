@@ -1,6 +1,7 @@
 "use client";
 import { getThrillerArchetypeNames } from "@/lib/thriller";
 import { co, sInput, sBtn, sBtnSm } from "@/lib/styles";
+import { appendToTipTap } from "@/hooks/ai-shared";
 
 const THRILLER_DESCRIPTIONS: Record<string, string> = {
   "Expanding Threat": "Brewer & Lichtenstein expanding variant — each revelation doubles the apparent scope. The expansion arrives mid-scene, not at the end. The protagonist must update their threat model specifically. The full scope must remain unknown.",
@@ -21,12 +22,13 @@ interface Props {
   generateThriller: (archetypeName: string, prompt: string) => Promise<void>;
   updateChapter: (field: string, value: any) => void;
   activeChap: any;
+  insertIntoEditor?: (text: string) => void;
 }
 
 export function ThrillerPanel({
   thrillerArchetype, setThrillerArchetype,
   generating, streamText, setStreamText,
-  prompt, setPrompt, generateThriller, updateChapter, activeChap,
+  prompt, setPrompt, generateThriller, updateChapter, activeChap, insertIntoEditor,
 }: Props) {
   return (
     <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
@@ -62,7 +64,7 @@ export function ThrillerPanel({
         <div style={{ padding: "8px 16px", borderTop: "1px solid " + co.border, display: "flex", gap: 8, justifyContent: "flex-end", background: co.surfaceAlt, flexShrink: 0 }}>
           <button style={sBtnSm} onClick={() => setStreamText("")}>Discard</button>
           <button style={{ ...sBtn, background: "#fff1f2", color: "#9f1239" }} onClick={() => {
-            updateChapter("content", (activeChap?.content || "") + (activeChap?.content ? "\n\n" : "") + streamText);
+            if (insertIntoEditor) { insertIntoEditor(streamText); } else { updateChapter("content", appendToTipTap(activeChap?.content || "", streamText)); }
             setStreamText("");
           }}>Insert into Chapter</button>
         </div>
