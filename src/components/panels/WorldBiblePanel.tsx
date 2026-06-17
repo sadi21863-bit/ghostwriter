@@ -681,7 +681,18 @@ export default function WorldBiblePanel(props: Props) {
                           <option value="Collaborates">Collaborates — suggests, you decide</option>
                           <option value="Assists">Assists — manual mode only</option>
                         </select>
-                        <span style={{ fontSize: 10, color: co.muted }}>Controls how proactively the AI acts in the Guide Bar.</span>
+                        {(() => {
+                          const initiativeHints: Record<string, string> = {
+                            Leads: "AI auto-generates 4 seconds after each guide suggestion.",
+                            Collaborates: "AI suggests actions; you click Generate to proceed.",
+                            Assists: "Guide bar hidden; choose modes and generate manually.",
+                          };
+                          return (
+                            <p style={{ fontSize: 11, color: co.muted, marginTop: 4, lineHeight: 1.4 }}>
+                              {initiativeHints[(project as any).aiInitiative ?? 'Collaborates']}
+                            </p>
+                          );
+                        })()}
                       </div>
                       {(() => {
                         const chapterContents = (project.chapters ?? [])

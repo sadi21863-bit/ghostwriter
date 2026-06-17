@@ -295,6 +295,11 @@ export default function ToolbarPanel(props: Props) {
           ))}
         </div>
 
+        {/* Mode count */}
+        <p style={{ fontSize: 10, color: co.muted, textAlign: "center", margin: "2px 0 6px", letterSpacing: "0.03em" }}>
+          {densityFiltered.length} modes available
+        </p>
+
         {/* Mode selector */}
         <div style={{ display: "flex", gap: 4, background: co.surfaceAlt, borderRadius: 10, padding: 3, flexWrap: "wrap" }}>
           {densityFiltered.map(m => (

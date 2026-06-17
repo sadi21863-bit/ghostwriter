@@ -82,6 +82,8 @@ export default function WritingRoom({
   } | null>(null);
   const [surgicalLoading, setSurgicalLoading] = useState(false);
   const [surgicalError, setSurgicalError] = useState<string | null>(null);
+  const [shareCount, setShareCount] = useState(0);
+  const [shareUrl, setShareUrl] = useState<string | null>(null);
 
   useEffect(() => {
     if (window.innerWidth < 900) setBibleOpen(false);
@@ -208,6 +210,7 @@ export default function WritingRoom({
             >
               Write
             </button>
+            <div style={{ position: "relative" }}>
             <button
               disabled={sharingDraft}
               style={{
@@ -227,6 +230,9 @@ export default function WritingRoom({
                   const url = `${window.location.origin}/reader/${token}`;
                   await navigator.clipboard.writeText(url);
                   toast.success("Reader link copied! Share it with anyone to get feedback.");
+                  setShareCount(c => c + 1);
+                  setShareUrl(url);
+                  setTimeout(() => setShareUrl(null), 8000);
                 } catch {
                   toast.error("Could not create share link. Please try again.");
                 } finally {
@@ -234,8 +240,20 @@ export default function WritingRoom({
                 }
               }}
             >
-              {sharingDraft ? "Creating link…" : "↗ Share Draft"}
+              {sharingDraft ? "Creating link…" : shareCount > 0 ? `↗ Share Draft (${shareCount})` : "↗ Share Draft"}
             </button>
+            {shareUrl && (
+              <div style={{
+                position: "absolute", top: "100%", right: 0, zIndex: 50,
+                background: co.surface, border: `1px solid ${co.border}`, borderRadius: 6,
+                padding: "6px 10px", fontSize: 11, color: co.muted, marginTop: 4,
+                maxWidth: 280, wordBreak: "break-all",
+              }}>
+                <span style={{ color: co.text }}>{shareUrl}</span>
+                <button onClick={() => navigator.clipboard.writeText(shareUrl)} style={{ ...sBtnSm, fontSize: 10, marginLeft: 6 }}>Copy</button>
+              </div>
+            )}
+            </div>
           </div>
         </div>
       </div>
@@ -320,6 +338,9 @@ export default function WritingRoom({
                   placeholder='Describe what to change: "make the third dialogue more tense", "replace sword with dagger", "cut the redundant simile in paragraph 2"'
                   style={{ ...sTextarea, width: "100%", minHeight: 60, marginBottom: 8, fontSize: 12 }}
                 />
+                <p style={{ fontSize: 11, color: co.muted, margin: "0 0 6px", fontStyle: "italic" }}>
+                  Tip: Be specific — &quot;make the third dialogue exchange more tense&quot; works better than &quot;improve the scene&quot;.
+                </p>
                 <button
                   onClick={handleSurgicalEdit}
                   disabled={surgicalLoading || !surgicalInstruction.trim()}

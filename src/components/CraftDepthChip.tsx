@@ -22,7 +22,7 @@ export default function CraftDepthChip({ packet, activeMode, onDismiss }: Props)
       background: co.accentBg, border: `1px solid ${co.border}`, borderRadius: 8,
       padding: "6px 12px", fontSize: 12,
     }}>
-      <span style={{ color: co.text }}>
+      <span title={raw} style={{ color: co.text }}>
         <span style={{ color: co.muted }}>Craft influence: </span>
         <strong>✦ {packet.title}</strong>
         {truncated && <> — {truncated}</>}

@@ -2,7 +2,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { ChapterEditor } from '@/components/editor/ChapterEditor';
 import { getWordCount } from '@/lib/editor/content-migration';
-import { panel } from '@/lib/styles';
+import { panel, sBtn } from '@/lib/styles';
 
 interface Props {
   content: string;
@@ -218,6 +218,20 @@ export function SprintMode({ content, chapterTitle, projectName, onContentChange
               Goal reached! {sessionWords} words in {formatTime(elapsed)} — keep going if you&apos;re in the flow.
             </span>
           </div>
+        )}
+        {goalReached && (
+          <button
+            onClick={() => {
+              setSessionWords(0);
+              setGoalReached(false);
+              setElapsed(0);
+              startTime.current = Date.now();
+              baselineWords.current = getWordCount(content);
+            }}
+            style={{ ...sBtn, fontSize: 12, marginTop: 6, width: '100%' }}
+          >
+            Start New Sprint
+          </button>
         )}
       </div>
 
