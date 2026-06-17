@@ -31,9 +31,10 @@ interface StoryHealthPanelProps {
   projectId: string;
   activeChapContent: string;
   onClose: () => void;
+  onApplyFix?: (content: string) => void;
 }
 
-export function StoryHealthPanel({ project, projectId, activeChapContent, onClose }: StoryHealthPanelProps) {
+export function StoryHealthPanel({ project, projectId, activeChapContent, onClose, onApplyFix }: StoryHealthPanelProps) {
   const [tab, setTab] = useState<"validator" | "dead-scenes" | "theme" | "tension" | "transport" | "promises" | "heatmap" | "checkpoints" | "audit">("validator");
 
   // Checkpoints state
@@ -75,6 +76,10 @@ export function StoryHealthPanel({ project, projectId, activeChapContent, onClos
   // Manuscript Audit state
   const [auditRunning, setAuditRunning] = useState(false);
   const [auditResult, setAuditResult] = useState<any>(null);
+
+  // Fix This state
+  const [fixLoading, setFixLoading] = useState<Record<string, boolean>>({});
+  const [fixResults, setFixResults] = useState<Record<string, string>>({});
 
   useEffect(() => {
     fetch(`/api/projects/${projectId}/story-state`)
@@ -228,6 +233,92 @@ export function StoryHealthPanel({ project, projectId, activeChapContent, onClos
     }
   };
 
+  const runFix = async (fixInstruction: string, fixId: string) => {
+    if (!activeChapContent?.trim()) {
+      toast.warning("Open a chapter with content first.");
+      return;
+    }
+    setFixLoading(prev => ({ ...prev, [fixId]: true }));
+    setFixResults(prev => { const n = { ...prev }; delete n[fixId]; return n; });
+    try {
+      const res = await fetch("/api/ai/prose-fix", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: activeChapContent, fixInstruction }),
+      });
+      const data = await res.json();
+      if (data.error) {
+        toast.error(data.error === "upgrade_required" ? "Prose tools require Story Pro or higher." : data.error);
+      } else {
+        setFixResults(prev => ({ ...prev, [fixId]: data.result }));
+      }
+    } catch {
+      toast.error("Fix generation failed. Please try again.");
+    }
+    setFixLoading(prev => ({ ...prev, [fixId]: false }));
+  };
+
+  const dismissFix = (fixId: string) => {
+    setFixResults(prev => { const n = { ...prev }; delete n[fixId]; return n; });
+  };
+
+  const applyFix = (fixId: string) => {
+    const result = fixResults[fixId];
+    if (result && onApplyFix) {
+      onApplyFix(result);
+      toast.success("Fix applied to chapter.");
+      dismissFix(fixId);
+    }
+  };
+
+  const FixThisButton = ({ instruction, fixId }: { instruction: string; fixId: string }) => {
+    const isLoading = fixLoading[fixId];
+    const hasResult = !!fixResults[fixId];
+    if (hasResult) return null;
+    return (
+      <button
+        onClick={() => runFix(instruction, fixId)}
+        disabled={isLoading}
+        style={{
+          padding: "3px 10px", borderRadius: 6, border: "1px solid rgba(99,102,241,0.4)",
+          background: isLoading ? "rgba(99,102,241,0.05)" : "rgba(99,102,241,0.12)",
+          color: isLoading ? "#9898A6" : "#818cf8",
+          fontSize: 11, fontWeight: 500, cursor: isLoading ? "not-allowed" : "pointer",
+          flexShrink: 0, whiteSpace: "nowrap" as const,
+        }}
+      >
+        {isLoading ? "Fixing…" : "Fix This"}
+      </button>
+    );
+  };
+
+  const FixResult = ({ fixId }: { fixId: string }) => {
+    const result = fixResults[fixId];
+    if (!result) return null;
+    return (
+      <div style={{ marginTop: 8, padding: "10px 12px", background: "rgba(99,102,241,0.08)", borderRadius: 8, border: "1px solid rgba(99,102,241,0.2)" }}>
+        <div style={{ fontSize: 11, fontWeight: 600, color: "#818cf8", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.04em" }}>Fix Suggestion</div>
+        <div style={{ fontSize: 12, color: "#F2F2F3", lineHeight: 1.6, whiteSpace: "pre-wrap", maxHeight: 200, overflowY: "auto", marginBottom: 8 }}>{result}</div>
+        <div style={{ display: "flex", gap: 6 }}>
+          {onApplyFix && (
+            <button
+              onClick={() => applyFix(fixId)}
+              style={{ padding: "4px 12px", borderRadius: 6, fontSize: 11, fontWeight: 600, background: "#818cf8", border: "none", color: "#fff", cursor: "pointer" }}
+            >
+              Apply to Chapter
+            </button>
+          )}
+          <button
+            onClick={() => dismissFix(fixId)}
+            style={{ padding: "4px 10px", borderRadius: 6, fontSize: 11, background: "none", border: "1px solid rgba(255,255,255,0.1)", color: "#9898A6", cursor: "pointer" }}
+          >
+            Dismiss
+          </button>
+        </div>
+      </div>
+    );
+  };
+
   const tabStyle = (active: boolean) => ({
     padding: "8px 14px", borderRadius: 6, border: "none", cursor: "pointer", fontSize: 13, fontWeight: active ? 600 : 400,
     background: active ? "#2a2a30" : "transparent",
@@ -321,18 +412,27 @@ export function StoryHealthPanel({ project, projectId, activeChapContent, onClos
                 <div style={{ marginTop: 16 }}>
                   {/* Purpose checks */}
                   <div style={{ marginBottom: 14 }}>
-                    {validatorResult.purposeChecks?.map((pc: any) => (
-                      <div key={pc.purpose} style={{ display: "flex", gap: 10, alignItems: "flex-start", padding: "8px 0", borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
-                        <span style={{ fontSize: 16, flexShrink: 0 }}>{pc.fulfilled ? "✅" : "❌"}</span>
-                        <div>
-                          <div style={{ fontSize: 13, fontWeight: 600, color: "#F2F2F3" }}>{pc.purpose}</div>
-                          <div style={{ fontSize: 12, color: "#9898A6", marginTop: 2 }}>{pc.evidence}</div>
-                          {!pc.fulfilled && pc.suggestion && (
-                            <div style={{ fontSize: 12, color: "#D97706", marginTop: 4 }}>Fix: {pc.suggestion}</div>
-                          )}
+                    {validatorResult.purposeChecks?.map((pc: any) => {
+                      const fixId = `purpose-${pc.purpose}`;
+                      return (
+                        <div key={pc.purpose} style={{ padding: "8px 0", borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
+                          <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
+                            <span style={{ fontSize: 16, flexShrink: 0 }}>{pc.fulfilled ? "✅" : "❌"}</span>
+                            <div style={{ flex: 1 }}>
+                              <div style={{ fontSize: 13, fontWeight: 600, color: "#F2F2F3" }}>{pc.purpose}</div>
+                              <div style={{ fontSize: 12, color: "#9898A6", marginTop: 2 }}>{pc.evidence}</div>
+                              {!pc.fulfilled && pc.suggestion && (
+                                <div style={{ fontSize: 12, color: "#D97706", marginTop: 4 }}>Fix: {pc.suggestion}</div>
+                              )}
+                            </div>
+                            {!pc.fulfilled && pc.suggestion && (
+                              <FixThisButton instruction={pc.suggestion} fixId={fixId} />
+                            )}
+                          </div>
+                          <FixResult fixId={fixId} />
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
 
                   {/* Swain structure */}
@@ -369,7 +469,11 @@ export function StoryHealthPanel({ project, projectId, activeChapContent, onClos
 
                   {validatorResult.priorityFix && (
                     <div style={{ padding: "12px 14px", background: "rgba(217,119,6,0.1)", borderRadius: 8, borderLeft: "3px solid #D97706", fontSize: 13, color: "#F2F2F3" }}>
-                      <strong>Priority fix:</strong> {validatorResult.priorityFix}
+                      <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
+                        <div style={{ flex: 1 }}><strong>Priority fix:</strong> {validatorResult.priorityFix}</div>
+                        <FixThisButton instruction={validatorResult.priorityFix} fixId="validator-priority-fix" />
+                      </div>
+                      <FixResult fixId="validator-priority-fix" />
                     </div>
                   )}
                 </div>
@@ -430,7 +534,15 @@ export function StoryHealthPanel({ project, projectId, activeChapContent, onClos
                           {expandedScene === r.chapterId && (
                             <div style={{ gridColumn: "1 / -1", padding: "10px 14px", background: "rgba(217,119,6,0.06)", borderTop: "1px solid rgba(255,255,255,0.05)", fontSize: 13 }}>
                               <div style={{ color: "#9898A6", marginBottom: 4 }}>{r.diagnosis}</div>
-                              {r.suggestion && <div style={{ color: "#D97706" }}>Fix: {r.suggestion}</div>}
+                              {r.suggestion && (
+                                <>
+                                  <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
+                                    <div style={{ color: "#D97706", flex: 1 }}>Fix: {r.suggestion}</div>
+                                    <FixThisButton instruction={r.suggestion} fixId={`dead-scene-${r.chapterId}`} />
+                                  </div>
+                                  <FixResult fixId={`dead-scene-${r.chapterId}`} />
+                                </>
+                              )}
                             </div>
                           )}
                         </>
@@ -663,18 +775,27 @@ export function StoryHealthPanel({ project, projectId, activeChapContent, onClos
                       <div style={{ fontSize: 11, fontWeight: 600, color: "#9898A6", marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.05em" }}>
                         Ejection Mechanisms ({transportResult.ejections.length})
                       </div>
-                      {transportResult.ejections.map((e: any, i: number) => (
-                        <div key={i} style={{ padding: "12px 14px", background: "#111113", borderRadius: 8, marginBottom: 8, borderLeft: "3px solid #ef4444" }}>
-                          <div style={{ fontSize: 11, fontWeight: 700, color: "#ef4444", marginBottom: 4, textTransform: "uppercase" }}>{e.mechanism?.replace(/_/g, " ")}</div>
-                          {e.excerpt && (
-                            <div style={{ fontSize: 12, color: "#9898A6", fontStyle: "italic", marginBottom: 6, borderLeft: "2px solid #333", paddingLeft: 8 }}>"{e.excerpt}"</div>
-                          )}
-                          <div style={{ fontSize: 13, color: "#F2F2F3", marginBottom: 4 }}>{e.explanation}</div>
-                          {e.fix && (
-                            <div style={{ fontSize: 12, color: "#6366f1" }}>Fix: {e.fix}</div>
-                          )}
-                        </div>
-                      ))}
+                      {transportResult.ejections.map((e: any, i: number) => {
+                        const fixId = `transport-ejection-${i}`;
+                        return (
+                          <div key={i} style={{ padding: "12px 14px", background: "#111113", borderRadius: 8, marginBottom: 8, borderLeft: "3px solid #ef4444" }}>
+                            <div style={{ fontSize: 11, fontWeight: 700, color: "#ef4444", marginBottom: 4, textTransform: "uppercase" }}>{e.mechanism?.replace(/_/g, " ")}</div>
+                            {e.excerpt && (
+                              <div style={{ fontSize: 12, color: "#9898A6", fontStyle: "italic", marginBottom: 6, borderLeft: "2px solid #333", paddingLeft: 8 }}>"{e.excerpt}"</div>
+                            )}
+                            <div style={{ fontSize: 13, color: "#F2F2F3", marginBottom: 4 }}>{e.explanation}</div>
+                            {e.fix && (
+                              <>
+                                <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
+                                  <div style={{ fontSize: 12, color: "#6366f1", flex: 1 }}>Fix: {e.fix}</div>
+                                  <FixThisButton instruction={e.fix} fixId={fixId} />
+                                </div>
+                                <FixResult fixId={fixId} />
+                              </>
+                            )}
+                          </div>
+                        );
+                      })}
                     </div>
                   )}
 
@@ -798,22 +919,31 @@ export function StoryHealthPanel({ project, projectId, activeChapContent, onClos
                     </div>
                   ))}
 
-                  {auditResult.issues?.map((issue: any, i: number) => (
-                    <div key={i} style={{
-                      padding: "10px 12px", borderRadius: 8,
-                      background: issue.severity === "high" ? "rgba(239,68,68,0.08)" : "rgba(245,158,11,0.08)",
-                      border: `1px solid ${issue.severity === "high" ? "rgba(239,68,68,0.25)" : "rgba(245,158,11,0.2)"}`,
-                    }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
-                        <div style={{ fontSize: 12, fontWeight: 700, color: "#F2F2F3" }}>{issue.title}</div>
-                        <div style={{ fontSize: 10, color: "#9898A6" }}>Ch {issue.chapter} · {issue.severity}</div>
+                  {auditResult.issues?.map((issue: any, i: number) => {
+                    const fixId = `audit-issue-${i}`;
+                    return (
+                      <div key={i} style={{
+                        padding: "10px 12px", borderRadius: 8,
+                        background: issue.severity === "high" ? "rgba(239,68,68,0.08)" : "rgba(245,158,11,0.08)",
+                        border: `1px solid ${issue.severity === "high" ? "rgba(239,68,68,0.25)" : "rgba(245,158,11,0.2)"}`,
+                      }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+                          <div style={{ fontSize: 12, fontWeight: 700, color: "#F2F2F3" }}>{issue.title}</div>
+                          <div style={{ fontSize: 10, color: "#9898A6" }}>Ch {issue.chapter} · {issue.severity}</div>
+                        </div>
+                        <div style={{ fontSize: 11, color: "#9898A6", marginBottom: 4 }}>{issue.description}</div>
+                        {issue.suggestion && (
+                          <>
+                            <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
+                              <div style={{ fontSize: 11, color: "#22c55e", fontStyle: "italic", flex: 1 }}>→ {issue.suggestion}</div>
+                              <FixThisButton instruction={issue.suggestion} fixId={fixId} />
+                            </div>
+                            <FixResult fixId={fixId} />
+                          </>
+                        )}
                       </div>
-                      <div style={{ fontSize: 11, color: "#9898A6", marginBottom: 4 }}>{issue.description}</div>
-                      {issue.suggestion && (
-                        <div style={{ fontSize: 11, color: "#22c55e", fontStyle: "italic" }}>→ {issue.suggestion}</div>
-                      )}
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>

@@ -218,6 +218,19 @@ export function proseRewriteSystemPrompt(ctx: string): string {
   return `You are a prose rewriter. Generate EXACTLY 5 different rewrites of the given text. Each rewrite should vary in tone, rhythm, or stylistic approach while preserving the same events and meaning. Return as a JSON array of 5 strings: ["rewrite1","rewrite2","rewrite3","rewrite4","rewrite5"]. No markdown fences, no explanation, only the JSON array.\nWorld context:\n${ctx}`;
 }
 
+export function proseTargetedFixSystemPrompt(fixInstruction: string): string {
+  return `You are a developmental editor performing a targeted prose fix. The user will provide chapter text. Your task is to revise ONLY the specific weakness described below, keeping everything else intact.
+
+Weakness to fix:
+${fixInstruction}
+
+Rules:
+- Preserve the author's voice, tone, and all plot events
+- Only change what is necessary to address the described weakness
+- Do not add new scenes, characters, or subplots
+- Return ONLY the revised chapter text, nothing else — no preamble, no explanation, no markdown fences`;
+}
+
 export function pipelineStoryArchitectSystemPrompt(ctx: string, fmt: string): string {
   return `You are a Story Architect. Output a numbered structural outline only — acts, beats, turning points. No prose. Format: ${fmt}.\nContext:\n${ctx}`;
 }

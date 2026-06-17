@@ -618,6 +618,7 @@ export default function GhostWriterApp({ projectId }: { projectId: string }) {
           projectId={project.id}
           activeChapContent={activeChap?.content || ""}
           onClose={() => setShowStoryHealth(false)}
+          onApplyFix={(content: string) => projectState.updateChapter("content", content)}
         />
       )}
 
