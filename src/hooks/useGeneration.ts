@@ -563,7 +563,7 @@ export function useGeneration({
     setGenerating(false); setGenTarget("");
   };
 
-  const confirmViolation = async (violationType: string, purpose: string) => {
+  const confirmViolation = async (violationType: string, purpose: string, insertViaEditor?: (text: string) => void) => {
     setViolationBanner(null);
     if (!project.id) return;
     await fetch(`/api/projects/${project.id}/intentional-violation`, {
@@ -579,8 +579,12 @@ export function useGeneration({
       if (r.error === "upgrade_required") { setUpgradeRequired?.(r.feature); }
       else if (mode === "write") {
         setUndoStack(s => [...s.slice(-9), activeChap.content]);
-        const merged2 = appendToTipTap(activeChap.content, r.text);
-        updateChapter("content", merged2);
+        if (insertViaEditor) {
+          insertViaEditor(r.text);
+        } else {
+          const merged2 = appendToTipTap(activeChap.content, r.text);
+          updateChapter("content", merged2);
+        }
       } else setStreamText(r.text);
     } catch { toast.error("Generation failed. Please try again."); }
     setGenerating(false); setGenTarget("");

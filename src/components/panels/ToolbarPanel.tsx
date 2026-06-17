@@ -96,7 +96,7 @@ interface Props {
   hookScore: HookScore | null;
   hookScoring: boolean;
   scoreHook: () => Promise<void>;
-  generate: (opts?: { cameraPresetId?: string }) => Promise<void>;
+  generate: (opts?: { cameraPresetId?: string; insertViaEditor?: (text: string) => void }) => Promise<void>;
   expandBeat: (beatText: string) => Promise<void>;
   generateDialogue: (charAId: string, charBId: string, prompt: string, archetypeName: string) => Promise<void>;
   generateCombat: (styleA: string, styleB: string, prompt: string) => Promise<void>;

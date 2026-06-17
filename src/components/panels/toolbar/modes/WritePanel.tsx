@@ -59,7 +59,7 @@ interface Props {
   hookScore: HookScore | null;
   hookScoring: boolean;
   scoreHook: () => Promise<void>;
-  generate: (opts?: { cameraPresetId?: string; referencePassage?: string; additionalContext?: string }) => Promise<void>;
+  generate: (opts?: { cameraPresetId?: string; referencePassage?: string; additionalContext?: string; insertViaEditor?: (text: string) => void }) => Promise<void>;
   expandBeat: (beatText: string) => Promise<void>;
   cohostVoice: string;
   setCohostVoice: (v: string) => void;

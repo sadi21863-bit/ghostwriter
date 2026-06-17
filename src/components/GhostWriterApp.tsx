@@ -447,7 +447,7 @@ export default function GhostWriterApp({ projectId }: { projectId: string }) {
           <div style={{ fontSize: 12, lineHeight: 1.6, marginBottom: 10 }}>{aiActions.violationBanner.flagMessage}</div>
           <div style={{ display: "flex", gap: 8 }}>
             <button
-              onClick={() => aiActions.confirmViolation(aiActions.violationBanner!.violationType, "intentional choice")}
+              onClick={() => aiActions.confirmViolation(aiActions.violationBanner!.violationType, "intentional choice", insertIntoEditorRef.current ?? undefined)}
               style={{ background: "#d97706", color: "#fff", border: "none", borderRadius: 6, padding: "6px 16px", fontSize: 12, fontWeight: 700, cursor: "pointer" }}
             >
               Confirm as intentional — Generate anyway
