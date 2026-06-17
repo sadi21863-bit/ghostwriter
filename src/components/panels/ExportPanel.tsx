@@ -141,8 +141,10 @@ export function ExportPanel({ projectId, projectFormat = 'Novel', onClose }: Exp
 
   const tabs = [
     { id: "manuscript" as const, label: "Manuscript" },
-    { id: "query-letter" as const, label: "Query Letter" },
-    { id: "blurb" as const, label: "Back-Cover Blurb" },
+    // Query Letter / Back-Cover Blurb are literary-publishing concepts that
+    // don't apply to creator formats (YouTube/TikTok/Podcast scripts) — only
+    // offer them for story formats (Novel/Screenplay/Web Series).
+    ...(isStory ? [{ id: "query-letter" as const, label: "Query Letter" }, { id: "blurb" as const, label: "Back-Cover Blurb" }] : []),
     ...(isStory && projectFormat === 'Web Series' ? [{ id: "web-serial" as const, label: "Web Serial" }] : []),
   ];
 

@@ -9,6 +9,7 @@ import { projects, chapters, characters } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import Anthropic from "@anthropic-ai/sdk";
 import { MODELS } from "@/lib/ai/engine";
+import { getFormatNoun } from "@/lib/formats";
 
 const anthropic = new Anthropic();
 
@@ -58,17 +59,20 @@ export async function POST(req: Request, { params }: { params: Promise<{ project
     .filter(Boolean)
     .join(" ");
 
+  const formatNoun = getFormatNoun(project.format);
+
   const response = await anthropic.messages.create({
     model: MODELS.default,
     max_tokens: 800,
     messages: [{
       role: "user",
-      content: `Write a back-cover blurb and three tagline variants for this novel.
+      content: `Write a back-cover blurb and three tagline variants for this ${formatNoun}.
 
 ${blurbConvention}
 
 PROJECT DETAILS:
 - Title: ${project.name}
+- Format: ${project.format}
 - Genre: ${genres.join(", ") || "unspecified"}
 - Protagonist: ${protagonist ? `${protagonist.name}${protagonist.role ? ` (${protagonist.role})` : ""}${protagonist.personality ? ` — ${protagonist.personality}` : ""}${protagonist.arc ? ` Arc: ${protagonist.arc}` : ""}` : "not specified"}
 - Story summary: ${synopsis || (project as any).notes || "not available"}

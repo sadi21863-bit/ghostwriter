@@ -309,3 +309,11 @@ Fixed by always including `projectId`/`chapterId` in every call (the `runLibrary
 `src/lib/guide/next-action.ts`'s Polish/Export stage transition used to gate on a single flat `REVIEW_THRESHOLD = 500` words, regardless of format. Short-form creator formats (TikTok Script/Native, Instagram Reel, YouTube Short) target ~150-220 words per `FORMAT_RULES` — they could never cross 500 words and would sit in Draft/Script forever, never reaching Retention edit/Publish pack via the stage ladder. Documented as a known, deliberately-deferred limitation in `docs/superpowers/plans/2026-06-14-redesign-phase3-plan4-creator-variant.md`, fixed 2026-06-18.
 
 Fixed via `getReviewThreshold(format)`, which returns `CREATOR_REVIEW_THRESHOLD = 100` for any `isCreatorFormat(format)` and `REVIEW_THRESHOLD = 500` otherwise. If you add a new format, check whether it needs its own threshold rather than assuming the creator-format bucket fits — YouTube Long-form and Podcast Episode are both `isCreatorFormat` but target 1000+ words, so they'll now get nudged toward Polish earlier than their full length; that's an intentional tradeoff (early-but-dismissible nudge) over the previous bug (never advancing at all), not a perfectly-tuned threshold per format.
+
+---
+
+## Query Letter / Back-Cover Blurb Are Story-Format-Only — Don't Show Them for Creator Formats
+
+`ExportPanel.tsx`'s "Query Letter" and "Back-Cover Blurb" tabs used to render for **every** `project.format`, including all 6 creator formats (YouTube, TikTok, Podcast, etc.) — and the underlying `/api/projects/[id]/export/blurb` and `/export/query-letter` routes hardcoded "novel" in their AI prompts regardless of actual format. A YouTube Long-form or TikTok Native project reaching the Export/"Publish pack" stage could generate a literary back-cover blurb or a query letter to a literary agent for a video script.
+
+Fixed 2026-06-18: both tabs are now gated behind `isStoryFormat(projectFormat)` in `ExportPanel.tsx` (only Novel/Screenplay/Web Series get them — "Manuscript" stays available for every format). The two API routes now use `getFormatNoun(project.format)` (`src/lib/formats.ts`) to say "screenplay"/"web series"/"novel" in the prompt instead of always "novel". If you add a new story format, add it to `getFormatNoun`'s map or it'll silently fall back to calling it a "novel".

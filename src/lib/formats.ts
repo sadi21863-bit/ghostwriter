@@ -9,6 +9,11 @@ export const CREATOR_FORMATS = ["YouTube Long-form", "YouTube Short", "TikTok Sc
 export const STORY_FORMATS = ["Novel", "Screenplay", "Web Series"];
 export const isCreatorFormat = (f: string) => CREATOR_FORMATS.includes(f);
 export const isStoryFormat = (f: string) => STORY_FORMATS.includes(f);
+// Lowercase noun for the format, used in publishing-document prompts
+// ("query letter for this novel/screenplay/web series") so they don't
+// default to calling everything a "novel".
+export const getFormatNoun = (format: string): string =>
+  (({ Novel: "novel", Screenplay: "screenplay", "Web Series": "web series" } as Record<string, string>)[format] ?? "novel");
 export const getChapterLabel = (format: string): string =>
   (({ Novel: "Chapter", Screenplay: "Scene", "Web Series": "Episode", "YouTube Long-form": "Section", "YouTube Short": "Beat", "TikTok Script": "Beat", "TikTok Native": "Beat", "Instagram Reel": "Beat", "Podcast Episode": "Segment" } as Record<string, string>)[format] ?? "Chapter");
 

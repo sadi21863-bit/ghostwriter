@@ -9,6 +9,7 @@ import { projects, chapters, characters } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import Anthropic from "@anthropic-ai/sdk";
 import { MODELS } from "@/lib/ai/engine";
+import { getFormatNoun } from "@/lib/formats";
 
 const anthropic = new Anthropic();
 
@@ -47,12 +48,14 @@ export async function POST(req: Request, { params }: { params: Promise<{ project
     .filter(Boolean)
     .join(" ");
 
+  const formatNoun = getFormatNoun(project.format);
+
   const response = await anthropic.messages.create({
     model: MODELS.default,
     max_tokens: 1500,
     messages: [{
       role: "user",
-      content: `Write an industry-format query letter for this novel. Follow the standard query letter format precisely.
+      content: `Write an industry-format query letter for this ${formatNoun}. Follow the standard query letter format precisely.
 
 PROJECT DETAILS:
 - Title: ${project.name}
