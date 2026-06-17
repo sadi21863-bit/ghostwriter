@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { ChapterEditor } from "@/components/editor/ChapterEditor";
 import type { ChapterEditorHandle } from "@/components/editor/ChapterEditor";
 import { co, sBtn, sBtnSm } from "@/lib/styles";
+import { toast } from "@/lib/toast";
 import { getChapterLabel, isCreatorFormat } from "@/lib/formats";
 import { currentStage, STAGE_ORDER, type GuideStage, type GuideAction } from "@/lib/guide/next-action";
 import { MODE_REGISTRY, type GenerationMode } from "@/lib/modes/registry";
@@ -71,6 +72,7 @@ export default function WritingRoom({
 }: WritingRoomProps) {
   const [bibleOpen, setBibleOpen] = useState(true);
   const [forceEditor, setForceEditor] = useState(false);
+  const [sharingDraft, setSharingDraft] = useState(false);
   const editorRef = useRef<ChapterEditorHandle>(null);
 
   useEffect(() => {
@@ -149,18 +151,48 @@ export default function WritingRoom({
               {i < stageIdx ? "✓ " : ""}{stageLabels[s]}
             </span>
           ))}
-          <button
-            style={{
-              marginLeft: "auto", padding: "2px 10px", borderRadius: 6, fontSize: 11,
-              background: forceEditor ? co.accent : "transparent",
-              color: forceEditor ? "#fff" : co.muted,
-              border: `1px solid ${forceEditor ? co.accent : co.border}`,
-              cursor: "pointer",
-            }}
-            onClick={() => setForceEditor(f => !f)}
-          >
-            Write
-          </button>
+          <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 6 }}>
+            <button
+              style={{
+                padding: "2px 10px", borderRadius: 6, fontSize: 11,
+                background: forceEditor ? co.accent : "transparent",
+                color: forceEditor ? "#fff" : co.muted,
+                border: `1px solid ${forceEditor ? co.accent : co.border}`,
+                cursor: "pointer",
+              }}
+              onClick={() => setForceEditor(f => !f)}
+            >
+              Write
+            </button>
+            <button
+              disabled={sharingDraft}
+              style={{
+                padding: "2px 10px", borderRadius: 6, fontSize: 11,
+                background: "transparent",
+                color: sharingDraft ? co.muted : co.accent,
+                border: `1px solid ${sharingDraft ? co.border : co.accent}`,
+                cursor: sharingDraft ? "default" : "pointer",
+                opacity: sharingDraft ? 0.6 : 1,
+              }}
+              onClick={async () => {
+                setSharingDraft(true);
+                try {
+                  const res = await fetch(`/api/projects/${project.id}/reader-session`, { method: "POST" });
+                  if (!res.ok) throw new Error("Failed to create reader session");
+                  const { token } = await res.json();
+                  const url = `${window.location.origin}/reader/${token}`;
+                  await navigator.clipboard.writeText(url);
+                  toast.success("Reader link copied! Share it with anyone to get feedback.");
+                } catch {
+                  toast.error("Could not create share link. Please try again.");
+                } finally {
+                  setSharingDraft(false);
+                }
+              }}
+            >
+              {sharingDraft ? "Creating link…" : "↗ Share Draft"}
+            </button>
+          </div>
         </div>
       </div>
 
