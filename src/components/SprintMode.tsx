@@ -11,12 +11,21 @@ interface Props {
   onClose: () => void;
 }
 
+const PRESET_GOALS = [250, 500, 1000] as const;
+
 export function SprintMode({ content, chapterTitle, projectName, onContentChange, onClose }: Props) {
   const [wordCount, setWordCount] = useState(0);
   const [sessionWords, setSessionWords] = useState(0);
   const [elapsed, setElapsed] = useState(0);
+  const [goal, setGoal] = useState(500);
+  const [customGoal, setCustomGoal] = useState('');
+  const [showCustom, setShowCustom] = useState(false);
+  const [goalReached, setGoalReached] = useState(false);
   const startTime = useRef(Date.now());
   const baselineWords = useRef(getWordCount(content));
+
+  // Sprint is "locked in" once the user has typed the first word
+  const goalLocked = sessionWords > 0;
 
   useEffect(() => {
     setWordCount(getWordCount(content));
@@ -36,7 +45,11 @@ export function SprintMode({ content, chapterTitle, projectName, onContentChange
 
   const handleChange = (json: string, wc: number) => {
     setWordCount(wc);
-    setSessionWords(Math.max(0, wc - baselineWords.current));
+    const session = Math.max(0, wc - baselineWords.current);
+    setSessionWords(session);
+    if (!goalReached && session >= goal) {
+      setGoalReached(true);
+    }
     onContentChange(json);
   };
 
@@ -44,6 +57,17 @@ export function SprintMode({ content, chapterTitle, projectName, onContentChange
     const m = Math.floor(s / 60);
     const sec = s % 60;
     return `${m}:${sec.toString().padStart(2, '0')}`;
+  };
+
+  const progress = Math.min(100, goal > 0 ? (sessionWords / goal) * 100 : 0);
+
+  const handleCustomGoalCommit = () => {
+    const parsed = parseInt(customGoal, 10);
+    if (!isNaN(parsed) && parsed > 0) {
+      setGoal(parsed);
+    }
+    setShowCustom(false);
+    setCustomGoal('');
   };
 
   return (
@@ -63,9 +87,6 @@ export function SprintMode({ content, chapterTitle, projectName, onContentChange
         </div>
         <div style={{ display: 'flex', gap: 24, fontSize: 12, color: '#9898A6', alignItems: 'center' }}>
           <span>{wordCount.toLocaleString()} words</span>
-          {sessionWords > 0 && (
-            <span style={{ color: '#4ade80' }}>+{sessionWords} this session</span>
-          )}
           <span>{formatTime(elapsed)}</span>
           <button
             onClick={onClose}
@@ -75,6 +96,128 @@ export function SprintMode({ content, chapterTitle, projectName, onContentChange
             Esc to exit
           </button>
         </div>
+      </div>
+
+      {/* Goal bar */}
+      <div style={{
+        padding: '10px 32px',
+        borderBottom: '1px solid rgba(255,255,255,0.04)',
+        flexShrink: 0,
+        background: '#0d0d10',
+      }}>
+        {/* Goal selector (locked once writing starts) */}
+        {!goalLocked ? (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+            <span style={{ fontSize: 11, color: '#6b6b7e', marginRight: 4 }}>Goal:</span>
+            {PRESET_GOALS.map((g) => (
+              <button
+                key={g}
+                onClick={() => { setGoal(g); setShowCustom(false); setCustomGoal(''); }}
+                style={{
+                  background: goal === g ? 'rgba(139,92,246,0.18)' : 'rgba(255,255,255,0.04)',
+                  border: goal === g ? '1px solid rgba(139,92,246,0.5)' : '1px solid rgba(255,255,255,0.08)',
+                  borderRadius: 4,
+                  color: goal === g ? '#c4b5fd' : '#9898A6',
+                  cursor: 'pointer',
+                  fontSize: 11,
+                  padding: '2px 8px',
+                  transition: 'all 0.15s',
+                }}
+              >
+                {g}
+              </button>
+            ))}
+            {!showCustom ? (
+              <button
+                onClick={() => setShowCustom(true)}
+                style={{
+                  background: !PRESET_GOALS.includes(goal as typeof PRESET_GOALS[number]) ? 'rgba(139,92,246,0.18)' : 'rgba(255,255,255,0.04)',
+                  border: !PRESET_GOALS.includes(goal as typeof PRESET_GOALS[number]) ? '1px solid rgba(139,92,246,0.5)' : '1px solid rgba(255,255,255,0.08)',
+                  borderRadius: 4,
+                  color: !PRESET_GOALS.includes(goal as typeof PRESET_GOALS[number]) ? '#c4b5fd' : '#9898A6',
+                  cursor: 'pointer',
+                  fontSize: 11,
+                  padding: '2px 8px',
+                }}
+              >
+                {!PRESET_GOALS.includes(goal as typeof PRESET_GOALS[number]) ? `${goal} ✎` : 'Custom'}
+              </button>
+            ) : (
+              <input
+                type="number"
+                value={customGoal}
+                onChange={(e) => setCustomGoal(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') handleCustomGoalCommit();
+                  if (e.key === 'Escape') { setShowCustom(false); setCustomGoal(''); }
+                }}
+                onBlur={handleCustomGoalCommit}
+                placeholder="e.g. 750"
+                autoFocus
+                style={{
+                  background: 'rgba(255,255,255,0.06)',
+                  border: '1px solid rgba(139,92,246,0.4)',
+                  borderRadius: 4,
+                  color: '#e2e2e8',
+                  fontSize: 11,
+                  padding: '2px 8px',
+                  width: 72,
+                  outline: 'none',
+                }}
+              />
+            )}
+          </div>
+        ) : null}
+
+        {/* Progress row */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          {/* Progress bar */}
+          <div style={{
+            flex: 1,
+            height: 4,
+            background: 'rgba(255,255,255,0.07)',
+            borderRadius: 2,
+            overflow: 'hidden',
+          }}>
+            <div style={{
+              height: '100%',
+              width: `${progress}%`,
+              background: goalReached
+                ? 'linear-gradient(90deg, #4ade80, #22c55e)'
+                : progress >= 75
+                  ? 'linear-gradient(90deg, #8b5cf6, #a78bfa)'
+                  : 'linear-gradient(90deg, #6366f1, #8b5cf6)',
+              borderRadius: 2,
+              transition: 'width 0.4s ease, background 0.4s ease',
+            }} />
+          </div>
+
+          {/* Word count vs goal */}
+          <span style={{ fontSize: 11, color: goalReached ? '#4ade80' : '#9898A6', whiteSpace: 'nowrap', minWidth: 90, textAlign: 'right' }}>
+            {sessionWords} / {goal} words
+          </span>
+        </div>
+
+        {/* Completion celebration */}
+        {goalReached && (
+          <div style={{
+            marginTop: 8,
+            padding: '6px 12px',
+            background: 'rgba(74,222,128,0.08)',
+            border: '1px solid rgba(74,222,128,0.2)',
+            borderRadius: 6,
+            fontSize: 12,
+            color: '#4ade80',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 6,
+          }}>
+            <span>🎉</span>
+            <span>
+              Goal reached! {sessionWords} words in {formatTime(elapsed)} — keep going if you&apos;re in the flow.
+            </span>
+          </div>
+        )}
       </div>
 
       {/* Writing surface */}
