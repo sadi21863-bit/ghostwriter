@@ -2,13 +2,14 @@
 import type { FormEvent } from "react";
 import { useEffect, useState } from "react";
 import { useSession, signOut } from "next-auth/react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useFeatureIsOn } from "@growthbook/growthbook-react";
 import Onboarding from "@/components/Onboarding";
 import { EmptyState } from "@/components/EmptyState";
 import { FORMATS } from "@/lib/formats";
 import { FLAGS } from "@/lib/growthbook";
 import Home from "@/components/Home";
+import { toast } from "@/lib/toast";
 
 type Project = {
   id: string;
@@ -29,6 +30,7 @@ export default function Dashboard() {
   const homeRedesign = useFeatureIsOn(FLAGS.homeRedesign);
   const { data: session, status } = useSession();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -69,6 +71,13 @@ export default function Dashboard() {
   useEffect(() => {
     if (status === "unauthenticated") router.push("/login");
   }, [status, router]);
+
+  useEffect(() => {
+    if (searchParams.get("email_verified") === "1") {
+      toast.success("Email verified! Your account is all set.");
+      router.replace("/dashboard");
+    }
+  }, [searchParams, router]);
 
   useEffect(() => {
     if (status !== "authenticated") return;
@@ -198,7 +207,6 @@ export default function Dashboard() {
         body: JSON.stringify({
           genres: braindumpResult.genres,
           controllingIdea: braindumpResult.controllingIdea,
-          notes: braindumpResult.worldFacts.join('\n'),
         }),
       });
 
@@ -210,6 +218,17 @@ export default function Dashboard() {
             name: char.name,
             role: char.role,
             personality: char.description,
+          }),
+        })
+      ));
+
+      await Promise.all(braindumpResult.worldFacts.map(fact =>
+        fetch(`/api/projects/${proj.id}/locations`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: fact.length > 50 ? fact.substring(0, 50) : fact,
+            description: fact,
           }),
         })
       ));
