@@ -78,6 +78,7 @@ export default function GhostWriterApp({ projectId }: { projectId: string }) {
   const writingRoomEnabled = useFeatureIsOn(FLAGS.writingRoomShell);
   const [actionsOpen, setActionsOpen] = useState(false);
   const insertIntoEditorRef = useRef<((text: string) => void) | null>(null);
+  const autoFireTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     fetch('/api/subscription').then(r => r.json()).then(setSubscription).catch(() => {});
@@ -236,6 +237,7 @@ export default function GhostWriterApp({ projectId }: { projectId: string }) {
   );
 
   const handleGuideRun = (action: GuideAction) => {
+    if (autoFireTimerRef.current) { clearTimeout(autoFireTimerRef.current); autoFireTimerRef.current = null; }
     fetch("/api/events", {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ event: "guide_clicked", properties: { actionId: action.id, stage: action.stage } }),
@@ -249,9 +251,17 @@ export default function GhostWriterApp({ projectId }: { projectId: string }) {
     if (runChapterId && runChapterId !== project.activeChapter) {
       projectState.updateProject((p: any) => ({ ...p, activeChapter: runChapterId }));
     }
+
+    if ((project.aiInitiative ?? "Collaborates") === "Leads") {
+      autoFireTimerRef.current = setTimeout(() => {
+        autoFireTimerRef.current = null;
+        aiActions.generate({ insertViaEditor: insertIntoEditorRef.current ?? undefined });
+      }, 4000);
+    }
   };
 
   const handleGuideDismiss = (id: string) => {
+    if (autoFireTimerRef.current) { clearTimeout(autoFireTimerRef.current); autoFireTimerRef.current = null; }
     fetch("/api/events", {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ event: "guide_dismissed", properties: { actionId: id } }),
@@ -439,7 +449,7 @@ export default function GhostWriterApp({ projectId }: { projectId: string }) {
           </button>
         </div>
       )}
-      <GuideBar action={guideAction} onRun={handleGuideRun} onDismiss={handleGuideDismiss} />
+      {(project.aiInitiative ?? "Collaborates") !== "Assists" && <GuideBar action={guideAction} onRun={handleGuideRun} onDismiss={handleGuideDismiss} />}
       <div style={{ display: "flex", flex: 1, overflow: "hidden" }}>
       {aiActions.violationBanner && (
         <div style={{ position: "fixed", top: 0, left: 0, right: 0, background: "#92400e", color: "#fef3c7", padding: "12px 20px", zIndex: 1999, borderBottom: "1px solid #d97706" }}>

@@ -663,6 +663,26 @@ export default function WorldBiblePanel(props: Props) {
                           <div style={{ fontSize: 10, color: co.muted }}>Instructs the model to avoid the 20 most common AI fiction tells. Adds a constraint block to every generation.</div>
                         </div>
                       </label>
+                      <div style={{ marginTop: 12 }}>
+                        <span style={{ fontSize: 10, color: co.muted, display: 'block', marginBottom: 4 }}>AI Initiative</span>
+                        <select
+                          value={(project as any).aiInitiative ?? 'Collaborates'}
+                          onChange={async e => {
+                            const val = e.target.value;
+                            updateProject((p: any) => ({ ...p, aiInitiative: val }));
+                            await fetch(`/api/projects/${project.id}`, {
+                              method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ aiInitiative: val }),
+                            }).catch(() => {});
+                          }}
+                          style={{ ...sInput, fontSize: 11 }}
+                        >
+                          <option value="Leads">AI Leads — auto-generates suggestions</option>
+                          <option value="Collaborates">Collaborates — suggests, you decide</option>
+                          <option value="Assists">Assists — manual mode only</option>
+                        </select>
+                        <span style={{ fontSize: 10, color: co.muted }}>Controls how proactively the AI acts in the Guide Bar.</span>
+                      </div>
                       {(() => {
                         const chapterContents = (project.chapters ?? [])
                           .filter((c: any) => c.content && c.content.trim().length > 200)
