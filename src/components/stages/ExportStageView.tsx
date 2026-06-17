@@ -2,14 +2,16 @@
 "use client";
 import { co, sBtn, sBtnSm } from "@/lib/styles";
 import { nextAction, type GuideAction } from "@/lib/guide/next-action";
+import { isStoryFormat } from "@/lib/formats";
 
 interface ExportStageViewProps {
   project: any;
   onGuideRun: (action: GuideAction) => void;
   onOpenProductionStudio: () => void;
+  onOpenComicStudio: () => void;
 }
 
-export default function ExportStageView({ project, onGuideRun, onOpenProductionStudio }: ExportStageViewProps) {
+export default function ExportStageView({ project, onGuideRun, onOpenProductionStudio, onOpenComicStudio }: ExportStageViewProps) {
   const action: GuideAction = nextAction({
     format: project.format,
     controllingIdea: project.controllingIdea,
@@ -39,6 +41,9 @@ export default function ExportStageView({ project, onGuideRun, onOpenProductionS
           <button style={sBtn} onClick={() => onGuideRun(action)}>Open Export →</button>
           {project.isHiggsfieldProject && (
             <button style={sBtnSm} onClick={onOpenProductionStudio}>Open Production Studio →</button>
+          )}
+          {isStoryFormat(project.format) && (
+            <button style={sBtnSm} onClick={onOpenComicStudio}>🎨 Open Comic Studio →</button>
           )}
         </div>
       </div>

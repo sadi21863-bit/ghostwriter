@@ -11,6 +11,7 @@ import { getVisibleModes, filterModesByQuery } from "@/lib/modes/slash-menu";
 import { LIBRARY_MODES, classifyBeat } from "@/lib/modes/classify";
 import BeatDetectionChip from "@/components/BeatDetectionChip";
 import CraftDepthChip from "@/components/CraftDepthChip";
+import { AudioNovelPanel } from "@/components/AudioNovelPanel";
 import type { WorkPacket } from "@/lib/ai/influence-context";
 import SlashMenu from "@/components/SlashMenu";
 import IdeaStageView from "@/components/stages/IdeaStageView";
@@ -54,28 +55,33 @@ interface WritingRoomProps {
   onGuideDismiss: (id: string) => void;
   qualityReview: QualityReview | null;
   onOpenProductionStudio: () => void;
+  onOpenComicStudio: () => void;
   mode: string;
   setSavedMsg: (msg: string) => void;
   onUpgradeRequired: (feature: string) => void;
   onRegisterInsert?: (fn: (text: string) => void) => void;
   activeInfluence?: WorkPacket | null;
   onClearInfluence?: () => void;
+  addChapter: () => Promise<void>;
 }
 
 export default function WritingRoom({
   project, activeChap, updateProject, updateChapter,
   generating, generate, onOpenBible, onOpenActions,
   prompt, setPrompt, onSelectMode,
-  onGuideRun, onGuideDismiss, qualityReview, onOpenProductionStudio,
+  onGuideRun, onGuideDismiss, qualityReview, onOpenProductionStudio, onOpenComicStudio,
   mode, setSavedMsg, onUpgradeRequired, onRegisterInsert,
-  activeInfluence, onClearInfluence,
+  activeInfluence, onClearInfluence, addChapter,
 }: WritingRoomProps) {
   const [bibleOpen, setBibleOpen] = useState(true);
   const [forceEditor, setForceEditor] = useState(false);
+  const [manualStage, setManualStage] = useState<GuideStage | null>(null);
+  const [addingChapter, setAddingChapter] = useState(false);
   const [sharingDraft, setSharingDraft] = useState(false);
   const editorRef = useRef<ChapterEditorHandle>(null);
 
   const [surgicalOpen, setSurgicalOpen] = useState(false);
+  const [audioNovelOpen, setAudioNovelOpen] = useState(false);
   const [surgicalInstruction, setSurgicalInstruction] = useState("");
   const [surgicalResult, setSurgicalResult] = useState<{
     original: string; replacement: string; explanation: string; updatedJson: object;
@@ -97,14 +103,30 @@ export default function WritingRoom({
 
   const sortedChapters = [...(project.chapters || [])].sort((a: any, b: any) => a.sortOrder - b.sortOrder);
   const chapIndex = sortedChapters.findIndex((c: any) => c.id === activeChap.id);
-  const stage = currentStage({
+  const computedStage = currentStage({
     format: project.format,
     controllingIdea: project.controllingIdea,
     characters: project.characters || [],
     chapters: project.chapters || [],
     dismissedGuideIds: project.dismissedGuideIds,
   });
+  const stage = manualStage ?? computedStage;
   const stageIdx = STAGE_ORDER.indexOf(stage);
+
+  const goToStage = (s: GuideStage) => {
+    setManualStage(s);
+    if (s !== "draft") setForceEditor(false);
+  };
+
+  const handleAddChapter = async () => {
+    setAddingChapter(true);
+    try {
+      await addChapter();
+      goToStage("draft");
+    } finally {
+      setAddingChapter(false);
+    }
+  };
 
   const visibleModes = useMemo(() => getVisibleModes(project.format), [project.format]);
   const slashQuery = prompt.startsWith("/") ? prompt.slice(1) : null;
@@ -184,18 +206,22 @@ export default function WritingRoom({
             <button style={{ ...sBtnSm, padding: "2px 8px" }} disabled={chapIndex <= 0} onClick={() => goToChapter(chapIndex - 1)}>‹</button>
             <span>{getChapterLabel(project.format)} {chapIndex + 1} of {sortedChapters.length}: {activeChap.title}</span>
             <button style={{ ...sBtnSm, padding: "2px 8px" }} disabled={chapIndex < 0 || chapIndex >= sortedChapters.length - 1} onClick={() => goToChapter(chapIndex + 1)}>›</button>
+            <button style={{ ...sBtnSm, padding: "2px 8px" }} disabled={addingChapter} onClick={handleAddChapter}>
+              {addingChapter ? "Adding…" : `+ Add ${getChapterLabel(project.format)}`}
+            </button>
           </div>
         </div>
         <div style={{ display: "flex", gap: 4, fontSize: 11, alignItems: "center" }}>
           {STAGE_ORDER.map((s, i) => (
-            <span key={s} style={{
-              padding: "2px 8px", borderRadius: 6,
+            <button key={s} onClick={() => goToStage(s)} style={{
+              padding: "2px 8px", borderRadius: 6, border: "none", cursor: "pointer",
+              fontFamily: "inherit", fontSize: 11,
               fontWeight: i === stageIdx ? 700 : 400,
               color: i < stageIdx ? co.green : i === stageIdx ? co.accent : co.muted,
               background: i === stageIdx ? co.accentBg : "transparent",
             }}>
               {i < stageIdx ? "✓ " : ""}{stageLabels[s]}
-            </span>
+            </button>
           ))}
           <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 6 }}>
             <button
@@ -267,6 +293,7 @@ export default function WritingRoom({
             onChange={handleEditorChange}
             placeholder="Begin writing..."
             autoFocus
+            lightTheme
           />
 
           <div style={{ width: bibleOpen ? 190 : 36, minWidth: bibleOpen ? 190 : 36, borderLeft: `1px solid ${co.border}`, background: co.surface, transition: "width 0.2s", overflow: "hidden", display: "flex", flexDirection: "column" }}>
@@ -302,7 +329,7 @@ export default function WritingRoom({
       ) : stage === "polish" ? (
         <PolishStageView project={project} qualityReview={qualityReview} onGuideRun={onGuideRun} onGuideDismiss={onGuideDismiss} mode={mode} content={activeChap.content} updateProject={updateProject} setSavedMsg={setSavedMsg} onUpgradeRequired={onUpgradeRequired} onOpenActions={onOpenActions} />
       ) : stage === "export" ? (
-        <ExportStageView project={project} onGuideRun={onGuideRun} onOpenProductionStudio={onOpenProductionStudio} />
+        <ExportStageView project={project} onGuideRun={onGuideRun} onOpenProductionStudio={onOpenProductionStudio} onOpenComicStudio={onOpenComicStudio} />
       ) : null}
 
       {/* Footer */}
@@ -368,6 +395,21 @@ export default function WritingRoom({
                     </div>
                   </div>
                 )}
+              </div>
+            )}
+          </div>
+        )}
+        {(stage === "draft" || stage === "polish" || forceEditor) && (
+          <div style={{ marginBottom: 0 }}>
+            <button
+              onClick={() => setAudioNovelOpen(o => !o)}
+              style={{ ...sBtnSm, fontSize: 11, opacity: 0.8 }}
+            >
+              {audioNovelOpen ? "✕ Close Audio Novel" : "🎧 Audio Novel"}
+            </button>
+            {audioNovelOpen && (
+              <div style={{ marginTop: 8 }}>
+                <AudioNovelPanel project={project} activeChap={activeChap} />
               </div>
             )}
           </div>

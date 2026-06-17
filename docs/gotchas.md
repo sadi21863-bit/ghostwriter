@@ -285,3 +285,11 @@ When a user hits the monthly generation limit in `POST /api/ai/analyze-passage`,
 ```
 
 with status **429** (not 200). Client code must check the response status — a `directives: ""` response on 200 is a legitimate "no directives found" result; a 429 means the limit was hit.
+
+---
+
+## Format-Specific Behavior Is Real for Generation, Not for Export
+
+`src/lib/ai/engine.ts`'s `FORMAT_RULES`/`STORY_FORMAT_RULES` genuinely change the system prompt per `project.format` (Screenplay gets proper INT./EXT. slugline + centered-cue instructions, YouTube/TikTok/Podcast get hook timing + on-screen-text markers, etc.) — this is real, not cosmetic, for every format **except TikTok Native**, which has no entry in either rules map and is generated as plain unstructured text.
+
+Separately, `src/app/api/projects/[projectId]/export/manuscript/route.ts` (DOCX export) is **completely format-agnostic** — always Times New Roman, always generic prose paragraph styling, regardless of `project.format`. A Screenplay project's AI-generated content has correct screenplay structure in the editor (sluglines, character cues), but exporting it to DOCX discards that structure entirely — there is no Courier font, no scene-heading styling, no character-cue indentation in the export. Found 2026-06-17, not yet fixed.

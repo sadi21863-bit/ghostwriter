@@ -88,11 +88,21 @@ body {
 .chapter-editor .ProseMirror {
   outline: none;
   min-height: calc(100vh - 200px);
-  padding: 48px max(48px, calc((100vw - 680px) / 2));
+  max-width: 680px;
+  margin: 0 auto;
+  padding: 48px;
   font-size: 17px;
   line-height: 1.85;
   font-family: Georgia, "Times New Roman", serif;
   color: var(--color-text-primary);
+}
+/* Light-themed call sites (WritingRoom, WritePanel) sit on a light app shell —
+   override the dark-theme default text color so it isn't white-on-white. */
+.chapter-editor.chapter-editor--light .ProseMirror {
+  color: #1a1a1a;
+}
+.chapter-editor.chapter-editor--light .ProseMirror p.is-editor-empty:first-child::before {
+  color: #9ca3af;
 }
 .chapter-editor .ProseMirror p { margin: 0 0 1.2em 0; }
 .chapter-editor .ProseMirror h1,

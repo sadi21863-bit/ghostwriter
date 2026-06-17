@@ -176,9 +176,19 @@ Available slash commands are defined in `src/lib/slash-commands/index.ts`.
 
 ---
 
+## Audio Novel Panel: `src/components/AudioNovelPanel.tsx`
+
+Shared component (extracted 2026-06-17 from the legacy chapters-sidebar's inline code) used by two call sites:
+- `src/components/panels/ChapterEditor.tsx` (legacy chapters sidebar, unchanged behavior)
+- `src/components/WritingRoom.tsx` (new shell — toggleable "🎧 Audio Novel" footer section, Draft/Polish stages)
+
+Self-contained: takes `{ project, activeChap }`, owns its own audio/lipsync state. Generate button → `POST /api/audio/generate` → `<audio>` player once `audioUrl` is set → lipsync section appears once `audioExportId` exists (character-with-portrait selection → `POST /api/audio/lipsync` → manual "Check status" polling against `GET /api/audio/lipsync?audioExportId=`).
+
+---
+
 ## Comic Studio: `src/components/ComicStudio.tsx`
 
-Full-screen comic panel generator:
+Full-screen comic panel generator. Reachable from the legacy `ToolbarPanel` ("🎨 Comics" button, story formats only) **and**, since 2026-06-17, from `WritingRoom`'s Export stage ("🎨 Open Comic Studio →", same `isStoryFormat` gate) via the Actions-drawer mechanism — both paths render the same underlying `ToolbarPanel`/`ComicStudio` instance, there is no duplicate component.
 
 ```
 ComicStudio.tsx
@@ -249,9 +259,15 @@ src/components/
 ```
 
 - **Stage ladder:** `currentStage(project)` / `nextAction(project)` in `src/lib/guide/next-action.ts` map a project's chapter-level progress onto Idea/Structure/Draft/Polish/Export. Creator-format projects (TikTok, YouTube, etc.) get remapped stage labels (Angle/Outline-Hooks/Script/Retention edit/Publish pack) with their own per-stage tool rows.
+- **Stage navigation:** the displayed stage is `manualStage ?? currentStage(project)` — clicking any of the five progress pills in `WritingRoom`'s header sets `manualStage` and navigates there directly, overriding the auto-computed stage. Before 2026-06-17 the displayed stage was 100% auto-computed with no way back once it advanced (e.g. once any chapter passed the word-count threshold the view jumped to Export with no way to return to Draft for other chapters).
+- **Chapter creation:** `WritingRoom`'s header has a "+ Add {chapter label}" button next to the `‹ ›` chapter-nav arrows, calling `useProjectState`'s `addChapter()`. This didn't exist before 2026-06-17 — `WritingRoom` had no way to create a chapter at all (only navigate between existing ones), which is why AI-generated content from a multi-beat outline would all land in chapter 1.
 - **Story Bible:** `src/components/StoryBible.tsx` is a full-screen Cast/World/Threads CRUD overlay. `src/lib/ai/entity-extraction.ts` (`matchEntities`/`diffEntity`) auto-extracts entity updates from generated `write`-mode text, surfaced via `EntitySuggestionsChip`.
 - **Beat detection:** `classifyBeat()` in `src/lib/modes/classify.ts` matches a drafted beat's text against each of the 23 `LIBRARY_MODES`' keyword lists; `BeatDetectionChip` surfaces the best match in the Draft stage.
 - **Dismissal state:** `projects.dismissedGuideIds` (jsonb array) persists which guide suggestions a user has dismissed.
+- **Audio Novel:** the shared `AudioNovelPanel` component (see below) is reachable from a toggleable "🎧 Audio Novel" button in `WritingRoom`'s footer (Draft/Polish stages) — added 2026-06-17, since it was previously only reachable via the legacy sidebar that `WritingRoom` never mounts.
+- **Comic Studio:** the Export stage view has a "🎨 Open Comic Studio →" button that reuses the same Actions-drawer mechanism Production Studio already used (`setShowComicStudio(true); setActionsOpen(true)`) — added 2026-06-17 for the same reason as Audio Novel above.
+
+⚠️ **This redesign has a history of porting incompletely** — see `docs/product-history.md` for the full account of what got dropped (Add Chapter, Comic Studio, Audio Novel) when this shell first shipped, and the recommendation going forward. Before treating `WritingRoom` as feature-complete, check whether a capability you expect from the legacy shell below actually has an equivalent here.
 
 ---
 

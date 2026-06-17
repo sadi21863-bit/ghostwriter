@@ -526,12 +526,14 @@ export default function GhostWriterApp({ projectId }: { projectId: string }) {
             onGuideDismiss={handleGuideDismiss}
             qualityReview={aiActions.qualityReview}
             onOpenProductionStudio={() => { setShowProductionStudio(true); setActionsOpen(true); }}
+            onOpenComicStudio={() => { setShowComicStudio(true); setActionsOpen(true); }}
             mode={mode}
             setSavedMsg={setSavedMsg}
             onUpgradeRequired={(f) => setUpgradeRequired(f as FeatureGate)}
             onRegisterInsert={(fn) => { insertIntoEditorRef.current = fn; }}
             activeInfluence={activeInfluence}
             onClearInfluence={() => setActiveInfluence(null)}
+            addChapter={projectState.addChapter}
           />
           {actionsOpen && (
             <div

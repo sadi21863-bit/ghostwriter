@@ -12,7 +12,7 @@ import { buildAiismsInstruction } from "@/lib/ai/aiisms";
 import { db } from "@/db";
 import { generations, projects, users } from "@/db/schema";
 import { and, eq, sql, lte, ne } from "drizzle-orm";
-import { universeEvents, universeCharacters, projectCharacterStates } from "@/db/schema";
+import { universeEvents, universeCharacters, projectCharacterStates, seriesBibles } from "@/db/schema";
 import { track } from "@/lib/analytics";
 
 const VIOLATION_PATTERNS: Record<string, {
@@ -133,6 +133,38 @@ async function buildSeriesUniverseContext(proj: any, userId: string): Promise<st
   return lines.length > 0 ? '\n\n--- STORY UNIVERSE ---\n' + lines.join('\n') : '';
 }
 
+async function buildSeriesBibleContext(projectId: string, userId: string): Promise<string> {
+  const bibles = await db.query.seriesBibles.findMany({ where: eq(seriesBibles.userId, userId) });
+  const bible = bibles.find((b: any) => (b.projectIds as string[] | null)?.includes(projectId));
+  if (!bible) return '';
+
+  const lines: string[] = [`Series: "${bible.name}"`];
+  if (bible.premise) lines.push(`Premise: ${bible.premise}`);
+  if (bible.tone) lines.push(`Tone: ${bible.tone}`);
+
+  const worldRules = (bible.worldRules as string[] | null) ?? [];
+  if (worldRules.length > 0) {
+    lines.push('World rules (must hold across every book in this series):');
+    worldRules.forEach((r) => lines.push(`- ${r}`));
+  }
+
+  const arcs = (bible.seriesCharacterArcs as { characterName: string; arcSummary: string; booksInvolved: string[] }[] | null) ?? [];
+  if (arcs.length > 0) {
+    lines.push('Series-spanning character arcs:');
+    arcs.forEach((a) => lines.push(`- ${a.characterName}: ${a.arcSummary}${a.booksInvolved?.length ? ` (books: ${a.booksInvolved.join(', ')})` : ''}`));
+  }
+
+  if (bible.continuityNotes) lines.push(`Continuity notes: ${bible.continuityNotes}`);
+
+  const timeline = (bible.timeline as { event: string; period: string; projectId?: string }[] | null) ?? [];
+  if (timeline.length > 0) {
+    lines.push('Series timeline:');
+    timeline.forEach((t) => lines.push(`- ${t.period ? `[${t.period}] ` : ''}${t.event}`));
+  }
+
+  return lines.length > 1 ? '\n\n--- SERIES BIBLE ---\n' + lines.join('\n') : '';
+}
+
 export async function POST(req: Request) {
   const session = await getRequiredSession();
   const rl = await checkAiRateLimit(session.user.id);
@@ -224,6 +256,8 @@ export async function POST(req: Request) {
       if ((proj as any)?.storyType === 'series' || (proj as any)?.storyType === 'universe-story') {
         seriesUniverseCtx = await buildSeriesUniverseContext(proj, session.user.id);
       }
+      const seriesBibleCtx = await buildSeriesBibleContext(projectId, session.user.id);
+      if (seriesBibleCtx) seriesUniverseCtx += seriesBibleCtx;
     }
 
     // Series/universe context belongs in the static (cached) block — it doesn't change mid-session.

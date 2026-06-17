@@ -17,6 +17,7 @@ interface Props {
   placeholder?: string;
   readOnly?: boolean;
   autoFocus?: boolean;
+  lightTheme?: boolean;
 }
 
 export interface ChapterEditorHandle {
@@ -25,7 +26,7 @@ export interface ChapterEditorHandle {
 }
 
 export const ChapterEditor = forwardRef<ChapterEditorHandle, Props>(function ChapterEditor(
-  { content, onChange, placeholder, readOnly, autoFocus }, ref
+  { content, onChange, placeholder, readOnly, autoFocus, lightTheme }, ref
 ) {
   const saveTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
@@ -90,7 +91,7 @@ export const ChapterEditor = forwardRef<ChapterEditorHandle, Props>(function Cha
   useEffect(() => () => clearTimeout(saveTimer.current), []);
 
   return (
-    <div className="chapter-editor" style={{ flex: 1, overflow: 'auto', position: 'relative' }}>
+    <div className={`chapter-editor${lightTheme ? ' chapter-editor--light' : ''}`} style={{ flex: 1, overflow: 'auto', position: 'relative' }}>
       <FormatToolbar editor={editor} />
       <EditorContent editor={editor} />
     </div>

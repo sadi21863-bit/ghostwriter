@@ -290,7 +290,7 @@ Two distinct multi-story structures:
 
 ### Context injection: `buildSeriesUniverseContext()`
 
-Called in the generate route immediately after the AIisms check. Adds a `STORY UNIVERSE` block to `effectiveDynamic`:
+Called in the generate route immediately after the AIisms check. Adds a `STORY UNIVERSE` block to `effectiveStatic` (the cached static block — appended *after* `capContextForTier`'s cap, so server-derived context is never truncated by a client-inflated static block):
 
 ```
 Series:
@@ -303,6 +303,10 @@ Universe:
   → Injects "DECEASED" flag for dead characters (prevents model from resurrecting them)
   → Injects emotionalState + stateNotes for surviving characters
 ```
+
+### Context injection: `buildSeriesBibleContext()` (independent of `storyType`)
+
+Added 2026-06-17. A completely separate, simpler mechanism from the series/universe one above: the dashboard's "Series Bible" feature (`series_bibles` table — name/premise/tone/worldRules/seriesCharacterArcs/continuityNotes/timeline/`projectIds`) lets a user group any of their projects under one canon document, regardless of `storyType`. Until this date, filling in that document had **zero effect on generation** — nothing read the table. Now: for any `projectId`, looks up whether it appears in any of the user's `series_bibles.projectIds` arrays, and if so appends a `SERIES BIBLE` block (premise, tone, world rules, character arcs, continuity notes, timeline) to the same `effectiveStatic` block, alongside (not instead of) `buildSeriesUniverseContext()`'s output. The two are independent and can both fire for the same project.
 
 ### Universe Dashboard
 
