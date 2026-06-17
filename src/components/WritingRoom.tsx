@@ -2,7 +2,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ChapterEditor } from "@/components/editor/ChapterEditor";
 import type { ChapterEditorHandle } from "@/components/editor/ChapterEditor";
-import { co, sBtn, sBtnSm } from "@/lib/styles";
+import { co, sBtn, sBtnSm, sTextarea } from "@/lib/styles";
 import { toast } from "@/lib/toast";
 import { getChapterLabel, isCreatorFormat } from "@/lib/formats";
 import { currentStage, STAGE_ORDER, type GuideStage, type GuideAction } from "@/lib/guide/next-action";
@@ -75,6 +75,14 @@ export default function WritingRoom({
   const [sharingDraft, setSharingDraft] = useState(false);
   const editorRef = useRef<ChapterEditorHandle>(null);
 
+  const [surgicalOpen, setSurgicalOpen] = useState(false);
+  const [surgicalInstruction, setSurgicalInstruction] = useState("");
+  const [surgicalResult, setSurgicalResult] = useState<{
+    original: string; replacement: string; explanation: string; updatedJson: object;
+  } | null>(null);
+  const [surgicalLoading, setSurgicalLoading] = useState(false);
+  const [surgicalError, setSurgicalError] = useState<string | null>(null);
+
   useEffect(() => {
     if (window.innerWidth < 900) setBibleOpen(false);
   }, []);
@@ -126,6 +134,42 @@ export default function WritingRoom({
   };
 
   const stageLabels = isCreatorFormat(project.format) ? CREATOR_STAGE_LABELS : STAGE_LABELS;
+
+  async function handleSurgicalEdit() {
+    if (!surgicalInstruction.trim() || !activeChap?.content) return;
+    setSurgicalLoading(true);
+    setSurgicalError(null);
+    setSurgicalResult(null);
+    try {
+      const res = await fetch(`/api/ai/surgical-edit`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          chapterContent: activeChap.content,
+          instruction: surgicalInstruction,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || data.error) {
+        setSurgicalError(data.error ?? "Edit failed. Try rephrasing your instruction.");
+      } else {
+        setSurgicalResult(data);
+      }
+    } catch {
+      setSurgicalError("Network error. Please try again.");
+    } finally {
+      setSurgicalLoading(false);
+    }
+  }
+
+  function applySurgicalEdit() {
+    if (!surgicalResult) return;
+    editorRef.current?.replaceContent(surgicalResult.updatedJson);
+    updateChapter("content", JSON.stringify(surgicalResult.updatedJson));
+    setSurgicalResult(null);
+    setSurgicalInstruction("");
+    setSurgicalOpen(false);
+  }
 
   return (
     <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
@@ -258,6 +302,54 @@ export default function WritingRoom({
             onApply={() => onSelectMode(detectedMode)}
             onDismiss={() => setDismissedDetection(detectedMode)}
           />
+        )}
+        {(stage === "draft" || forceEditor) && (
+          <div style={{ marginBottom: 0 }}>
+            <button
+              onClick={() => { setSurgicalOpen(o => !o); setSurgicalResult(null); setSurgicalError(null); }}
+              style={{ ...sBtnSm, fontSize: 11, opacity: 0.8 }}
+            >
+              {surgicalOpen ? "✕ Close Find & Edit" : "✏ Find & Edit"}
+            </button>
+
+            {surgicalOpen && (
+              <div style={{ marginTop: 8, padding: "10px 12px", background: co.surface, border: `1px solid ${co.border}`, borderRadius: 8 }}>
+                <textarea
+                  value={surgicalInstruction}
+                  onChange={e => setSurgicalInstruction(e.target.value)}
+                  placeholder='Describe what to change: "make the third dialogue more tense", "replace sword with dagger", "cut the redundant simile in paragraph 2"'
+                  style={{ ...sTextarea, width: "100%", minHeight: 60, marginBottom: 8, fontSize: 12 }}
+                />
+                <button
+                  onClick={handleSurgicalEdit}
+                  disabled={surgicalLoading || !surgicalInstruction.trim()}
+                  style={{ ...sBtn, fontSize: 12 }}
+                >
+                  {surgicalLoading ? "Finding & editing…" : "Apply Edit"}
+                </button>
+
+                {surgicalError && (
+                  <p style={{ color: co.danger, fontSize: 12, marginTop: 8 }}>{surgicalError}</p>
+                )}
+
+                {surgicalResult && (
+                  <div style={{ marginTop: 12, fontSize: 12 }}>
+                    <p style={{ color: co.muted, marginBottom: 4 }}>✓ {surgicalResult.explanation}</p>
+                    <div style={{ background: co.surfaceAlt, borderRadius: 6, padding: "6px 10px", marginBottom: 6, color: co.danger, fontFamily: "monospace", fontSize: 11, whiteSpace: "pre-wrap" }}>
+                      − {surgicalResult.original}
+                    </div>
+                    <div style={{ background: co.surfaceAlt, borderRadius: 6, padding: "6px 10px", marginBottom: 8, color: co.green, fontFamily: "monospace", fontSize: 11, whiteSpace: "pre-wrap" }}>
+                      + {surgicalResult.replacement}
+                    </div>
+                    <div style={{ display: "flex", gap: 6 }}>
+                      <button onClick={applySurgicalEdit} style={{ ...sBtn, fontSize: 12 }}>Apply Change</button>
+                      <button onClick={() => setSurgicalResult(null)} style={{ ...sBtnSm, fontSize: 12 }}>Discard</button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
         )}
         <div style={{ position: "relative" }}>
           {slashQuery !== null && <SlashMenu modes={filteredModes} onSelect={handleSelect} />}

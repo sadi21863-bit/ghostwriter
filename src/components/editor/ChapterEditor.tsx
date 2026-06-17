@@ -21,6 +21,7 @@ interface Props {
 
 export interface ChapterEditorHandle {
   insertContent: (text: string) => void;
+  replaceContent: (json: object) => void;
 }
 
 export const ChapterEditor = forwardRef<ChapterEditorHandle, Props>(function ChapterEditor(
@@ -67,6 +68,10 @@ export const ChapterEditor = forwardRef<ChapterEditorHandle, Props>(function Cha
       if (!editor) return;
       const nodes = (plainTextToTipTap(text) as any).content ?? [];
       editor.commands.insertContentAt(editor.state.doc.content.size, nodes);
+    },
+    replaceContent: (json: object) => {
+      if (!editor) return;
+      editor.commands.setContent(json);
     },
   }), [editor]);
 
