@@ -6,9 +6,23 @@ import { db } from '@/db';
 import { projects } from '@/db/schema';
 import { and, eq } from 'drizzle-orm';
 import JSZip from 'jszip';
-import { Document, Packer, Paragraph, TextRun, HeadingLevel, PageBreak } from 'docx';
+import { Document, Packer, Paragraph, TextRun, HeadingLevel, PageBreak, AlignmentType } from 'docx';
 import { tiptapToPlainText, isValidTipTapJson } from '@/lib/editor/content-migration';
 import { track } from '@/lib/analytics';
+
+// Screenplay structural cues (see engine.ts's SCREENPLAY FORMAT RULES, which
+// instructs the AI to produce exactly this plain-text shape): a scene heading
+// starts with INT./EXT., a character cue is a short ALL CAPS line, anything
+// in parens on its own line is a parenthetical, everything else is action/dialogue.
+export const SCENE_HEADING_RE = /^(INT|EXT|INT\.?\/EXT|I\/E)[.\s]/i;
+export const PARENTHETICAL_RE = /^\(.+\)$/;
+export function isCharacterCue(line: string): boolean {
+  return line.length > 0 && line.length <= 40
+    && line === line.toUpperCase()
+    && /[A-Z]/.test(line)
+    && /^[A-Z0-9][A-Z0-9 .'()\-]*$/.test(line)
+    && !SCENE_HEADING_RE.test(line);
+}
 
 export async function POST(req: Request, { params }: { params: Promise<{ projectId: string }> }) {
   const session = await getRequiredSession();
@@ -29,6 +43,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ project
   const zip = new JSZip();
 
   if (formats.includes('docx')) {
+    const isScreenplay = project.format === 'Screenplay';
     const children: any[] = [];
 
     children.push(
@@ -44,11 +59,39 @@ export async function POST(req: Request, { params }: { params: Promise<{ project
 
       const text = getChapterText(chapter.content);
       const paragraphs = text.split(/\n{2,}/).filter((p: string) => p.trim());
+
       for (const para of paragraphs) {
-        children.push(new Paragraph({
-          children: [new TextRun({ text: para.trim() })],
-          indent: { firstLine: 720 },
-        }));
+        const line = para.trim();
+
+        if (!isScreenplay) {
+          children.push(new Paragraph({
+            children: [new TextRun({ text: line })],
+            indent: { firstLine: 720 },
+          }));
+          continue;
+        }
+
+        if (SCENE_HEADING_RE.test(line)) {
+          children.push(new Paragraph({
+            children: [new TextRun({ text: line.toUpperCase(), bold: true })],
+            spacing: { before: 240, after: 120 },
+          }));
+        } else if (isCharacterCue(line)) {
+          children.push(new Paragraph({
+            children: [new TextRun({ text: line.toUpperCase() })],
+            alignment: AlignmentType.CENTER,
+            spacing: { before: 240 },
+          }));
+        } else if (PARENTHETICAL_RE.test(line)) {
+          children.push(new Paragraph({
+            children: [new TextRun({ text: line, italics: true })],
+            alignment: AlignmentType.CENTER,
+          }));
+        } else {
+          children.push(new Paragraph({
+            children: [new TextRun({ text: line })],
+          }));
+        }
       }
     }
 
@@ -58,8 +101,10 @@ export async function POST(req: Request, { params }: { params: Promise<{ project
         paragraphStyles: [{
           id: 'Normal',
           name: 'Normal',
-          run: { font: 'Times New Roman', size: 24 },
-          paragraph: { spacing: { line: 480 } },
+          run: isScreenplay
+            ? { font: 'Courier New', size: 24 }
+            : { font: 'Times New Roman', size: 24 },
+          paragraph: { spacing: { line: isScreenplay ? 240 : 480 } },
         }],
       },
     });
