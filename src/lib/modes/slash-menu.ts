@@ -1,10 +1,10 @@
 // src/lib/modes/slash-menu.ts
 import { MODE_REGISTRY, type GenerationMode } from "@/lib/modes/registry";
-import { MODES, isStoryFormat } from "@/lib/formats";
+import { MODES, isStoryFormat, formatHasCohost } from "@/lib/formats";
 
 /** Modes selectable via the writing room's slash menu for a given project format. */
 export function getVisibleModes(format: string): GenerationMode[] {
-  if (format === "Podcast Episode") return ["brainstorm", "outline", "write"];
+  if (formatHasCohost(format)) return ["brainstorm", "outline", "write"];
   if (isStoryFormat(format)) return MODES;
   return MODES.filter(m => MODE_REGISTRY[m].visibility !== "story_only");
 }

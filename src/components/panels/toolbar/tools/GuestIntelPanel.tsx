@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import { formatHasCohost } from "@/lib/formats";
 import { co, sBtnSm, sBtn } from "@/lib/styles";
 
 interface Props {
@@ -17,7 +18,7 @@ export function GuestIntelPanel({ format, mode, prompt, topic, setSavedMsg, upda
   const [guestIntel, setGuestIntel] = useState<any>(null);
   const [guestLoading, setGuestLoading] = useState(false);
 
-  const visible = format === "Podcast Episode" && (mode === "brainstorm" || mode === "cohost") && prompt.trim().length > 0;
+  const visible = formatHasCohost(format) && (mode === "brainstorm" || mode === "cohost") && prompt.trim().length > 0;
   if (!visible) return null;
 
   const run = async () => {

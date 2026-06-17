@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import dynamic from "next/dynamic";
-import { MODES, PODCAST_MODES, isStoryFormat, isCreatorFormat } from "@/lib/formats";
+import { MODES, PODCAST_MODES, isStoryFormat, isCreatorFormat, formatHasCohost } from "@/lib/formats";
 import { MODE_REGISTRY, type GenerationMode } from "@/lib/modes/registry";
 import { co, sBtn, sBtnSm } from "@/lib/styles";
 
@@ -247,7 +247,7 @@ export default function ToolbarPanel(props: Props) {
   const wordCount = (activeChap.content || "").trim().split(/\s+/).filter(Boolean).length;
   const totalWords = project.chapters.reduce((a: number, c: any) => a + (c.content || "").trim().split(/\s+/).filter(Boolean).length, 0);
 
-  const visibleModes = project.format === "Podcast Episode"
+  const visibleModes = formatHasCohost(project.format)
     ? PODCAST_MODES
     : isStoryFormat(project.format)
     ? MODES
