@@ -58,9 +58,11 @@ Per-stage selection (≤3 direct + "More →" on every stage, including Script, 
 
 §2.5's label remapping (Idea→Angle etc.) is implemented as a `CREATOR_STAGE_LABELS` map applied to the stage-progress pills at the top of `WritingRoom`. The in-page section headers inside each stage view (e.g. `IdeaStageView`'s "Premise" heading) are left unchanged — they read fine for creator content too ("Premise" = the video's angle/premise, "Structure" = the outline) and changing them would widen the diff without functional benefit. Consistent with Plan 3's precedent of favoring thin funnels over rewrites.
 
-### Known limitation, documented not fixed
+### Known limitation, documented not fixed — FIXED 2026-06-18
 
-`REVIEW_THRESHOLD = 500` (words) gates the Polish/Retention stage. Short-form creator formats (TikTok Script, Instagram Reel, ~150 words) may never cross this threshold and could perpetually sit in "draft"/Script via the `keep-writing-*` branch, rarely reaching Retention/Publish. This is a known limitation of the existing ladder, out of scope for this plan (changing `REVIEW_THRESHOLD` risks the 39 passing tests in `next-action.test.ts` and is a separate design decision).
+`REVIEW_THRESHOLD = 500` (words) gates the Polish/Retention stage. Short-form creator formats (TikTok Script, Instagram Reel, ~150 words) may never cross this threshold and could perpetually sit in "draft"/Script via the `keep-writing-*` branch, rarely reaching Retention/Publish. This was a known limitation of the existing ladder, left out of scope for this plan at the time.
+
+Fixed 2026-06-18: `src/lib/guide/next-action.ts` now has a separate `CREATOR_REVIEW_THRESHOLD = 100`, applied via `getReviewThreshold(format)` whenever `isCreatorFormat(format)` — story formats (Novel/Screenplay/Web Series) are unaffected and still use `REVIEW_THRESHOLD = 500`. None of the original 39 tests broke (none used a creator format combined with wordCount in the 100-500 range); added 3 new tests covering the creator threshold directly.
 
 ---
 

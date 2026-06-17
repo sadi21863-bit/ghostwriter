@@ -39,6 +39,15 @@ export interface GuideProject {
 }
 
 const REVIEW_THRESHOLD = 500;
+// Short-form creator formats (TikTok Script/Native, Instagram Reel, YouTube
+// Short) target ~150-220 words per FORMAT_RULES — they would never cross
+// REVIEW_THRESHOLD and could sit in Draft forever. Use a lower bar for every
+// creator format instead of guessing a per-format target from prompt text.
+const CREATOR_REVIEW_THRESHOLD = 100;
+
+function getReviewThreshold(format: string): number {
+  return isCreatorFormat(format) ? CREATOR_REVIEW_THRESHOLD : REVIEW_THRESHOLD;
+}
 
 /**
  * Returns the single next action the Guide bar should suggest, or null if
@@ -120,8 +129,9 @@ function computeAction(project: GuideProject): GuideAction | null {
     };
   }
 
+  const reviewThreshold = getReviewThreshold(project.format);
   const dismissed = project.dismissedGuideIds ?? [];
-  const longChapters = sortedChapters.filter((c) => c.wordCount >= REVIEW_THRESHOLD);
+  const longChapters = sortedChapters.filter((c) => c.wordCount >= reviewThreshold);
   if (longChapters.length > 0 && !dismissed.includes("polish-review-manuscript")) {
     return {
       id: "polish-review-manuscript",
@@ -132,7 +142,7 @@ function computeAction(project: GuideProject): GuideAction | null {
     };
   }
 
-  const allLongEnough = sortedChapters.every((c) => c.wordCount >= REVIEW_THRESHOLD);
+  const allLongEnough = sortedChapters.every((c) => c.wordCount >= reviewThreshold);
   if (allLongEnough) {
     return {
       id: "export-manuscript",

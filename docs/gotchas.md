@@ -301,3 +301,11 @@ Separately, `src/app/api/projects/[projectId]/export/manuscript/route.ts` (DOCX 
 Until 2026-06-18, `dialogue`, `interrogation`, `chase`, `combat`, `emotional`, `atmosphere`, and `tension` modes (`src/hooks/useGeneration.ts`) built their own client-side context and posted to `/api/ai/generate` without `projectId`. Since the server-side Series Bible (`buildSeriesBibleContext`) and cross-book/universe context (`buildSeriesUniverseContext`) are both gated on `projectId` being present in the request body, those 7 modes silently never got that context — only `write`/`outline`/`brainstorm` and the other 19 library modes did.
 
 Fixed by always including `projectId`/`chapterId` in every call (the `runLibraryGeneration` helper no longer has an `includeIds` opt-out). If you add a new generation mode, route it through `runLibraryGeneration` or include `projectId`/`chapterId` directly — there's no longer a sanctioned way to skip it.
+
+---
+
+## The Stage-Ladder Review Threshold Is Format-Aware — Don't Hardcode 500 Again
+
+`src/lib/guide/next-action.ts`'s Polish/Export stage transition used to gate on a single flat `REVIEW_THRESHOLD = 500` words, regardless of format. Short-form creator formats (TikTok Script/Native, Instagram Reel, YouTube Short) target ~150-220 words per `FORMAT_RULES` — they could never cross 500 words and would sit in Draft/Script forever, never reaching Retention edit/Publish pack via the stage ladder. Documented as a known, deliberately-deferred limitation in `docs/superpowers/plans/2026-06-14-redesign-phase3-plan4-creator-variant.md`, fixed 2026-06-18.
+
+Fixed via `getReviewThreshold(format)`, which returns `CREATOR_REVIEW_THRESHOLD = 100` for any `isCreatorFormat(format)` and `REVIEW_THRESHOLD = 500` otherwise. If you add a new format, check whether it needs its own threshold rather than assuming the creator-format bucket fits — YouTube Long-form and Podcast Episode are both `isCreatorFormat` but target 1000+ words, so they'll now get nudged toward Polish earlier than their full length; that's an intentional tradeoff (early-but-dismissible nudge) over the previous bug (never advancing at all), not a perfectly-tuned threshold per format.
