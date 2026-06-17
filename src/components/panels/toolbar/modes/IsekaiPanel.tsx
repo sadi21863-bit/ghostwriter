@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import { getIsekaiArchetypeNames, ISEKAI_ARCHETYPES } from "@/lib/isekai";
-import { co, sInput, sBtn, sBtnSm } from "@/lib/styles";
+import { co, panel, sInput, sBtn, sBtnSm } from "@/lib/styles";
 import { appendToTipTap } from "@/hooks/ai-shared";
 
 const PANEL_BG = "#1a0533";
@@ -64,12 +64,12 @@ export function IsekaiPanel({
                   {arch.nonNegotiables.map((n, i) => <div key={i} style={{ fontSize: 10, color: "#c4b5fd", marginBottom: 2 }}>• {n}</div>)}
                 </div>
                 <div>
-                  <div style={{ fontSize: 9, fontWeight: 700, color: "#22c55e", textTransform: "uppercase", marginBottom: 4 }}>Fresh Angles (2025-2026)</div>
-                  {arch.freshAngles.map((f, i) => <div key={i} style={{ fontSize: 10, color: "#86efac", marginBottom: 2 }}>• {f}</div>)}
+                  <div style={{ fontSize: 9, fontWeight: 700, color: panel.success, textTransform: "uppercase", marginBottom: 4 }}>Fresh Angles (2025-2026)</div>
+                  {arch.freshAngles.map((f, i) => <div key={i} style={{ fontSize: 10, color: panel.success, marginBottom: 2 }}>• {f}</div>)}
                 </div>
                 <div>
-                  <div style={{ fontSize: 9, fontWeight: 700, color: "#f97316", textTransform: "uppercase", marginBottom: 4 }}>Avoid (Oversaturated)</div>
-                  {arch.oversaturatedTropes.map((t, i) => <div key={i} style={{ fontSize: 10, color: "#fdba74", marginBottom: 2 }}>⚠ {t}</div>)}
+                  <div style={{ fontSize: 9, fontWeight: 700, color: panel.orange, textTransform: "uppercase", marginBottom: 4 }}>Avoid (Oversaturated)</div>
+                  {arch.oversaturatedTropes.map((t, i) => <div key={i} style={{ fontSize: 10, color: panel.orange, marginBottom: 2 }}>⚠ {t}</div>)}
                 </div>
               </div>
             )}

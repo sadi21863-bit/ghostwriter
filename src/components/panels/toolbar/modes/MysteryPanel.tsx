@@ -33,7 +33,7 @@ export function MysteryPanel({
   return (
     <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
       <div style={{ padding: "12px 16px", borderBottom: "1px solid " + co.border, background: co.surfaceAlt, flexShrink: 0 }}>
-        <div style={{ fontSize: 11, fontWeight: 700, color: "#1e40af", marginBottom: 10, textTransform: "uppercase" }}>
+        <div style={{ fontSize: 11, fontWeight: 700, color: co.accent, marginBottom: 10, textTransform: "uppercase" }}>
           Mystery Mode — Select an archetype
         </div>
         <div style={{ flex: 1 }}>
@@ -45,7 +45,7 @@ export function MysteryPanel({
           >
             {getMysteryArchetypeNames().map(n => <option key={n} value={n}>{n}</option>)}
           </select>
-          <div style={{ padding: "10px 12px", background: "#eff6ff", borderRadius: 8, border: "1px solid #1e40af40", fontSize: 12, color: co.muted, lineHeight: 1.5 }}>
+          <div style={{ padding: "10px 12px", background: co.accentBg, borderRadius: 8, border: `1px solid ${co.accent}40`, fontSize: 12, color: co.muted, lineHeight: 1.5 }}>
             {MYSTERY_DESCRIPTIONS[mysteryArchetype] ?? ""}
           </div>
         </div>
@@ -65,7 +65,7 @@ export function MysteryPanel({
       {streamText && !generating && (
         <div style={{ padding: "8px 16px", borderTop: "1px solid " + co.border, display: "flex", gap: 8, justifyContent: "flex-end", background: co.surfaceAlt, flexShrink: 0 }}>
           <button style={sBtnSm} onClick={() => setStreamText("")}>Discard</button>
-          <button style={{ ...sBtn, background: "#eff6ff", color: "#1e40af" }} onClick={() => {
+          <button style={{ ...sBtn, background: co.accentBg, color: co.accent }} onClick={() => {
             if (insertIntoEditor) { insertIntoEditor(streamText); } else { updateChapter("content", appendToTipTap(activeChap?.content || "", streamText)); }
             setStreamText("");
           }}>Insert into Chapter</button>
@@ -81,7 +81,7 @@ export function MysteryPanel({
           onKeyDown={e => e.key === "Enter" && !generating && generateMystery(mysteryArchetype, prompt)}
         />
         <button
-          style={{ ...sBtn, opacity: generating ? 0.5 : 1, background: "#1e40af", color: "#fff" }}
+          style={{ ...sBtn, opacity: generating ? 0.5 : 1, background: co.accent, color: "#fff" }}
           disabled={generating}
           onClick={() => generateMystery(mysteryArchetype, prompt)}
         >

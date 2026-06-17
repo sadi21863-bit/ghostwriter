@@ -2,6 +2,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { ChapterEditor } from '@/components/editor/ChapterEditor';
 import { getWordCount } from '@/lib/editor/content-migration';
+import { panel } from '@/lib/styles';
 
 interface Props {
   content: string;
@@ -73,7 +74,7 @@ export function SprintMode({ content, chapterTitle, projectName, onContentChange
   return (
     <div style={{
       position: 'fixed', inset: 0, zIndex: 10000,
-      background: '#0d0d10',
+      background: panel.deeper,
       display: 'flex', flexDirection: 'column',
     }}>
       {/* Minimal header */}
@@ -82,15 +83,15 @@ export function SprintMode({ content, chapterTitle, projectName, onContentChange
         padding: '12px 32px', borderBottom: '1px solid rgba(255,255,255,0.06)',
         flexShrink: 0,
       }}>
-        <div style={{ fontSize: 12, color: '#9898A6' }}>
+        <div style={{ fontSize: 12, color: panel.muted }}>
           {projectName} — {chapterTitle}
         </div>
-        <div style={{ display: 'flex', gap: 24, fontSize: 12, color: '#9898A6', alignItems: 'center' }}>
+        <div style={{ display: 'flex', gap: 24, fontSize: 12, color: panel.muted, alignItems: 'center' }}>
           <span>{wordCount.toLocaleString()} words</span>
           <span>{formatTime(elapsed)}</span>
           <button
             onClick={onClose}
-            style={{ background: 'none', border: 'none', color: '#9898A6',
+            style={{ background: 'none', border: 'none', color: panel.muted,
                      cursor: 'pointer', fontSize: 12, padding: 0 }}
           >
             Esc to exit
@@ -103,12 +104,12 @@ export function SprintMode({ content, chapterTitle, projectName, onContentChange
         padding: '10px 32px',
         borderBottom: '1px solid rgba(255,255,255,0.04)',
         flexShrink: 0,
-        background: '#0d0d10',
+        background: panel.deeper,
       }}>
         {/* Goal selector (locked once writing starts) */}
         {!goalLocked ? (
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-            <span style={{ fontSize: 11, color: '#6b6b7e', marginRight: 4 }}>Goal:</span>
+            <span style={{ fontSize: 11, color: panel.muted, marginRight: 4 }}>Goal:</span>
             {PRESET_GOALS.map((g) => (
               <button
                 key={g}
@@ -117,7 +118,7 @@ export function SprintMode({ content, chapterTitle, projectName, onContentChange
                   background: goal === g ? 'rgba(139,92,246,0.18)' : 'rgba(255,255,255,0.04)',
                   border: goal === g ? '1px solid rgba(139,92,246,0.5)' : '1px solid rgba(255,255,255,0.08)',
                   borderRadius: 4,
-                  color: goal === g ? '#c4b5fd' : '#9898A6',
+                  color: goal === g ? '#c4b5fd' : panel.muted,
                   cursor: 'pointer',
                   fontSize: 11,
                   padding: '2px 8px',
@@ -134,7 +135,7 @@ export function SprintMode({ content, chapterTitle, projectName, onContentChange
                   background: !PRESET_GOALS.includes(goal as typeof PRESET_GOALS[number]) ? 'rgba(139,92,246,0.18)' : 'rgba(255,255,255,0.04)',
                   border: !PRESET_GOALS.includes(goal as typeof PRESET_GOALS[number]) ? '1px solid rgba(139,92,246,0.5)' : '1px solid rgba(255,255,255,0.08)',
                   borderRadius: 4,
-                  color: !PRESET_GOALS.includes(goal as typeof PRESET_GOALS[number]) ? '#c4b5fd' : '#9898A6',
+                  color: !PRESET_GOALS.includes(goal as typeof PRESET_GOALS[number]) ? '#c4b5fd' : panel.muted,
                   cursor: 'pointer',
                   fontSize: 11,
                   padding: '2px 8px',
@@ -158,7 +159,7 @@ export function SprintMode({ content, chapterTitle, projectName, onContentChange
                   background: 'rgba(255,255,255,0.06)',
                   border: '1px solid rgba(139,92,246,0.4)',
                   borderRadius: 4,
-                  color: '#e2e2e8',
+                  color: panel.text,
                   fontSize: 11,
                   padding: '2px 8px',
                   width: 72,
@@ -193,7 +194,7 @@ export function SprintMode({ content, chapterTitle, projectName, onContentChange
           </div>
 
           {/* Word count vs goal */}
-          <span style={{ fontSize: 11, color: goalReached ? '#4ade80' : '#9898A6', whiteSpace: 'nowrap', minWidth: 90, textAlign: 'right' }}>
+          <span style={{ fontSize: 11, color: goalReached ? panel.success : panel.muted, whiteSpace: 'nowrap', minWidth: 90, textAlign: 'right' }}>
             {sessionWords} / {goal} words
           </span>
         </div>
@@ -203,11 +204,11 @@ export function SprintMode({ content, chapterTitle, projectName, onContentChange
           <div style={{
             marginTop: 8,
             padding: '6px 12px',
-            background: 'rgba(74,222,128,0.08)',
-            border: '1px solid rgba(74,222,128,0.2)',
+            background: `${panel.success}14`,
+            border: `1px solid ${panel.success}33`,
             borderRadius: 6,
             fontSize: 12,
-            color: '#4ade80',
+            color: panel.success,
             display: 'flex',
             alignItems: 'center',
             gap: 6,
