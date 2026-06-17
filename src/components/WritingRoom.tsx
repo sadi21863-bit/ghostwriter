@@ -9,6 +9,8 @@ import { MODE_REGISTRY, type GenerationMode } from "@/lib/modes/registry";
 import { getVisibleModes, filterModesByQuery } from "@/lib/modes/slash-menu";
 import { LIBRARY_MODES, classifyBeat } from "@/lib/modes/classify";
 import BeatDetectionChip from "@/components/BeatDetectionChip";
+import CraftDepthChip from "@/components/CraftDepthChip";
+import type { WorkPacket } from "@/lib/ai/influence-context";
 import SlashMenu from "@/components/SlashMenu";
 import IdeaStageView from "@/components/stages/IdeaStageView";
 import StructureStageView from "@/components/stages/StructureStageView";
@@ -55,6 +57,8 @@ interface WritingRoomProps {
   setSavedMsg: (msg: string) => void;
   onUpgradeRequired: (feature: string) => void;
   onRegisterInsert?: (fn: (text: string) => void) => void;
+  activeInfluence?: WorkPacket | null;
+  onClearInfluence?: () => void;
 }
 
 export default function WritingRoom({
@@ -63,6 +67,7 @@ export default function WritingRoom({
   prompt, setPrompt, onSelectMode,
   onGuideRun, onGuideDismiss, qualityReview, onOpenProductionStudio,
   mode, setSavedMsg, onUpgradeRequired, onRegisterInsert,
+  activeInfluence, onClearInfluence,
 }: WritingRoomProps) {
   const [bibleOpen, setBibleOpen] = useState(true);
   const [forceEditor, setForceEditor] = useState(false);
@@ -208,6 +213,13 @@ export default function WritingRoom({
 
       {/* Footer */}
       <div style={{ flexShrink: 0, borderTop: `1px solid ${co.border}`, padding: "10px 20px", display: "flex", flexDirection: "column", gap: 8 }}>
+        {activeInfluence && (stage === "draft" || forceEditor) && (
+          <CraftDepthChip
+            packet={activeInfluence}
+            activeMode={mode ?? "write"}
+            onDismiss={onClearInfluence ?? (() => {})}
+          />
+        )}
         {detectedMode && detectedMode !== dismissedDetection && (
           <BeatDetectionChip
             mode={detectedMode}

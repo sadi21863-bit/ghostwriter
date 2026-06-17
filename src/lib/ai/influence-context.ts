@@ -1,6 +1,6 @@
 import type { WorkPacketPrinciple } from '@/types';
 
-interface WorkPacket {
+export interface WorkPacket {
   title: string;
   creator: string;
   medium: string;

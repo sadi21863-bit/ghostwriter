@@ -520,6 +520,8 @@ export default function GhostWriterApp({ projectId }: { projectId: string }) {
             setSavedMsg={setSavedMsg}
             onUpgradeRequired={(f) => setUpgradeRequired(f as FeatureGate)}
             onRegisterInsert={(fn) => { insertIntoEditorRef.current = fn; }}
+            activeInfluence={activeInfluence}
+            onClearInfluence={() => setActiveInfluence(null)}
           />
           {actionsOpen && (
             <div
