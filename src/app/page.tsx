@@ -241,12 +241,12 @@ export default async function Home() {
             },
             {
               name: 'Creator Pro',
-              price: '₹2,000',
+              price: '₹1,000',
               period: '/month',
               features: ['1,000 gen/month', 'Everything in Story Pro', 'Creator formats (YouTube, Podcast, TikTok)', 'Hook A/B · Retention Edit', 'Trend Intelligence', 'Channel Autopsy'],
               cta: 'Start 7-day trial',
               highlighted: true,
-              annualNote: '₹24,000/year',
+              annualNote: '₹12,000/year',
             },
             {
               name: 'All Access',
