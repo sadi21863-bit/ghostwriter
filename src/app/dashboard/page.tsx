@@ -1,6 +1,6 @@
 "use client";
 import type { FormEvent } from "react";
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
 import { useSession, signOut } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useFeatureIsOn } from "@growthbook/growthbook-react";
@@ -10,6 +10,18 @@ import { FORMATS } from "@/lib/formats";
 import { FLAGS } from "@/lib/growthbook";
 import Home from "@/components/Home";
 import { toast } from "@/lib/toast";
+
+function EmailVerifiedCheck() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  useEffect(() => {
+    if (searchParams.get("email_verified") === "1") {
+      toast.success("Email verified! Your account is all set.");
+      router.replace("/dashboard");
+    }
+  }, [searchParams, router]);
+  return null;
+}
 
 type Project = {
   id: string;
@@ -30,7 +42,6 @@ export default function Dashboard() {
   const homeRedesign = useFeatureIsOn(FLAGS.homeRedesign);
   const { data: session, status } = useSession();
   const router = useRouter();
-  const searchParams = useSearchParams();
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -71,13 +82,6 @@ export default function Dashboard() {
   useEffect(() => {
     if (status === "unauthenticated") router.push("/login");
   }, [status, router]);
-
-  useEffect(() => {
-    if (searchParams.get("email_verified") === "1") {
-      toast.success("Email verified! Your account is all set.");
-      router.replace("/dashboard");
-    }
-  }, [searchParams, router]);
 
   useEffect(() => {
     if (status !== "authenticated") return;
@@ -313,6 +317,7 @@ export default function Dashboard() {
 
   return (
     <div style={{ minHeight: "100vh", background: GW_CREAM, fontFamily: "'Figtree', sans-serif" }}>
+      <Suspense fallback={null}><EmailVerifiedCheck /></Suspense>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,600;0,700;1,600&family=Figtree:wght@400;500;600;700&display=swap');
         @keyframes gw-in { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
