@@ -237,7 +237,7 @@ export default async function Home() {
               features: ['500 gen/month', 'All 26 craft modes', 'Full character intelligence', 'Quality grading', 'Manuscript export (DOCX/MD/TXT)', 'Fix Weakness · Surgical Edit', 'Series Bible'],
               cta: 'Start 7-day trial',
               highlighted: false,
-              annualNote: '₹18,000/year',
+              annualNote: '₹14,400/year — save 20%',
             },
             {
               name: 'Creator Pro',
@@ -246,7 +246,7 @@ export default async function Home() {
               features: ['1,000 gen/month', 'Everything in Story Pro', 'Creator formats (YouTube, Podcast, TikTok)', 'Hook A/B · Retention Edit', 'Trend Intelligence', 'Channel Autopsy'],
               cta: 'Start 7-day trial',
               highlighted: true,
-              annualNote: '₹12,000/year',
+              annualNote: '₹9,600/year — save 20%',
             },
             {
               name: 'All Access',
@@ -255,7 +255,7 @@ export default async function Home() {
               features: ['Unlimited generations', 'Everything in Creator Pro', 'Higgsfield pipeline', 'Comic Studio', 'Audio Novel + Lipsync', 'Priority generation'],
               cta: 'Start 7-day trial',
               highlighted: false,
-              annualNote: '₹30,000/year',
+              annualNote: '₹24,000/year — save 20%',
             },
           ].map(plan => (
             <div key={plan.name} style={{

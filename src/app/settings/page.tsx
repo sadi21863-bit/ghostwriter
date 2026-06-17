@@ -246,9 +246,9 @@ export default function SettingsPage() {
 
               <div className="subscription-plans" style={{ display: "flex", gap: 10 }}>
                 {[
-                  { tier: "story_pro",    label: "Story Pro",    price: billingPeriod === 'annual' ? "₹18,000/yr" : "₹1,500/mo", desc: "500 generations/month · All 26 craft modes · Full character intelligence · Export" },
-                  { tier: "creator_pro",  label: "Creator Pro",  price: billingPeriod === 'annual' ? "₹12,000/yr" : "₹1,000/mo", desc: "Creator formats · YouTube/TikTok/Podcast · Trend intelligence · Video tools" },
-                  { tier: "all_access",   label: "All Access",   price: billingPeriod === 'annual' ? "₹30,000/yr" : "₹2,500/mo", desc: "Unlimited generations · Everything in all plans · Higgsfield pipeline · Priority generation" },
+                  { tier: "story_pro",    label: "Story Pro",    price: billingPeriod === 'annual' ? "₹14,400/yr" : "₹1,500/mo", desc: "500 generations/month · All 26 craft modes · Full character intelligence · Export" },
+                  { tier: "creator_pro",  label: "Creator Pro",  price: billingPeriod === 'annual' ? "₹9,600/yr" : "₹1,000/mo", desc: "Creator formats · YouTube/TikTok/Podcast · Trend intelligence · Video tools" },
+                  { tier: "all_access",   label: "All Access",   price: billingPeriod === 'annual' ? "₹24,000/yr" : "₹2,500/mo", desc: "Unlimited generations · Everything in all plans · Higgsfield pipeline · Priority generation" },
                 ].map(plan => (
                   <div key={plan.tier} style={{
                     flex: 1, padding: "16px", borderRadius: 10,
