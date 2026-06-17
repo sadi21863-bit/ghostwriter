@@ -293,3 +293,11 @@ with status **429** (not 200). Client code must check the response status — a 
 `src/lib/ai/engine.ts`'s `FORMAT_RULES`/`STORY_FORMAT_RULES` genuinely change the system prompt per `project.format` (Screenplay gets proper INT./EXT. slugline + centered-cue instructions, YouTube/TikTok/Podcast get hook timing + on-screen-text markers, etc.) — this is real, not cosmetic, for every format **except TikTok Native**, which has no entry in either rules map and is generated as plain unstructured text.
 
 Separately, `src/app/api/projects/[projectId]/export/manuscript/route.ts` (DOCX export) is **completely format-agnostic** — always Times New Roman, always generic prose paragraph styling, regardless of `project.format`. A Screenplay project's AI-generated content has correct screenplay structure in the editor (sluglines, character cues), but exporting it to DOCX discards that structure entirely — there is no Courier font, no scene-heading styling, no character-cue indentation in the export. Found 2026-06-17, not yet fixed.
+
+---
+
+## Every Mode Now Passes `projectId` — Don't Reintroduce a Bare `fetch("/api/ai/generate")`
+
+Until 2026-06-18, `dialogue`, `interrogation`, `chase`, `combat`, `emotional`, `atmosphere`, and `tension` modes (`src/hooks/useGeneration.ts`) built their own client-side context and posted to `/api/ai/generate` without `projectId`. Since the server-side Series Bible (`buildSeriesBibleContext`) and cross-book/universe context (`buildSeriesUniverseContext`) are both gated on `projectId` being present in the request body, those 7 modes silently never got that context — only `write`/`outline`/`brainstorm` and the other 19 library modes did.
+
+Fixed by always including `projectId`/`chapterId` in every call (the `runLibraryGeneration` helper no longer has an `includeIds` opt-out). If you add a new generation mode, route it through `runLibraryGeneration` or include `projectId`/`chapterId` directly — there's no longer a sanctioned way to skip it.

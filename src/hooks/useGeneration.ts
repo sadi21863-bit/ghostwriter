@@ -212,7 +212,7 @@ export function useGeneration({
       const dynamicCtx = buildDynamicContext(extended);
       const res = await fetch("/api/ai/generate", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mode: "dialogue", prompt: dialoguePrompt || `Write a ${archetypeName.toLowerCase()} scene between ${charA.name} and ${charB.name}.`, staticContext: staticCtx, dynamicContext: dynamicCtx, format: p.format }),
+        body: JSON.stringify({ mode: "dialogue", prompt: dialoguePrompt || `Write a ${archetypeName.toLowerCase()} scene between ${charA.name} and ${charB.name}.`, staticContext: staticCtx, dynamicContext: dynamicCtx, format: p.format, projectId: p.id, chapterId: activeChap?.id }),
       });
       const data = await res.json();
       if (data.error === "upgrade_required") { setUpgradeRequired?.(data.feature); }
@@ -239,7 +239,7 @@ export function useGeneration({
       const dynamicCtx = buildDynamicContext(extended);
       const res = await fetch("/api/ai/generate", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mode: "interrogation", prompt: interrogationPrompt || `Write an interrogation scene where ${interrogator.name} interrogates ${subject.name}.`, staticContext: staticCtx, dynamicContext: dynamicCtx, format: p.format }),
+        body: JSON.stringify({ mode: "interrogation", prompt: interrogationPrompt || `Write an interrogation scene where ${interrogator.name} interrogates ${subject.name}.`, staticContext: staticCtx, dynamicContext: dynamicCtx, format: p.format, projectId: p.id, chapterId: activeChap?.id }),
       });
       const data = await res.json();
       if (data.error === "upgrade_required") { setUpgradeRequired?.(data.feature); }
@@ -263,7 +263,7 @@ export function useGeneration({
       const dynamicCtx = buildDynamicContext(extended);
       const res = await fetch("/api/ai/generate", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mode: "chase", prompt: chasePrompt || `Write a chase scene where ${pursuer.name} pursues ${pursued.name}.`, staticContext: staticCtx, dynamicContext: dynamicCtx, format: p.format }),
+        body: JSON.stringify({ mode: "chase", prompt: chasePrompt || `Write a chase scene where ${pursuer.name} pursues ${pursued.name}.`, staticContext: staticCtx, dynamicContext: dynamicCtx, format: p.format, projectId: p.id, chapterId: activeChap?.id }),
       });
       const data = await res.json();
       if (data.error === "upgrade_required") { setUpgradeRequired?.(data.feature); }
@@ -284,15 +284,13 @@ export function useGeneration({
     prompt: string;
     defaultPrompt: string;
     errorMessage: string;
-    includeIds?: boolean;
   }) => {
     setGenerating(true); setGenTarget("main"); setStreamText("");
     try {
       const extended = { ...project, activeMode: opts.modeKey, currentPrompt: opts.prompt, activeInfluence, activePatterns };
       const staticCtx = opts.contextPrefix + "\n---\n" + buildStaticContext(extended);
       const dynamicCtx = buildDynamicContext(extended);
-      const body: Record<string, unknown> = { mode: opts.modeKey, prompt: opts.prompt || opts.defaultPrompt, staticContext: staticCtx, dynamicContext: dynamicCtx, format: project.format };
-      if (opts.includeIds !== false) { body.projectId = project.id; body.chapterId = activeChap.id; }
+      const body: Record<string, unknown> = { mode: opts.modeKey, prompt: opts.prompt || opts.defaultPrompt, staticContext: staticCtx, dynamicContext: dynamicCtx, format: project.format, projectId: project.id, chapterId: activeChap.id };
       const res = await fetch("/api/ai/generate", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
@@ -313,7 +311,6 @@ export function useGeneration({
       prompt: combatPrompt,
       defaultPrompt: `Write a fight scene between a ${styleA} fighter and a ${styleB} fighter.`,
       errorMessage: "Combat generation failed. Please try again.",
-      includeIds: false,
     });
   };
 
@@ -326,7 +323,6 @@ export function useGeneration({
       prompt: emotionalPrompt,
       defaultPrompt: `Write a scene that physicalizes ${emotionName}.`,
       errorMessage: "Emotional scene generation failed. Please try again.",
-      includeIds: false,
     });
   };
 
@@ -339,7 +335,6 @@ export function useGeneration({
       prompt: atmospherePrompt,
       defaultPrompt: `Write a scene set in a ${environmentName.toLowerCase()} environment.`,
       errorMessage: "Atmosphere generation failed. Please try again.",
-      includeIds: false,
     });
   };
 
@@ -352,7 +347,6 @@ export function useGeneration({
       prompt: tensionPrompt,
       defaultPrompt: `Write a scene using ${tensionType.toLowerCase()} tension structure.`,
       errorMessage: "Tension generation failed. Please try again.",
-      includeIds: false,
     });
   };
 

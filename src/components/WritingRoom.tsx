@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useMemo, useRef, useState } from "react";
+import dynamic from "next/dynamic";
 import { ChapterEditor } from "@/components/editor/ChapterEditor";
 import type { ChapterEditorHandle } from "@/components/editor/ChapterEditor";
 import { co, sBtn, sBtnSm, sTextarea } from "@/lib/styles";
@@ -12,7 +13,13 @@ import { LIBRARY_MODES, classifyBeat } from "@/lib/modes/classify";
 import BeatDetectionChip from "@/components/BeatDetectionChip";
 import CraftDepthChip from "@/components/CraftDepthChip";
 import { AudioNovelPanel } from "@/components/AudioNovelPanel";
+import { SprintMode } from "@/components/SprintMode";
 import type { WorkPacket } from "@/lib/ai/influence-context";
+
+const StoryInsightsPanel = dynamic(
+  () => import("@/components/StoryInsightsPanel").then(m => ({ default: m.StoryInsightsPanel })),
+  { ssr: false }
+);
 import SlashMenu from "@/components/SlashMenu";
 import IdeaStageView from "@/components/stages/IdeaStageView";
 import StructureStageView from "@/components/stages/StructureStageView";
@@ -82,6 +89,8 @@ export default function WritingRoom({
 
   const [surgicalOpen, setSurgicalOpen] = useState(false);
   const [audioNovelOpen, setAudioNovelOpen] = useState(false);
+  const [sprintModeOpen, setSprintModeOpen] = useState(false);
+  const [insightsOpen, setInsightsOpen] = useState(false);
   const [surgicalInstruction, setSurgicalInstruction] = useState("");
   const [surgicalResult, setSurgicalResult] = useState<{
     original: string; replacement: string; explanation: string; updatedJson: object;
@@ -356,6 +365,12 @@ export default function WritingRoom({
             >
               {surgicalOpen ? "✕ Close Find & Edit" : "✏ Find & Edit"}
             </button>
+            <button
+              onClick={() => setSprintModeOpen(true)}
+              style={{ ...sBtnSm, fontSize: 11, opacity: 0.8, marginLeft: 6 }}
+            >
+              🏃 Sprint Mode
+            </button>
 
             {surgicalOpen && (
               <div style={{ marginTop: 8, padding: "10px 12px", background: co.surface, border: `1px solid ${co.border}`, borderRadius: 8 }}>
@@ -407,12 +422,32 @@ export default function WritingRoom({
             >
               {audioNovelOpen ? "✕ Close Audio Novel" : "🎧 Audio Novel"}
             </button>
+            <button
+              onClick={() => setInsightsOpen(o => !o)}
+              style={{ ...sBtnSm, fontSize: 11, opacity: 0.8, marginLeft: 6 }}
+            >
+              {insightsOpen ? "✕ Close Story Insights" : "📊 Story Insights"}
+            </button>
             {audioNovelOpen && (
               <div style={{ marginTop: 8 }}>
                 <AudioNovelPanel project={project} activeChap={activeChap} />
               </div>
             )}
+            {insightsOpen && (
+              <div style={{ marginTop: 8 }}>
+                <StoryInsightsPanel projectId={project.id} />
+              </div>
+            )}
           </div>
+        )}
+        {sprintModeOpen && (
+          <SprintMode
+            content={activeChap.content || ""}
+            chapterTitle={activeChap.title || "Chapter"}
+            projectName={project.name || "Project"}
+            onContentChange={(v) => updateChapter("content", v)}
+            onClose={() => setSprintModeOpen(false)}
+          />
         )}
         <div style={{ position: "relative" }}>
           {slashQuery !== null && <SlashMenu modes={filteredModes} onSelect={handleSelect} />}

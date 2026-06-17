@@ -56,6 +56,24 @@ All three were fixed 2026-06-17 (see `CLAUDE.md` checklist item 21), but the pat
 
 A separate, independent finding from the same session: the **Series Bible** feature (dashboard CRUD UI + full PATCH API for premise/tone/world rules/character arcs/continuity notes/timeline) had a complete UI and API surface but was never wired into AI generation at all — filling it in had zero effect on what the AI wrote, despite looking fully functional. This is the opposite failure mode from `WritingRoom`'s: not "real feature, unreachable UI," but "real UI, no underlying effect." Fixed the same session by wiring it into `/api/ai/generate`'s context assembly, mirroring the working `buildSeriesUniverseContext()` pattern.
 
+## Port audit, 2026-06-18: more orphans found, and several false positives caught
+
+A follow-up audit (using subagents to trace every component and field) found and fixed two more genuine cases of the same `WritingRoom` orphaning pattern, plus a real context-assembly gap — but it also produced several confident-sounding verdicts that turned out to be **wrong on direct inspection**, which is the more important lesson here.
+
+**Confirmed and fixed:**
+- **Sprint Mode** (`src/components/SprintMode.tsx`) — a full-screen distraction-free writing timer, only ever reachable via the legacy slash-command palette (`GhostWriterApp.tsx`'s `handleSlashCommand`), which `WritingRoom`'s own `SlashMenu` never calls. Added a "🏃 Sprint Mode" button to `WritingRoom`'s footer.
+- **ArcHeatMap, TensionCurve, ConstellationView** — three fully-built visualizations (character presence heatmap, tension/suspense curve, relationship graph) with working API routes (`/api/projects/[id]/arc-heatmap`, `tension-curve`, `relationship-map`) but zero imports anywhere in the app — not legacy-only, just completely unmounted. Bundled into a new `StoryInsightsPanel.tsx` (tabbed, dynamically imported since two of the three pull in chart/graph libraries) and added a "📊 Story Insights" button next to Audio Novel in `WritingRoom`'s footer.
+- **Context-assembly gap** — `dialogue`, `interrogation`, `chase`, `combat`, `emotional`, `atmosphere`, and `tension` modes built their own client-side context and never sent `projectId` to `/api/ai/generate`, which silently skipped the entire server-side Series Bible / cross-book continuity block for those 7 of 26 modes. Fixed by always including `projectId`/`chapterId` in those calls (`src/hooks/useGeneration.ts`), matching what the other 19 modes already did.
+
+**Audit claims that were actually false positives, corrected by reading the code directly before "fixing" anything:**
+- `aiInitiative` (Leads/Collaborates/Assists) was reported as having zero effect because it's never referenced inside `WritingRoom.tsx`. True, but irrelevant: `GhostWriterApp.tsx` renders `GuideBar` and its `handleGuideRun`/`handleGuideDismiss` callbacks (which *are* `aiInitiative`-aware) outside the shell branch, and passes the same callbacks into `WritingRoom`. The setting already works for live users.
+- Series Bible's CRUD UI was reported as "legacy-sidebar-only, unreachable." It actually lives in `src/app/dashboard/page.tsx`, which is the live dashboard (`homeRedesign` is off, so the classic dashboard — not `Home.tsx` — is what's live). It was never orphaned.
+- `EntitySuggestionsChip` was reported as legacy-only; it's actually gated on `writingRoomEnabled` and only renders in the *live* shell. The audit had the condition backwards.
+- `qualityGradingEnabled` was reported as "partial" for only driving an async post-generation check rather than something inline. That's the documented, intended design (see `capabilities.ts`'s own description: "Post-generation async check") — there's no inline version to wire it into.
+- `BraindumpModal.tsx` was reported as orphaned (only reachable from the not-yet-launched `Home.tsx`). True, but the live dashboard already has its own inline equivalent ("✨ Braindump — I have ideas" in the New Project modal) — the standalone component is pre-built for `Home.tsx`'s eventual launch, not a missing capability today.
+
+**The lesson:** a reachability audit based on grepping one file in isolation (e.g. "does `WritingRoom.tsx` reference this field?") misses shared callbacks and parent-level renders that aren't shell-conditional. Verify with a full trace — does the *prop actually passed in* carry the behavior? — before trusting a verdict enough to act on it.
+
 ## Recommendation
 
 **Pick one shell and finish it — then retire the other.** `WritingRoom` is the right one to keep: it's already live, and the 5-stage ladder is a better mental model than a flat mode toolbar. But "finish" has to mean a real audit of every legacy-only capability (the session above only found three by accident, while debugging unrelated user reports — there may be more), not just patching gaps as users report them.
