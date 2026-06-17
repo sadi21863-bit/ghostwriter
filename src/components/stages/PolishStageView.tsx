@@ -27,7 +27,13 @@ export default function PolishStageView({ project, qualityReview, onGuideRun, on
     characters: project.characters || [],
     chapters: project.chapters || [],
     dismissedGuideIds: project.dismissedGuideIds,
-  })!;
+  }) ?? {
+    id: "polish-review-manuscript",
+    stage: "polish" as const,
+    message: "Your manuscript is ready for a story health check.",
+    cta: "Review story health",
+    run: { mode: "story_health" as const },
+  };
   const chapter = (project.chapters || []).find((c: any) => c.id === action.run.chapterId);
 
   const issueCount = qualityReview
