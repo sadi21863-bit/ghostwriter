@@ -72,7 +72,6 @@ export default function BraindumpModal({ onClose }: BraindumpModalProps) {
         body: JSON.stringify({
           genres: braindumpResult.genres,
           controllingIdea: braindumpResult.controllingIdea,
-          notes: braindumpResult.worldFacts.join('\n'),
         }),
       });
 
@@ -84,6 +83,17 @@ export default function BraindumpModal({ onClose }: BraindumpModalProps) {
             name: char.name,
             role: char.role,
             personality: char.description,
+          }),
+        })
+      ));
+
+      await Promise.all(braindumpResult.worldFacts.map(fact =>
+        fetch(`/api/projects/${proj.id}/locations`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: fact.length > 50 ? fact.substring(0, 50) : fact,
+            description: fact,
           }),
         })
       ));
