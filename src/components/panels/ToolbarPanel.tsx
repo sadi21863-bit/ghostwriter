@@ -4,6 +4,7 @@ import dynamic from "next/dynamic";
 import { MODES, PODCAST_MODES, isStoryFormat, isCreatorFormat, formatHasCohost } from "@/lib/formats";
 import { MODE_REGISTRY, type GenerationMode } from "@/lib/modes/registry";
 import { co, sBtn, sBtnSm } from "@/lib/styles";
+import { useDensity, type Density } from "@/hooks/useDensity";
 
 // Mode panels
 import { DialoguePanel } from "./toolbar/modes/DialoguePanel";
@@ -244,6 +245,8 @@ export default function ToolbarPanel(props: Props) {
   // Local UI toggle (not business logic)
   const [showDissect, setShowDissect] = useState(false);
 
+  const { density, changeDensity } = useDensity();
+
   const wordCount = (activeChap.content || "").trim().split(/\s+/).filter(Boolean).length;
   const totalWords = project.chapters.reduce((a: number, c: any) => a + (c.content || "").trim().split(/\s+/).filter(Boolean).length, 0);
 
@@ -253,6 +256,14 @@ export default function ToolbarPanel(props: Props) {
     ? MODES
     : MODES.filter(m => MODE_REGISTRY[m as GenerationMode]?.visibility !== "story_only");
 
+  const DENSITY_ORDER: Record<Density, number> = { simple: 0, standard: 1, full: 2 };
+  const densityFiltered = visibleModes.filter((m) => {
+    const entry = MODE_REGISTRY[m as GenerationMode] as import("@/lib/modes/registry").ModeConfig | undefined;
+    const minD = entry?.minDensity;
+    if (!minD) return true; // always shown
+    return DENSITY_ORDER[density] >= DENSITY_ORDER[minD];
+  });
+
   const isCreator = isCreatorFormat(project.format);
 
   return (
@@ -261,9 +272,32 @@ export default function ToolbarPanel(props: Props) {
       {/* ── Toolbar row ──────────────────────────────────────────────────── */}
       <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 16px", background: co.surface, borderBottom: "1px solid " + co.border, flexShrink: 0, flexWrap: "wrap" }}>
 
+        {/* Density toggle */}
+        <div style={{ display: "flex", gap: 4, padding: "3px 0" }}>
+          {(["simple", "standard", "full"] as Density[]).map((d) => (
+            <button
+              key={d}
+              onClick={() => changeDensity(d)}
+              style={{
+                flex: 1,
+                padding: "3px 8px",
+                fontSize: 11,
+                background: density === d ? co.accent : "transparent",
+                color: density === d ? "#fff" : co.muted,
+                border: `1px solid ${density === d ? co.accent : co.border}`,
+                borderRadius: 4,
+                cursor: "pointer",
+                textTransform: "capitalize",
+              }}
+            >
+              {d}
+            </button>
+          ))}
+        </div>
+
         {/* Mode selector */}
         <div style={{ display: "flex", gap: 4, background: co.surfaceAlt, borderRadius: 10, padding: 3, flexWrap: "wrap" }}>
-          {visibleModes.map(m => (
+          {densityFiltered.map(m => (
             <button key={m}
               style={{ padding: "6px 14px", border: "none", borderRadius: 8, cursor: "pointer", fontWeight: 600, fontSize: 13, background: mode === m ? co.accent : "transparent", color: mode === m ? "#fff" : co.muted }}
               onClick={() => setMode(m)}>
