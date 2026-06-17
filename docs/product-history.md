@@ -75,6 +75,8 @@ A follow-up audit (using subagents to trace every component and field) found and
 
 **The lesson:** a reachability audit based on grepping one file in isolation (e.g. "does `WritingRoom.tsx` reference this field?") misses shared callbacks and parent-level renders that aren't shell-conditional. Verify with a full trace — does the *prop actually passed in* carry the behavior? — before trusting a verdict enough to act on it.
 
+**Recurrence guard added:** `src/components/__tests__/live-shell-reachability.test.ts` statically scans the source of every file in the live render path (`GhostWriterApp.tsx`, `WritingRoom.tsx`, its stage views, `StoryInsightsPanel.tsx`, `ToolbarPanel.tsx`) and fails if a maintained list of feature components (`AudioNovelPanel`, `SprintMode`, `StoryInsightsPanel`, `ArcHeatMap`, `TensionCurve`, `ConstellationView`, `StoryBible`, `ComicStudio`, `ProductionStudio`, `GuideBar`, `EntitySuggestionsChip`) isn't imported anywhere in that set. It's a source-text check, not a real render test, so it can't catch "imported but inside a dead branch" — but it does catch the exact failure mode this whole audit kept finding: a fully-built component imported nowhere at all. Add a new component to the maintained list once you've wired it in, so the next one doesn't get found by accident again.
+
 ## Recommendation
 
 **Pick one shell and finish it — then retire the other.** `WritingRoom` is the right one to keep: it's already live, and the 5-stage ladder is a better mental model than a flat mode toolbar. But "finish" has to mean a real audit of every legacy-only capability (the session above only found three by accident, while debugging unrelated user reports — there may be more), not just patching gaps as users report them.
