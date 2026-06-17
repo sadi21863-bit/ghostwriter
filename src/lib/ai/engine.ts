@@ -298,6 +298,13 @@ Hook must create an open loop or pattern interrupt
 Add [TEXT ON SCREEN: ...] markers for every key point
 Write for sound-off viewing`,
 
+  "TikTok Native": `FORMAT: TikTok Native
+Structure: looks unscripted — no scene markers, no production cues, no [TEXT ON SCREEN] tags
+Max 150 words (~45-60 seconds)
+Write like a real person talking to camera: contractions, false starts, asides
+Hook through tone and specificity in the first line, not a structured opening beat
+End on a natural thought, not a CTA — native content earns shares by feeling real, not by asking`,
+
   "Instagram Reel": `FORMAT: Instagram Reel
 Structure: Visual hook (0-3s) → Value delivery → Save/share trigger
 Max 150 words (~60 seconds)
@@ -332,6 +339,12 @@ export function getCraftDirectives(format: string): string {
   return STORY_FORMAT_RULES[format] ? "\n" + WRITE_CRAFT_DIRECTIVES : "";
 }
 
+export function getFormatRules(format: string): string {
+  if (FORMAT_RULES[format]) return "\n\n" + FORMAT_RULES[format];
+  if (STORY_FORMAT_RULES[format]) return "\n\n" + STORY_FORMAT_RULES[format];
+  return "";
+}
+
 export async function generate({ mode, prompt, context, staticContext, dynamicContext, format, maxTokens = 4000, narrativeStructure, overrideModel }: {
   mode: string; prompt: string;
   context?: string;
@@ -341,11 +354,7 @@ export async function generate({ mode, prompt, context, staticContext, dynamicCo
   overrideModel?: string;
 }) {
   const model = overrideModel ?? MODELS[MODE_REGISTRY[mode as GenerationMode]?.modelTier ?? 'default'];
-  const formatRules = FORMAT_RULES[format]
-    ? "\n\n" + FORMAT_RULES[format]
-    : STORY_FORMAT_RULES[format]
-    ? "\n\n" + STORY_FORMAT_RULES[format]
-    : "";
+  const formatRules = getFormatRules(format);
   const craftDirectives = getCraftDirectives(format);
   const modeInstruction = MI[mode as GenerationMode](format);
   const narrativeNote = getNarrativeStructureInstruction(narrativeStructure);
