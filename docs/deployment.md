@@ -259,6 +259,7 @@ Before going live:
 - [x] Custom domain `ghost-writer.cc` added to Vercel and env vars updated *(done 2026-06-05)*
 - [x] Sentry configured — DSN hardcoded in `sentry.*.config.ts`; add `NEXT_PUBLIC_SENTRY_DSN` to Vercel for explicitness *(done 2026-06-05)*
 - [x] GrowthBook configured for feature flags *(done 2026-06-15 — `NEXT_PUBLIC_GROWTHBOOK_CLIENT_KEY`/`NEXT_PUBLIC_GROWTHBOOK_API_HOST` set in Vercel, production redeployed; `writing_room_shell` enabled and confirmed live)*
+- [x] All feature gaps from deep scan resolved: Reader sessions accessible, Sprint Mode goals, Fix Weakness button, Audio Lipsync UI, Braindump location creation, Email verification success state *(done 2026-06-17)*
 - [ ] Test password reset email flow
 
 ---
