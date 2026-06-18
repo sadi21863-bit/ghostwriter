@@ -12,8 +12,6 @@ import type { CompositionLayer } from "@/lib/ai/composer";
 import { co, sBtn, sBtnSm } from "@/lib/styles";
 import { GuideBar } from "@/components/GuideBar";
 import { nextAction, type GuideAction } from "@/lib/guide/next-action";
-import { useFeatureIsOn } from "@growthbook/growthbook-react";
-import { FLAGS } from "@/lib/growthbook";
 import WritingRoom from "@/components/WritingRoom";
 import EntitySuggestionsChip from "@/components/EntitySuggestionsChip";
 import type { GenerationMode } from "@/lib/modes/registry";
@@ -75,7 +73,7 @@ export default function GhostWriterApp({ projectId }: { projectId: string }) {
   const [verifyBannerDismissed, setVerifyBannerDismissed] = useState(false);
   const [resendingVerification, setResendingVerification] = useState(false);
   const [resendSent, setResendSent] = useState(false);
-  const writingRoomEnabled = useFeatureIsOn(FLAGS.writingRoomShell);
+  const writingRoomEnabled = true; // rebuilt: single coherent writing shell (legacy mega-toolbar retired)
   const [actionsOpen, setActionsOpen] = useState(false);
   const insertIntoEditorRef = useRef<((text: string) => void) | null>(null);
   const autoFireTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -694,4 +692,4 @@ export default function GhostWriterApp({ projectId }: { projectId: string }) {
     </div>
   );
 }
-
+

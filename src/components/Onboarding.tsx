@@ -5,12 +5,9 @@ import { useRouter } from "next/navigation";
 type Props = { onDismiss: () => void };
 
 const FORMATS = [
-  { value: "Novel",             label: "📚  Novel" },
-  { value: "Screenplay",        label: "🎬  Screenplay" },
-  { value: "Web Series",        label: "📺  Web Series" },
-  { value: "YouTube Long-form", label: "▶️  YouTube Channel" },
-  { value: "Podcast Episode",   label: "🎙️  Podcast" },
-  { value: "TikTok Script",     label: "📱  TikTok" },
+  { value: "Novel",      label: "📚  Novel" },
+  { value: "Screenplay", label: "🎬  Screenplay" },
+  { value: "Web Series", label: "📺  Web Series" },
 ];
 
 const CHALLENGES = [

@@ -2,8 +2,6 @@ import { MODE_REGISTRY, type GenerationMode } from "@/lib/modes/registry";
 
 export const FORMATS = [
   "Novel", "Screenplay", "Web Series",
-  "YouTube Long-form", "YouTube Short",
-  "TikTok Script", "TikTok Native", "Instagram Reel", "Podcast Episode",
 ];
 export const CREATOR_FORMATS = ["YouTube Long-form", "YouTube Short", "TikTok Script", "TikTok Native", "Instagram Reel", "Podcast Episode"];
 export const STORY_FORMATS = ["Novel", "Screenplay", "Web Series"];
