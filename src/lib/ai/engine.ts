@@ -386,6 +386,49 @@ export async function generate({ mode, prompt, context, staticContext, dynamicCo
   const text = msg.content.filter(b => b.type === 'text').map(b => (b as any).text).join('');
   return { text, tokensUsed: msg.usage.input_tokens + msg.usage.output_tokens, model };
 }
+
+// Streaming variant of generate(): identical prompt/context assembly, but emits
+// text deltas via onDelta as the model writes, and resolves with the full result
+// once the message completes. Used for the live "typewriter" Write experience.
+export async function generateStream(
+  params: {
+    mode: string; prompt: string;
+    context?: string; staticContext?: string; dynamicContext?: string;
+    format: string; maxTokens?: number; narrativeStructure?: string; overrideModel?: string;
+  },
+  onDelta: (text: string) => void,
+): Promise<{ text: string; tokensUsed: number; model: string }> {
+  const { mode, prompt, context, staticContext, dynamicContext, format, maxTokens = 4000, narrativeStructure, overrideModel } = params;
+  const model = overrideModel ?? MODELS[MODE_REGISTRY[mode as GenerationMode]?.modelTier ?? 'default'];
+  const formatRules = getFormatRules(format);
+  const craftDirectives = getCraftDirectives(format);
+  const modeInstruction = MI[mode as GenerationMode](format);
+  const narrativeNote = getNarrativeStructureInstruction(narrativeStructure);
+
+  let systemBlocks: any[];
+  if (staticContext !== undefined && dynamicContext !== undefined) {
+    systemBlocks = [
+      { type: 'text', text: modeInstruction + formatRules + craftDirectives + narrativeNote + '\n---\n' + staticContext, cache_control: { type: 'ephemeral' } },
+      { type: 'text', text: dynamicContext },
+    ];
+  } else {
+    const fullContext = context ?? '';
+    systemBlocks = [{ type: 'text', text: modeInstruction + formatRules + craftDirectives + narrativeNote + '\n---\n' + fullContext, cache_control: { type: 'ephemeral' } }];
+  }
+
+  let text = '';
+  const stream = client.messages.stream({
+    model,
+    max_tokens: maxTokens,
+    system: systemBlocks,
+    messages: [{ role: 'user', content: prompt }],
+  });
+  stream.on('text', (delta: string) => { text += delta; onDelta(delta); });
+  const final = await stream.finalMessage();
+  const tokensUsed = (final.usage?.input_tokens ?? 0) + (final.usage?.output_tokens ?? 0);
+  return { text, tokensUsed, model };
+}
+
 export async function analyzeWork(title: string) {
   const semanticKey = title.trim();
   const cached = await checkSemanticCache('style_dna', semanticKey);

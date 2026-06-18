@@ -52,7 +52,7 @@ interface WritingRoomProps {
   updateProject: (fn: (p: any) => any) => void;
   updateChapter: (field: string, value: any) => void;
   generating: boolean;
-  generate: (opts?: { insertViaEditor?: (text: string) => void }) => Promise<void>;
+  generate: (opts?: { insertViaEditor?: (text: string) => void; editorStream?: { start: () => void; delta: (t: string) => void; end: (full: string) => void } }) => Promise<void>;
   onOpenBible: () => void;
   onOpenActions: () => void;
   prompt: string;
@@ -111,6 +111,16 @@ export default function WritingRoom({
   }, []);
 
   const sortedChapters = [...(project.chapters || [])].sort((a: any, b: any) => a.sortOrder - b.sortOrder);
+
+  // Generate prose with a live typewriter stream into the editor.
+  const runGenerate = () => generate({
+    insertViaEditor: (text) => editorRef.current?.insertContent(text),
+    editorStream: {
+      start: () => editorRef.current?.streamStart(),
+      delta: (t) => editorRef.current?.streamDelta(t),
+      end: (full) => editorRef.current?.streamEnd(full),
+    },
+  });
   const chapIndex = sortedChapters.findIndex((c: any) => c.id === activeChap.id);
   const isLastChapter = chapIndex >= 0 && chapIndex === sortedChapters.length - 1;
   const activeChapHasContent = (activeChap.wordCount ?? 0) > 0;
@@ -475,7 +485,7 @@ export default function WritingRoom({
                 if (slashQuery !== null) {
                   if (filteredModes.length > 0) handleSelect(filteredModes[0]);
                 } else {
-                  generate({ insertViaEditor: (text) => editorRef.current?.insertContent(text) });
+                  runGenerate();
                 }
               } else if (e.key === "Escape" && slashQuery !== null) {
                 setPrompt("");
@@ -487,7 +497,7 @@ export default function WritingRoom({
         </div>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <button style={sBtnSm} onClick={onOpenActions}>Actions</button>
-          <button style={{ ...sBtn, opacity: generating ? 0.6 : 1 }} disabled={generating} onClick={() => generate({ insertViaEditor: (text) => editorRef.current?.insertContent(text) })}>
+          <button style={{ ...sBtn, opacity: generating ? 0.6 : 1 }} disabled={generating} onClick={() => runGenerate()}>
             {generating ? `${MODE_REGISTRY.write.label}…` : MODE_REGISTRY.write.label}
           </button>
         </div>

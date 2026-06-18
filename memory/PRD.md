@@ -27,6 +27,9 @@ User's existing GhostWriter app (https://github.com/sadi21863-bit/ghostwriter) b
 - ✅ Got the entire app running live in-environment (Neon + Anthropic + proxy + production build). Auth (email/pw) verified end-to-end through proxy.
 - ✅ Driver-aware DB layer; Sentry/instrumentation gated; secrets loaded.
 - ✅ Phase 1 rebuild: forced single `WritingRoom` shell (`writingRoomEnabled = true`); restricted formats to Novel/Screenplay/Web Series (Onboarding + formats.ts) — creator tools no longer surfaced.
+- ✅ **Token streaming**: live typewriter Write. `engine.generateStream` (Anthropic stream) → `generate` route `stream:true` branch (ReadableStream, preserves all gating/metering) → `callAIStream` reader → `ChapterEditor.streamStart/streamDelta/streamEnd` typewriter+reformat. Verified live (prose grows in editor, reformats on completion).
+- ✅ **Scene Blueprint planner (P0 from STORYTELLING_ARCHITECTURE.md)**: fast Haiku pre-pass (`lib/ai/scene-blueprint.ts`) builds GOAL/OBSTACLE/TURN/CHANGE/SENSORY/EXIT and injects into Write context (paid tiers, fail-open) — biggest lever vs. generic prose.
+- 📄 Wrote `/app/STORYTELLING_ARCHITECTURE.md` — research-backed, codebase-aware roadmap (planner-writer-critic loop, anti-slop editor, style-exemplar retrieval, promise ledger, rhythm guard).
 
 ## Verified live (2026-06-18)
 - ✅ End-to-end writing loop: login → create Novel → Draft stage → AI "Write" → rich prose inserted into editor & persisted. (Full "write" generation ~50s — quality model + full continuity context; this is original behaviour.)
