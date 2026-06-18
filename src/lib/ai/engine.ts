@@ -429,6 +429,36 @@ export async function generateStream(
   return { text, tokensUsed, model };
 }
 
+// Polish-pass Critic-Editor (P0): an edit-based revise pass. It fixes AI-slop
+// (clichés, filler, vague emotion, repetition, forced metaphor, tell-don't-show,
+// same-voice dialogue) WITHOUT changing plot, facts, characters, or the author's
+// voice. Based on the "AI-Slop to AI-Polish" self-edit approach.
+export async function refinePassage(text: string, format: string): Promise<{ text: string; tokensUsed: number; model: string }> {
+  const model = MODELS.default;
+  const system = `You are a precise line editor for ${format} fiction. Revise the passage to remove AI-slop while preserving the author's plot, meaning, characters, facts, and VOICE exactly. Fix ONLY these defects:
+- cliché openings and stock phrases ("little did they know", "the air was thick with", "a chill ran down")
+- filler transitions and throat-clearing ("as the sun dipped below the horizon", "without warning")
+- vague emotional summaries — replace naming an emotion ("she felt sad") with physical/behavioral evidence
+- repetitive sentence rhythm and repeated sentence openers
+- forced, mixed, or purple metaphors
+- telling where showing is stronger
+- dialogue where every character sounds the same
+
+HARD RULES:
+- Do NOT change plot events, character decisions, or established facts.
+- Do NOT add new scenes, characters, or content. Do NOT summarize.
+- Keep length within ~10% of the original. Preserve paragraph breaks.
+- Return ONLY the revised prose — no preamble, no commentary, no labels.`;
+  const msg = await client.messages.create({
+    model,
+    max_tokens: 4000,
+    system,
+    messages: [{ role: 'user', content: text.slice(0, 16000) }],
+  });
+  const out = msg.content.filter(b => b.type === 'text').map(b => (b as any).text).join('');
+  return { text: out, tokensUsed: msg.usage.input_tokens + msg.usage.output_tokens, model };
+}
+
 export async function analyzeWork(title: string) {
   const semanticKey = title.trim();
   const cached = await checkSemanticCache('style_dna', semanticKey);

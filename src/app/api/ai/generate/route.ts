@@ -8,6 +8,8 @@ import { meterAndGate, refundCredits } from "@/lib/metering/meter";
 import { GATED_MODES } from "@/types/subscription";
 import { generate, generateStream, MODELS } from "@/lib/ai/engine";
 import { buildSceneBlueprint } from "@/lib/ai/scene-blueprint";
+import { buildPromiseLedger } from "@/lib/ai/promise-ledger";
+import { buildVoiceExemplars } from "@/lib/ai/exemplars";
 import { capContextForTier } from "@/lib/ai/context-caps";
 import { buildAiismsInstruction } from "@/lib/ai/aiisms";
 import { db } from "@/db";
@@ -298,14 +300,18 @@ Do NOT write the scene — just provide the accurate factual grounding.`,
 
     const effectiveDynamic = [cappedDynamic, additionalContext, aiismsNote, domainResearchContext].filter(Boolean).join('\n\n');
 
-    // Planner step (P0): a fast Haiku scene blueprint that gives the writer a
-    // concrete plan before drafting prose — the biggest lever against generic output.
-    // Opt-in for paid tiers; fail-open so it never blocks generation.
-    let sceneBlueprint = '';
-    if (mode === 'write' && tier !== 'free') {
-      sceneBlueprint = await buildSceneBlueprint({ prompt: effectivePrompt, staticContext: effectiveStatic ?? undefined, dynamicContext: effectiveDynamic, format });
+    // Planner + coherence + voice augmentation (P0/P1). Runs concurrently to keep
+    // added latency minimal. All output lands in the DYNAMIC block so the cached
+    // static block stays byte-identical (cost-safe). Paid tiers only; fail-open.
+    let blueprint = '', promiseLedger = '', voiceExemplars = '';
+    if (mode === 'write' && tier !== 'free' && projectId) {
+      [blueprint, promiseLedger, voiceExemplars] = await Promise.all([
+        buildSceneBlueprint({ prompt: effectivePrompt, staticContext: effectiveStatic ?? undefined, dynamicContext: effectiveDynamic, format }),
+        buildPromiseLedger(projectId),
+        buildVoiceExemplars(session.user.id, effectivePrompt),
+      ]);
     }
-    const finalDynamic = [effectiveDynamic, sceneBlueprint].filter(Boolean).join('\n\n') || undefined;
+    const finalDynamic = [effectiveDynamic, promiseLedger, voiceExemplars, blueprint].filter(Boolean).join('\n\n') || undefined;
 
     // Streaming path: emit text deltas live, then persist the generation record on completion.
     if (stream) {

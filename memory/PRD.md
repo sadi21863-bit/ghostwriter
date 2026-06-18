@@ -30,6 +30,16 @@ User's existing GhostWriter app (https://github.com/sadi21863-bit/ghostwriter) b
 - ✅ **Token streaming**: live typewriter Write. `engine.generateStream` (Anthropic stream) → `generate` route `stream:true` branch (ReadableStream, preserves all gating/metering) → `callAIStream` reader → `ChapterEditor.streamStart/streamDelta/streamEnd` typewriter+reformat. Verified live (prose grows in editor, reformats on completion).
 - ✅ **Scene Blueprint planner (P0 from STORYTELLING_ARCHITECTURE.md)**: fast Haiku pre-pass (`lib/ai/scene-blueprint.ts`) builds GOAL/OBSTACLE/TURN/CHANGE/SENSORY/EXIT and injects into Write context (paid tiers, fail-open) — biggest lever vs. generic prose.
 - 📄 Wrote `/app/STORYTELLING_ARCHITECTURE.md` — research-backed, codebase-aware roadmap (planner-writer-critic loop, anti-slop editor, style-exemplar retrieval, promise ledger, rhythm guard).
+- ✅ **Polish-pass Critic-Editor (P0)**: `engine.refinePassage` + `/api/ai/refine` (gated/metered like generate) + "One-click prose polish" button in the Polish stage (`PolishStageView`, with Revert). Removes clichés/filler/repetition without altering plot/voice. Verified.
+- ✅ **Reader-Promise Ledger (P1)**: `lib/ai/promise-ledger.ts` aggregates unresolved `openPromises` from `storyMemories` → injected into the Write dynamic block (DB-only, no LLM cost).
+- ✅ **Style-Exemplar retrieval (P1)**: `lib/ai/exemplars.ts` retrieves top craft references (work_packets pgvector) by similarity → injected as VOICE ANCHORS (1 cheap embedding, fail-open).
+- 🧠 Cost-alignment: all new context lands in the DYNAMIC block (cached static block stays byte-stable); planner/promise/exemplar run concurrently (`Promise.all`); auxiliary calls use Haiku; promise-ledger is DB-only.
+
+## Backlog / Next
+- P1: Wire **Google login** once real OAuth creds provided (integration_expert playbook first; current GOOGLE_CLIENT_ID/SECRET empty).
+- P2: Make Scene Blueprint visible/editable (creative control surface + premium feature).
+- P2: Sentence-rhythm/repetition guard (deterministic, no LLM) in Story Insights.
+- P2: Clean up legacy dashboard; prune dormant creator-tool code/routes.
 
 ## Verified live (2026-06-18)
 - ✅ End-to-end writing loop: login → create Novel → Draft stage → AI "Write" → rich prose inserted into editor & persisted. (Full "write" generation ~50s — quality model + full continuity context; this is original behaviour.)

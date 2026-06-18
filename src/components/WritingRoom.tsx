@@ -348,7 +348,7 @@ export default function WritingRoom({
       ) : stage === "structure" ? (
         <StructureStageView project={project} setPrompt={setPrompt} onSelectMode={onSelectMode} prompt={prompt} mode={mode} topic={activeChap.title} setSavedMsg={setSavedMsg} onUpgradeRequired={onUpgradeRequired} onOpenActions={onOpenActions} />
       ) : stage === "polish" ? (
-        <PolishStageView project={project} qualityReview={qualityReview} onGuideRun={onGuideRun} onGuideDismiss={onGuideDismiss} mode={mode} content={activeChap.content} updateProject={updateProject} setSavedMsg={setSavedMsg} onUpgradeRequired={onUpgradeRequired} onOpenActions={onOpenActions} />
+        <PolishStageView project={project} qualityReview={qualityReview} onGuideRun={onGuideRun} onGuideDismiss={onGuideDismiss} mode={mode} content={activeChap.content} activeChapId={activeChap.id} updateChapter={updateChapter} updateProject={updateProject} setSavedMsg={setSavedMsg} onUpgradeRequired={onUpgradeRequired} onOpenActions={onOpenActions} />
       ) : stage === "export" ? (
         <ExportStageView project={project} onGuideRun={onGuideRun} onOpenProductionStudio={onOpenProductionStudio} onOpenComicStudio={onOpenComicStudio} />
       ) : null}
