@@ -656,173 +656,189 @@ export default function Dashboard() {
       {/* Create project modal */}
       {showCreate && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 50, padding: "0 16px" }} onClick={() => { setShowCreate(false); setCreationMode('structured'); setBraindumpText(''); setBraindumpResult(null); }}>
-          <div style={{ background: "#fff", borderRadius: 18, padding: "28px 28px 24px", width: "100%", maxWidth: 400, boxShadow: "0 24px 64px rgba(0,0,0,0.18)" }} onClick={e => e.stopPropagation()}>
-            <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 24, fontWeight: 600, marginBottom: 24, color: "#1a1a1a" }}>New Project</div>
+          <div style={{ background: "#fff", borderRadius: 18, width: "100%", maxWidth: 400, maxHeight: "85vh", boxShadow: "0 24px 64px rgba(0,0,0,0.18)", display: "flex", flexDirection: "column", overflow: "hidden" }} onClick={e => e.stopPropagation()}>
+            <div style={{ padding: "28px 28px 0" }}>
+              <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 24, fontWeight: 600, marginBottom: 20, color: "#1a1a1a" }}>New Project</div>
 
-            <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
-              <button
-                type="button"
-                onClick={() => { setCreationMode('structured'); setBraindumpResult(null); }}
-                style={{
-                  flex: 1, padding: '8px 12px', borderRadius: 8,
-                  background: creationMode === 'structured' ? GW_GOLD : '#f5f4f0',
-                  border: `1px solid ${creationMode === 'structured' ? GW_GOLD : GW_BORDER}`,
-                  color: creationMode === 'structured' ? '#0d0d10' : '#888',
-                  cursor: 'pointer', fontSize: 13, fontWeight: 600,
-                }}
-              >
-                Start structured
-              </button>
-              <button
-                type="button"
-                onClick={() => setCreationMode('braindump')}
-                style={{
-                  flex: 1, padding: '8px 12px', borderRadius: 8,
-                  background: creationMode === 'braindump' ? GW_GOLD : '#f5f4f0',
-                  border: `1px solid ${creationMode === 'braindump' ? GW_GOLD : GW_BORDER}`,
-                  color: creationMode === 'braindump' ? '#0d0d10' : '#888',
-                  cursor: 'pointer', fontSize: 13, fontWeight: 600,
-                }}
-              >
-                ✨ Braindump — I have ideas
-              </button>
-            </div>
-
-            {creationMode === 'structured' && (
-            <form onSubmit={createProject} style={{ display: "flex", flexDirection: "column", gap: 18 }}>
-              <div>
-                <label style={{ display: "block", fontSize: 10, fontWeight: 700, color: "#aaa", textTransform: "uppercase", letterSpacing: 1.2, marginBottom: 6 }}>Title</label>
-                <input autoFocus type="text" required value={newName} onChange={e => setNewName(e.target.value)} placeholder="My Novel" className="gw-modal-input" style={inputS} />
-              </div>
-              <div>
-                <label style={{ display: "block", fontSize: 10, fontWeight: 700, color: "#aaa", textTransform: "uppercase", letterSpacing: 1.2, marginBottom: 6 }}>Format</label>
-                <select value={newFormat} onChange={e => setNewFormat(e.target.value)} className="gw-modal-input" style={{ ...inputS, cursor: "pointer" }}>
-                  {FORMATS.map(f => <option key={f}>{f}</option>)}
-                </select>
-              </div>
-              <div>
-                <label style={{ display: "block", fontSize: 10, fontWeight: 700, color: "#aaa", textTransform: "uppercase", letterSpacing: 1.2, marginBottom: 8 }}>What kind of story?</label>
-                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                  {([
-                    { id: "linear", label: "One Story", desc: "A single story, beginning to end.", examples: "Novel · Screenplay · Film", icon: "◆" },
-                    { id: "series", label: "Book Series", desc: "Multiple books where each builds on the last.", examples: "Harry Potter · Mistborn · Web Serials", icon: "📚" },
-                    { id: "universe-story", label: "Your Universe", desc: "Separate stories in one world — each stands alone but connects.", examples: "MCU · Cosmere · Star Wars", icon: "🌌", badge: "NEW" },
-                  ] as { id: "linear" | "series" | "universe-story"; label: string; desc: string; examples: string; icon: string; badge?: string }[]).map(type => (
-                    <button key={type.id} type="button" onClick={() => setNewStoryType(type.id)}
-                      style={{ textAlign: "left", padding: "10px 12px", background: newStoryType === type.id ? "#fefce8" : "#f9f9f9", border: `1px solid ${newStoryType === type.id ? GW_GOLD : GW_BORDER}`, borderRadius: 10, cursor: "pointer", transition: "all 0.15s" }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 2 }}>
-                        <span style={{ fontSize: 14 }}>{type.icon}</span>
-                        <span style={{ fontSize: 12, fontWeight: 700, color: "#1a1a1a" }}>{type.label}</span>
-                        {type.badge && <span style={{ fontSize: 9, background: "rgba(29,158,117,0.12)", color: "#1d9e75", padding: "1px 5px", borderRadius: 8, fontWeight: 700 }}>{type.badge}</span>}
-                      </div>
-                      <div style={{ fontSize: 10, color: "#888" }}>{type.desc}</div>
-                      <div style={{ fontSize: 10, color: "#aaa" }}>e.g. {type.examples}</div>
-                    </button>
-                  ))}
-                  <button type="button" disabled style={{ textAlign: "left", padding: "10px 12px", background: "#f9f9f9", border: `1px solid ${GW_BORDER}`, borderRadius: 10, cursor: "default", opacity: 0.45 }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 2 }}>
-                      <span style={{ fontSize: 14 }}>▶</span>
-                      <span style={{ fontSize: 12, fontWeight: 700, color: "#1a1a1a" }}>Multiple Storylines</span>
-                      <span style={{ fontSize: 9, color: "#aaa", marginLeft: "auto" }}>Coming soon</span>
-                    </div>
-                    <div style={{ fontSize: 10, color: "#888" }}>Different characters in parallel, eventually converging.</div>
-                  </button>
-                </div>
-              </div>
-              <div>
-                <label style={{ display: "block", fontSize: 10, fontWeight: 700, color: "#aaa", textTransform: "uppercase", letterSpacing: 1.2, marginBottom: 8 }}>Experience Level</label>
-                <div style={{ display: "flex", gap: 10 }}>
-                  {(["beginner", "expert"] as const).map(lvl => (
-                    <button key={lvl} type="button" onClick={() => setNewSkillLevel(lvl)}
-                      style={{ flex: 1, padding: "10px 0", border: `1px solid ${newSkillLevel === lvl ? GW_GOLD : GW_BORDER}`, borderRadius: 10, fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "'Figtree', sans-serif", background: newSkillLevel === lvl ? "#fefce8" : "#fff", color: newSkillLevel === lvl ? "#92400e" : "#888", transition: "all 0.15s" }}>
-                      {lvl === "beginner" ? "🎯 Beginner" : "⭐ Expert"}
-                    </button>
-                  ))}
-                </div>
-                <div style={{ fontSize: 11, color: "#aaa", marginTop: 8 }}>
-                  {newSkillLevel === "beginner" ? "Quick start: AI generates story from minimal input" : "Full control: Build detailed world with AI as assistant"}
-                </div>
-              </div>
-              <div style={{ display: "flex", gap: 10, marginTop: 4 }}>
-                <button type="button" onClick={() => { setShowCreate(false); setCreationMode('structured'); setBraindumpText(''); setBraindumpResult(null); }}
-                  style={{ flex: 1, border: "1px solid " + GW_BORDER, background: "#fff", color: "#888", fontWeight: 600, padding: "10px 0", borderRadius: 10, fontSize: 13, cursor: "pointer", fontFamily: "'Figtree', sans-serif" }}>
-                  Cancel
-                </button>
-                <button type="submit" disabled={creating} className="gw-gold-btn"
-                  style={{ flex: 1, background: GW_GOLD, color: "#0d0d10", border: "none", fontWeight: 700, padding: "10px 0", borderRadius: 10, fontSize: 13, cursor: creating ? "not-allowed" : "pointer", opacity: creating ? 0.6 : 1, fontFamily: "'Figtree', sans-serif" }}>
-                  {creating ? "Creating…" : "Create"}
-                </button>
-              </div>
-            </form>
-            )}
-
-            {creationMode === 'braindump' && !braindumpResult && (
-              <div>
-                <div style={{ fontSize: 12, color: '#888', marginBottom: 8, lineHeight: 1.5 }}>
-                  Write anything you know about your story. Don't organize it — fragments, character
-                  names, scenes you imagine, themes, contradictions. The messier the better.
-                </div>
-                <textarea
-                  value={braindumpText}
-                  onChange={e => setBraindumpText(e.target.value)}
-                  placeholder="e.g. A detective in 1920s Bombay who solves murders but is secretly haunted by his own past crime. Something about monsoon season. The villain might be a woman — no, definitely a woman, charming and ruthless. There's a train. The detective has a bad leg. He drinks too much. A young journalist keeps interfering..."
-                  rows={8}
-                  style={{ ...inputS, resize: 'vertical', fontFamily: "'Figtree', sans-serif" }}
-                />
+              <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
                 <button
                   type="button"
-                  onClick={handleProcessBraindump}
-                  disabled={braindumpText.trim().length < 50 || braindumpProcessing}
-                  className="gw-gold-btn"
-                  style={{ marginTop: 10, width: '100%', padding: '10px', borderRadius: 10,
-                           background: GW_GOLD, color: '#0d0d10', border: 'none',
-                           cursor: braindumpText.trim().length < 50 ? 'default' : 'pointer',
-                           opacity: braindumpText.trim().length < 50 ? 0.5 : 1,
-                           fontSize: 13, fontWeight: 700, fontFamily: "'Figtree', sans-serif" }}
+                  onClick={() => { setCreationMode('structured'); setBraindumpResult(null); }}
+                  style={{
+                    flex: 1, padding: '8px 12px', borderRadius: 8,
+                    background: creationMode === 'structured' ? GW_GOLD : '#f5f4f0',
+                    border: `1px solid ${creationMode === 'structured' ? GW_GOLD : GW_BORDER}`,
+                    color: creationMode === 'structured' ? '#0d0d10' : '#888',
+                    cursor: 'pointer', fontSize: 13, fontWeight: 600,
+                  }}
                 >
-                  {braindumpProcessing ? 'Organizing your ideas...' : 'Organize into a project →'}
+                  Start structured
                 </button>
-                <button type="button" onClick={() => { setShowCreate(false); setCreationMode('structured'); setBraindumpText(''); setBraindumpResult(null); }}
-                  style={{ marginTop: 8, width: '100%', border: '1px solid ' + GW_BORDER, background: '#fff', color: '#888', fontWeight: 600, padding: '10px 0', borderRadius: 10, fontSize: 13, cursor: 'pointer', fontFamily: "'Figtree', sans-serif" }}>
-                  Cancel
+                <button
+                  type="button"
+                  onClick={() => setCreationMode('braindump')}
+                  style={{
+                    flex: 1, padding: '8px 12px', borderRadius: 8,
+                    background: creationMode === 'braindump' ? GW_GOLD : '#f5f4f0',
+                    border: `1px solid ${creationMode === 'braindump' ? GW_GOLD : GW_BORDER}`,
+                    color: creationMode === 'braindump' ? '#0d0d10' : '#888',
+                    cursor: 'pointer', fontSize: 13, fontWeight: 600,
+                  }}
+                >
+                  ✨ Braindump — I have ideas
                 </button>
               </div>
-            )}
+            </div>
 
-            {braindumpResult && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                <div style={{ fontSize: 13, fontWeight: 700, color: '#1d9e75' }}>
-                  ✓ Found your story — review before creating:
-                </div>
-
+            <div style={{ flex: 1, overflowY: "auto", padding: "0 28px" }}>
+              {creationMode === 'structured' && (
+              <form id="create-project-form" onSubmit={createProject} style={{ display: "flex", flexDirection: "column", gap: 14, paddingBottom: 20 }}>
                 <div>
-                  <label style={{ display: "block", fontSize: 10, fontWeight: 700, color: "#aaa", textTransform: "uppercase", letterSpacing: 1.2, marginBottom: 6 }}>Project name</label>
-                  <input
-                    value={braindumpResult.projectName}
-                    onChange={e => setBraindumpResult({...braindumpResult, projectName: e.target.value})}
-                    style={inputS}
-                  />
+                  <label style={{ display: "block", fontSize: 10, fontWeight: 700, color: "#aaa", textTransform: "uppercase", letterSpacing: 1.2, marginBottom: 6 }}>Title</label>
+                  <input autoFocus type="text" required value={newName} onChange={e => setNewName(e.target.value)} placeholder="My Novel" className="gw-modal-input" style={inputS} />
                 </div>
-
-                <div style={{ padding: '8px 12px', background: '#f5f4f0', borderRadius: 8,
-                              fontSize: 12, color: '#888', lineHeight: 1.5 }}>
-                  {braindumpResult.premise}
+                <div>
+                  <label style={{ display: "block", fontSize: 10, fontWeight: 700, color: "#aaa", textTransform: "uppercase", letterSpacing: 1.2, marginBottom: 6 }}>Format</label>
+                  <select value={newFormat} onChange={e => setNewFormat(e.target.value)} className="gw-modal-input" style={{ ...inputS, cursor: "pointer" }}>
+                    {FORMATS.map(f => <option key={f}>{f}</option>)}
+                  </select>
                 </div>
-
-                {braindumpResult.characters.length > 0 && (
-                  <div>
-                    <div style={{ fontSize: 10, fontWeight: 700, color: '#aaa', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6 }}>
-                      Characters found ({braindumpResult.characters.length})
-                    </div>
-                    {braindumpResult.characters.map((c, i) => (
-                      <div key={i} style={{ fontSize: 12, padding: '6px 10px', color: '#555',
-                                            background: '#f5f4f0', borderRadius: 6, marginBottom: 4 }}>
-                        <strong>{c.name}</strong> ({c.role}) — {c.description}
+                <div>
+                  <label style={{ display: "block", fontSize: 10, fontWeight: 700, color: "#aaa", textTransform: "uppercase", letterSpacing: 1.2, marginBottom: 8 }}>What kind of story?</label>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                    {([
+                      { id: "linear", label: "One Story", desc: "A single story, beginning to end.", examples: "Novel · Screenplay · Film", icon: "◆" },
+                      { id: "series", label: "Book Series", desc: "Multiple books where each builds on the last.", examples: "Harry Potter · Mistborn · Web Serials", icon: "📚" },
+                      { id: "universe-story", label: "Your Universe", desc: "Separate stories in one world — each stands alone but connects.", examples: "MCU · Cosmere · Star Wars", icon: "🌌", badge: "NEW" },
+                    ] as { id: "linear" | "series" | "universe-story"; label: string; desc: string; examples: string; icon: string; badge?: string }[]).map(type => (
+                      <button key={type.id} type="button" onClick={() => setNewStoryType(type.id)}
+                        style={{ textAlign: "left", padding: "10px 12px", background: newStoryType === type.id ? "#fefce8" : "#f9f9f9", border: `1px solid ${newStoryType === type.id ? GW_GOLD : GW_BORDER}`, borderRadius: 10, cursor: "pointer", transition: "all 0.15s" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 2 }}>
+                          <span style={{ fontSize: 14 }}>{type.icon}</span>
+                          <span style={{ fontSize: 12, fontWeight: 700, color: "#1a1a1a" }}>{type.label}</span>
+                          {type.badge && <span style={{ fontSize: 9, background: "rgba(29,158,117,0.12)", color: "#1d9e75", padding: "1px 5px", borderRadius: 8, fontWeight: 700 }}>{type.badge}</span>}
+                        </div>
+                        <div style={{ fontSize: 10, color: "#888" }}>{type.desc}</div>
+                        <div style={{ fontSize: 10, color: "#aaa" }}>e.g. {type.examples}</div>
+                      </button>
+                    ))}
+                    <button type="button" disabled style={{ textAlign: "left", padding: "10px 12px", background: "#f9f9f9", border: `1px solid ${GW_BORDER}`, borderRadius: 10, cursor: "default", opacity: 0.45 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 2 }}>
+                        <span style={{ fontSize: 14 }}>▶</span>
+                        <span style={{ fontSize: 12, fontWeight: 700, color: "#1a1a1a" }}>Multiple Storylines</span>
+                        <span style={{ fontSize: 9, color: "#aaa", marginLeft: "auto" }}>Coming soon</span>
                       </div>
+                      <div style={{ fontSize: 10, color: "#888" }}>Different characters in parallel, eventually converging.</div>
+                    </button>
+                  </div>
+                </div>
+                <div>
+                  <label style={{ display: "block", fontSize: 10, fontWeight: 700, color: "#aaa", textTransform: "uppercase", letterSpacing: 1.2, marginBottom: 8 }}>Experience Level</label>
+                  <div style={{ display: "flex", gap: 10 }}>
+                    {(["beginner", "expert"] as const).map(lvl => (
+                      <button key={lvl} type="button" onClick={() => setNewSkillLevel(lvl)}
+                        style={{ flex: 1, padding: "10px 0", border: `1px solid ${newSkillLevel === lvl ? GW_GOLD : GW_BORDER}`, borderRadius: 10, fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "'Figtree', sans-serif", background: newSkillLevel === lvl ? "#fefce8" : "#fff", color: newSkillLevel === lvl ? "#92400e" : "#888", transition: "all 0.15s" }}>
+                        {lvl === "beginner" ? "🎯 Beginner" : "⭐ Expert"}
+                      </button>
                     ))}
                   </div>
-                )}
+                  <div style={{ fontSize: 11, color: "#aaa", marginTop: 8 }}>
+                    {newSkillLevel === "beginner" ? "Quick start: AI generates story from minimal input" : "Full control: Build detailed world with AI as assistant"}
+                  </div>
+                </div>
+              </form>
+              )}
 
+              {creationMode === 'braindump' && !braindumpResult && (
+                <div style={{ paddingBottom: 20 }}>
+                  <div style={{ fontSize: 12, color: '#888', marginBottom: 8, lineHeight: 1.5 }}>
+                    Write anything you know about your story. Don't organize it — fragments, character
+                    names, scenes you imagine, themes, contradictions. The messier the better.
+                  </div>
+                  <textarea
+                    value={braindumpText}
+                    onChange={e => setBraindumpText(e.target.value)}
+                    placeholder="e.g. A detective in 1920s Bombay who solves murders but is secretly haunted by his own past crime. Something about monsoon season. The villain might be a woman — no, definitely a woman, charming and ruthless. There's a train. The detective has a bad leg. He drinks too much. A young journalist keeps interfering..."
+                    rows={8}
+                    style={{ ...inputS, resize: 'vertical', fontFamily: "'Figtree', sans-serif" }}
+                  />
+                </div>
+              )}
+
+              {braindumpResult && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12, paddingBottom: 20 }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: '#1d9e75' }}>
+                    ✓ Found your story — review before creating:
+                  </div>
+
+                  <div>
+                    <label style={{ display: "block", fontSize: 10, fontWeight: 700, color: "#aaa", textTransform: "uppercase", letterSpacing: 1.2, marginBottom: 6 }}>Project name</label>
+                    <input
+                      value={braindumpResult.projectName}
+                      onChange={e => setBraindumpResult({...braindumpResult, projectName: e.target.value})}
+                      style={inputS}
+                    />
+                  </div>
+
+                  <div style={{ padding: '8px 12px', background: '#f5f4f0', borderRadius: 8,
+                                fontSize: 12, color: '#888', lineHeight: 1.5 }}>
+                    {braindumpResult.premise}
+                  </div>
+
+                  {braindumpResult.characters.length > 0 && (
+                    <div>
+                      <div style={{ fontSize: 10, fontWeight: 700, color: '#aaa', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6 }}>
+                        Characters found ({braindumpResult.characters.length})
+                      </div>
+                      {braindumpResult.characters.map((c, i) => (
+                        <div key={i} style={{ fontSize: 12, padding: '6px 10px', color: '#555',
+                                              background: '#f5f4f0', borderRadius: 6, marginBottom: 4 }}>
+                          <strong>{c.name}</strong> ({c.role}) — {c.description}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            <div style={{ padding: "16px 28px 24px", borderTop: "1px solid " + GW_BORDER }}>
+              {creationMode === 'structured' && (
+                <div style={{ display: "flex", gap: 10 }}>
+                  <button type="button" onClick={() => { setShowCreate(false); setCreationMode('structured'); setBraindumpText(''); setBraindumpResult(null); }}
+                    style={{ flex: 1, border: "1px solid " + GW_BORDER, background: "#fff", color: "#888", fontWeight: 600, padding: "10px 0", borderRadius: 10, fontSize: 13, cursor: "pointer", fontFamily: "'Figtree', sans-serif" }}>
+                    Cancel
+                  </button>
+                  <button type="submit" form="create-project-form" disabled={creating} className="gw-gold-btn"
+                    style={{ flex: 1, background: GW_GOLD, color: "#0d0d10", border: "none", fontWeight: 700, padding: "10px 0", borderRadius: 10, fontSize: 13, cursor: creating ? "not-allowed" : "pointer", opacity: creating ? 0.6 : 1, fontFamily: "'Figtree', sans-serif" }}>
+                    {creating ? "Creating…" : "Create"}
+                  </button>
+                </div>
+              )}
+
+              {creationMode === 'braindump' && !braindumpResult && (
+                <>
+                  <button
+                    type="button"
+                    onClick={handleProcessBraindump}
+                    disabled={braindumpText.trim().length < 50 || braindumpProcessing}
+                    className="gw-gold-btn"
+                    style={{ width: '100%', padding: '10px', borderRadius: 10,
+                             background: GW_GOLD, color: '#0d0d10', border: 'none',
+                             cursor: braindumpText.trim().length < 50 ? 'default' : 'pointer',
+                             opacity: braindumpText.trim().length < 50 ? 0.5 : 1,
+                             fontSize: 13, fontWeight: 700, fontFamily: "'Figtree', sans-serif" }}
+                  >
+                    {braindumpProcessing ? 'Organizing your ideas...' : 'Organize into a project →'}
+                  </button>
+                  <button type="button" onClick={() => { setShowCreate(false); setCreationMode('structured'); setBraindumpText(''); setBraindumpResult(null); }}
+                    style={{ marginTop: 8, width: '100%', border: '1px solid ' + GW_BORDER, background: '#fff', color: '#888', fontWeight: 600, padding: '10px 0', borderRadius: 10, fontSize: 13, cursor: 'pointer', fontFamily: "'Figtree', sans-serif" }}>
+                    Cancel
+                  </button>
+                </>
+              )}
+
+              {braindumpResult && (
                 <div style={{ display: 'flex', gap: 8 }}>
                   <button
                     type="button"
@@ -841,8 +857,8 @@ export default function Dashboard() {
                     {creating ? 'Creating…' : 'Create project →'}
                   </button>
                 </div>
-              </div>
-            )}
+              )}
+            </div>
           </div>
         </div>
       )}
