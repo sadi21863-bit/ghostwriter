@@ -52,7 +52,7 @@ interface WritingRoomProps {
   updateProject: (fn: (p: any) => any) => void;
   updateChapter: (field: string, value: any) => void;
   generating: boolean;
-  generate: (opts?: { insertViaEditor?: (text: string) => void; editorStream?: { start: () => void; delta: (t: string) => void; end: (full: string) => void } }) => Promise<void>;
+  generate: (opts?: { additionalContext?: string; skipBlueprint?: boolean; insertViaEditor?: (text: string) => void; editorStream?: { start: () => void; delta: (t: string) => void; end: (full: string) => void } }) => Promise<void>;
   onOpenBible: () => void;
   onOpenActions: () => void;
   prompt: string;
@@ -99,6 +99,32 @@ export default function WritingRoom({
   const [surgicalError, setSurgicalError] = useState<string | null>(null);
   const [shareCount, setShareCount] = useState(0);
   const [shareUrl, setShareUrl] = useState<string | null>(null);
+  // Visible / editable Scene Blueprint (planner as a creative control surface).
+  const [scenePlan, setScenePlan] = useState("");
+  const [planning, setPlanning] = useState(false);
+  const [planOpen, setPlanOpen] = useState(false);
+
+  const handlePlanScene = async () => {
+    if (!prompt.trim()) { setSavedMsg("Type what happens next, then plan the scene."); return; }
+    setPlanning(true); setPlanOpen(true);
+    try {
+      const res = await fetch("/api/ai/blueprint", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prompt, projectId: project.id }),
+      });
+      const data = await res.json();
+      if (data.error) {
+        if (data.error === "upgrade_required") onUpgradeRequired?.(data.feature);
+        else setSavedMsg(data.error);
+      } else {
+        setScenePlan(data.text || "");
+      }
+    } catch {
+      setSavedMsg("Couldn't plan the scene. Please try again.");
+    } finally {
+      setPlanning(false);
+    }
+  };
 
   useEffect(() => {
     if (window.innerWidth < 900) setBibleOpen(false);
@@ -113,7 +139,10 @@ export default function WritingRoom({
   const sortedChapters = [...(project.chapters || [])].sort((a: any, b: any) => a.sortOrder - b.sortOrder);
 
   // Generate prose with a live typewriter stream into the editor.
+  // When the writer has an (edited) scene plan, pass it as guidance and skip the auto-planner.
   const runGenerate = () => generate({
+    additionalContext: scenePlan.trim() ? scenePlan.trim() : undefined,
+    skipBlueprint: !!scenePlan.trim(),
     insertViaEditor: (text) => editorRef.current?.insertContent(text),
     editorStream: {
       start: () => editorRef.current?.streamStart(),
@@ -396,6 +425,13 @@ export default function WritingRoom({
             >
               🏃 Sprint Mode
             </button>
+            <button
+              onClick={() => { setPlanOpen(o => !o); if (!planOpen && !scenePlan && prompt.trim()) handlePlanScene(); }}
+              style={{ ...sBtnSm, fontSize: 11, opacity: 0.8, marginLeft: 6 }}
+              data-testid="scene-plan-toggle-btn"
+            >
+              🗺 {scenePlan ? "Scene Plan ✓" : "Plan Scene"}
+            </button>
 
             {surgicalOpen && (
               <div style={{ marginTop: 8, padding: "10px 12px", background: co.surface, border: `1px solid ${co.border}`, borderRadius: 8 }}>
@@ -473,6 +509,30 @@ export default function WritingRoom({
             onContentChange={(v) => updateChapter("content", v)}
             onClose={() => setSprintModeOpen(false)}
           />
+        )}
+        {(stage === "draft" || forceEditor) && planOpen && (
+          <div style={{ padding: "10px 12px", background: co.surface, border: `1px solid ${co.border}`, borderRadius: 8 }} data-testid="scene-plan-panel">
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+              <span style={{ fontSize: 11, fontWeight: 700, color: co.muted, textTransform: "uppercase", letterSpacing: 1 }}>
+                Scene plan{scenePlan ? " · steers the next Write" : ""}
+              </span>
+              <button style={{ ...sBtnSm, fontSize: 11, padding: "2px 8px" }} onClick={() => setPlanOpen(false)}>✕</button>
+            </div>
+            <textarea
+              value={scenePlan}
+              onChange={e => setScenePlan(e.target.value)}
+              placeholder={planning ? "Planning the scene…" : "Click 'Plan scene' to draft GOAL / OBSTACLE / TURN / CHANGE / SENSORY / EXIT — then edit it freely. It steers the next Write."}
+              style={{ ...sTextarea, width: "100%", minHeight: 120, fontSize: 12, fontFamily: "monospace", lineHeight: 1.6 }}
+              data-testid="scene-plan-textarea"
+            />
+            <div style={{ display: "flex", gap: 6, marginTop: 6, alignItems: "center" }}>
+              <button style={sBtnSm} disabled={planning} onClick={handlePlanScene} data-testid="scene-plan-generate-btn">
+                {planning ? "Planning…" : (scenePlan ? "Re-plan" : "Plan scene")}
+              </button>
+              {scenePlan && <button style={sBtnSm} onClick={() => setScenePlan("")}>Clear</button>}
+              <span style={{ fontSize: 11, color: co.muted, marginLeft: "auto" }}>Edit the plan, then hit Write.</span>
+            </div>
+          </div>
         )}
         <div style={{ position: "relative" }}>
           {slashQuery !== null && <SlashMenu modes={filteredModes} onSelect={handleSelect} />}

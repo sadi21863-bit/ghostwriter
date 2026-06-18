@@ -190,3 +190,54 @@ body {
     overflow-y: auto;
   }
 }
+
+
+/* ════════════════════════════════════════════════════════════
+   UI ENHANCEMENT LAYER (2026-06) — micro-interactions & polish
+   ════════════════════════════════════════════════════════════ */
+html { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; text-rendering: optimizeLegibility; }
+
+/* Universal, subtle interaction feedback for buttons (inline-styled components) */
+button { transition: filter .15s ease, transform .12s ease, box-shadow .15s ease, background-color .15s ease, border-color .15s ease, color .15s ease; }
+button:not(:disabled):hover { filter: brightness(1.05); }
+button:not(:disabled):active { transform: translateY(0.5px) scale(0.995); }
+button:disabled { cursor: not-allowed; }
+
+/* Inputs & textareas: warm focus ring */
+input:focus, textarea:focus, select:focus { border-color: var(--color-accent, #b45309) !important; box-shadow: 0 0 0 3px rgba(180,83,9,0.14); }
+
+/* Accessible focus-visible for keyboard users */
+:where(a, button, [role="button"], input, textarea, select):focus-visible {
+  outline: 2px solid #b45309; outline-offset: 2px; border-radius: 6px;
+}
+
+/* Branded text selection */
+::selection { background: rgba(217,119,6,0.28); color: inherit; }
+
+/* Refined scrollbars */
+::-webkit-scrollbar { width: 9px; height: 9px; }
+::-webkit-scrollbar-thumb { background: rgba(120,110,90,0.35); border-radius: 6px; border: 2px solid transparent; background-clip: padding-box; }
+::-webkit-scrollbar-thumb:hover { background: rgba(120,110,90,0.55); background-clip: padding-box; }
+* { scrollbar-width: thin; }
+
+/* Entrance animation utility (staggerable) */
+@keyframes gwFadeUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+.gw-fade-up { animation: gwFadeUp .45s cubic-bezier(.22,.61,.36,1) both; }
+
+/* Literary content refinements */
+.prose-content, .chapter-editor .ProseMirror {
+  font-feature-settings: "liga" 1, "kern" 1, "onum" 1;
+}
+.prose-content p::first-letter { } /* hook reserved */
+
+/* Card hover lift (opt-in via .gw-card) */
+.gw-card { transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease; }
+.gw-card:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(40,30,10,0.10); }
+
+/* Smooth anchor/link transitions */
+a { transition: color .15s ease, opacity .15s ease; }
+
+/* Honor reduced-motion preference */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .001ms !important; animation-iteration-count: 1 !important; transition-duration: .001ms !important; }
+}

@@ -288,7 +288,7 @@ export default function Dashboard() {
   const GW_BORDER = "#ede9df";
 
   const FORMAT_COLORS: Record<string, string> = {
-    "Novel": "#5b4ccc", "Screenplay": "#0ea5e9", "Web Series": "#8b5cf6",
+    "Novel": "#b45309", "Screenplay": "#0f766e", "Web Series": "#9a3412",
     "YouTube Long-form": "#ef4444", "YouTube Short": "#f97316", "TikTok Script": "#ec4899",
     "TikTok Native": "#fe2c55", "Instagram Reel": "#a855f7", "Podcast Episode": "#10b981",
   };
@@ -411,7 +411,7 @@ export default function Dashboard() {
         ) : (
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: 16 }}>
             {filteredProjects.map((p, idx) => {
-              const accentColor = FORMAT_COLORS[p.format] ?? "#5b4ccc";
+              const accentColor = FORMAT_COLORS[p.format] ?? "#b45309";
               return (
                 <div key={p.id} className="gw-card"
                   style={{ background: "#fff", borderRadius: 14, border: "1px solid " + GW_BORDER, padding: 0, cursor: "pointer", overflow: "hidden", boxShadow: "0 2px 8px rgba(0,0,0,0.05)", animationDelay: `${idx * 0.04}s`, position: "relative" }}

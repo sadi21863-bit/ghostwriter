@@ -41,7 +41,7 @@ export function useGeneration({
   const [hookScoring, setHookScoring] = useState(false);
   const [violationBanner, setViolationBanner] = useState<{ violationType: string; flagMessage: string; supportMode: string } | null>(null);
 
-  const generate = async (opts?: { cameraPresetId?: string; referencePassage?: string; additionalContext?: string; insertViaEditor?: (text: string) => void; editorStream?: { start: () => void; delta: (t: string) => void; end: (full: string) => void } }) => {
+  const generate = async (opts?: { cameraPresetId?: string; referencePassage?: string; additionalContext?: string; skipBlueprint?: boolean; insertViaEditor?: (text: string) => void; editorStream?: { start: () => void; delta: (t: string) => void; end: (full: string) => void } }) => {
     if (!prompt.trim()) return;
     retryCountRef.current = 0;
     lastGenRef.current = { fn: () => generate(opts) };
@@ -97,7 +97,7 @@ export function useGeneration({
         } catch { /* passage analysis must never block generation */ }
       }
 
-      const genBody = { mode: effectiveMode, prompt: effectivePrompt, staticContext: staticCtx, dynamicContext: dynamicCtx, format: effectiveFormat, projectId: project.id, chapterId: activeChap.id, narrativeStructure: (project as any).narrativeStructure, additionalContext: additionalContext || undefined };
+      const genBody = { mode: effectiveMode, prompt: effectivePrompt, staticContext: staticCtx, dynamicContext: dynamicCtx, format: effectiveFormat, projectId: project.id, chapterId: activeChap.id, narrativeStructure: (project as any).narrativeStructure, additionalContext: additionalContext || undefined, skipBlueprint: opts?.skipBlueprint || undefined };
       // Live-stream prose into the editor when a streaming target is available (write mode only).
       const useStream = mode === "write" && !!opts?.editorStream;
       let streamedText = "";

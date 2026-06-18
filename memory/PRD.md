@@ -36,10 +36,10 @@ User's existing GhostWriter app (https://github.com/sadi21863-bit/ghostwriter) b
 - 🧠 Cost-alignment: all new context lands in the DYNAMIC block (cached static block stays byte-stable); planner/promise/exemplar run concurrently (`Promise.all`); auxiliary calls use Haiku; promise-ledger is DB-only.
 
 ## Backlog / Next
-- P1: Wire **Google login** once real OAuth creds provided (integration_expert playbook first; current GOOGLE_CLIENT_ID/SECRET empty).
-- P2: Make Scene Blueprint visible/editable (creative control surface + premium feature).
-- P2: Sentence-rhythm/repetition guard (deterministic, no LLM) in Story Insights.
-- P2: Clean up legacy dashboard; prune dormant creator-tool code/routes.
+- ✅ **Preview-iframe fix**: `next.config.js` headers are now env-aware — preview allows Emergent domains as `frame-ancestors` and drops `X-Frame-Options: DENY`; production stays strict.
+- ✅ **UI enhancement**: unified studio onto a warm-paper + bronze-gold palette (removed purple-on-white "AI slop"; cohesive with dark gold landing). Upgraded `lib/styles.ts` tokens + global micro-interactions in `globals.css` (hover/active, focus rings, branded selection, refined scrollbars, reduced-motion). Warmed dashboard `FORMAT_COLORS`.
+- ✅ **Scene Blueprint visible/editable**: `/api/ai/blueprint` (on-demand planner) + "🗺 Plan Scene" panel in WritingRoom Draft (editable GOAL/OBSTACLE/TURN/CHANGE/SENSORY/EXIT). Edited plan is passed to Write with `skipBlueprint` so the server auto-planner steps aside.
+- P1: Wire **Google login** once real OAuth creds provided (currently empty).
 
 ## Verified live (2026-06-18)
 - ✅ End-to-end writing loop: login → create Novel → Draft stage → AI "Write" → rich prose inserted into editor & persisted. (Full "write" generation ~50s — quality model + full continuity context; this is original behaviour.)

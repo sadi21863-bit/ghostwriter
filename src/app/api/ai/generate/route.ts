@@ -173,7 +173,7 @@ export async function POST(req: Request) {
   const rl = await checkAiRateLimit(session.user.id);
   if (rl) return rl;
 
-  const { mode, prompt, context, staticContext, dynamicContext, format, projectId, chapterId, bypassViolationCheck, narrativeStructure, additionalContext, stream } = await req.json();
+  const { mode, prompt, context, staticContext, dynamicContext, format, projectId, chapterId, bypassViolationCheck, narrativeStructure, additionalContext, stream, skipBlueprint } = await req.json();
 
   if (!prompt?.trim()) return NextResponse.json({ error: "Prompt is required" }, { status: 400 });
   if (!mode) return NextResponse.json({ error: "Mode is required" }, { status: 400 });
@@ -306,7 +306,8 @@ Do NOT write the scene — just provide the accurate factual grounding.`,
     let blueprint = '', promiseLedger = '', voiceExemplars = '';
     if (mode === 'write' && tier !== 'free' && projectId) {
       [blueprint, promiseLedger, voiceExemplars] = await Promise.all([
-        buildSceneBlueprint({ prompt: effectivePrompt, staticContext: effectiveStatic ?? undefined, dynamicContext: effectiveDynamic, format }),
+        // Skip the auto-planner when the writer supplied an edited plan via additionalContext.
+        skipBlueprint ? Promise.resolve('') : buildSceneBlueprint({ prompt: effectivePrompt, staticContext: effectiveStatic ?? undefined, dynamicContext: effectiveDynamic, format }),
         buildPromiseLedger(projectId),
         buildVoiceExemplars(session.user.id, effectivePrompt),
       ]);
