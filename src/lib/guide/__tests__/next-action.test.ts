@@ -166,7 +166,11 @@ describe("nextAction", () => {
     expect(action).toBeNull();
   });
 
-  it("returns null once export-manuscript has been dismissed and the manuscript is unchanged", () => {
+  it("falls back to a keep-writing suggestion once export-manuscript has been dismissed, instead of dead-ending into null", () => {
+    // Dismissing "ready to export?" means the writer wants to keep going, not
+    // that the Guide should have nothing left to suggest (see docs/gotchas.md
+    // "Continuous-Drafting Momentum"). This intentionally changed behavior —
+    // it used to return null here.
     const action = nextAction({
       ...base,
       controllingIdea: "Premise.",
@@ -176,7 +180,8 @@ describe("nextAction", () => {
       ],
       dismissedGuideIds: ["polish-review-manuscript", "export-manuscript"],
     });
-    expect(action).toBeNull();
+    expect(action?.id).toBe("keep-writing-ch-1");
+    expect(action?.stage).toBe("draft");
   });
 });
 
@@ -185,7 +190,12 @@ describe("currentStage", () => {
     expect(currentStage(base)).toBe("idea");
   });
 
-  it("returns 'export' even when export-manuscript has been dismissed", () => {
+  it("falls back to 'draft' once export-manuscript has been dismissed, instead of freezing on 'export' with no suggestion", () => {
+    // Previously this stayed pinned on "export" forever once dismissed, even
+    // though nextAction() had already gone null — a confusing combination
+    // (stage pill says Export, but there's nothing to do). Now that
+    // dismissing export falls back to a real keep-writing suggestion, the
+    // stage indicator correctly reflects that too.
     const project: GuideProject = {
       ...base,
       controllingIdea: "Premise.",
@@ -193,8 +203,8 @@ describe("currentStage", () => {
       chapters: [{ id: "ch-1", title: "Chapter 1", wordCount: 600, sortOrder: 0 }],
       dismissedGuideIds: ["polish-review-manuscript", "export-manuscript"],
     };
-    expect(nextAction(project)).toBeNull();
-    expect(currentStage(project)).toBe("export");
+    expect(nextAction(project)?.id).toBe("keep-writing-ch-1");
+    expect(currentStage(project)).toBe("draft");
   });
 
   it("matches the expected stage order", () => {

@@ -143,7 +143,7 @@ function computeAction(project: GuideProject): GuideAction | null {
   }
 
   const allLongEnough = sortedChapters.every((c) => c.wordCount >= reviewThreshold);
-  if (allLongEnough) {
+  if (allLongEnough && !dismissed.includes("export-manuscript")) {
     return {
       id: "export-manuscript",
       stage: "export",

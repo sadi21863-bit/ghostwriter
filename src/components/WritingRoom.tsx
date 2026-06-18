@@ -112,6 +112,8 @@ export default function WritingRoom({
 
   const sortedChapters = [...(project.chapters || [])].sort((a: any, b: any) => a.sortOrder - b.sortOrder);
   const chapIndex = sortedChapters.findIndex((c: any) => c.id === activeChap.id);
+  const isLastChapter = chapIndex >= 0 && chapIndex === sortedChapters.length - 1;
+  const activeChapHasContent = (activeChap.wordCount ?? 0) > 0;
   const computedStage = currentStage({
     format: project.format,
     controllingIdea: project.controllingIdea,
@@ -356,6 +358,19 @@ export default function WritingRoom({
             onApply={() => onSelectMode(detectedMode)}
             onDismiss={() => setDismissedDetection(detectedMode)}
           />
+        )}
+        {(stage === "draft" || forceEditor) && isLastChapter && activeChapHasContent && (
+          <div style={{
+            display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12,
+            padding: "8px 12px", background: co.accentBg, border: `1px solid ${co.border}`, borderRadius: 8,
+          }}>
+            <span style={{ fontSize: 12, color: co.text }}>
+              Ready for the next {getChapterLabel(project.format).toLowerCase()}?
+            </span>
+            <button style={sBtnSm} disabled={addingChapter} onClick={handleAddChapter}>
+              {addingChapter ? "Adding…" : `Continue → Start next ${getChapterLabel(project.format)}`}
+            </button>
+          </div>
         )}
         {(stage === "draft" || forceEditor) && (
           <div style={{ marginBottom: 0 }}>
