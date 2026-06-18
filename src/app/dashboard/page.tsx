@@ -444,9 +444,9 @@ export default function Dashboard() {
           </div>
         )}
       {/* ── Series Bibles ───────────────────────────────────────────── */}
-      <section style={{ marginTop: 40, paddingTop: 32, borderTop: "1px solid " + GW_BORDER }}>
+      <section style={{ marginTop: 28, paddingTop: 24, borderTop: "1px solid " + GW_BORDER }}>
         <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16, cursor: "pointer" }} onClick={() => setSeriesExpanded(v => !v)}>
-          <span style={{ fontSize: 15, fontWeight: 700, color: "#1a1a1a" }}>Series Bibles</span>
+          <span style={{ fontSize: 12, fontWeight: 600, color: "#8b8575", textTransform: "uppercase", letterSpacing: 0.8 }}>Series Bibles</span>
           <span style={{ fontSize: 11, color: "#aaa", background: "#f5f4f0", padding: "2px 8px", borderRadius: 10 }}>{seriesBibles.length}</span>
           <span style={{ marginLeft: "auto", fontSize: 12, color: "#aaa" }}>{seriesExpanded ? "▲" : "▼"}</span>
         </div>
@@ -541,9 +541,9 @@ export default function Dashboard() {
       </section>
 
       {/* Universes section */}
-      <section style={{ marginTop: 40, paddingTop: 32, borderTop: "1px solid " + GW_BORDER }}>
+      <section style={{ marginTop: 28, paddingTop: 24, borderTop: "1px solid " + GW_BORDER }}>
         <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16, cursor: "pointer" }} onClick={() => setUniversesExpanded(v => !v)}>
-          <span style={{ fontSize: 15, fontWeight: 700, color: "#1a1a1a" }}>🌌 Universes</span>
+          <span style={{ fontSize: 12, fontWeight: 600, color: "#8b8575", textTransform: "uppercase", letterSpacing: 0.8 }}>🌌 Universes</span>
           <span style={{ fontSize: 11, color: "#aaa", background: "#f5f4f0", padding: "2px 8px", borderRadius: 10 }}>{universes.length}</span>
           <span style={{ fontSize: 9, background: "rgba(29,158,117,0.12)", color: "#1d9e75", padding: "1px 6px", borderRadius: 8, fontWeight: 700 }}>NEW</span>
           <span style={{ marginLeft: "auto", fontSize: 12, color: "#aaa" }}>{universesExpanded ? "▲" : "▼"}</span>

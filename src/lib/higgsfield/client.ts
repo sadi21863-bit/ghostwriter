@@ -69,7 +69,7 @@ export async function generateSoulImage(params: {
   }
 
   const data = await res.json();
-  const url = data.image_url ?? data.output?.image_url;
+  const url = extractMediaUrl(data) ?? data.image_url ?? data.output?.image_url;
   if (!url) throw new Error("No image URL in Soul response");
   return url;
 }
@@ -149,7 +149,7 @@ export async function generateDoPVideo(params: {
     method: "POST",
     headers: { "x-api-key": params.apiKey, "Content-Type": "application/json" },
     body: JSON.stringify({
-      model: params.model ?? "dop-turbo",
+      model: params.model ?? "dop-lite",
       prompt: finalPrompt,
       seed: params.seed ?? Math.floor(Math.random() * 999999),
       motion_strength: params.motionStrength ?? 0.7,
@@ -206,7 +206,7 @@ export async function generateTextVideo(params: {
 
   if (!res.ok) throw new Error(`Video generation failed (${res.status})`);
   const data = await res.json();
-  return { requestId: data.request_id, pollingUrl: data.polling_url };
+  return { requestId: data.request_id, pollingUrl: data.polling_url ?? `${SEGMIND_BASE}/requests/${data.request_id}` };
 }
 
 // ── LIPSYNC (WAN 2.5) ────────────────────────────────────────────────────────
@@ -242,24 +242,73 @@ export async function generateLipsync(params: {
 
   if (!res.ok) throw new Error(`Lipsync failed (${res.status}): ${await res.text()}`);
   const data = await res.json();
-  return { requestId: data.request_id, pollingUrl: data.polling_url };
+  return { requestId: data.request_id, pollingUrl: data.polling_url ?? `${SEGMIND_BASE}/requests/${data.request_id}` };
 }
 
 // ── POLLING ───────────────────────────────────────────────────────────────────
 
 export type JobStatus = "QUEUED" | "PROCESSING" | "COMPLETED" | "FAILED" | "ERROR";
 
+const sleep = (ms: number) => new Promise<void>(r => setTimeout(r, ms));
+
+// Providers (Segmind / Higgsfield) report status with inconsistent casing and
+// vocabulary ("success", "done", "in_queue", "running"…). Normalise to JobStatus
+// so the production/comic pipelines don't stall on an unrecognised status string.
+const STATUS_MAP: Record<string, JobStatus> = {
+  queued: "QUEUED", queue: "QUEUED", in_queue: "QUEUED", waiting: "QUEUED", pending: "QUEUED", starting: "QUEUED", created: "QUEUED",
+  processing: "PROCESSING", running: "PROCESSING", in_progress: "PROCESSING", generating: "PROCESSING", working: "PROCESSING",
+  completed: "COMPLETED", complete: "COMPLETED", success: "COMPLETED", succeeded: "COMPLETED", done: "COMPLETED", finished: "COMPLETED", ready: "COMPLETED",
+  failed: "FAILED", failure: "FAILED", cancelled: "FAILED", canceled: "FAILED",
+  error: "ERROR", errored: "ERROR",
+};
+
+function normalizeStatus(raw: unknown): JobStatus {
+  const key = String(raw ?? "").toLowerCase().trim();
+  if (STATUS_MAP[key]) return STATUS_MAP[key];
+  return key ? "PROCESSING" : "ERROR";
+}
+
+// Robustly pull a media URL out of the many shapes providers return.
+function extractMediaUrl(data: any): string | undefined {
+  const o = data?.output ?? data ?? {};
+  const flat = (v: any): string | undefined => {
+    if (typeof v === "string" && v.startsWith("http")) return v;
+    if (Array.isArray(v)) { const f = v.find((x) => typeof x === "string" && x.startsWith("http")) ?? (typeof v[0]?.url === "string" ? v[0].url : undefined); return f; }
+    if (v && typeof v.url === "string" && v.url.startsWith("http")) return v.url;
+    return undefined;
+  };
+  const candidates = [
+    o?.media_url, o?.video_url, o?.image_url, o?.url, o?.video, o?.image, o?.images, o?.outputs,
+    data?.media_url, data?.video_url, data?.image_url, data?.url, data?.outputs,
+  ];
+  for (const c of candidates) { const u = flat(c); if (u) return u; }
+  return undefined;
+}
+
 export async function pollJob(params: {
   apiKey: string;
   pollingUrl: string;
 }): Promise<{ status: JobStatus; mediaUrl?: string }> {
-  const res = await fetchWithTimeout(params.pollingUrl, {
-    headers: { "x-api-key": params.apiKey },
-  });
-  if (!res.ok) return { status: "ERROR" };
-  const data = await res.json();
-  return {
-    status: data.status as JobStatus,
-    mediaUrl: data.output?.media_url?.[0] ?? data.output?.image_url,
-  };
+  let lastErr: unknown;
+  // Polling is a GET (idempotent), so a single retry on transient failure is safe.
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const res = await fetchWithTimeout(params.pollingUrl, { headers: { "x-api-key": params.apiKey } }, 60_000);
+      if (!res.ok) {
+        if ((res.status === 429 || res.status >= 500) && attempt === 0) { await sleep(1500); continue; }
+        return { status: "ERROR" };
+      }
+      const data = await res.json();
+      const status = normalizeStatus(data.status ?? data.state);
+      const mediaUrl = extractMediaUrl(data);
+      // Completed but the URL isn't parseable yet → keep polling instead of failing.
+      if (status === "COMPLETED" && !mediaUrl) return { status: "PROCESSING" };
+      return { status, mediaUrl };
+    } catch (err) {
+      lastErr = err;
+      if (attempt === 0) { await sleep(1500); continue; }
+    }
+  }
+  console.error("[higgsfield] pollJob failed:", lastErr instanceof Error ? lastErr.message : lastErr);
+  return { status: "ERROR" };
 }

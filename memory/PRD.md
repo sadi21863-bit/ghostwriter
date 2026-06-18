@@ -52,3 +52,9 @@ User's existing GhostWriter app (https://github.com/sadi21863-bit/ghostwriter) b
 - P1: Clean up the legacy dashboard (keep Series Bibles/Universes but de-clutter); consider unifying with `Home.tsx` redesign without hiding features.
 - P2: Prune dead creator-tool code/routes (currently dormant, not surfaced).
 - P2: Comic Studio / Production Studio polish; Export flows.
+
+## Session 4 (2026-06-18)
+- ✅ Prose Rhythm guard (P2): `lib/analysis/rhythm.ts` (deterministic, no LLM) + "Prose Rhythm" tab in Story Insights — flags monotony, repeated openers/phrases, adverb spray. Verified live.
+- ✅ Legacy-dashboard declutter: Series Bibles/Universes de-emphasized (muted headers, tighter spacing, collapsed by default).
+- ✅ Higgsfield analysis + hardening (`HIGGSFIELD_INTEGRATION.md`): hardened `pollJob` (status normalization, robust media-URL extraction, safe GET retry, completed-without-url → keep polling), `polling_url` fallbacks for text-video/lipsync, cost-smart image-to-video default (`dop-lite`). models unit tests pass. NOTE: no Higgsfield key in env → inert until user adds key (couldn't live-test video gen).
+- Google login: deferred per user (no creds yet).

@@ -496,7 +496,7 @@ export default function WritingRoom({
             )}
             {insightsOpen && (
               <div style={{ marginTop: 8 }}>
-                <StoryInsightsPanel projectId={project.id} />
+                <StoryInsightsPanel projectId={project.id} content={activeChap.content} />
               </div>
             )}
           </div>
