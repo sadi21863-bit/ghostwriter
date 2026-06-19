@@ -16,6 +16,14 @@ export const getFormatNoun = (format: string): string =>
   (({ Novel: "novel", Screenplay: "screenplay", "Web Series": "web series" } as Record<string, string>)[format] ?? "novel");
 export const getChapterLabel = (format: string): string =>
   (({ Novel: "Chapter", Screenplay: "Scene", "Web Series": "Episode", "YouTube Long-form": "Section", "YouTube Short": "Beat", "TikTok Script": "Beat", "TikTok Native": "Beat", "Instagram Reel": "Beat", "Podcast Episode": "Segment" } as Record<string, string>)[format] ?? "Chapter");
+// User-facing label for the format picker. "Screenplay" alone tested as
+// ambiguous for discoverability (could be a TV pilot too) — the internal
+// format key is unchanged, this only affects display text.
+export const getFormatDisplayLabel = (format: string): string =>
+  format === "Screenplay" ? "Screenplay (Film / Movie script)" : format;
+export const FORMAT_HELPER_TEXT: Partial<Record<string, string>> = {
+  Screenplay: "A movie/film script in scene format.",
+};
 
 export const GENRES = ["Fantasy", "Sci-Fi", "Horror", "Thriller", "Romance", "Drama", "Comedy", "Mystery", "Literary Fiction", "Action", "Historical", "Dystopian", "Noir", "Satire"];
 // Order = MODE_REGISTRY's key order = mode tab display order in ToolbarPanel.tsx's visibleModes.

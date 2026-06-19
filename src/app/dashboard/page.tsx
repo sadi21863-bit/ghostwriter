@@ -6,7 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useFeatureIsOn } from "@growthbook/growthbook-react";
 import Onboarding from "@/components/Onboarding";
 import { EmptyState } from "@/components/EmptyState";
-import { FORMATS } from "@/lib/formats";
+import { FORMATS, getFormatDisplayLabel, FORMAT_HELPER_TEXT } from "@/lib/formats";
 import { FLAGS } from "@/lib/growthbook";
 import Home from "@/components/Home";
 import { toast } from "@/lib/toast";
@@ -426,7 +426,7 @@ export default function Dashboard() {
             <select value={filterFormat} onChange={e => setFilterFormat(e.target.value)} className="gw-input"
               style={{ ...inputS, width: "auto", cursor: "pointer" }}>
               <option value="All">All formats</option>
-              {FORMATS.map(f => <option key={f}>{f}</option>)}
+              {FORMATS.map(f => <option key={f} value={f}>{getFormatDisplayLabel(f)}</option>)}
             </select>
           </div>
         )}
@@ -697,8 +697,11 @@ export default function Dashboard() {
                 <div>
                   <label style={{ display: "block", fontSize: 10, fontWeight: 700, color: "#aaa", textTransform: "uppercase", letterSpacing: 1.2, marginBottom: 6 }}>Format</label>
                   <select value={newFormat} onChange={e => setNewFormat(e.target.value)} className="gw-modal-input" style={{ ...inputS, cursor: "pointer" }}>
-                    {FORMATS.map(f => <option key={f}>{f}</option>)}
+                    {FORMATS.map(f => <option key={f} value={f}>{getFormatDisplayLabel(f)}</option>)}
                   </select>
+                  {FORMAT_HELPER_TEXT[newFormat] && (
+                    <div style={{ fontSize: 11, color: "#aaa", marginTop: 6 }}>{FORMAT_HELPER_TEXT[newFormat]}</div>
+                  )}
                 </div>
                 <div>
                   <label style={{ display: "block", fontSize: 10, fontWeight: 700, color: "#aaa", textTransform: "uppercase", letterSpacing: 1.2, marginBottom: 8 }}>What kind of story?</label>
