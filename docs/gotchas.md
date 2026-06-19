@@ -327,3 +327,11 @@ Fixed 2026-06-18: both tabs are now gated behind `isStoryFormat(projectFormat)` 
 Fixed 2026-06-18: the condition is now `allLongEnough && !dismissed.includes("export-manuscript")`, so once dismissed it falls through to the existing `keep-writing-<last-chapter-id>` fallback instead of going null. `currentStage()` correctly moves back to `"draft"` too (it used to stay pinned on `"export"` even with no actual suggestion). Two existing tests in `next-action.test.ts` had this dead-end encoded as their expected behavior — they were intentionally updated, not just made to pass.
 
 Separately, `WritingRoom.tsx` now shows a "Continue → Start next {ChapterLabel}" banner in the footer whenever the active chapter is the last one by `sortOrder` and has `wordCount > 0` — it calls the exact same `addChapter()`/`handleAddChapter` the header's "+ Add Chapter" button already used, just surfaced contextually right where a writer finishing a chapter is actually looking, instead of requiring them to notice the header button.
+
+---
+
+## Dashboard Import Is a Tab Inside "New Project", Not a Separate Modal
+
+`dashboard/page.tsx` used to have a standalone "Scrivener Import" modal (`showImport` state) entirely separate from the "+ New Project" modal. As of 2026-06-18, the Scrivener import flow (file upload, project name, `handleScrivenerImport`) lives as a third `creationMode` tab ("📄 Import manuscript") inside the unified New Project modal, alongside `structured`/`braindump`. The `showImport` state and its modal were deleted entirely — if you're looking for "the import modal," it's `creationMode === 'import'` inside the New Project modal now, not a separate `{showImport && (...)}` block.
+
+The dashboard header's small "Import existing manuscript" link (renamed from "Import from Scrivener") opens the New Project modal pre-set to this tab via `setCreationMode('import'); setShowCreate(true);` rather than its own state. Only Scrivener `.zip` exports are actually supported server-side (`/api/projects/import/scrivener`) — the modal copy says so explicitly ("Word/.docx and plain-text import are planned but not yet available") rather than offering non-functional format options, even though the broader rename implies more formats are coming.

@@ -50,7 +50,7 @@ export default function Dashboard() {
   const [newFormat, setNewFormat] = useState("Novel");
   const [newSkillLevel, setNewSkillLevel] = useState<"beginner" | "expert">("beginner");
   const [newStoryType, setNewStoryType] = useState<"linear" | "series" | "universe-story">("linear");
-  const [creationMode, setCreationMode] = useState<'structured' | 'braindump'>('structured');
+  const [creationMode, setCreationMode] = useState<'structured' | 'braindump' | 'import'>('structured');
   const [braindumpText, setBraindumpText] = useState('');
   const [braindumpProcessing, setBraindumpProcessing] = useState(false);
   const [braindumpResult, setBraindumpResult] = useState<BraindumpResult | null>(null);
@@ -58,7 +58,6 @@ export default function Dashboard() {
   const [deleteTarget, setDeleteTarget] = useState<Project | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
-  const [showImport, setShowImport] = useState(false);
   const [importFile, setImportFile] = useState<File | null>(null);
   const [importName, setImportName] = useState("");
   const [importing, setImporting] = useState(false);
@@ -275,7 +274,8 @@ export default function Dashboard() {
       const data = await res.json();
       if (data.error) { setImportMsg(data.error); }
       else {
-        setShowImport(false);
+        setShowCreate(false);
+        setCreationMode('structured');
         setImportFile(null);
         setImportName('');
         router.push('/project/' + data.project.id);
@@ -392,9 +392,9 @@ export default function Dashboard() {
               style={{ background: GW_GOLD, color: "#0d0d10", border: "none", borderRadius: 10, padding: "11px 22px", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "'Figtree', sans-serif", letterSpacing: 0.3 }}>
               + New Project
             </button>
-            <button onClick={() => setShowImport(true)}
+            <button onClick={() => { setCreationMode('import'); setShowCreate(true); }}
               style={{ background: "transparent", color: "#bbb", border: "none", padding: 0, fontSize: 11, cursor: "pointer", fontFamily: "'Figtree', sans-serif", textDecoration: "underline" }}>
-              Import from Scrivener
+              Import existing manuscript
             </button>
           </div>
         </div>
@@ -632,57 +632,6 @@ export default function Dashboard() {
 
       {showOnboarding && <Onboarding onDismiss={() => setShowOnboarding(false)} />}
 
-      {/* Scrivener Import modal */}
-      {showImport && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 50, padding: "0 16px" }} onClick={() => setShowImport(false)}>
-          <div style={{ background: "#fff", borderRadius: 18, padding: "28px 28px 24px", width: "100%", maxWidth: 440, boxShadow: "0 24px 64px rgba(0,0,0,0.18)" }} onClick={e => e.stopPropagation()}>
-            <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 24, fontWeight: 600, marginBottom: 8, color: "#1a1a1a" }}>Import from Scrivener</div>
-            <p style={{ fontSize: 12, color: "#aaa", marginBottom: 20, lineHeight: 1.6 }}>
-              In Scrivener: <strong>File → Export → Files</strong> → select <strong>RTF</strong> → OK. Zip the exported folder and upload here.
-            </p>
-
-            <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-              <div>
-                <label style={{ display: "block", fontSize: 10, fontWeight: 700, color: "#aaa", textTransform: "uppercase", letterSpacing: 1.2, marginBottom: 6 }}>ZIP File</label>
-                <input
-                  type="file"
-                  accept=".zip"
-                  onChange={e => {
-                    const f = e.target.files?.[0] ?? null;
-                    setImportFile(f);
-                    if (f && !importName) setImportName(f.name.replace(/\.(zip|scriv)$/i, ''));
-                  }}
-                  style={{ fontSize: 12, color: "#888", width: "100%" }}
-                />
-              </div>
-              <div>
-                <label style={{ display: "block", fontSize: 10, fontWeight: 700, color: "#aaa", textTransform: "uppercase", letterSpacing: 1.2, marginBottom: 6 }}>Project Name</label>
-                <input
-                  type="text"
-                  value={importName}
-                  onChange={e => setImportName(e.target.value)}
-                  placeholder="My Novel"
-                  className="gw-modal-input"
-                  style={inputS}
-                />
-              </div>
-              {importMsg && <div style={{ fontSize: 12, color: "#ef4444" }}>{importMsg}</div>}
-            </div>
-
-            <div style={{ display: "flex", gap: 10, marginTop: 20 }}>
-              <button onClick={() => { setShowImport(false); setImportFile(null); setImportName(''); setImportMsg(''); }}
-                style={{ flex: 1, border: "1px solid " + GW_BORDER, background: "#fff", color: "#888", fontWeight: 600, padding: "10px 0", borderRadius: 10, fontSize: 13, cursor: "pointer", fontFamily: "'Figtree', sans-serif" }}>
-                Cancel
-              </button>
-              <button onClick={handleScrivenerImport} disabled={!importFile || importing} className="gw-gold-btn"
-                style={{ flex: 1, background: GW_GOLD, color: "#0d0d10", border: "none", fontWeight: 700, padding: "10px 0", borderRadius: 10, fontSize: 13, cursor: (!importFile || importing) ? "not-allowed" : "pointer", opacity: (!importFile || importing) ? 0.6 : 1, fontFamily: "'Figtree', sans-serif" }}>
-                {importing ? "Importing…" : "Import"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Overlay helper */}
       {(showCreate || !!deleteTarget) && (
         <style>{`.gw-modal-input:focus { border-color: ${GW_GOLD} !important; outline: none !important; box-shadow: 0 0 0 3px rgba(201,168,76,0.12) !important; }`}</style>
@@ -695,7 +644,7 @@ export default function Dashboard() {
             <div style={{ padding: "28px 28px 0" }}>
               <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 24, fontWeight: 600, marginBottom: 20, color: "#1a1a1a" }}>New Project</div>
 
-              <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 16 }}>
                 <button
                   type="button"
                   onClick={() => { setCreationMode('structured'); setBraindumpResult(null); }}
@@ -720,7 +669,20 @@ export default function Dashboard() {
                     cursor: 'pointer', fontSize: 13, fontWeight: 600,
                   }}
                 >
-                  ✨ Braindump — I have ideas
+                  ✨ Braindump
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCreationMode('import')}
+                  style={{
+                    flex: 1, padding: '8px 12px', borderRadius: 8,
+                    background: creationMode === 'import' ? GW_GOLD : '#f5f4f0',
+                    border: `1px solid ${creationMode === 'import' ? GW_GOLD : GW_BORDER}`,
+                    color: creationMode === 'import' ? '#0d0d10' : '#888',
+                    cursor: 'pointer', fontSize: 13, fontWeight: 600,
+                  }}
+                >
+                  📄 Import manuscript
                 </button>
               </div>
             </div>
@@ -800,6 +762,41 @@ export default function Dashboard() {
                 </div>
               )}
 
+              {creationMode === 'import' && (
+                <div style={{ paddingBottom: 20 }}>
+                  <p style={{ fontSize: 12, color: "#aaa", marginBottom: 14, lineHeight: 1.6 }}>
+                    Currently supports <strong>Scrivener</strong> project exports. In Scrivener: <strong>File → Export → Files</strong> → select <strong>RTF</strong> → OK. Zip the exported folder and upload here. (Word/.docx and plain-text import are planned but not yet available.)
+                  </p>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                    <div>
+                      <label style={{ display: "block", fontSize: 10, fontWeight: 700, color: "#aaa", textTransform: "uppercase", letterSpacing: 1.2, marginBottom: 6 }}>ZIP File (Scrivener export)</label>
+                      <input
+                        type="file"
+                        accept=".zip"
+                        onChange={e => {
+                          const f = e.target.files?.[0] ?? null;
+                          setImportFile(f);
+                          if (f && !importName) setImportName(f.name.replace(/\.(zip|scriv)$/i, ''));
+                        }}
+                        style={{ fontSize: 12, color: "#888", width: "100%" }}
+                      />
+                    </div>
+                    <div>
+                      <label style={{ display: "block", fontSize: 10, fontWeight: 700, color: "#aaa", textTransform: "uppercase", letterSpacing: 1.2, marginBottom: 6 }}>Project Name</label>
+                      <input
+                        type="text"
+                        value={importName}
+                        onChange={e => setImportName(e.target.value)}
+                        placeholder="My Novel"
+                        className="gw-modal-input"
+                        style={inputS}
+                      />
+                    </div>
+                    {importMsg && <div style={{ fontSize: 12, color: "#ef4444" }}>{importMsg}</div>}
+                  </div>
+                </div>
+              )}
+
               {braindumpResult && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 12, paddingBottom: 20 }}>
                   <div style={{ fontSize: 13, fontWeight: 700, color: '#1d9e75' }}>
@@ -871,6 +868,19 @@ export default function Dashboard() {
                     Cancel
                   </button>
                 </>
+              )}
+
+              {creationMode === 'import' && (
+                <div style={{ display: "flex", gap: 10 }}>
+                  <button type="button" onClick={() => { setShowCreate(false); setCreationMode('structured'); setImportFile(null); setImportName(''); setImportMsg(''); }}
+                    style={{ flex: 1, border: "1px solid " + GW_BORDER, background: "#fff", color: "#888", fontWeight: 600, padding: "10px 0", borderRadius: 10, fontSize: 13, cursor: "pointer", fontFamily: "'Figtree', sans-serif" }}>
+                    Cancel
+                  </button>
+                  <button onClick={handleScrivenerImport} disabled={!importFile || importing} className="gw-gold-btn"
+                    style={{ flex: 1, background: GW_GOLD, color: "#0d0d10", border: "none", fontWeight: 700, padding: "10px 0", borderRadius: 10, fontSize: 13, cursor: (!importFile || importing) ? "not-allowed" : "pointer", opacity: (!importFile || importing) ? 0.6 : 1, fontFamily: "'Figtree', sans-serif" }}>
+                    {importing ? "Importing…" : "Import"}
+                  </button>
+                </div>
               )}
 
               {braindumpResult && (
