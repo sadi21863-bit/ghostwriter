@@ -67,9 +67,10 @@ export default function Dashboard() {
   const [search, setSearch] = useState("");
   const [filterFormat, setFilterFormat] = useState("All");
   const [seriesBibles, setSeriesBibles] = useState<{ id: string; name: string; premise: string; projectIds: string[]; updatedAt: string }[]>([]);
-  const [seriesExpanded, setSeriesExpanded] = useState(false);
   const [universes, setUniverses] = useState<{ id: string; name: string; premise: string; updatedAt: string }[]>([]);
-  const [universesExpanded, setUniversesExpanded] = useState(false);
+  const [seriesUniverseExpanded, setSeriesUniverseExpanded] = useState(false);
+  const [seriesFilter, setSeriesFilter] = useState<{ id: string; name: string; projectIds: string[] } | null>(null);
+  const [pendingSeriesLink, setPendingSeriesLink] = useState<string | null>(null);
   const [creatingUniverse, setCreatingUniverse] = useState(false);
   const [showCreateUniverse, setShowCreateUniverse] = useState(false);
   const [newUniverseName, setNewUniverseName] = useState("");
@@ -157,6 +158,20 @@ export default function Dashboard() {
         body: JSON.stringify({ name: newName.trim(), format: newFormat, skillLevel: newSkillLevel, storyType: newStoryType }),
       });
       const p = await res.json();
+      if (pendingSeriesLink) {
+        const updatedProjectIds = [...(seriesFilter?.projectIds ?? []), p.id];
+        fetch(`/api/series-bibles/${pendingSeriesLink}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ projectIds: updatedProjectIds }),
+        }).then(r => r.json()).then(({ bible }) => {
+          if (bible) {
+            setSeriesBibles(prev => prev.map(b => b.id === bible.id ? bible : b));
+            setSeriesFilter(f => f && f.id === bible.id ? { ...f, projectIds: bible.projectIds } : f);
+          }
+        }).catch(() => {});
+        setPendingSeriesLink(null);
+      }
       setShowCreate(false);
       setNewName("");
       setNewFormat("Novel");
@@ -301,7 +316,8 @@ export default function Dashboard() {
 
   const filteredProjects = projects.filter(p =>
     p.name.toLowerCase().includes(search.toLowerCase()) &&
-    (filterFormat === "All" || p.format === filterFormat)
+    (filterFormat === "All" || p.format === filterFormat) &&
+    (!seriesFilter || seriesFilter.projectIds.includes(p.id))
   );
 
   if (homeRedesign) return <Home />;
@@ -387,6 +403,22 @@ export default function Dashboard() {
           <div style={{ fontSize: 13, color: "#c54444", background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 8, padding: "10px 16px", marginBottom: 24 }}>{error}</div>
         )}
 
+        {seriesFilter && (
+          <div style={{ display: "flex", alignItems: "center", gap: 12, background: "#fefce8", border: "1px solid " + GW_GOLD, borderRadius: 10, padding: "10px 16px", marginBottom: 20 }}>
+            <span style={{ fontSize: 13, color: "#92400e" }}>
+              Showing books in series: <strong>{seriesFilter.name}</strong> ({filteredProjects.length})
+            </span>
+            <button onClick={() => { setPendingSeriesLink(seriesFilter.id); setShowCreate(true); }}
+              style={{ marginLeft: "auto", fontSize: 12, fontWeight: 600, background: GW_GOLD, color: "#0d0d10", border: "none", borderRadius: 8, padding: "5px 12px", cursor: "pointer" }}>
+              + Add a book to this series
+            </button>
+            <button onClick={() => setSeriesFilter(null)}
+              style={{ fontSize: 12, color: "#92400e", background: "none", border: "1px solid " + GW_GOLD, borderRadius: 8, padding: "5px 12px", cursor: "pointer" }}>
+              ✕ Clear filter
+            </button>
+          </div>
+        )}
+
         {projects.length > 0 && (
           <div style={{ display: "flex", gap: 10, marginBottom: 28 }}>
             <input type="text" placeholder="Search projects…" value={search} onChange={e => setSearch(e.target.value)} className="gw-input"
@@ -443,20 +475,22 @@ export default function Dashboard() {
             })}
           </div>
         )}
-      {/* ── Series Bibles ───────────────────────────────────────────── */}
+      {/* ── Series & Universes ──────────────────────────────────────── */}
       <section style={{ marginTop: 40, paddingTop: 32, borderTop: "1px solid " + GW_BORDER }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16, cursor: "pointer" }} onClick={() => setSeriesExpanded(v => !v)}>
-          <span style={{ fontSize: 15, fontWeight: 700, color: "#1a1a1a" }}>Series Bibles</span>
-          <span style={{ fontSize: 11, color: "#aaa", background: "#f5f4f0", padding: "2px 8px", borderRadius: 10 }}>{seriesBibles.length}</span>
-          <span style={{ marginLeft: "auto", fontSize: 12, color: "#aaa" }}>{seriesExpanded ? "▲" : "▼"}</span>
+        <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16, cursor: "pointer" }} onClick={() => setSeriesUniverseExpanded(v => !v)}>
+          <span style={{ fontSize: 15, fontWeight: 700, color: "#1a1a1a" }}>📚 Series & Universes</span>
+          <span style={{ fontSize: 11, color: "#aaa", background: "#f5f4f0", padding: "2px 8px", borderRadius: 10 }}>{seriesBibles.length + universes.length}</span>
+          <span style={{ marginLeft: "auto", fontSize: 12, color: "#aaa" }}>{seriesUniverseExpanded ? "▲" : "▼"}</span>
         </div>
 
-        {seriesExpanded && (
+        {seriesUniverseExpanded && (
           <>
-            <div style={{ marginBottom: 16 }}>
+          <div style={{ marginBottom: 28 }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: "#888", textTransform: "uppercase", letterSpacing: 1 }}>Series Bibles</div>
               <button
                 onClick={() => setShowCreateBible(v => !v)}
-                style={{ padding: "8px 16px", borderRadius: 8, fontSize: 12, fontWeight: 600, background: GW_GOLD, color: "#0d0d10", border: "none", cursor: "pointer" }}
+                style={{ padding: "6px 14px", borderRadius: 8, fontSize: 12, fontWeight: 600, background: GW_GOLD, color: "#0d0d10", border: "none", cursor: "pointer" }}
               >
                 + New Series Bible
               </button>
@@ -517,41 +551,41 @@ export default function Dashboard() {
             )}
 
             {seriesBibles.length === 0 && !showCreateBible && (
-              <p style={{ fontSize: 13, color: "#aaa", padding: "16px 0" }}>No series bibles yet. Create one to track elements that span multiple books.</p>
+              <p style={{ fontSize: 13, color: "#aaa", padding: "8px 0" }}>No series bibles yet. Create one to track elements that span multiple books.</p>
             )}
 
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 12 }}>
-              {seriesBibles.map(b => (
-                <div key={b.id} style={{ background: "#fff", borderRadius: 12, border: "1px solid " + GW_BORDER, padding: "16px 18px", position: "relative" }}>
+              {seriesBibles.map(b => {
+                const active = seriesFilter?.id === b.id;
+                return (
+                <div key={b.id}
+                  onClick={() => setSeriesFilter(active ? null : { id: b.id, name: b.name, projectIds: b.projectIds })}
+                  style={{ background: active ? "#fefce8" : "#fff", borderRadius: 12, border: `1px solid ${active ? GW_GOLD : GW_BORDER}`, padding: "16px 18px", position: "relative", cursor: "pointer" }}
+                >
                   <div style={{ fontWeight: 700, fontSize: 14, color: "#1a1a1a", marginBottom: 6 }}>{b.name}</div>
                   {b.premise && (
                     <div style={{ fontSize: 12, color: "#888", lineHeight: 1.5, marginBottom: 8, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>
                       {b.premise}
                     </div>
                   )}
-                  <div style={{ fontSize: 11, color: "#bbb" }}>
+                  <div style={{ fontSize: 11, color: active ? "#92400e" : "#bbb", fontWeight: active ? 700 : 400 }}>
                     {(b.projectIds as string[]).length} linked project{(b.projectIds as string[]).length !== 1 ? "s" : ""} · {new Date(b.updatedAt).toLocaleDateString()}
+                    {active && " · showing in projects above"}
                   </div>
-                  <button onClick={() => deleteBible(b.id)} style={{ position: "absolute", top: 10, right: 10, background: "none", border: "none", cursor: "pointer", color: "#ccc", fontSize: 13 }}>✕</button>
+                  <button onClick={e => { e.stopPropagation(); deleteBible(b.id); if (active) setSeriesFilter(null); }} style={{ position: "absolute", top: 10, right: 10, background: "none", border: "none", cursor: "pointer", color: "#ccc", fontSize: 13 }}>✕</button>
                 </div>
-              ))}
+                );
+              })}
             </div>
-          </>
-        )}
-      </section>
+          </div>
 
-      {/* Universes section */}
-      <section style={{ marginTop: 40, paddingTop: 32, borderTop: "1px solid " + GW_BORDER }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16, cursor: "pointer" }} onClick={() => setUniversesExpanded(v => !v)}>
-          <span style={{ fontSize: 15, fontWeight: 700, color: "#1a1a1a" }}>🌌 Universes</span>
-          <span style={{ fontSize: 11, color: "#aaa", background: "#f5f4f0", padding: "2px 8px", borderRadius: 10 }}>{universes.length}</span>
-          <span style={{ fontSize: 9, background: "rgba(29,158,117,0.12)", color: "#1d9e75", padding: "1px 6px", borderRadius: 8, fontWeight: 700 }}>NEW</span>
-          <span style={{ marginLeft: "auto", fontSize: 12, color: "#aaa" }}>{universesExpanded ? "▲" : "▼"}</span>
-        </div>
-        {universesExpanded && (
-          <>
-            <div style={{ marginBottom: 16 }}>
-              <button onClick={() => setShowCreateUniverse(true)} style={{ fontSize: 13, fontWeight: 700, background: GW_GOLD, color: "#0d0d10", border: "none", borderRadius: 8, padding: "8px 16px", cursor: "pointer" }}>
+          <div>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <span style={{ fontSize: 12, fontWeight: 700, color: "#888", textTransform: "uppercase", letterSpacing: 1 }}>🌌 Universes</span>
+                <span style={{ fontSize: 9, background: "rgba(29,158,117,0.12)", color: "#1d9e75", padding: "1px 6px", borderRadius: 8, fontWeight: 700 }}>NEW</span>
+              </div>
+              <button onClick={() => setShowCreateUniverse(true)} style={{ fontSize: 12, fontWeight: 600, background: GW_GOLD, color: "#0d0d10", border: "none", borderRadius: 8, padding: "6px 14px", cursor: "pointer" }}>
                 + New Universe
               </button>
             </div>
@@ -590,6 +624,7 @@ export default function Dashboard() {
                 </a>
               ))}
             </div>
+          </div>
           </>
         )}
       </section>
@@ -655,7 +690,7 @@ export default function Dashboard() {
 
       {/* Create project modal */}
       {showCreate && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 50, padding: "0 16px" }} onClick={() => { setShowCreate(false); setCreationMode('structured'); setBraindumpText(''); setBraindumpResult(null); }}>
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 50, padding: "0 16px" }} onClick={() => { setShowCreate(false); setCreationMode('structured'); setBraindumpText(''); setBraindumpResult(null); setPendingSeriesLink(null); }}>
           <div style={{ background: "#fff", borderRadius: 18, width: "100%", maxWidth: 400, maxHeight: "85vh", boxShadow: "0 24px 64px rgba(0,0,0,0.18)", display: "flex", flexDirection: "column", overflow: "hidden" }} onClick={e => e.stopPropagation()}>
             <div style={{ padding: "28px 28px 0" }}>
               <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 24, fontWeight: 600, marginBottom: 20, color: "#1a1a1a" }}>New Project</div>
@@ -805,7 +840,7 @@ export default function Dashboard() {
             <div style={{ padding: "16px 28px 24px", borderTop: "1px solid " + GW_BORDER }}>
               {creationMode === 'structured' && (
                 <div style={{ display: "flex", gap: 10 }}>
-                  <button type="button" onClick={() => { setShowCreate(false); setCreationMode('structured'); setBraindumpText(''); setBraindumpResult(null); }}
+                  <button type="button" onClick={() => { setShowCreate(false); setCreationMode('structured'); setBraindumpText(''); setBraindumpResult(null); setPendingSeriesLink(null); }}
                     style={{ flex: 1, border: "1px solid " + GW_BORDER, background: "#fff", color: "#888", fontWeight: 600, padding: "10px 0", borderRadius: 10, fontSize: 13, cursor: "pointer", fontFamily: "'Figtree', sans-serif" }}>
                     Cancel
                   </button>
@@ -831,7 +866,7 @@ export default function Dashboard() {
                   >
                     {braindumpProcessing ? 'Organizing your ideas...' : 'Organize into a project →'}
                   </button>
-                  <button type="button" onClick={() => { setShowCreate(false); setCreationMode('structured'); setBraindumpText(''); setBraindumpResult(null); }}
+                  <button type="button" onClick={() => { setShowCreate(false); setCreationMode('structured'); setBraindumpText(''); setBraindumpResult(null); setPendingSeriesLink(null); }}
                     style={{ marginTop: 8, width: '100%', border: '1px solid ' + GW_BORDER, background: '#fff', color: '#888', fontWeight: 600, padding: '10px 0', borderRadius: 10, fontSize: 13, cursor: 'pointer', fontFamily: "'Figtree', sans-serif" }}>
                     Cancel
                   </button>
