@@ -194,6 +194,8 @@ Flow: `POST /api/projects/[id]/adapt` creates a new linked project (`projects.ad
 
 Full design rationale: `docs/superpowers/specs/2026-06-18-adapt-cross-format-design.md`.
 
+`ExportStageView` itself now frames reaching this stage as a terminal celebratory state ("🎉 Your draft is complete") rather than a flat status line, with the Adapt button and a "+ Start your next story →" link (to `/dashboard`) alongside Export/Comic Studio/Production Studio — added 2026-06-18 once Adapt existed to point to (Item 9 of the originating UX doc was explicitly deferred until Item 5 shipped).
+
 ---
 
 ## Comic Studio: `src/components/ComicStudio.tsx`
