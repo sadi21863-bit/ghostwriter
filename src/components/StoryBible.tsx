@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import { co, sBtn, sBtnSm, sInput, sTextarea } from "@/lib/styles";
 import { DEFAULT_CHAR, DEFAULT_LOC, DEFAULT_PLOT } from "@/lib/formats";
 import { EmptyState } from "@/components/EmptyState";
+import { toast } from "@/lib/toast";
 
 const entityApiPath: Record<string, string> = {
   characters: "characters",
@@ -59,7 +60,7 @@ function EntityCard({ item, visibleFields, moreFields, hasStatus, onSave, onDele
 
   const handleSave = async () => {
     setSaving(true);
-    try { await onSave(draft); } finally { setSaving(false); }
+    try { await onSave(draft); } catch { /* toasted by onSave; keep draft so the user can retry */ } finally { setSaving(false); }
   };
 
   const labelStyle: React.CSSProperties = { fontSize: 10, fontWeight: 700, color: co.muted, textTransform: "uppercase", letterSpacing: 0.5, display: "block", marginBottom: 2 };
@@ -127,17 +128,30 @@ export default function StoryBible({ project, updateProject, open, onClose, onOp
   const emptyIcon = tab === "cast" ? "👤" : tab === "world" ? "🗺️" : "🧵";
   const emptyTitle = tab === "cast" ? "No characters yet" : tab === "world" ? "No locations yet" : "No plot threads yet";
 
+  const [adding, setAdding] = useState(false);
+
   const handleAdd = async () => {
+    if (adding) return; // guards against duplicate cards from rapid multi-click while the request is in flight
+    setAdding(true);
     const defaults = tab === "cast" ? { ...DEFAULT_CHAR, name: "New character" }
       : tab === "world" ? { ...DEFAULT_LOC, name: "New location" }
       : { ...DEFAULT_PLOT, name: "New thread" };
-    const res = await fetch(`/api/projects/${project.id}/${entityApiPath[key]}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(defaults) });
-    const created = await res.json();
-    updateProject((p: any) => ({ ...p, [key]: [...(p[key] || []), created] }));
+    try {
+      const res = await fetch(`/api/projects/${project.id}/${entityApiPath[key]}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(defaults) });
+      if (!res.ok) { toast.error(`Couldn't add ${tabLabel} — try again`); return; }
+      const created = await res.json();
+      updateProject((p: any) => ({ ...p, [key]: [...(p[key] || []), created] }));
+    } finally {
+      setAdding(false);
+    }
   };
 
   const handleSave = async (id: string, draft: any) => {
     const res = await fetch(`/api/projects/${project.id}/${entityApiPath[key]}/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(draft) });
+    if (!res.ok) {
+      toast.error("Couldn't save — try again");
+      throw new Error("Save failed"); // keeps the card's local draft (and its Save button) intact instead of silently reverting
+    }
     const updated = await res.json();
     updateProject((p: any) => ({ ...p, [key]: p[key].map((x: any) => x.id === id ? updated : x) }));
   };
@@ -176,7 +190,7 @@ export default function StoryBible({ project, updateProject, open, onClose, onOp
       </div>
       <div style={{ flex: 1, overflow: "auto", padding: "20px 24px" }}>
         <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 14 }}>
-          <button style={sBtn} onClick={handleAdd}>+ Add {tabLabel}</button>
+          <button style={{ ...sBtn, opacity: adding ? 0.6 : 1 }} disabled={adding} onClick={handleAdd}>{adding ? "Adding…" : `+ Add ${tabLabel}`}</button>
         </div>
         {items.length === 0 ? (
           <EmptyState icon={emptyIcon} title={emptyTitle} description={`Add your first ${tabLabel} to start building your Story Bible.`} />

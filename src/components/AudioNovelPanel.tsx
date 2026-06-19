@@ -22,12 +22,18 @@ export function AudioNovelPanel({ project, activeChap }: Props) {
     const wc = (activeChap.content || "").split(/\s+/).filter(Boolean).length;
     const estimatedRs = Math.round(wc * 0.002 * 83);
     if (!window.confirm(`Generate audio for this chapter? Estimated cost: ~₹${estimatedRs}. Uses your OpenAI API key.`)) return;
-    setAudioGenerating(true); setAudioMsg("Generating audio..."); setAudioUrl(null); setAudioExportId(null);
+    setAudioGenerating(true); setAudioMsg("Generating audio… this can take a minute for a full chapter."); setAudioUrl(null); setAudioExportId(null);
     setLipsyncStatus("idle"); setLipsyncVideoUrl(null); setLipsyncMsg("");
+    // Bounded to the server route's own maxDuration (300s) so the button —
+    // and the page — always recover with a visible message instead of
+    // waiting indefinitely if the server, network, or platform hangs.
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 300_000);
     try {
       const res = await fetch("/api/audio/generate", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ projectId: project.id, chapterId: activeChap.id }),
+        signal: controller.signal,
       });
       const data = await res.json();
       if (data.audioUrl) {
@@ -35,7 +41,11 @@ export function AudioNovelPanel({ project, activeChap }: Props) {
         setAudioExportId(data.exportId || null);
         setAudioMsg(`${Math.round(data.durationSeconds / 60)}m ${data.durationSeconds % 60}s · ${data.segments} segments`);
       } else { setAudioMsg(data.error || "Audio generation failed."); }
-    } catch { setAudioMsg("Audio generation failed."); }
+    } catch (err: any) {
+      setAudioMsg(err?.name === "AbortError" ? "Audio generation timed out. Please try again." : "Audio generation failed.");
+    } finally {
+      clearTimeout(timeout);
+    }
     setAudioGenerating(false);
   };
 

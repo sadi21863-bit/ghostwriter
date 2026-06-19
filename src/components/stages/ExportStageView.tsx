@@ -2,7 +2,7 @@
 "use client";
 import { useState } from "react";
 import { co, sBtn, sBtnSm } from "@/lib/styles";
-import { nextAction, type GuideAction } from "@/lib/guide/next-action";
+import { type GuideAction } from "@/lib/guide/next-action";
 import { isStoryFormat } from "@/lib/formats";
 import { AdaptPanel } from "@/components/AdaptPanel";
 
@@ -13,21 +13,23 @@ interface ExportStageViewProps {
   onOpenComicStudio: () => void;
 }
 
+// The Export stage's CTA must always open export — it is not a guide
+// suggestion to follow, unlike the GuideBar's ladder-driven prompts. Do not
+// route this through nextAction(): that returns whatever rung of the
+// idea->structure->draft->polish->export ladder still applies (e.g. a
+// story-health check, or "keep writing chapter X"), which previously caused
+// this button to open Story Health or jump to a different chapter instead
+// of exporting.
+const EXPORT_ACTION: GuideAction = {
+  id: "export-manuscript",
+  stage: "export",
+  message: "",
+  cta: "Export manuscript",
+  run: { mode: "export" },
+};
+
 export default function ExportStageView({ project, onGuideRun, onOpenProductionStudio, onOpenComicStudio }: ExportStageViewProps) {
   const [adaptOpen, setAdaptOpen] = useState(false);
-  const action: GuideAction = nextAction({
-    format: project.format,
-    controllingIdea: project.controllingIdea,
-    characters: project.characters || [],
-    chapters: project.chapters || [],
-    dismissedGuideIds: project.dismissedGuideIds,
-  }) ?? {
-    id: "export-manuscript",
-    stage: "export",
-    message: "",
-    cta: "Export manuscript",
-    run: { mode: "export" },
-  };
   const chapters = project.chapters || [];
   const totalWords = chapters.reduce((sum: number, c: any) => sum + (c.wordCount || 0), 0);
 
@@ -44,7 +46,7 @@ export default function ExportStageView({ project, onGuideRun, onOpenProductionS
           {chapters.length} chapter{chapters.length === 1 ? "" : "s"}, {totalWords.toLocaleString()} words total. Export it, adapt it into another format, or start your next story.
         </p>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          <button style={sBtn} onClick={() => onGuideRun(action)}>Open Export →</button>
+          <button style={sBtn} onClick={() => onGuideRun(EXPORT_ACTION)}>Open Export →</button>
           {project.isHiggsfieldProject && (
             <button style={sBtnSm} onClick={onOpenProductionStudio}>Open Production Studio →</button>
           )}

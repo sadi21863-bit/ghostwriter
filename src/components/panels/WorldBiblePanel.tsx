@@ -7,6 +7,7 @@ import { isCreatorFormat, isStoryFormat, FORMATS, GENRES, STYLE_ATTRS, DEFAULT_C
 import { EmptyState } from "@/components/EmptyState";
 import { extractVoiceFingerprint } from "@/lib/ai/voice-fingerprint";
 import { CapabilityIndicator } from '@/components/panels/CapabilityIndicator';
+import { toast } from "@/lib/toast";
 
 const entityApiPath: Record<string, string> = { characters: "characters", locations: "locations", plotThreads: "plot-threads" };
 
@@ -260,6 +261,7 @@ export default function WorldBiblePanel(props: Props) {
     if (editCharIdx !== null) {
       const id = project.characters[editCharIdx].id;
       const res = await fetch(`/api/projects/${project.id}/characters/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(newChar) });
+      if (!res.ok) { toast.error("Couldn't save character — try again"); return; }
       const updated = await res.json();
       updateProject((p: any) => ({ ...p, characters: p.characters.map((c: any, i: number) => i === editCharIdx ? updated : c) }));
     } else {
@@ -277,6 +279,7 @@ export default function WorldBiblePanel(props: Props) {
     if (editLocIdx !== null) {
       const id = project.locations[editLocIdx].id;
       const res = await fetch(`/api/projects/${project.id}/locations/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(newLoc) });
+      if (!res.ok) { toast.error("Couldn't save location — try again"); return; }
       const updated = await res.json();
       updateProject((p: any) => ({ ...p, locations: p.locations.map((l: any, i: number) => i === editLocIdx ? updated : l) }));
     } else {
@@ -294,6 +297,7 @@ export default function WorldBiblePanel(props: Props) {
     if (editPlotIdx !== null) {
       const id = project.plotThreads[editPlotIdx].id;
       const res = await fetch(`/api/projects/${project.id}/plot-threads/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(newPlot) });
+      if (!res.ok) { toast.error("Couldn't save plot thread — try again"); return; }
       const updated = await res.json();
       updateProject((p: any) => ({ ...p, plotThreads: p.plotThreads.map((t: any, i: number) => i === editPlotIdx ? updated : t) }));
     } else {

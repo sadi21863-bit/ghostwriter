@@ -1,4 +1,10 @@
 export const dynamic = 'force-dynamic';
+// Looping TTS calls per chapter segment can run well past Vercel's default
+// function timeout; without this the function gets killed mid-run with the
+// client never receiving a response (a stuck "Generating…" state). Matches
+// the same 300s budget already used by the other long-running AI routes
+// (production/comics video & image generation).
+export const maxDuration = 300;
 
 // src/app/api/audio/generate/route.ts
 // Converts a chapter to audio using OpenAI TTS.

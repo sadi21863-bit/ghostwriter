@@ -10,7 +10,12 @@ import { z } from "zod";
 const PlotThreadPatch = z.object({
   name: z.string().min(1).optional(),
   description: z.string().optional(),
-  status: z.enum(["Active", "Resolved", "Dormant"]).optional(),
+  // "Simmering" is the value both StoryBible.tsx and WorldBiblePanel.tsx's
+  // status dropdowns actually offer — neither UI ever sends "Dormant", but
+  // it's kept here in case any existing row already has that value stored.
+  // Previously this enum omitted "Simmering" entirely, so selecting it and
+  // saving ANY field (including a simultaneous name edit) silently 400'd.
+  status: z.enum(["Active", "Simmering", "Resolved", "Dormant"]).optional(),
   stakes: z.string().optional(),
   connections: z.string().optional(),
   alwaysInContext: z.boolean().optional(),
