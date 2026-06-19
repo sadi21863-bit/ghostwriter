@@ -341,3 +341,9 @@ The dashboard header's small "Import existing manuscript" link (renamed from "Im
 ## Format Display Label vs. Internal Format Key
 
 `getFormatDisplayLabel(format)` (`src/lib/formats.ts`) renders "Screenplay" as "Screenplay (Film / Movie script)" in format pickers — the internal format key stored on `project.format` is still the bare string `"Screenplay"`, unchanged everywhere else (FORMAT_RULES lookups, `isStoryFormat`, chapter labels, etc.). Don't add a value to that map without also setting an explicit `value={f}` on the `<option>` — the dashboard's two format `<select>`s used to rely on the option's text content as its implicit value, which would have silently broken format matching the moment the display text diverged from the stored key. `FORMAT_HELPER_TEXT[format]` is a one-line helper shown only for formats explicitly listed there (currently only Screenplay) — it's deliberately not populated for every format.
+
+---
+
+## `MAX_PROJECTS` Is Unreachable on Any Route Already Gated by `canAccessFeature(tier, "export")`
+
+`FEATURE_ACCESS.export` (`src/types/subscription.ts`) is `["story_pro", "all_access"]`. `MAX_PROJECTS` (`src/lib/metering/costs.ts`) is `{ free: 3, story_pro: -1, creator_pro: -1, all_access: -1 }`. Every tier that can pass the `export` feature gate already has an uncapped project limit — so a route that checks `canAccessFeature(tier, "export")` first never needs a separate `MAX_PROJECTS` check afterward; it can't trigger. Found while building `/api/projects/[id]/adapt/route.ts` (2026-06-18): an initial draft copied the project-limit check from `POST /api/projects` (which has no tier gate, so the check IS reachable there — free-tier users hit it directly) without noticing the new route's earlier `export` gate made it dead code. Removed before shipping. If you add a new project-creating route, check whether it's tier-gated before assuming it also needs the `MAX_PROJECTS` check.

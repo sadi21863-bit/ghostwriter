@@ -1,8 +1,10 @@
 // src/components/stages/ExportStageView.tsx
 "use client";
+import { useState } from "react";
 import { co, sBtn, sBtnSm } from "@/lib/styles";
 import { nextAction, type GuideAction } from "@/lib/guide/next-action";
 import { isStoryFormat } from "@/lib/formats";
+import { AdaptPanel } from "@/components/AdaptPanel";
 
 interface ExportStageViewProps {
   project: any;
@@ -12,6 +14,7 @@ interface ExportStageViewProps {
 }
 
 export default function ExportStageView({ project, onGuideRun, onOpenProductionStudio, onOpenComicStudio }: ExportStageViewProps) {
+  const [adaptOpen, setAdaptOpen] = useState(false);
   const action: GuideAction = nextAction({
     format: project.format,
     controllingIdea: project.controllingIdea,
@@ -45,8 +48,12 @@ export default function ExportStageView({ project, onGuideRun, onOpenProductionS
           {isStoryFormat(project.format) && (
             <button style={sBtnSm} onClick={onOpenComicStudio}>🎨 Open Comic Studio →</button>
           )}
+          {isStoryFormat(project.format) && (
+            <button style={sBtnSm} onClick={() => setAdaptOpen(true)}>🎭 Adapt this story →</button>
+          )}
         </div>
       </div>
+      {adaptOpen && <AdaptPanel project={project} onClose={() => setAdaptOpen(false)} />}
     </div>
   );
 }

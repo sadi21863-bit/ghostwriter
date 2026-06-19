@@ -10,6 +10,7 @@ export const OPERATION_CREDITS: Record<string, number> = {
   "tiktok-native":     0.3,
   "dissect-video":     1.5,
   "entity":            0.1, "suggest": 0.1, "summarize": 0.2,
+  "adapt-chapter":     1.0,
 };
 
 export const DEFAULT_OPERATION_CREDIT = 0.3;

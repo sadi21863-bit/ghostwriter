@@ -186,6 +186,16 @@ Self-contained: takes `{ project, activeChap }`, owns its own audio/lipsync stat
 
 ---
 
+## Adapt Panel: `src/components/AdaptPanel.tsx`
+
+Cross-format story conversion, opened from a "🎭 Adapt this story →" button in `ExportStageView` (gated `isStoryFormat`). v1 ships exactly one working conversion (Novel → Screenplay); the capability map (`ADAPT_TARGETS`, mirrored server-side as `ADAPT_CAPABILITY_MAP` in `/api/projects/[id]/adapt/route.ts`) shows every other target (Web Series, Comic, Higgsfield Series, Novelization) as disabled "Coming soon" cards, so the menu doesn't need rework as targets are added — only flip `enabled: true` in both places and add the conversion logic.
+
+Flow: `POST /api/projects/[id]/adapt` creates a new linked project (`projects.adaptedFromProjectId`) and copies World Bible (characters/locations/plotThreads) into it as independent rows. The panel then loops `POST /api/projects/[newId]/adapt-chapter` once per source chapter, sequentially (never parallel — keeps `sortOrder` deterministic and avoids bursting the rate limiter), showing a progress bar between calls. Each chapter conversion is metered (1 credit, same as a normal `write` generation) — if the loop fails partway (quota hit, Claude error), already-converted chapters stay in the new project; nothing rolls back. `WritingRoom`'s header shows "Adapted from: {source name} →" when `project.adaptedFromProjectId` is set (resolved via a client-side fetch of the source project's name).
+
+Full design rationale: `docs/superpowers/specs/2026-06-18-adapt-cross-format-design.md`.
+
+---
+
 ## Comic Studio: `src/components/ComicStudio.tsx`
 
 Full-screen comic panel generator. Reachable from the legacy `ToolbarPanel` ("🎨 Comics" button, story formats only) **and**, since 2026-06-17, from `WritingRoom`'s Export stage ("🎨 Open Comic Studio →", same `isStoryFormat` gate) via the Actions-drawer mechanism — both paths render the same underlying `ToolbarPanel`/`ComicStudio` instance, there is no duplicate component.

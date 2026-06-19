@@ -91,6 +91,7 @@ export default function WritingRoom({
   const [audioNovelOpen, setAudioNovelOpen] = useState(false);
   const [sprintModeOpen, setSprintModeOpen] = useState(false);
   const [insightsOpen, setInsightsOpen] = useState(false);
+  const [adaptedFromName, setAdaptedFromName] = useState<string | null>(null);
   const [surgicalInstruction, setSurgicalInstruction] = useState("");
   const [surgicalResult, setSurgicalResult] = useState<{
     original: string; replacement: string; explanation: string; updatedJson: object;
@@ -109,6 +110,15 @@ export default function WritingRoom({
       onRegisterInsert((text: string) => editorRef.current?.insertContent(text));
     }
   }, []);
+
+  useEffect(() => {
+    const sourceId = (project as any).adaptedFromProjectId;
+    if (!sourceId) { setAdaptedFromName(null); return; }
+    fetch(`/api/projects/${sourceId}`)
+      .then(r => r.ok ? r.json() : null)
+      .then(p => setAdaptedFromName(p?.name ?? null))
+      .catch(() => setAdaptedFromName(null));
+  }, [(project as any).adaptedFromProjectId]);
 
   const sortedChapters = [...(project.chapters || [])].sort((a: any, b: any) => a.sortOrder - b.sortOrder);
   const chapIndex = sortedChapters.findIndex((c: any) => c.id === activeChap.id);
@@ -213,6 +223,11 @@ export default function WritingRoom({
         <div style={{ display: "flex", alignItems: "baseline", gap: 10, marginBottom: 6 }}>
           <span style={{ fontSize: 14, fontWeight: 700, color: co.text }}>{project.name}</span>
           <span style={{ fontSize: 11, color: co.muted }}>{project.format}</span>
+          {(project as any).adaptedFromProjectId && adaptedFromName && (
+            <a href={`/project/${(project as any).adaptedFromProjectId}`} style={{ fontSize: 11, color: co.accent, textDecoration: "none" }}>
+              Adapted from: {adaptedFromName} →
+            </a>
+          )}
           <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: co.muted }}>
             <button style={{ ...sBtnSm, padding: "2px 8px" }} disabled={chapIndex <= 0} onClick={() => goToChapter(chapIndex - 1)}>‹</button>
             <span>{getChapterLabel(project.format)} {chapIndex + 1} of {sortedChapters.length}: {activeChap.title}</span>
