@@ -347,3 +347,11 @@ The dashboard header's small "Import existing manuscript" link (renamed from "Im
 ## `MAX_PROJECTS` Is Unreachable on Any Route Already Gated by `canAccessFeature(tier, "export")`
 
 `FEATURE_ACCESS.export` (`src/types/subscription.ts`) is `["story_pro", "all_access"]`. `MAX_PROJECTS` (`src/lib/metering/costs.ts`) is `{ free: 3, story_pro: -1, creator_pro: -1, all_access: -1 }`. Every tier that can pass the `export` feature gate already has an uncapped project limit — so a route that checks `canAccessFeature(tier, "export")` first never needs a separate `MAX_PROJECTS` check afterward; it can't trigger. Found while building `/api/projects/[id]/adapt/route.ts` (2026-06-18): an initial draft copied the project-limit check from `POST /api/projects` (which has no tier gate, so the check IS reachable there — free-tier users hit it directly) without noticing the new route's earlier `export` gate made it dead code. Removed before shipping. If you add a new project-creating route, check whether it's tier-gated before assuming it also needs the `MAX_PROJECTS` check.
+
+---
+
+## Dashboard Has Its Own Brand Palette — `src/lib/dashboard-theme.ts`, Not `co`/`panel`
+
+`co`/`panel` (`src/lib/styles.ts`) are the in-editor design tokens (`co.accent` is purple, `#5b4ccc`). The dashboard (`src/app/dashboard/page.tsx`) uses an intentionally different gold/cream "Studio" brand with serif headings (`GW_GOLD = "#c9a84c"`) — this is a deliberate visual distinction, not an oversight, so don't "fix" it by reusing `co.accent` there.
+
+Before 2026-06-18, `GW_GOLD`/`GW_DARK`/`GW_CREAM`/`GW_BORDER` were declared as page-local consts, and `GW_DARK` specifically had drifted: the constant existed but only 3 of its 15 actual color usages referenced it — the other 12 hardcoded the literal `"#0d0d10"` directly. Same story for `#1a1a1a`/`#888`/`#aaa`/`#f5f4f0`, which were never named at all (22/20/12/8 raw occurrences respectively). Moved all seven into `src/lib/dashboard-theme.ts` (`GW_GOLD`, `GW_DARK`, `GW_CREAM`, `GW_BORDER`, `GW_TEXT`, `GW_MUTED`, `GW_MUTED_LIGHT`, `GW_SURFACE_ALT`) and replaced every literal-hex occurrence with the named import — same visible colors, single source of truth. If you add a new repeated color to the dashboard, add it here rather than inlining the hex again.
