@@ -27,27 +27,27 @@ vi.mock("@/lib/ai/aiisms", () => ({
   buildAiismsInstruction: vi.fn(() => "AIISMS"),
 }));
 
-const generate = vi.fn(async () => ({ text: "generated prose", tokensUsed: 10, model: "claude" }));
+const generate = vi.fn();
 vi.mock("@/lib/ai/engine", () => ({
   generate: (...args: any[]) => generate(...args),
   MODELS: { default: "default-model", fast: "fast-model" },
 }));
 
-const isFeatureOnServer = vi.fn(async () => false);
+const isFeatureOnServer = vi.fn();
 vi.mock("@/lib/growthbook-server", () => ({
   isFeatureOnServer: (...args: any[]) => isFeatureOnServer(...args),
 }));
 
-const buildSceneBlueprint = vi.fn(async () => "BLUEPRINT TEXT");
-const buildPromiseLedger = vi.fn(async () => "PROMISE LEDGER TEXT");
-const buildVoiceExemplars = vi.fn(async () => "VOICE EXEMPLARS TEXT");
+const buildSceneBlueprint = vi.fn();
+const buildPromiseLedger = vi.fn();
+const buildVoiceExemplars = vi.fn();
 vi.mock("@/lib/ai/scene-blueprint", () => ({ buildSceneBlueprint: (...args: any[]) => buildSceneBlueprint(...args) }));
 vi.mock("@/lib/ai/promise-ledger", () => ({ buildPromiseLedger: (...args: any[]) => buildPromiseLedger(...args) }));
 vi.mock("@/lib/ai/exemplars", () => ({ buildVoiceExemplars: (...args: any[]) => buildVoiceExemplars(...args) }));
 
-const findFirstProjects = vi.fn(async () => ({ id: "proj-1", userId: "user-1", intentionalViolations: {} }));
-const findManySeriesBibles = vi.fn(async () => []);
-const insertGenerations = vi.fn(async () => {});
+const findFirstProjects = vi.fn();
+const findManySeriesBibles = vi.fn();
+const insertGenerations = vi.fn();
 vi.mock("@/db", () => ({
   db: {
     query: {
@@ -71,6 +71,9 @@ describe("POST /api/ai/generate — quality_stack gating", () => {
     findFirstProjects.mockResolvedValue({ id: "proj-1", userId: "user-1", intentionalViolations: {} });
     findManySeriesBibles.mockResolvedValue([]);
     generate.mockResolvedValue({ text: "generated prose", tokensUsed: 10, model: "claude" });
+    buildSceneBlueprint.mockResolvedValue("BLUEPRINT TEXT");
+    buildPromiseLedger.mockResolvedValue("PROMISE LEDGER TEXT");
+    buildVoiceExemplars.mockResolvedValue("VOICE EXEMPLARS TEXT");
   });
 
   it("flag OFF: never calls the GrowthBook check or any builder, dynamicContext unchanged", async () => {
@@ -83,7 +86,7 @@ describe("POST /api/ai/generate — quality_stack gating", () => {
     expect(buildSceneBlueprint).not.toHaveBeenCalled();
     expect(buildPromiseLedger).not.toHaveBeenCalled();
     expect(buildVoiceExemplars).not.toHaveBeenCalled();
-    const callArgs = generate.mock.calls[0][0];
+    const callArgs: any = generate.mock.calls[0]?.[0];
     // No dynamicContext was supplied in the request and the flag is off, so this
     // must be undefined — exactly what pre-port behavior produced. Any non-empty
     // value here would mean something leaked in despite the flag being off.
@@ -99,7 +102,7 @@ describe("POST /api/ai/generate — quality_stack gating", () => {
     expect(buildSceneBlueprint).toHaveBeenCalledTimes(1);
     expect(buildPromiseLedger).toHaveBeenCalledWith("proj-1");
     expect(buildVoiceExemplars).toHaveBeenCalledWith("user-1", expect.any(String));
-    const callArgs = generate.mock.calls[0][0];
+    const callArgs: any = generate.mock.calls[0]?.[0];
     expect(callArgs.dynamicContext).toContain("BLUEPRINT TEXT");
     expect(callArgs.dynamicContext).toContain("PROMISE LEDGER TEXT");
     expect(callArgs.dynamicContext).toContain("VOICE EXEMPLARS TEXT");

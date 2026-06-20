@@ -8,7 +8,7 @@ vi.mock("@/lib/ratelimit", () => ({
 }));
 
 const meterAndGate = vi.fn();
-const refundCredits = vi.fn(async () => {});
+const refundCredits = vi.fn();
 vi.mock("@/lib/metering/meter", () => ({
   meterAndGate: (...args: any[]) => meterAndGate(...args),
   refundCredits: (...args: any[]) => refundCredits(...args),
@@ -21,7 +21,7 @@ vi.mock("@/lib/ai/engine", () => ({
 
 vi.mock("@/lib/analytics", () => ({ track: vi.fn(async () => {}) }));
 
-const insertGenerations = vi.fn(async () => {});
+const insertGenerations = vi.fn();
 vi.mock("@/db", () => ({
   db: { insert: () => ({ values: (...args: any[]) => insertGenerations(...args) }) },
 }));
