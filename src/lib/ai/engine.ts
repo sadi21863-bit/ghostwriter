@@ -439,6 +439,33 @@ ${content.slice(0, 8000)}`;
     structuredData: parsed,
   };
 }
+
+export async function refinePassage(text: string, format: string): Promise<{ text: string; tokensUsed: number; model: string }> {
+  const model = MODELS.default;
+  const system = `You are a precise line editor for ${format} fiction. Revise the passage to remove AI-slop while preserving the author's plot, meaning, characters, facts, and VOICE exactly. Fix ONLY these defects:
+- cliché openings and stock phrases ("little did they know", "the air was thick with", "a chill ran down")
+- filler transitions and throat-clearing ("as the sun dipped below the horizon", "without warning")
+- vague emotional summaries — replace naming an emotion ("she felt sad") with physical/behavioral evidence
+- repetitive sentence rhythm and repeated sentence openers
+- forced, mixed, or purple metaphors
+- telling where showing is stronger
+- dialogue where every character sounds the same
+
+HARD RULES:
+- Do NOT change plot events, character decisions, or established facts.
+- Do NOT add new scenes, characters, or content. Do NOT summarize.
+- Keep length within ~10% of the original. Preserve paragraph breaks.
+- Return ONLY the revised prose — no preamble, no commentary, no labels.`;
+  const msg = await client.messages.create({
+    model,
+    max_tokens: 4000,
+    system,
+    messages: [{ role: 'user', content: text.slice(0, 16000) }],
+  });
+  const out = msg.content.filter(b => b.type === 'text').map(b => (b as any).text).join('');
+  return { text: out, tokensUsed: msg.usage.input_tokens + msg.usage.output_tokens, model };
+}
+
 export async function generateQuickStory(title: string, format: string, genres: string[]) { const genreStr = (genres || []).join(", ") || "Drama"; const prompt = `Create a complete story skeleton for a ${format} titled "${title}" in ${genreStr}. Return ONLY valid JSON with: {characters:[{name,role,age,appearance,personality},...], locations:[{name,description,atmosphere},...], plotThreads:[{name,description,stakes},...], outline:"Brief 3-act outline"}. Generate 3-4 characters, 2-3 locations, 2-3 plot threads.`; const msg = await client.messages.create({ model: MODELS.default, max_tokens: 2000, messages: [{ role: "user", content: prompt }] }); const text = msg.content.filter(b => b.type === "text").map(b => (b as any).text).join("").trim(); return safeParseJson(text) ?? { characters: [], locations: [], plotThreads: [], outline: "" }; }
 export async function generateBeginnerCharacters(projectName: string, genres: string[], count = 3) { const genreStr = (genres || []).join(", ") || "General"; const prompt = `Create ${count} diverse characters for "${projectName}" (${genreStr}). For each, provide only: name, role (main/supporting/antagonist), age, appearance (1 sentence), and personality (1 sentence). Return JSON: [{name,role,age,appearance,personality},...]`; const msg = await client.messages.create({ model: MODELS.fast, max_tokens: 1000, messages: [{ role: "user", content: prompt }] }); const text = msg.content.filter(b => b.type === "text").map(b => (b as any).text).join("").trim(); return safeParseJson(text) ?? []; }
 

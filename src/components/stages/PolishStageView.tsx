@@ -1,11 +1,16 @@
 // src/components/stages/PolishStageView.tsx
 "use client";
+import { useMemo } from "react";
+import { useFeatureIsOn } from "@growthbook/growthbook-react";
 import { co, sBtn, sBtnSm } from "@/lib/styles";
 import { nextAction, type GuideAction } from "@/lib/guide/next-action";
 import type { QualityReview } from "@/components/panels/QualityReviewPanel";
 import { isCreatorFormat } from "@/lib/formats";
 import { RetentionEditPanel } from "@/components/panels/toolbar/tools/RetentionEditPanel";
 import { CreatorSEOPanel } from "@/components/panels/toolbar/tools/CreatorSEOPanel";
+import { FLAGS } from "@/lib/growthbook";
+import { isValidTipTapJson, tiptapToPlainText } from "@/lib/editor/content-migration";
+import { analyzeProseRhythm } from "@/lib/analysis/rhythm";
 
 interface PolishStageViewProps {
   project: any;
@@ -40,6 +45,17 @@ export default function PolishStageView({ project, qualityReview, onGuideRun, on
     ? qualityReview.ruleViolations.length + qualityReview.knowledgeViolations.length + qualityReview.slopMarkers.length
     : 0;
   const topIssue = qualityReview?.ruleViolations[0] ?? qualityReview?.knowledgeViolations[0] ?? qualityReview?.slopMarkers[0];
+
+  // quality_stack: deterministic, zero-cost rhythm signal — read-only, never
+  // blocks or alters anything. Runs entirely client-side on the plain-text
+  // chapter content (no LLM, no server round-trip).
+  const qualityStackOn = useFeatureIsOn(FLAGS.qualityStack);
+  const rhythm = useMemo(() => {
+    if (!qualityStackOn || !content) return null;
+    const plain = isValidTipTapJson(content) ? tiptapToPlainText(JSON.parse(content)) : content;
+    if (!plain.trim()) return null;
+    return analyzeProseRhythm(plain);
+  }, [qualityStackOn, content]);
 
   return (
     <div style={{ flex: 1, overflow: "auto", padding: "32px 24px", display: "flex", justifyContent: "center" }}>
@@ -80,6 +96,19 @@ export default function PolishStageView({ project, qualityReview, onGuideRun, on
           <button style={sBtn} onClick={() => onGuideRun(action)}>Open full story health report →</button>
           <button style={sBtnSm} onClick={() => onGuideDismiss(action.id)}>Mark as reviewed</button>
         </div>
+
+        {rhythm && rhythm.flags.length > 0 && (
+          <div style={{ padding: "12px 14px", borderRadius: 10, border: `1px solid ${co.border}`, background: co.surface, margin: "12px 0 0" }}>
+            <div style={{ fontSize: 10, fontWeight: 700, color: co.muted, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6 }}>
+              Rhythm signal (read-only)
+            </div>
+            {rhythm.flags.map((f) => (
+              <p key={f.label} style={{ fontSize: 12, color: co.muted, lineHeight: 1.5, margin: "0 0 4px" }}>
+                <span style={{ color: co.text, fontWeight: 600 }}>{f.label}:</span> {f.detail}
+              </p>
+            ))}
+          </div>
+        )}
 
         {isCreatorFormat(project.format) && (
           <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center", marginTop: 16, paddingTop: 16, borderTop: `1px solid ${co.border}` }}>

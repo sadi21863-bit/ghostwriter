@@ -14,6 +14,12 @@ import { generations, projects, users } from "@/db/schema";
 import { and, eq, sql, lte, ne } from "drizzle-orm";
 import { universeEvents, universeCharacters, projectCharacterStates, seriesBibles } from "@/db/schema";
 import { track } from "@/lib/analytics";
+import { isProseMode } from "@/lib/modes/registry";
+import { isFeatureOnServer } from "@/lib/growthbook-server";
+import { FLAGS } from "@/lib/growthbook";
+import { buildSceneBlueprint } from "@/lib/ai/scene-blueprint";
+import { buildPromiseLedger } from "@/lib/ai/promise-ledger";
+import { buildVoiceExemplars } from "@/lib/ai/exemplars";
 
 const VIOLATION_PATTERNS: Record<string, {
   detect: (prompt: string) => boolean;
@@ -170,7 +176,7 @@ export async function POST(req: Request) {
   const rl = await checkAiRateLimit(session.user.id);
   if (rl) return rl;
 
-  const { mode, prompt, context, staticContext, dynamicContext, format, projectId, chapterId, bypassViolationCheck, narrativeStructure, additionalContext } = await req.json();
+  const { mode, prompt, context, staticContext, dynamicContext, format, projectId, chapterId, bypassViolationCheck, narrativeStructure, additionalContext, skipBlueprint } = await req.json();
 
   if (!prompt?.trim()) return NextResponse.json({ error: "Prompt is required" }, { status: 400 });
   if (!mode) return NextResponse.json({ error: "Mode is required" }, { status: 400 });
@@ -296,7 +302,28 @@ Do NOT write the scene — just provide the accurate factual grounding.`,
     }
 
     const effectiveDynamic = [cappedDynamic, additionalContext, aiismsNote, domainResearchContext].filter(Boolean).join('\n\n');
-    const r = await generate({ mode, prompt: effectivePrompt, context, staticContext: effectiveStatic, dynamicContext: effectiveDynamic || undefined, format, narrativeStructure, overrideModel });
+
+    // quality_stack (flagged, fail-open): planner + promise-ledger + voice-anchor
+    // augmentation. Flag-OFF (the default) takes the isProseMode check before the
+    // GrowthBook call, so non-prose modes and the flag-off path pay zero extra
+    // latency. Broader than the original reference implementation (which only
+    // covered mode === 'write') per the port spec's explicit "write/dialogue/
+    // combat/etc." scope. All three builders are individually fail-open — a
+    // failure in any one of them never blocks or alters base generation.
+    let blueprint = '', promiseLedger = '', voiceExemplars = '';
+    if (isProseMode(mode) && projectId && tier !== 'free') {
+      const qualityStackOn = await isFeatureOnServer(FLAGS.qualityStack, session.user.id, tier);
+      if (qualityStackOn) {
+        [blueprint, promiseLedger, voiceExemplars] = await Promise.all([
+          skipBlueprint ? Promise.resolve('') : buildSceneBlueprint({ prompt: effectivePrompt, staticContext: effectiveStatic ?? undefined, dynamicContext: effectiveDynamic, format }),
+          buildPromiseLedger(projectId),
+          buildVoiceExemplars(session.user.id, effectivePrompt),
+        ]);
+      }
+    }
+    const finalDynamic = [effectiveDynamic, promiseLedger, voiceExemplars, blueprint].filter(Boolean).join('\n\n') || undefined;
+
+    const r = await generate({ mode, prompt: effectivePrompt, context, staticContext: effectiveStatic, dynamicContext: finalDynamic, format, narrativeStructure, overrideModel });
     await db.insert(generations).values({
       projectId, chapterId: chapterId || null, mode, prompt: cappedPrompt,
       output: r.text, model: r.model, tokensUsed: r.tokensUsed,

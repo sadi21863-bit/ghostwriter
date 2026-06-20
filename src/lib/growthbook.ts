@@ -22,4 +22,5 @@ export const FLAGS = {
   newDesignTokens:     "new_design_tokens",
   writingRoomShell:    "writing_room_shell",
   homeRedesign:        "home_redesign",
+  qualityStack:        "quality_stack",
 } as const;

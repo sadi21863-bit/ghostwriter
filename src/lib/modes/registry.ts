@@ -79,3 +79,10 @@ export const MODE_REGISTRY = {
   interrogation: { label: "Interrogation", modelTier: "quality", gate: "story_modes_advanced",  qualityCheck: false, visibility: "story_and_creator", slash: "/interrogate", keywords: ["interrogation", "questioning", "confession", "interview"], contextPolicy: { ...FULL, needsLocations: false }, minDensity: "full" },
   chase:         { label: "Chase",         modelTier: "quality", gate: "story_modes_advanced",  qualityCheck: false, visibility: "story_and_creator", slash: "/chase", keywords: ["chase", "pursuit", "fleeing", "running from", "tailing"], contextPolicy: { ...FULL, needsMemories: false, needsPlotThreads: false }, minDensity: "full" },
 } as const satisfies Record<GenerationMode, ModeConfig>;
+
+// Every mode produces prose except brainstorm/outline (planning modes — no
+// scene to blueprint, no promises to advance, no voice to anchor). Used to
+// gate the quality_stack systems, which only make sense for prose generation.
+export function isProseMode(mode: string): boolean {
+  return mode !== "brainstorm" && mode !== "outline";
+}
