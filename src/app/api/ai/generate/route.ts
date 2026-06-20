@@ -303,29 +303,35 @@ Do NOT write the scene — just provide the accurate factual grounding.`,
 
     const effectiveDynamic = [cappedDynamic, additionalContext, aiismsNote, domainResearchContext].filter(Boolean).join('\n\n');
 
-    // quality_stack (flagged, fail-open): planner + promise-ledger + voice-anchor
-    // augmentation. Flag-OFF (the default) takes the isProseMode check before the
-    // GrowthBook call, so non-prose modes and the flag-off path pay zero extra
-    // latency. Broader than the original reference implementation (which only
-    // covered mode === 'write') per the port spec's explicit "write/dialogue/
-    // combat/etc." scope. All three builders are individually fail-open — a
-    // failure in any one of them never blocks or alters base generation.
+    // Prose-augmentation helpers, split per the 2026-06-21 six-model blind panel
+    // (docs/quality-stack-eval-judging-2026-06-20.md + the panel's own eval):
+    // judges disagreed on aggregate score (a wash) but unanimously agreed on the
+    // SAME action, which the old bundled quality_stack flag couldn't express.
+    //
+    // Free, near-zero-cost grounding helpers (promise-ledger: DB-only, no LLM;
+    // voice-exemplars: one cheap embedding call) run by DEFAULT, no flag — the
+    // panel confirmed they suppress off-bible hallucination. The costly Haiku
+    // scene-blueprint pre-pass runs ONLY behind sceneBlueprint (default OFF) —
+    // the panel found its "wins" were length-driven and it actively hurts
+    // tone-driven modes (horror/atmosphere/comedy). All three remain fail-open —
+    // a failure in any one never blocks or alters base generation.
     let blueprint = '', promiseLedger = '', voiceExemplars = '';
     if (isProseMode(mode) && projectId && tier !== 'free') {
-      const qualityStackOn = await isFeatureOnServer(FLAGS.qualityStack, session.user.id, tier);
-      if (qualityStackOn) {
-        [blueprint, promiseLedger, voiceExemplars] = await Promise.all([
-          skipBlueprint ? Promise.resolve('') : buildSceneBlueprint({ prompt: effectivePrompt, staticContext: effectiveStatic ?? undefined, dynamicContext: effectiveDynamic, format }),
-          buildPromiseLedger(projectId),
-          buildVoiceExemplars(session.user.id, effectivePrompt),
-        ]);
+      [promiseLedger, voiceExemplars] = await Promise.all([
+        buildPromiseLedger(projectId),
+        buildVoiceExemplars(session.user.id, effectivePrompt),
+      ]);
+
+      const blueprintOn = await isFeatureOnServer(FLAGS.sceneBlueprint, session.user.id, tier);
+      if (blueprintOn && !skipBlueprint) {
+        blueprint = await buildSceneBlueprint({ prompt: effectivePrompt, staticContext: effectiveStatic ?? undefined, dynamicContext: effectiveDynamic, format });
       }
     }
     const finalDynamic = [effectiveDynamic, promiseLedger, voiceExemplars, blueprint].filter(Boolean).join('\n\n') || undefined;
 
     // Streaming path: emit text deltas live, then persist the generation record
     // on completion. Reuses the exact same finalDynamic (and therefore the same
-    // quality_stack augmentation) as the non-streaming path below.
+    // prose-augmentation helpers) as the non-streaming path below.
     if (stream) {
       const encoder = new TextEncoder();
       const userId = session.user.id;

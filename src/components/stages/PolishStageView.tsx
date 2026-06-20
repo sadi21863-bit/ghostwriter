@@ -1,14 +1,12 @@
 // src/components/stages/PolishStageView.tsx
 "use client";
 import { useMemo } from "react";
-import { useFeatureIsOn } from "@growthbook/growthbook-react";
 import { co, sBtn, sBtnSm } from "@/lib/styles";
 import { nextAction, type GuideAction } from "@/lib/guide/next-action";
 import type { QualityReview } from "@/components/panels/QualityReviewPanel";
 import { isCreatorFormat } from "@/lib/formats";
 import { RetentionEditPanel } from "@/components/panels/toolbar/tools/RetentionEditPanel";
 import { CreatorSEOPanel } from "@/components/panels/toolbar/tools/CreatorSEOPanel";
-import { FLAGS } from "@/lib/growthbook";
 import { isValidTipTapJson, tiptapToPlainText } from "@/lib/editor/content-migration";
 import { analyzeProseRhythm } from "@/lib/analysis/rhythm";
 
@@ -46,16 +44,16 @@ export default function PolishStageView({ project, qualityReview, onGuideRun, on
     : 0;
   const topIssue = qualityReview?.ruleViolations[0] ?? qualityReview?.knowledgeViolations[0] ?? qualityReview?.slopMarkers[0];
 
-  // quality_stack: deterministic, zero-cost rhythm signal — read-only, never
-  // blocks or alters anything. Runs entirely client-side on the plain-text
-  // chapter content (no LLM, no server round-trip).
-  const qualityStackOn = useFeatureIsOn(FLAGS.qualityStack);
+  // Deterministic, zero-cost rhythm signal — read-only, never blocks or alters
+  // anything, runs entirely client-side on the plain-text chapter content (no
+  // LLM, no server round-trip). Part of the free default-on subset confirmed
+  // by the 2026-06-21 panel eval — unconditional, no flag (see growthbook.ts).
   const rhythm = useMemo(() => {
-    if (!qualityStackOn || !content) return null;
+    if (!content) return null;
     const plain = isValidTipTapJson(content) ? tiptapToPlainText(JSON.parse(content)) : content;
     if (!plain.trim()) return null;
     return analyzeProseRhythm(plain);
-  }, [qualityStackOn, content]);
+  }, [content]);
 
   return (
     <div style={{ flex: 1, overflow: "auto", padding: "32px 24px", display: "flex", justifyContent: "center" }}>

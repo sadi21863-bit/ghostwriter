@@ -22,6 +22,11 @@ export const FLAGS = {
   newDesignTokens:     "new_design_tokens",
   writingRoomShell:    "writing_room_shell",
   homeRedesign:        "home_redesign",
-  qualityStack:        "quality_stack",
+  // Gates ONLY the costly Haiku scene-blueprint pre-pass (default OFF). The
+  // free grounding helpers (promise-ledger, voice-exemplars) run unconditionally
+  // for qualifying requests — see /api/ai/generate/route.ts. Was "quality_stack"
+  // until the 2026-06-21 panel eval showed the bundled all-or-nothing flag
+  // couldn't express "keep the free helpers, skip the costly one."
+  sceneBlueprint:      "scene_blueprint",
   streaming:           "streaming",
 } as const;

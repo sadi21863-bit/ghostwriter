@@ -1,9 +1,11 @@
-// Tests the quality_stack flag-gating in /api/ai/generate: flag-OFF must be
-// byte-identical to pre-port behavior (no blueprint/promise-ledger/voice
-// exemplars appended), flag-ON must invoke and append all three, and the
-// gate must short-circuit before the GrowthBook call entirely for non-prose
-// modes, no projectId, or free tier (so those paths never pay the extra
-// network round-trip even when the flag would otherwise be on).
+// Tests the split prose-augmentation gating in /api/ai/generate after the
+// 2026-06-21 flag split: the free helpers (promise-ledger, voice-exemplars)
+// must run unconditionally for any qualifying request (no flag check at all),
+// while the costly Haiku scene-blueprint runs ONLY behind the sceneBlueprint
+// flag (default OFF) and the per-request skipBlueprint escape hatch. The
+// qualifying-request gate (isProseMode && projectId && tier !== 'free') must
+// still short-circuit everything, including the free helpers, for non-prose
+// modes, no projectId, or free tier.
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 vi.mock("@/lib/auth-helpers", () => ({
@@ -65,7 +67,7 @@ function makeRequest(body: unknown) {
   return new Request("http://localhost/api/ai/generate", { method: "POST", body: JSON.stringify(body) });
 }
 
-describe("POST /api/ai/generate — quality_stack gating", () => {
+describe("POST /api/ai/generate — split prose-augmentation gating", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     findFirstProjects.mockResolvedValue({ id: "proj-1", userId: "user-1", intentionalViolations: {} });
@@ -76,24 +78,22 @@ describe("POST /api/ai/generate — quality_stack gating", () => {
     buildVoiceExemplars.mockResolvedValue("VOICE EXEMPLARS TEXT");
   });
 
-  it("flag OFF: never calls the GrowthBook check or any builder, dynamicContext unchanged", async () => {
+  it("default state (sceneBlueprint flag OFF): free helpers run, blueprint does not", async () => {
     vi.mocked(getUserTier).mockResolvedValue("story_pro" as any);
     isFeatureOnServer.mockResolvedValue(false);
 
     await POST(makeRequest({ mode: "write", prompt: "Write the next scene.", projectId: "proj-1", format: "Novel" }));
 
-    expect(isFeatureOnServer).toHaveBeenCalledTimes(1); // tier is paid + mode is prose + projectId present, so it IS checked
+    expect(buildPromiseLedger).toHaveBeenCalledWith("proj-1");
+    expect(buildVoiceExemplars).toHaveBeenCalledWith("user-1", expect.any(String));
     expect(buildSceneBlueprint).not.toHaveBeenCalled();
-    expect(buildPromiseLedger).not.toHaveBeenCalled();
-    expect(buildVoiceExemplars).not.toHaveBeenCalled();
     const callArgs: any = generate.mock.calls[0]?.[0];
-    // No dynamicContext was supplied in the request and the flag is off, so this
-    // must be undefined — exactly what pre-port behavior produced. Any non-empty
-    // value here would mean something leaked in despite the flag being off.
-    expect(callArgs.dynamicContext).toBeUndefined();
+    expect(callArgs.dynamicContext).toContain("PROMISE LEDGER TEXT");
+    expect(callArgs.dynamicContext).toContain("VOICE EXEMPLARS TEXT");
+    expect(callArgs.dynamicContext).not.toContain("BLUEPRINT TEXT");
   });
 
-  it("flag ON: runs all three builders concurrently and appends their output to dynamicContext", async () => {
+  it("sceneBlueprint flag ON: free helpers AND the blueprint all run and append to dynamicContext", async () => {
     vi.mocked(getUserTier).mockResolvedValue("story_pro" as any);
     isFeatureOnServer.mockResolvedValue(true);
 
@@ -108,37 +108,51 @@ describe("POST /api/ai/generate — quality_stack gating", () => {
     expect(callArgs.dynamicContext).toContain("VOICE EXEMPLARS TEXT");
   });
 
-  it("free tier: short-circuits before the GrowthBook check even if the flag would be on", async () => {
+  it("the GrowthBook check only ever gates the blueprint, never the free helpers", async () => {
+    vi.mocked(getUserTier).mockResolvedValue("story_pro" as any);
+    isFeatureOnServer.mockResolvedValue(false);
+
+    await POST(makeRequest({ mode: "write", prompt: "p", projectId: "proj-1", format: "Novel" }));
+
+    expect(isFeatureOnServer).toHaveBeenCalledTimes(1);
+    expect(isFeatureOnServer).toHaveBeenCalledWith("scene_blueprint", "user-1", "story_pro");
+  });
+
+  it("free tier: short-circuits everything, including the free helpers and the GrowthBook check", async () => {
     vi.mocked(getUserTier).mockResolvedValue("free" as any);
     isFeatureOnServer.mockResolvedValue(true);
 
     await POST(makeRequest({ mode: "write", prompt: "Write the next scene.", projectId: "proj-1", format: "Novel" }));
 
+    expect(buildPromiseLedger).not.toHaveBeenCalled();
+    expect(buildVoiceExemplars).not.toHaveBeenCalled();
     expect(isFeatureOnServer).not.toHaveBeenCalled();
     expect(buildSceneBlueprint).not.toHaveBeenCalled();
   });
 
-  it("non-prose mode (outline): short-circuits before the GrowthBook check", async () => {
+  it("non-prose mode (outline): short-circuits everything", async () => {
     vi.mocked(getUserTier).mockResolvedValue("story_pro" as any);
     isFeatureOnServer.mockResolvedValue(true);
 
     await POST(makeRequest({ mode: "outline", prompt: "Outline the next chapter.", projectId: "proj-1", format: "Novel" }));
 
-    expect(isFeatureOnServer).not.toHaveBeenCalled();
     expect(buildPromiseLedger).not.toHaveBeenCalled();
+    expect(buildVoiceExemplars).not.toHaveBeenCalled();
+    expect(isFeatureOnServer).not.toHaveBeenCalled();
   });
 
-  it("no projectId: short-circuits before the GrowthBook check", async () => {
+  it("no projectId: short-circuits everything", async () => {
     vi.mocked(getUserTier).mockResolvedValue("story_pro" as any);
     isFeatureOnServer.mockResolvedValue(true);
 
     await POST(makeRequest({ mode: "write", prompt: "Write the next scene.", format: "Novel" }));
 
-    expect(isFeatureOnServer).not.toHaveBeenCalled();
+    expect(buildPromiseLedger).not.toHaveBeenCalled();
     expect(buildVoiceExemplars).not.toHaveBeenCalled();
+    expect(isFeatureOnServer).not.toHaveBeenCalled();
   });
 
-  it("skipBlueprint: still runs promise-ledger and voice exemplars but not the blueprint planner", async () => {
+  it("skipBlueprint with the flag ON: still skips the blueprint but free helpers still run", async () => {
     vi.mocked(getUserTier).mockResolvedValue("story_pro" as any);
     isFeatureOnServer.mockResolvedValue(true);
 

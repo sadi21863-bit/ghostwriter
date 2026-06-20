@@ -2,7 +2,8 @@ import { describe, it, expect, vi } from "vitest";
 
 const finalMessage = vi.fn();
 const streamHandlers: Record<string, (delta: string) => void> = {};
-const streamMock = vi.fn(() => ({
+const streamMock = vi.fn();
+streamMock.mockImplementation(() => ({
   on: (event: string, cb: (delta: string) => void) => { streamHandlers[event] = cb; },
   finalMessage: () => finalMessage(),
 }));
@@ -49,7 +50,7 @@ describe("generateStream", () => {
       () => {},
     );
 
-    const callArgs = streamMock.mock.calls[0][0];
+    const callArgs: any = streamMock.mock.calls[0]?.[0];
     expect(callArgs.system).toHaveLength(2);
     expect(callArgs.system[0].text).toContain("STATIC_MARKER");
     expect(callArgs.system[0].cache_control).toEqual({ type: "ephemeral" });
@@ -62,7 +63,7 @@ describe("generateStream", () => {
 
     await generateStream({ mode: "write", prompt: "p", context: "FULL_CONTEXT_MARKER", format: "Novel" }, () => {});
 
-    const callArgs = streamMock.mock.calls[0][0];
+    const callArgs: any = streamMock.mock.calls[0]?.[0];
     expect(callArgs.system).toHaveLength(1);
     expect(callArgs.system[0].text).toContain("FULL_CONTEXT_MARKER");
   });
