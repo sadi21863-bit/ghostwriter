@@ -23,4 +23,5 @@ export const FLAGS = {
   writingRoomShell:    "writing_room_shell",
   homeRedesign:        "home_redesign",
   qualityStack:        "quality_stack",
+  streaming:           "streaming",
 } as const;

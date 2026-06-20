@@ -6,7 +6,7 @@ import { checkAiRateLimit } from "@/lib/ratelimit";
 import { getUserTier, canAccessFeature } from "@/lib/subscription";
 import { meterAndGate, refundCredits } from "@/lib/metering/meter";
 import { GATED_MODES } from "@/types/subscription";
-import { generate, MODELS } from "@/lib/ai/engine";
+import { generate, generateStream, MODELS } from "@/lib/ai/engine";
 import { capContextForTier } from "@/lib/ai/context-caps";
 import { buildAiismsInstruction } from "@/lib/ai/aiisms";
 import { db } from "@/db";
@@ -176,7 +176,7 @@ export async function POST(req: Request) {
   const rl = await checkAiRateLimit(session.user.id);
   if (rl) return rl;
 
-  const { mode, prompt, context, staticContext, dynamicContext, format, projectId, chapterId, bypassViolationCheck, narrativeStructure, additionalContext, skipBlueprint } = await req.json();
+  const { mode, prompt, context, staticContext, dynamicContext, format, projectId, chapterId, bypassViolationCheck, narrativeStructure, additionalContext, skipBlueprint, stream } = await req.json();
 
   if (!prompt?.trim()) return NextResponse.json({ error: "Prompt is required" }, { status: 400 });
   if (!mode) return NextResponse.json({ error: "Mode is required" }, { status: 400 });
@@ -322,6 +322,42 @@ Do NOT write the scene — just provide the accurate factual grounding.`,
       }
     }
     const finalDynamic = [effectiveDynamic, promiseLedger, voiceExemplars, blueprint].filter(Boolean).join('\n\n') || undefined;
+
+    // Streaming path: emit text deltas live, then persist the generation record
+    // on completion. Reuses the exact same finalDynamic (and therefore the same
+    // quality_stack augmentation) as the non-streaming path below.
+    if (stream) {
+      const encoder = new TextEncoder();
+      const userId = session.user.id;
+      const readable = new ReadableStream({
+        async start(controller) {
+          try {
+            const r = await generateStream(
+              { mode, prompt: effectivePrompt, context, staticContext: effectiveStatic, dynamicContext: finalDynamic, format, narrativeStructure, overrideModel },
+              (delta) => { try { controller.enqueue(encoder.encode(delta)); } catch { /* client gone */ } },
+            );
+            await db.insert(generations).values({
+              projectId, chapterId: chapterId || null, mode, prompt: cappedPrompt,
+              output: r.text, model: r.model, tokensUsed: r.tokensUsed,
+            });
+            await track(userId, 'ai_generation', { mode, format: format ?? '', streamed: true });
+          } catch (err: any) {
+            await refundCredits(userId, "generate");
+            console.error(`[gen-stream] ${err?.status} ${(err?.message || '').slice(0, 200)}`);
+            try { controller.enqueue(encoder.encode('\n\n[Generation interrupted. Please try again.]')); } catch { /* noop */ }
+          } finally {
+            try { controller.close(); } catch { /* noop */ }
+          }
+        },
+      });
+      return new Response(readable, {
+        headers: {
+          'Content-Type': 'text/plain; charset=utf-8',
+          'Cache-Control': 'no-cache, no-transform',
+          'X-Accel-Buffering': 'no',
+        },
+      });
+    }
 
     const r = await generate({ mode, prompt: effectivePrompt, context, staticContext: effectiveStatic, dynamicContext: finalDynamic, format, narrativeStructure, overrideModel });
     await db.insert(generations).values({

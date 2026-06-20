@@ -6,7 +6,7 @@ import { isCreatorFormat } from "@/lib/formats";
 import { MODE_REGISTRY, type GenerationMode } from "@/lib/modes/registry";
 import type { CompositionLayer } from "@/lib/ai/composer";
 import { parseBeatList } from "@/lib/modes/beats";
-import { appendToTipTap, buildNeighbourContext, callAI } from "./ai-shared";
+import { appendToTipTap, buildNeighbourContext, callAI, callAIStream } from "./ai-shared";
 
 export function useGeneration({
   project, mode, prompt, activeChap,
@@ -41,7 +41,7 @@ export function useGeneration({
   const [hookScoring, setHookScoring] = useState(false);
   const [violationBanner, setViolationBanner] = useState<{ violationType: string; flagMessage: string; supportMode: string } | null>(null);
 
-  const generate = async (opts?: { cameraPresetId?: string; referencePassage?: string; additionalContext?: string; insertViaEditor?: (text: string) => void }) => {
+  const generate = async (opts?: { cameraPresetId?: string; referencePassage?: string; additionalContext?: string; skipBlueprint?: boolean; insertViaEditor?: (text: string) => void; editorStream?: { start: () => void; delta: (t: string) => void; end: (full: string) => void } }) => {
     if (!prompt.trim()) return;
     retryCountRef.current = 0;
     lastGenRef.current = { fn: () => generate(opts) };
@@ -97,7 +97,22 @@ export function useGeneration({
         } catch { /* passage analysis must never block generation */ }
       }
 
-      const r = await callAI("generate", { mode: effectiveMode, prompt: effectivePrompt, staticContext: staticCtx, dynamicContext: dynamicCtx, format: effectiveFormat, projectId: project.id, chapterId: activeChap.id, narrativeStructure: (project as any).narrativeStructure, additionalContext: additionalContext || undefined });
+      const genBody = { mode: effectiveMode, prompt: effectivePrompt, staticContext: staticCtx, dynamicContext: dynamicCtx, format: effectiveFormat, projectId: project.id, chapterId: activeChap.id, narrativeStructure: (project as any).narrativeStructure, additionalContext: additionalContext || undefined, skipBlueprint: opts?.skipBlueprint || undefined };
+      // Live-stream prose into the editor when a streaming target is available (write mode only).
+      const useStream = mode === "write" && !!opts?.editorStream;
+      let streamedText = "";
+      let r: any;
+      if (useStream && opts?.editorStream) {
+        opts.editorStream.start();
+        r = await callAIStream("generate", genBody, (delta) => { streamedText += delta; opts.editorStream!.delta(delta); });
+      } else {
+        r = await callAI("generate", genBody);
+      }
+      // If streaming was started but the server returned a control response
+      // (gate / violation / retry), restore the editor and drop any partial.
+      if (useStream && opts?.editorStream && (r.retryable || r.requiresConfirmation || r.error)) {
+        opts.editorStream.end(streamedText || "");
+      }
       if (r.retryable) {
         if (retryCountRef.current < MAX_RETRIES) {
           retryCountRef.current += 1;
@@ -115,7 +130,9 @@ export function useGeneration({
       else {
         if (mode === "write") {
           setUndoStack(s => [...s.slice(-9), activeChap.content]);
-          if (opts?.insertViaEditor) {
+          if (useStream && opts?.editorStream) {
+            opts.editorStream.end(r.text ?? streamedText ?? "");
+          } else if (opts?.insertViaEditor) {
             opts.insertViaEditor(r.text);
           } else {
             const merged = appendToTipTap(activeChap.content, r.text);

@@ -23,12 +23,16 @@ interface Props {
 export interface ChapterEditorHandle {
   insertContent: (text: string) => void;
   replaceContent: (json: object) => void;
+  streamStart: () => void;
+  streamDelta: (text: string) => void;
+  streamEnd: (fullText: string) => void;
 }
 
 export const ChapterEditor = forwardRef<ChapterEditorHandle, Props>(function ChapterEditor(
   { content, onChange, placeholder, readOnly, autoFocus, lightTheme }, ref
 ) {
   const saveTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const streamStartRef = useRef<number | null>(null);
 
   const getInitialContent = () => {
     if (!content?.trim()) return { type: 'doc', content: [{ type: 'paragraph' }] };
@@ -74,7 +78,40 @@ export const ChapterEditor = forwardRef<ChapterEditorHandle, Props>(function Cha
       if (!editor) return;
       editor.commands.setContent(json);
     },
-  }), [editor]);
+    // --- Live streaming (typewriter) ---
+    streamStart: () => {
+      if (!editor) return;
+      // Begin streamed prose on a fresh line if the chapter already has content.
+      const size = editor.state.doc.content.size;
+      const hasText = editor.state.doc.textContent.trim().length > 0;
+      if (hasText) {
+        editor.commands.insertContentAt(size, '<p></p>');
+      }
+      streamStartRef.current = editor.state.doc.content.size;
+      editor.setEditable(false);
+    },
+    streamDelta: (text: string) => {
+      if (!editor || !text) return;
+      const end = editor.state.doc.content.size;
+      // Insert raw text deltas at the document end for a live typewriter effect.
+      editor.commands.insertContentAt(end, text.replace(/\n/g, '<br>'));
+      editor.commands.scrollIntoView();
+    },
+    streamEnd: (fullText: string) => {
+      if (!editor) return;
+      const start = streamStartRef.current;
+      streamStartRef.current = null;
+      editor.setEditable(!readOnly);
+      // Replace the raw streamed region with cleanly-parsed paragraph nodes.
+      if (start != null && fullText && fullText.trim()) {
+        const end = editor.state.doc.content.size;
+        const nodes = (plainTextToTipTap(fullText) as any).content ?? [];
+        editor.chain().deleteRange({ from: start, to: end }).insertContentAt(start, nodes).run();
+      }
+      // Trigger a save of the finalized content.
+      onChange(JSON.stringify(editor.getJSON()), getWordCount(editor.getJSON()));
+    },
+  }), [editor, readOnly, onChange]);
 
   useEffect(() => {
     if (!editor) return;

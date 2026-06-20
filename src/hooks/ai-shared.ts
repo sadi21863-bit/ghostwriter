@@ -34,3 +34,25 @@ export async function callAI(endpoint: string, body: any) {
   const res = await fetch("/api/ai/" + endpoint, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
   return res.json();
 }
+
+export async function callAIStream(endpoint: string, body: any, onDelta: (chunk: string) => void): Promise<any> {
+  const res = await fetch("/api/ai/" + endpoint, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ ...body, stream: true }),
+  });
+  const ct = res.headers.get("content-type") || "";
+  if (ct.includes("application/json") || !res.body) {
+    try { return await res.json(); } catch { return { error: "Generation failed. Please try again." }; }
+  }
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let text = "";
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    const chunk = decoder.decode(value, { stream: true });
+    if (chunk) { text += chunk; onDelta(chunk); }
+  }
+  return { text };
+}
