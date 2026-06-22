@@ -37,6 +37,9 @@ export async function generateSoulImage(params: {
   seed?: number;
   width?: number;
   height?: number;
+  /** "preview" → cheaper 720p tier (~$0.12) for disposable storyboard frames;
+   *  "final"/undefined → provider default (higher-res keeper assets, unchanged). */
+  quality?: "preview" | "final";
 }): Promise<string> {
   const body: Record<string, any> = {
     prompt: params.prompt,
@@ -54,8 +57,13 @@ export async function generateSoulImage(params: {
       : (params.referenceStrength ?? 0.85);
   }
 
-  if (params.width)  body.width  = params.width;
-  if (params.height) body.height = params.height;
+  // Resolution tier (Segmind prices by output size: 720p ≈ $0.12 vs 1080p ≈ $0.23).
+  if (params.width && params.height) {
+    body.width = params.width; body.height = params.height;
+  } else if (params.quality === "preview") {
+    body.width = 720; body.height = 960; // cheaper 720p band for previews
+  }
+  // quality "final"/undefined → leave to provider default (keeper-quality, unchanged).
 
   const res = await fetchWithTimeout(`${SEGMIND_BASE}/higgsfield-text2image-soul`, {
     method: "POST",

@@ -42,6 +42,7 @@ export async function POST(_: Request, { params }: { params: Promise<{ projectId
       apiKey: higgsfieldKey,
       prompt: shot.soulPrompt || `${shot.subject}. ${shot.action}. ${shot.location}. Cinematic, photorealistic.`,
       referenceImageUrl: referenceImageUrl || undefined,
+      quality: "preview", // disposable storyboard frame → cheaper 720p tier
     });
 
     let previewImageUrl = soulUrl;
