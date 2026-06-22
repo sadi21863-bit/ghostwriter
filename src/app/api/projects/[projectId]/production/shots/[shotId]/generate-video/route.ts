@@ -22,9 +22,10 @@ export async function POST(req: Request, { params }: { params: Promise<{ project
     return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const user = await db.query.users.findFirst({ where: eq(users.id, s.user.id) });
-  const higgsfieldKey = decrypt(user?.higgsfieldApiKey ?? "");
-  if (!higgsfieldKey)
-    return NextResponse.json({ error: "Add your Higgsfield API key in Settings." }, { status: 400 });
+  // Video generation routes through Segmind (api.segmind.com), not Higgsfield's native API.
+  const segmindKey = decrypt(user?.segmindApiKey ?? "");
+  if (!segmindKey)
+    return NextResponse.json({ error: "Add your Segmind API key in Settings." }, { status: 400 });
 
   const { projectId: pid, shotId } = await params;
   const shot = await db.query.productionShots.findFirst({
@@ -38,7 +39,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ project
     return NextResponse.json({ error: "Invalid model" }, { status: 400 });
 
   const { requestId, pollingUrl } = await generateTextVideo({
-    apiKey: higgsfieldKey,
+    apiKey: segmindKey,
     prompt: shot.videoPrompt || shot.soulPrompt || "Cinematic scene",
     model: model as VideoModelId,
     cameraPreset: shot.cameraPreset || undefined,

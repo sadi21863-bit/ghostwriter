@@ -57,7 +57,7 @@ const ProductionStudio = dynamic(() => import("@/components/ProductionStudio"), 
 
 interface Props {
   project: any;
-  higgsfieldKey: string;
+  segmindKey: string;
   mode: string;
   setMode: (m: string) => void;
   activeChap: any;
@@ -194,7 +194,7 @@ const modeLabel = (m: string) => (m === "cohost" ? "Co-host" : MODE_REGISTRY[m a
 
 export default function ToolbarPanel(props: Props) {
   const {
-    project, higgsfieldKey, mode, setMode, activeChap, updateChapter,
+    project, segmindKey, mode, setMode, activeChap, updateChapter,
     prompt, setPrompt, expandedPrompt, setExpandedPrompt,
     showAgents, setShowAgents, showComicStudio, setShowComicStudio, showProductionStudio, setShowProductionStudio,
     generating, genTarget, streamText, setStreamText, undoStack, undoGeneration,
@@ -488,9 +488,9 @@ export default function ToolbarPanel(props: Props) {
 
       {/* ── Main content area — mode routing ────────────────────────────── */}
       {showComicStudio
-        ? <ComicStudio project={project} higgsfieldKey={higgsfieldKey} onOpenStudio={() => { setShowComicStudio(false); setShowProductionStudio(true); }} />
+        ? <ComicStudio project={project} segmindKey={segmindKey} onOpenStudio={() => { setShowComicStudio(false); setShowProductionStudio(true); }} />
         : showProductionStudio
-        ? <ProductionStudio project={project} higgsfieldKey={higgsfieldKey} />
+        ? <ProductionStudio project={project} segmindKey={segmindKey} />
         : mode === "dialogue"
         ? <DialoguePanel
             project={project}

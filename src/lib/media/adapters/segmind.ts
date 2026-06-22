@@ -2,7 +2,7 @@ import { generateSoulImage, generateTextVideo, pollJob } from "@/lib/higgsfield/
 import type { ImageProvider, VideoProvider } from "../providers";
 
 export const SegmindImageProvider: ImageProvider = {
-  id: "segmind_soul", name: "Higgsfield Soul 2.0",
+  id: "segmind_soul", name: "Segmind (Soul 2.0)",
   description: "Character-consistent portrait generation. Recommended.", requiresKey: true,
   async generate(params, apiKey) {
     const url = await generateSoulImage({

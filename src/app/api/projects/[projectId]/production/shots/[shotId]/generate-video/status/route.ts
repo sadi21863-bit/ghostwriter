@@ -32,12 +32,13 @@ export async function GET(_: Request, { params }: { params: Promise<{ projectId:
     return NextResponse.json({ status: shot.generationStatus });
 
   const user = await db.query.users.findFirst({ where: eq(users.id, s.user.id) });
-  const higgsfieldKey = decrypt(user?.higgsfieldApiKey ?? "");
-  if (!higgsfieldKey)
-    return NextResponse.json({ error: "API key missing" }, { status: 400 });
+  // Video status polling routes through Segmind (api.segmind.com), not Higgsfield's native API.
+  const segmindKey = decrypt(user?.segmindApiKey ?? "");
+  if (!segmindKey)
+    return NextResponse.json({ error: "Add your Segmind API key in Settings." }, { status: 400 });
 
   const [, pollingUrl] = shot.higgsfieldJobId.split("|");
-  const { status, mediaUrl } = await pollJob({ apiKey: higgsfieldKey, pollingUrl });
+  const { status, mediaUrl } = await pollJob({ apiKey: segmindKey, pollingUrl });
 
   if (status === "COMPLETED" && mediaUrl) {
     let finalVideoUrl = mediaUrl;

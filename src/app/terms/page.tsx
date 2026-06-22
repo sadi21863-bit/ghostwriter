@@ -43,7 +43,7 @@ export default function TermsPage() {
 
       <section>
         <h2 style={h2Style}>7. Contact</h2>
-        <p style={pStyle}>Questions: hello@ghostwriterai.com</p>
+        <p style={pStyle}>Questions: support@ghost-writer.cc</p>
       </section>
 
       <div style={{ marginTop: 60, paddingTop: 24, borderTop: '1px solid rgba(255,255,255,0.05)' }}>

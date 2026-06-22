@@ -17,6 +17,8 @@ export async function GET() {
     higgsfieldKeyLast4:        keyLast4(user.higgsfieldApiKey || ""),
     higgsfieldSecretSet:       (user.higgsfieldApiSecret || "").length > 0,
     higgsfieldSecretLast4:     keyLast4(user.higgsfieldApiSecret || ""),
+    segmindKeySet:             (user.segmindApiKey || "").length > 0,
+    segmindKeyLast4:           keyLast4(user.segmindApiKey || ""),
     openaiKeySet:              (user.openaiApiKey || "").length > 0,
     openaiKeyLast4:            keyLast4(user.openaiApiKey || ""),
     imageProviderId:           user.imageProviderId || "segmind_soul",
@@ -27,11 +29,12 @@ export async function GET() {
 
 export async function PATCH(req: Request) {
   const s = await getRequiredSession();
-  const { higgsfieldApiKey, higgsfieldApiSecret, openaiApiKey, imageProviderId, trendIntelligenceKey } = await req.json();
+  const { higgsfieldApiKey, higgsfieldApiSecret, segmindApiKey, openaiApiKey, imageProviderId, trendIntelligenceKey } = await req.json();
 
   const update: Record<string, string | Date> = {};
   if (higgsfieldApiKey     !== undefined) update.higgsfieldApiKey     = encrypt(higgsfieldApiKey);
   if (higgsfieldApiSecret  !== undefined) update.higgsfieldApiSecret  = encrypt(higgsfieldApiSecret);
+  if (segmindApiKey        !== undefined) update.segmindApiKey        = encrypt(segmindApiKey);
   if (openaiApiKey         !== undefined) update.openaiApiKey         = encrypt(openaiApiKey);
   if (trendIntelligenceKey !== undefined) update.trendIntelligenceKey = encrypt(trendIntelligenceKey);
   if (imageProviderId      !== undefined) update.imageProviderId      = imageProviderId;

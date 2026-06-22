@@ -33,7 +33,7 @@ export default function PrivacyPage() {
 
       <section>
         <h2 style={h2Style}>Your Rights</h2>
-        <p style={pStyle}>You may request a copy of your data, correction of inaccurate data, or deletion of your account and all associated data at any time by emailing hello@ghostwriterai.com.</p>
+        <p style={pStyle}>You may request a copy of your data, correction of inaccurate data, or deletion of your account and all associated data at any time by emailing support@ghost-writer.cc.</p>
       </section>
 
       <section>

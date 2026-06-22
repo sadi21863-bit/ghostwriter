@@ -38,9 +38,10 @@ export async function POST(req: Request) {
   }
 
   const user = await db.query.users.findFirst({ where: eq(users.id, session.user.id) });
-  const apiKey = decrypt(user?.higgsfieldApiKey ?? "");
+  // Lipsync routes through Segmind (api.segmind.com), not Higgsfield's native API.
+  const apiKey = decrypt(user?.segmindApiKey ?? "");
   if (!apiKey) {
-    return NextResponse.json({ error: "Add your Higgsfield API key in Settings." }, { status: 400 });
+    return NextResponse.json({ error: "Add your Segmind API key in Settings." }, { status: 400 });
   }
 
   const { requestId, pollingUrl } = await generateLipsync({
@@ -77,7 +78,7 @@ export async function GET(req: Request) {
   }
 
   const user = await db.query.users.findFirst({ where: eq(users.id, session.user.id) });
-  const apiKey = decrypt(user?.higgsfieldApiKey ?? "");
+  const apiKey = decrypt(user?.segmindApiKey ?? "");
 
   const result = await pollJob({ apiKey, pollingUrl: `https://api.segmind.com/v1/requests/${audioExport.lipsyncJobId}` });
 

@@ -21,9 +21,10 @@ export async function POST(req: Request, { params }: { params: Promise<{ project
     return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const user = await db.query.users.findFirst({ where: eq(users.id, s.user.id) });
-  const higgsfieldKey = decrypt(user?.higgsfieldApiKey ?? "");
-  if (!higgsfieldKey)
-    return NextResponse.json({ error: "Add your Higgsfield API key in Settings." }, { status: 400 });
+  // Animation generation routes through Segmind (api.segmind.com), not Higgsfield's native API.
+  const segmindKey = decrypt(user?.segmindApiKey ?? "");
+  if (!segmindKey)
+    return NextResponse.json({ error: "Add your Segmind API key in Settings." }, { status: 400 });
 
   const shot = await db.query.productionShots.findFirst({
     where: and(eq(productionShots.id, (await params).shotId), eq(productionShots.projectId, (await params).projectId)),
@@ -35,7 +36,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ project
   const { dopModel } = await req.json().catch(() => ({}));
 
   const { requestId, pollingUrl } = await generateDoPVideo({
-    apiKey: higgsfieldKey,
+    apiKey: segmindKey,
     prompt: shot.videoPrompt || shot.soulPrompt || "Cinematic motion",
     imageUrl: shot.previewImageUrl,
     model: dopModel ?? "dop-turbo",

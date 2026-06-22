@@ -3,7 +3,7 @@ import { useState, useEffect, useRef } from "react";
 import { ART_STYLES } from "@/lib/ai/panel-prompt-builder";
 import { EmptyState } from "@/components/EmptyState";
 
-export default function ComicStudio({ project, higgsfieldKey, onOpenStudio }: { project: any; higgsfieldKey: string; onOpenStudio?: () => void }) {
+export default function ComicStudio({ project, segmindKey, onOpenStudio }: { project: any; segmindKey: string; onOpenStudio?: () => void }) {
   const [view, setView] = useState<"generator" | "editor">("generator");
   const [pages, setPages] = useState<any[]>([]);
   const [activePage, setActivePage] = useState<any | null>(null);
@@ -43,7 +43,7 @@ export default function ComicStudio({ project, higgsfieldKey, onOpenStudio }: { 
   };
 
   const generateComic = async () => {
-    if (!selectedChapterId || generating || !higgsfieldKey) return;
+    if (!selectedChapterId || generating || !segmindKey) return;
     setGenerating(true);
     setGenError("");
     setGenerationMsg("Analyzing scene structure...");
@@ -62,7 +62,7 @@ export default function ComicStudio({ project, higgsfieldKey, onOpenStudio }: { 
       setPages(newPages);
       openPage(data.page, 0);
     } catch {
-      setGenError("Generation failed. Check your Higgsfield API key.");
+      setGenError("Generation failed. Check your Segmind API key.");
     } finally {
       setGenerating(false);
       setGenerationMsg("");
@@ -236,9 +236,9 @@ export default function ComicStudio({ project, higgsfieldKey, onOpenStudio }: { 
           <div style={{ fontSize: 12, color: co.muted }}>Powered by Higgsfield Soul 2.0 · Story formats only</div>
         </div>
 
-        {!higgsfieldKey && (
+        {!segmindKey && (
           <div style={{ background: "#2a1a00", border: "1px solid #f59e0b", borderRadius: 10, padding: 14, marginBottom: 20, fontSize: 12, color: "#fbbf24" }}>
-            ⚠️ Add your Higgsfield API key in Settings to enable comics.
+            ⚠️ Add your Segmind API key in Settings to enable comics.
           </div>
         )}
 
@@ -285,7 +285,7 @@ export default function ComicStudio({ project, higgsfieldKey, onOpenStudio }: { 
 
             {generating
               ? <div style={{ textAlign: "center", padding: 20, color: co.muted, fontSize: 13 }}>⏳ {generationMsg}</div>
-              : <button style={{ ...sBtn, width: "100%", fontSize: 15, padding: "12px 0", opacity: !higgsfieldKey ? 0.5 : 1 }} disabled={!higgsfieldKey || generating} onClick={generateComic}>🎨 Convert to Comic</button>}
+              : <button style={{ ...sBtn, width: "100%", fontSize: 15, padding: "12px 0", opacity: !segmindKey ? 0.5 : 1 }} disabled={!segmindKey || generating} onClick={generateComic}>🎨 Convert to Comic</button>}
           </>
         )}
 

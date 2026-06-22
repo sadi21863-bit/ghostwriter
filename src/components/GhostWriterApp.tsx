@@ -119,7 +119,7 @@ export default function GhostWriterApp({ projectId }: { projectId: string }) {
     project, loadError,
     setErrorMsg,
     confirmModal, setConfirmModal,
-    higgsfieldKey, savedMsg, setSavedMsg,
+    segmindKey, savedMsg, setSavedMsg,
     dialogueCharA, setDialogueCharA,
     dialogueCharB, setDialogueCharB,
   } = projectState;
@@ -278,7 +278,7 @@ export default function GhostWriterApp({ projectId }: { projectId: string }) {
   const toolbarPanelElement = (
     <ToolbarPanel
       project={project}
-      higgsfieldKey={higgsfieldKey}
+      segmindKey={segmindKey}
       mode={mode}
       setMode={setMode}
       activeChap={activeChap}

@@ -21,9 +21,12 @@ export async function POST(_: Request, { params }: { params: Promise<{ projectId
     return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const user = await db.query.users.findFirst({ where: eq(users.id, s.user.id) });
-  const apiKey = decrypt(user?.higgsfieldApiKey ?? "") || process.env.HIGGSFIELD_API_KEY;
+  // Portrait generation routes through Segmind (api.segmind.com), not Higgsfield's
+  // native API — see src/lib/higgsfield/client.ts's generateSoulImage. Bring-your-
+  // own-key for launch: no dev-key fallback, ever, on a user-triggered generation path.
+  const apiKey = decrypt(user?.segmindApiKey ?? "");
   if (!apiKey)
-    return NextResponse.json({ error: "Add your Higgsfield API key in Settings to generate portraits." }, { status: 400 });
+    return NextResponse.json({ error: "Add your Segmind API key in Settings to generate portraits." }, { status: 400 });
 
   const char = await db.query.characters.findFirst({
     where: and(

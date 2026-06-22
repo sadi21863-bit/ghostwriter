@@ -25,9 +25,10 @@ export async function POST(_: Request, { params }: { params: Promise<{ projectId
     return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const user = await db.query.users.findFirst({ where: eq(users.id, s.user.id) });
-  const higgsfieldKey = decrypt(user?.higgsfieldApiKey ?? "");
-  if (!higgsfieldKey)
-    return NextResponse.json({ error: "Add your Higgsfield API key in Settings." }, { status: 400 });
+  // Preview generation routes through Segmind (api.segmind.com), not Higgsfield's native API.
+  const segmindKey = decrypt(user?.segmindApiKey ?? "");
+  if (!segmindKey)
+    return NextResponse.json({ error: "Add your Segmind API key in Settings." }, { status: 400 });
 
   const shots = await db.query.productionShots.findMany({
     where: and(eq(productionShots.projectId, (await params).projectId)),
@@ -57,7 +58,7 @@ export async function POST(_: Request, { params }: { params: Promise<{ projectId
 
         const referenceImageUrl = (shot.primaryCharacter as any)?.portraitUrl || undefined;
         const soulUrl = await generateSoulImage({
-          apiKey: higgsfieldKey,
+          apiKey: segmindKey,
           prompt: shot.soulPrompt || `${shot.subject}. ${shot.action}. ${shot.location}. Cinematic, photorealistic.`,
           referenceImageUrl: referenceImageUrl || undefined,
         });

@@ -71,6 +71,13 @@
       "when": 1781878484457,
       "tag": "0009_empty_aqueduct",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1782108811919,
+      "tag": "0010_chubby_the_fallen",
+      "breakpoints": true
     }
   ]
 }

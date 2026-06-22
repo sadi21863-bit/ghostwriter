@@ -58,7 +58,7 @@ const STATUS_LABELS: Record<string, string> = {
   error: "Error",
 };
 
-export default function ProductionStudio({ project, higgsfieldKey }: { project: any; higgsfieldKey: string }) {
+export default function ProductionStudio({ project, segmindKey }: { project: any; segmindKey: string }) {
   const [view, setView] = useState<"setup" | "shots" | "export" | "pipeline">("setup");
   const [generating, setGenerating] = useState(false);
   const [generatingStep, setGeneratingStep] = useState("");
@@ -264,9 +264,9 @@ export default function ProductionStudio({ project, higgsfieldKey }: { project: 
         <p style={{ fontSize: 14, color: "#6b7280", maxWidth: 420, textAlign: "center", lineHeight: 1.6, margin: 0 }}>
           GhostWriter will analyze all your chapters and generate a complete shot list with Soul ID character profiles and Higgsfield-ready prompts.
         </p>
-        {!higgsfieldKey && (
+        {!segmindKey && (
           <div style={{ background: "#fffbeb", border: "1px solid #fde68a", borderRadius: 8, padding: "10px 16px", maxWidth: 420, textAlign: "center", fontSize: 13, color: "#92400e" }}>
-            ⚠️ Add your Higgsfield API key in Settings to enable image and video generation. The shot list will still be generated.
+            ⚠️ Add your Segmind API key in Settings to enable image and video generation. The shot list will still be generated.
           </div>
         )}
         {error && (
@@ -372,7 +372,7 @@ export default function ProductionStudio({ project, higgsfieldKey }: { project: 
       {/* Top bar */}
       <div style={{ padding: "10px 16px", borderBottom: "1px solid #e5e7eb", display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", background: "#fff" }}>
         <button onClick={() => setView("setup")} style={outBtn}>← Back</button>
-        <button onClick={previewAll} disabled={previewingAll || !higgsfieldKey} style={{ ...btn("#059669"), opacity: !higgsfieldKey ? 0.5 : 1 }}>
+        <button onClick={previewAll} disabled={previewingAll || !segmindKey} style={{ ...btn("#059669"), opacity: !segmindKey ? 0.5 : 1 }}>
           {previewingAll ? "Previewing…" : "🖼 Preview All Shots"}
         </button>
         <button onClick={generateShotList} disabled={generating} style={outBtn}>
@@ -407,7 +407,7 @@ export default function ProductionStudio({ project, higgsfieldKey }: { project: 
               <div style={{ fontSize: 12, fontWeight: 700, color: "#6c47ff", marginBottom: 10, borderBottom: "2px solid #ede9fe", paddingBottom: 4 }}>
                 ━━ Scene {scene}{chapterTitle ? ` — ${chapterTitle}` : ""} ━━
               </div>
-              {sceneShots.map(shot => <ShotCard key={shot.id} shot={shot} projectId={project.id} higgsfieldKey={higgsfieldKey} onUpdate={updateShot} onPreview={previewShot} onAnimate={animateShot} onGenerateVideo={generateVideo} videoModel={videoModelMap[shot.id] || "kling"} onModelChange={m => setVideoModelMap(prev => ({ ...prev, [shot.id]: m }))} />)}
+              {sceneShots.map(shot => <ShotCard key={shot.id} shot={shot} projectId={project.id} segmindKey={segmindKey} onUpdate={updateShot} onPreview={previewShot} onAnimate={animateShot} onGenerateVideo={generateVideo} videoModel={videoModelMap[shot.id] || "kling"} onModelChange={m => setVideoModelMap(prev => ({ ...prev, [shot.id]: m }))} />)}
             </div>
           );
         })}
@@ -458,9 +458,9 @@ function WhatsNextButton({
 }
 
 function ShotCard({
-  shot, projectId, higgsfieldKey, onUpdate, onPreview, onAnimate, onGenerateVideo, videoModel, onModelChange,
+  shot, projectId, segmindKey, onUpdate, onPreview, onAnimate, onGenerateVideo, videoModel, onModelChange,
 }: {
-  shot: Shot; projectId: string; higgsfieldKey: string;
+  shot: Shot; projectId: string; segmindKey: string;
   onUpdate: (id: string, updates: Partial<Shot>) => void;
   onPreview: (id: string) => void;
   onAnimate: (id: string) => void;
@@ -522,10 +522,10 @@ function ShotCard({
         )}
 
         <div style={{ display: "flex", flexDirection: "column", gap: 4, width: "100%" }}>
-          {(status === "idle" || status === "error") && higgsfieldKey && (
+          {(status === "idle" || status === "error") && segmindKey && (
             <button onClick={() => onPreview(shot.id)} style={btn()}>🖼 Preview</button>
           )}
-          {status === "preview_ready" && higgsfieldKey && (
+          {status === "preview_ready" && segmindKey && (
             <button onClick={() => onAnimate(shot.id)} style={btn("#059669")}>🎬 Animate</button>
           )}
           {status === "animated" && (
@@ -536,7 +536,7 @@ function ShotCard({
               {videoModel === "veo" && (
                 <div style={{ fontSize: 9, color: "#d97706", marginTop: 2 }}>Veo 3.1 generates native audio alongside video.</div>
               )}
-              {higgsfieldKey && <button onClick={() => onGenerateVideo(shot.id)} style={btn("#d97706")}>⚡ Generate Video</button>}
+              {segmindKey && <button onClick={() => onGenerateVideo(shot.id)} style={btn("#d97706")}>⚡ Generate Video</button>}
             </>
           )}
           {status === "final_ready" && (

@@ -26,7 +26,7 @@ export function useWorldBible({
         setPortraitLoading(false);
         return data.portraitUrl;
       }
-    } catch (e) { setErrorMsg("Portrait generation failed. Check your Higgsfield API key."); }
+    } catch (e) { setErrorMsg("Portrait generation failed. Check your Segmind API key."); }
     setPortraitLoading(false);
     return null;
   };

@@ -51,9 +51,10 @@ export async function POST(req: Request, { params }: { params: Promise<{ project
     return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const user = await db.query.users.findFirst({ where: eq(users.id, s.user.id) });
-  const higgsfieldKey = decrypt(user?.higgsfieldApiKey ?? "");
-  if (!higgsfieldKey)
-    return NextResponse.json({ error: "Add your Higgsfield API key in Settings to generate comics." }, { status: 400 });
+  // Comic panel generation routes through Segmind (api.segmind.com), not Higgsfield's native API.
+  const segmindKey = decrypt(user?.segmindApiKey ?? "");
+  if (!segmindKey)
+    return NextResponse.json({ error: "Add your Segmind API key in Settings to generate comics." }, { status: 400 });
 
   const { chapterId, artStyleId } = await req.json();
 
@@ -118,7 +119,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ project
         : { referenceStrength: 0.85 };
 
       const soulUrl = await generateSoulImage({
-        apiKey: higgsfieldKey,
+        apiKey: segmindKey,
         prompt,
         stylePreset: artStyleObj.higgsfieldPreset,
         referenceImageUrl,

@@ -12,7 +12,7 @@ export function useProjectState(projectId: string) {
   const [savedMsg, setSavedMsg] = useState("");
   const [storyMemories, setStoryMemories] = useState<any[]>([]);
   const [creatorBible, setCreatorBible] = useState<any>(null);
-  const [higgsfieldKey, setHiggsfieldKey] = useState("");
+  const [segmindKey, setSegmindKey] = useState("");
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [confirmModal, setConfirmModal] = useState<any>(null);
   const [dialogueCharA, setDialogueCharA] = useState("");
@@ -27,7 +27,10 @@ export function useProjectState(projectId: string) {
 
   useEffect(() => {
     fetch("/api/user/settings").then(r => r.json()).then(data => {
-      if (data.higgsfieldKeySet) setHiggsfieldKey("__set__");
+      // ProductionStudio/ComicStudio's image+video generation routes through Segmind,
+      // not Higgsfield's native API (which is only for optional Soul ID training) —
+      // gate button-enablement on whichever key the generation calls actually need.
+      if (data.segmindKeySet) setSegmindKey("__set__");
     }).catch(() => {});
   }, []);
 
@@ -232,7 +235,7 @@ export function useProjectState(projectId: string) {
     savedMsg, setSavedMsg,
     storyMemories, setStoryMemories,
     creatorBible, setCreatorBible,
-    higgsfieldKey,
+    segmindKey,
     errorMsg, setErrorMsg,
     confirmModal, setConfirmModal,
     dialogueCharA, setDialogueCharA,

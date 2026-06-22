@@ -33,7 +33,7 @@ export async function POST(_: Request, { params }: { params: Promise<{ projectId
 
   const imageProviderId = user.imageProviderId || "segmind_soul";
   const provider = getImageProvider(imageProviderId);
-  const rawKey = imageProviderId === "openai_gpt_image" ? user.openaiApiKey : user.higgsfieldApiKey;
+  const rawKey = imageProviderId === "openai_gpt_image" ? user.openaiApiKey : user.segmindApiKey;
   const apiKey = decrypt(rawKey ?? "");
 
   if (!apiKey) {

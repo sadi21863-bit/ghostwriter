@@ -12,6 +12,7 @@ declare global {
 type Settings = {
   higgsfieldKeySet: boolean; higgsfieldKeyLast4: string;
   higgsfieldSecretSet: boolean; higgsfieldSecretLast4: string;
+  segmindKeySet: boolean; segmindKeyLast4: string;
   openaiKeySet: boolean; openaiKeyLast4: string;
   imageProviderId: string;
   trendIntelligenceKeySet: boolean; trendIntelligenceKeyLast4: string;
@@ -38,6 +39,7 @@ export default function SettingsPage() {
 
   const [higgsfieldApiKey, setHiggsfieldApiKey] = useState("");
   const [higgsfieldApiSecret, setHiggsfieldApiSecret] = useState("");
+  const [segmindApiKey, setSegmindApiKey] = useState("");
   const [openaiApiKey, setOpenaiApiKey] = useState("");
   const [trendKey, setTrendKey] = useState("");
 
@@ -55,6 +57,7 @@ export default function SettingsPage() {
     const body: Record<string, string> = {};
     if (higgsfieldApiKey)    body.higgsfieldApiKey    = higgsfieldApiKey;
     if (higgsfieldApiSecret) body.higgsfieldApiSecret = higgsfieldApiSecret;
+    if (segmindApiKey)       body.segmindApiKey       = segmindApiKey;
     if (openaiApiKey)        body.openaiApiKey        = openaiApiKey;
     if (trendKey)            body.trendIntelligenceKey = trendKey;
     await fetch("/api/user/settings", {
@@ -66,7 +69,7 @@ export default function SettingsPage() {
     setSettings(updated);
     setSaving(false); setSaved(true);
     setTimeout(() => setSaved(false), 2000);
-    setHiggsfieldApiKey(""); setHiggsfieldApiSecret(""); setOpenaiApiKey(""); setTrendKey("");
+    setHiggsfieldApiKey(""); setHiggsfieldApiSecret(""); setSegmindApiKey(""); setOpenaiApiKey(""); setTrendKey("");
   };
 
   const refreshSubscription = () => fetch("/api/subscription").then(r => r.json()).then(setSubscription);
@@ -170,7 +173,7 @@ export default function SettingsPage() {
     </div>
   );
 
-  const hasChanges = !!(higgsfieldApiKey || higgsfieldApiSecret || openaiApiKey || trendKey);
+  const hasChanges = !!(higgsfieldApiKey || higgsfieldApiSecret || segmindApiKey || openaiApiKey || trendKey);
 
   return (
     <>
@@ -326,12 +329,26 @@ export default function SettingsPage() {
 
       {/* ── API Keys ──────────────────────────────────────────────────── */}
       <section style={{ marginBottom: 40 }}>
-        <h2 style={{ fontSize: 16, fontWeight: 500, marginBottom: 20, color: "var(--color-text-secondary)" }}>
-          Higgsfield AI
+        <h2 style={{ fontSize: 16, fontWeight: 500, marginBottom: 4, color: "var(--color-text-secondary)" }}>
+          Segmind — image &amp; video generation
         </h2>
-        <Field label="API Key" isSet={settings?.higgsfieldKeySet ?? false} last4={settings?.higgsfieldKeyLast4 ?? ""}
+        <p style={{ fontSize: 12, color: "var(--color-text-muted)", marginBottom: 16 }}>
+          Powers image and video generation (including comic panels and character portraits). Pay only for what you generate — nothing expires. Get a key at <a href="https://segmind.com" target="_blank" rel="noreferrer" style={{ color: "inherit", textDecoration: "underline" }}>segmind.com</a>.
+        </p>
+        <Field label="Segmind API Key" isSet={settings?.segmindKeySet ?? false} last4={settings?.segmindKeyLast4 ?? ""}
+          value={segmindApiKey} onChange={setSegmindApiKey} placeholder="SG_..." />
+      </section>
+
+      <section style={{ marginBottom: 40 }}>
+        <h2 style={{ fontSize: 16, fontWeight: 500, marginBottom: 4, color: "var(--color-text-secondary)" }}>
+          Higgsfield — character training (Soul ID, optional)
+        </h2>
+        <p style={{ fontSize: 12, color: "var(--color-text-muted)", marginBottom: 16 }}>
+          Only needed to train consistent characters (Soul ID). Requires a Higgsfield subscription. Skip this if you only want image/video generation.
+        </p>
+        <Field label="Higgsfield API Key" isSet={settings?.higgsfieldKeySet ?? false} last4={settings?.higgsfieldKeyLast4 ?? ""}
           value={higgsfieldApiKey} onChange={setHiggsfieldApiKey} placeholder="hf_..." />
-        <Field label="API Secret" isSet={settings?.higgsfieldSecretSet ?? false} last4={settings?.higgsfieldSecretLast4 ?? ""}
+        <Field label="Higgsfield API Secret" isSet={settings?.higgsfieldSecretSet ?? false} last4={settings?.higgsfieldSecretLast4 ?? ""}
           value={higgsfieldApiSecret} onChange={setHiggsfieldApiSecret} placeholder="hfs_..." />
       </section>
 

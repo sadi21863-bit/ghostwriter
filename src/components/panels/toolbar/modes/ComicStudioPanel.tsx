@@ -3,10 +3,10 @@ import ComicStudio from "@/components/ComicStudio";
 
 interface Props {
   project: any;
-  higgsfieldKey: string;
+  segmindKey: string;
   onOpenStudio: () => void;
 }
 
-export function ComicStudioPanel({ project, higgsfieldKey, onOpenStudio }: Props) {
-  return <ComicStudio project={project} higgsfieldKey={higgsfieldKey} onOpenStudio={onOpenStudio} />;
+export function ComicStudioPanel({ project, segmindKey, onOpenStudio }: Props) {
+  return <ComicStudio project={project} segmindKey={segmindKey} onOpenStudio={onOpenStudio} />;
 }
