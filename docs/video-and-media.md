@@ -1,254 +1,181 @@
 # Video and Media Generation
 
-How Higgsfield, Segmind, and the video pipeline work, what Soul ID is, and how the text-to-video models differ.
+How Higgsfield, Segmind, and the video pipeline actually work — corrected 2026-06-24/25 after a real-money pipeline test found this doc had drifted significantly from the shipped code (wrong function names, a lipsync contract that 404'd, model params that didn't match any real Segmind schema). Full incident report: `docs/2026-06-24-segmind-higgsfield-pipeline-test.md`.
 
 ---
 
 ## Provider Architecture
 
-GhostWriter uses two providers for media generation:
-
 | Provider | Used for | Integration |
 |---|---|---|
-| **Higgsfield** | Soul ID training, image-to-video (DoP), text-to-video, lipsync | Native Higgsfield API |
-| **Segmind** | Soul 2.0 image generation, some video models | Segmind proxy API |
+| **Segmind** | Soul 2.0 image generation, image-to-video (DoP), all 5 text-to-video models, lipsync | Proxy API at `api.segmind.com` — `x-api-key` header |
+| **Higgsfield** | Soul ID training only | Native platform API at `platform.higgsfield.ai` — `hf-api-key`/`hf-secret` headers |
 | **OpenAI** | Embeddings (`text-embedding-3-small`) + Audio Novel TTS (`tts-1`) | NOT used for image, video, or text generation |
 
-**Why Segmind as a proxy?**
-Segmind provides access to multiple open-source models (Stable Diffusion variants, Soul 2.0) through a unified API. It's cheaper than generating through each model's native API and simplifies integration.
+**Almost everything is Segmind, not Higgsfield.** Despite the file being named `src/lib/higgsfield/client.ts`, only Soul ID *training* (`trainSoulId`/`pollSoulIdTraining`) actually calls Higgsfield's own API. Image generation, image-to-video, every text-to-video model, and lipsync all route through Segmind's proxy — which happens to host several Higgsfield-branded models (`higgsfield-text2image-soul`, `higgsfield-image2video`) alongside third-party ones (Kling, Veo, Seedance, Wan, Hailuo, Hallo, Pixverse).
+
+**BYOK, no fallback**: image/video generation requires the user's own `segmindApiKey` (encrypted in `users` table). There is no app-level Segmind key fallback — if a user hasn't added their own key, every generation route 400s with a clear "Add your Segmind API key in Settings" message.
+
+---
+
+## Sync (v1) vs. Async (v2) — read this before adding any new Segmind call
+
+Segmind has two endpoint versions per model:
+- **`v1` (`api.segmind.com/v1/{model}`)**: synchronous. The HTTP response doesn't come back until the media is fully generated, returned as **raw binary bytes** (not JSON). Segmind's own docs say v1 is for things that "typically complete within 60 seconds."
+- **`v2` (`api.segmind.com/v2/{model}`)**: asynchronous. Returns `{request_id, status_url, ...}` immediately; poll `status_url` until `COMPLETED`/`FAILED`.
+
+**Every model in this client was originally wired to v1**, including video models that routinely take well over 60 seconds. This caused real, repeated multi-minute timeouts across three different models (DoP/`image2video`, Hallo, Kling) in production testing. `generateTextVideo` has since been switched to v2 (see below) — **`generateDoPVideo`, `generateLipsync`, and `generateSoulImage` are still on v1** and still vulnerable to the same latency pattern. Switching them to v2 is the natural next fix if they show the same symptom.
+
+### Binary-vs-JSON response handling
+
+Because v1 endpoints return raw bytes, every v1 call goes through `resolveMediaResponse(res, kind, blobPathPrefix)` (`src/lib/higgsfield/client.ts`), which:
+1. Checks `Content-Type` — if it starts with `image/` or `video/`, reads the bytes and uploads them to Vercel Blob itself (or falls back to a `data:` URL if `BLOB_READ_WRITE_TOKEN` isn't set), returning `{ mediaUrl }`.
+2. Otherwise, parses the response as JSON and returns `{ json }` for the caller to read `request_id`/etc. from.
+
+### A critical, separate gotcha this surfaced: Node's `fetch` has its own ~5-minute timeout
+
+Node's built-in `fetch` (backed by its bundled `undici`) enforces an internal `headersTimeout`/`bodyTimeout` (~5 min default) **completely independently of any `AbortController` signal** you pass to it. Every long-running Segmind call in this client was silently capped at ~5 minutes regardless of what timeout value the code specified — surfacing as `UND_ERR_HEADERS_TIMEOUT`, not whatever error message the code's own timeout logic was supposed to produce.
+
+**Fix**: `fetchWithTimeout()` imports `fetch` and `Agent` directly **from the `undici` npm package** (not Node's global `fetch`) with `headersTimeout: 0, bodyTimeout: 0` on the Agent, making the function's own `AbortController`-based `ms` argument the only timeout that applies. Do not mix Node's global `fetch` with a separately-installed `undici` package's `Agent` as a `dispatcher` — that throws a *different* error (`UND_ERR_INVALID_ARG`, "invalid onRequestStart method") from a version mismatch between the two. Source `fetch` and `Agent` from the same package.
 
 ---
 
 ## Higgsfield Client: `src/lib/higgsfield/client.ts`
 
-The central media client. All image/video generation calls go through this file.
-
-### Soul 2.0 (Image Generation)
-
-Soul 2.0 is a Segmind model that generates photorealistic character portraits:
+### Image generation — `generateSoulImage()`
 
 ```typescript
-export async function generateSoul2Image({
-  prompt,
-  soulId,       // optional — trained character consistency
-  width, height,
-  steps, seed,
-}: Soul2Options): Promise<string> // returns image URL
+generateSoulImage(params: {
+  apiKey: string;
+  prompt: string;
+  stylePreset?: string;
+  referenceImageUrl?: string;  // plain portrait URL for consistency
+  soulId?: string;             // trained Soul ID UUID for consistency (stronger)
+  referenceStrength?: number;
+  seed?: number; width?: number; height?: number;
+}): Promise<string>  // returns image URL (already on Blob if binary)
 ```
 
-Used in:
-- Character portrait generation (`/api/.../characters/[id]/portrait`)
-- Comic panel image generation (`/api/.../comics/.../regenerate`)
-- Production shot preview (`/api/.../production/shots/[id]/preview`)
+Calls `POST v1/higgsfield-text2image-soul`. **Character consistency has two distinct paths that must not be conflated**: `soulId` (a trained Soul ID, a real UUID) goes into `custom_reference_id`; a plain portrait image URL goes into the separate `reference_image_url` field. Sending a plain URL into `custom_reference_id` 400s with a UUID-parsing error — this was a real bug, fixed.
 
-### Soul ID Training
+Used in: character portraits (`/api/.../characters/[id]/portrait`), comic panels (`/api/.../comics` POST), shot previews (`/api/.../production/shots/[id]/preview`).
 
-Soul ID is Higgsfield's character consistency system. A user uploads 5-10 reference photos of a character, and Higgsfield trains a lightweight LoRA that can be used in subsequent generations to keep the character's face consistent.
+### Soul ID Training — `trainSoulId()` / `pollSoulIdTraining()`
+
+The one genuinely Higgsfield-native path (everything else above is Segmind).
 
 ```typescript
-export async function trainSoulId({
-  characterId,
-  imageUrls,    // 5-10 reference images
-  name,
-}: SoulIdTrainOptions): Promise<{ jobId: string }>
+trainSoulId(params: { apiKey: string; apiSecret: string; characterName: string; referenceImageUrls: string[] }): Promise<{ jobId: string }>
+pollSoulIdTraining(params: { apiKey: string; apiSecret: string; jobId: string }): Promise<{ status: "processing"|"completed"|"failed"; soulId?: string }>
 ```
 
-Training takes 5-15 minutes. Status is polled via:
-```typescript
-export async function getSoulIdStatus(jobId: string): Promise<{
-  status: "pending" | "training" | "complete" | "failed";
-  soulId?: string;  // ready to use once "complete"
-}>
-```
+Real contract (verified against the `higgsfield-ai/higgsfield-js` SDK source, not docs scraping — the docs were unreliable for this one):
+- Base URL: `https://platform.higgsfield.ai` (not `cloud.higgsfield.ai`)
+- Auth: two headers, `hf-api-key` and `hf-secret` (not `Authorization: Bearer key:secret`)
+- Endpoint: `POST /v1/custom-references` with body `{ name, input_images: [{ type: "image_url", image_url }, ...] }` — requires 3+ reference images
+- The created `id` **is** the Soul ID immediately; poll `GET /v1/custom-references/{id}` for `status` (`not_ready`/`queued`/`in_progress`/`completed`/`failed`) — there's no separate job-id-vs-soul-id distinction.
 
-The `soulId` string is stored in `characters.higgsfield_soul_id` and passed to subsequent Soul 2.0 calls for that character.
+**Untested live** — no Higgsfield credentials on hand during the pipeline test (only Segmind). Not used by the trailer/production pipeline at all (that uses `reference_image_url`, not trained Soul IDs).
 
-### Image-to-Video (DoP)
-
-"Director of Photography" — animates a still image with cinematic camera movement:
+### Image-to-Video (DoP) — `generateDoPVideo()`
 
 ```typescript
-export async function generateDoPVideo({
-  imageUrl,
-  cameraPreset, // one of 20 presets
-  duration,     // seconds
-  fps,
-}: DoPOptions): Promise<{ jobId: string }>
+generateDoPVideo(params: { apiKey: string; prompt: string; imageUrl: string; model?: "dop-lite"|"dop-turbo"|"dop-preview"; motionStrength?: number; cameraPreset?: string; seed?: number }): Promise<{ requestId?: string; pollingUrl?: string; mediaUrl?: string }>
 ```
 
-DoP is best for: character portraits animated with subtle movement, establishing shots with camera push/pull, scenes where a specific camera move is needed.
+Calls `POST v1/higgsfield-image2video`. **Still on v1.** `dop-lite` (the documented cheapest/fastest tier) has never once completed within 280s across 3 real test attempts — this looks like genuine Higgsfield-side queue latency, not a parameter bug. If you need this reliably, switch it to v2 first (same pattern as `generateTextVideo` below).
 
-### Text-to-Video
+### Text-to-Video — `generateTextVideo()`
 
-Six text-to-video models with different strengths:
+```typescript
+generateTextVideo(params: {
+  apiKey: string; prompt: string; model: VideoModelId;
+  aspectRatio?: "16:9"|"9:16"|"1:1"; duration?: number; seed?: number;
+  cameraPreset?: string; viralPreset?: string;
+  imageUrl?: string;  // required for hailuo; ignored by others
+}): Promise<{ requestId?: string; pollingUrl?: string; mediaUrl?: string }>
+```
 
-| Model | Best for | Notes |
+**On v2 (async)** as of the pipeline test — confirmed working end-to-end (instant submission, clean polling) via a real Kling job. `POST v2/{model}` returns `{request_id, status_url}` immediately; `pollJob()` polls `status_url`.
+
+Each model has a genuinely different real request schema — handled by `buildVideoRequestBody(model, params)`:
+
+| Model | Real slug | Key quirks |
 |---|---|---|
-| `kling` | Cinematic, realistic motion | Chinese model, excellent quality |
-| `veo` | Google's model, natural motion | Photorealistic, slower |
-| `sora` | OpenAI's model | High creativity, less control |
-| `seedance` | Fast, consistent characters | Good for action sequences |
-| `wan` | Anime/stylized content | Works well with illustrated styles |
-| `hailuo` | Short clips, viral-style | Fast generation, MiniMax model |
+| `kling` | `kling-text2video` | `duration` must be 5 or 10; `mode: "std"\|"pro"`, no `enhance_prompt` |
+| `veo` | `veo-3.1-fast` | `duration` must be 4, 6, or 8 (not 5!); only 16:9/9:16; `generate_audio` |
+| `seedance` | `seedance-2.0` | Closest to a generic shape — the only one that "just worked" with a one-size-fits-all body. Image-to-video variant **blocks images with real human faces** (ByteDance policy) |
+| `wan` | `wan2.1-t2v` | No `duration` field — needs `base_model` (`"1.3b"\|"14b"`) + `video_length` (1-5) |
+| `hailuo` | `hailuo-02-fast` | **Not pure text2video** — `first_frame_image` is required. `duration` must be 6 or 10 |
+| `sora` | — | `deprecated: true`, excluded from `ACTIVE_VIDEO_MODELS` |
+
+None of the `higgsfield-{model}-text2video` slugs from the original implementation exist on Segmind — that prefix is only real for genuinely Higgsfield-branded models (`higgsfield-image2video`, `higgsfield-text2image-soul`).
+
+**`pollJob()`'s v2 result-shape is best-effort, not fully verified**: Segmind's docs describe the v2 contract structurally but never showed a verbatim completed-job JSON body. Current logic tries `data.output?.media_url?.[0] ?? data.output?.image_url ?? data.output?.video_url` from the status response, falling back to a separate result-URL fetch (`response_url`, or the status URL minus its `/status` suffix) if the status payload doesn't embed the result directly. Ran cleanly against a real in-flight job (no errors across 10+ minutes of polling) but was never observed against an actual `COMPLETED` payload — verify the field names the first time a job actually finishes if something looks off.
+
+### Lipsync — `generateLipsync()`
 
 ```typescript
-export async function generateTextToVideo({
-  prompt,
-  model,        // "kling" | "veo" | "sora" | "seedance" | "wan" | "hailuo"
-  duration,
-  aspectRatio,
-  viralPreset,  // optional — applies preset's camera and motion instructions
-}: TextToVideoOptions): Promise<{ jobId: string }>
+generateLipsync(params: { apiKey: string; audioUrl: string; characterImageUrl: string }): Promise<{ requestId?: string; pollingUrl?: string; mediaUrl?: string }>
 ```
 
-### Lipsync
+Calls `POST v1/hallo` — **a single step**, photo + audio → talking-head video. `hallo`'s real fields are `input_image` + `input_audio` (plus optional `pose_weight`/`face_weight`/`lip_weight`/`face_expand_ratio` tuning, left at defaults). Cheap (~$0.007/GPU-second).
 
-Generates a talking-head video synced to audio:
+There is **no** direct Segmind model that does "any custom photo + audio → video" other than `hallo` — checked `HeyGen Avatar V` first (rejected: only 24 fixed stock avatars or a paid custom-trained Digital Twin, can't use a freshly-generated character portrait) before finding `hallo`.
+
+**Known limit**: full-chapter-length audio (164s tested) in one call gets all the way through this client's own timeouts (once the undici bug above is fixed) but then hits **Segmind's own nginx gateway returning `504 Gateway Time-out`** — their reverse-proxy's own ceiling on a single long-running synchronous request. This is a provider-side limit, not something fixable from the client. `hallo` is still on v1; switching it to v2 (like `generateTextVideo`) is the most likely real fix, not yet done. The fallback if that doesn't pan out is chunking the source audio into shorter segments before lipsyncing each one — not implemented (no `ffmpeg` available in the dev environment used for the test).
+
+### Polling — `pollJob()`
 
 ```typescript
-export async function generateLipsync({
-  imageUrl,     // face reference
-  audioUrl,     // TTS or uploaded audio
-  soulId,       // optional character consistency
-}: LipsyncOptions): Promise<{ jobId: string }>
+pollJob(params: { apiKey: string; pollingUrl: string }): Promise<{ status: JobStatus; mediaUrl?: string }>
 ```
 
-Uses WAN 2.5 with character consistency. Best results with a front-facing portrait and clean audio.
+`JobStatus = "QUEUED" | "PROCESSING" | "COMPLETED" | "FAILED" | "ERROR"`. See the v2 result-shape caveat above.
 
 ---
 
-## Camera Presets: `src/lib/higgsfield/presets.ts`
+## Camera & Viral Presets: `src/lib/higgsfield/presets.ts`
 
-20 camera presets that map to DoP generation parameters:
-
-| Preset | Motion |
-|---|---|
-| `static` | No movement |
-| `slow_push` | Slow dolly in |
-| `slow_pull` | Slow dolly out |
-| `tracking_left` | Camera tracks left |
-| `tracking_right` | Camera tracks right |
-| `crane_up` | Crane/jib up |
-| `crane_down` | Crane/jib down |
-| `drone_aerial` | Birds-eye pull-out |
-| `handheld` | Subtle handheld shake |
-| `bullet_time` | 360° freeze-frame |
-| `pov` | First-person perspective |
-| `dutch_angle` | Tilted frame (unease) |
-| `slow_motion` | 120fps slow-mo |
-| `timelapse` | Rapid time progression |
-| `zoom_in` | Optical zoom in |
-| `zoom_out` | Optical zoom out |
-| `orbit_left` | Circular orbit left |
-| `orbit_right` | Circular orbit right |
-| `whip_pan` | Fast horizontal pan |
-| `crash_zoom` | Rapid zoom + shake |
-
-### Viral Presets
-
-15 preset combinations tuned for high-engagement short-form content:
-
-| Preset | Style |
-|---|---|
-| `kung_fu_hit` | Impact frame + slow-mo + crash zoom |
-| `dragon_fantasy` | Orbital camera + atmospheric haze |
-| `samurai_duel` | Whip pan + dutch angle + desaturated |
-| `bollywood_entrance` | Crane up + warm grade |
-| (+ 11 more) | ... |
-
-`getRecommendedViralPreset(sceneDescription)` takes the scene text and returns the best-matching preset based on keyword matching against scene content.
+Unchanged by the pipeline test — camera presets (20, e.g. `slow_push`/`crane_up`/`bullet_time`) and viral presets (15, e.g. `kung_fu_hit`/`samurai_duel`) inject a `promptInjection` string into the final prompt text. `getRecommendedViralPreset(sceneDescription)` does keyword matching against scene text. Not independently re-verified against real Segmind behavior this session — these only affect prompt text, not request parameters, so they're lower-risk than the structural bugs above.
 
 ---
 
-## Job Polling Pattern
+## Job Status / Polling Routes (app-side)
 
-All async video/image jobs use the same polling pattern:
+```
+POST /api/projects/[projectId]/production/shots/[shotId]/generate-video   → kicks off generateTextVideo
+GET  /api/projects/[projectId]/production/shots/[shotId]/generate-video/status → polls via pollJob
 
-```typescript
-// 1. Start job → returns jobId
-const { jobId } = await generateTextToVideo({ ... });
-
-// 2. Store jobId in DB
-await db.update(productionShots).set({ higgsfield_job_id: jobId, status: "generating" });
-
-// 3. Frontend polls status route
-GET /api/.../shots/[shotId]/generate-video/status
-
-// 4. Status route polls Higgsfield
-const status = await getJobStatus(jobId);
-if (status.complete) {
-  await db.update(productionShots).set({ videoUrl: status.url, status: "complete" });
-}
+POST /api/projects/[projectId]/production/shots/[shotId]/animate          → kicks off generateDoPVideo
+GET  /api/projects/[projectId]/production/shots/[shotId]/animate/status   → polls via pollJob
 ```
 
-The frontend polls every 3-5 seconds. Polling stops when `status === "complete"` or `status === "failed"`.
+Both POST routes check `mediaUrl` in the result first: if present (v1 synchronous completion), the shot is marked `final_ready`/`animated` immediately with no polling needed. If absent (v2 async submission), `generationStatus` is set to `generating_final`/`animating` and `higgsfieldJobId` stores `${requestId}|${pollingUrl}` for the `/status` route to pick up. **This dual-path handling means the same routes correctly support both v1 and v2 models without further changes** — extending `generateDoPVideo`/`generateLipsync` to v2 doesn't require touching the route logic, only the client functions.
 
 ---
 
-## Audio Generation
+## Audio Generation (OpenAI, not Segmind/Higgsfield)
 
-Audio uses Higgsfield's TTS:
-
-```typescript
-POST /api/audio/generate
-  body: { projectId, chapterId, voice, speed }
-  → generates MP3, stores URL in audioExports.audioUrl
+```
+POST /api/audio/generate   { projectId, chapterId } → OpenAI tts-1, stores audioExports.audioUrl
+POST /api/audio/lipsync    { audioExportId, characterId, projectId } → generateLipsync() → audioExports.lipsyncVideoUrl
 ```
 
-Lipsync takes the generated audio:
-```typescript
-POST /api/audio/lipsync
-  body: { audioExportId, characterId }
-  → higgsfield lipsync job → stores URL in audioExports.lipsyncVideoUrl
+TTS confirmed solid for any chapter length (used `users.openaiApiKey` if set, else `OPENAI_API_KEY` env fallback — this is the one feature in this doc with an env fallback, since it's OpenAI not Segmind). Splits chapter content into narration/dialogue segments (`parseChapterIntoSegments`), assigning each character's `voiceId` if set, else the narrator voice (`fable`).
+
+---
+
+## Comic Studio
+
+```
+POST /api/projects/[projectId]/comics   { chapterId, artStyleId } → up to 6 panels generated in parallel (Promise.allSettled)
 ```
 
----
-
-## OpenAI: Embeddings + Audio Novel TTS
-
-OpenAI is used for two non-generation features — never for story/text generation, which is Claude-only:
-
-1. **Embeddings** (`src/lib/ai/embeddings.ts`):
-   ```typescript
-   const response = await openai.embeddings.create({
-     model: "text-embedding-3-small",
-     input: text,
-   });
-   ```
-   Powers semantic search in the Work Packets craft library.
-
-2. **Audio Novel TTS** (`src/app/api/audio/generate/route.ts`):
-   ```typescript
-   const response = await openai.audio.speech.create({
-     model: "tts-1",
-     ...
-   });
-   ```
-   Converts a chapter to narrated audio (Story Pro+ feature, gated by `audio_novel`). Uses the user's own OpenAI key if set, falling back to `OPENAI_API_KEY`.
-
-**Why OpenAI for these when we use Claude for everything else?**
-Anthropic does not offer text embedding or TTS APIs. `text-embedding-3-small` and `tts-1` are the industry-standard low-cost options for these specific, non-generation tasks. `OPENAI_API_KEY` is only needed for the craft library search feature and as a fallback for Audio Novel.
+Uses `generateSoulImage()` under the hood — benefits from fix #1/#2 above automatically. Generates **all panels for a page in one call**, in parallel — there's no per-panel inspect-before-bulk checkpoint at this route's granularity (unlike the production-shots flow, which is one-call-per-shot). Confirmed working: 6/6 panels, zero errors, in a real test.
 
 ---
 
-## Export: Comic
+## Export: Comic / Video Package
 
-`/api/projects/[projectId]/comics/export` generates a ZIP of the comic:
-
-1. Fetches all pages and panels from DB
-2. Downloads each panel image URL
-3. Uses JSZip to package images + metadata JSON
-4. Returns ZIP as blob download
-
----
-
-## Export: Video Package
-
-`/api/projects/[projectId]/production/generate-package` creates a production package:
-
-1. Fetches all shots from DB
-2. Generates shot list as structured JSON + printable format
-3. Includes video URLs for all generated shots
-4. Returns package as JSON (or ZIP if videos are included)
-
-Uses `MODELS.default` to generate creative brief copy for the package.
+Unchanged by this session — `/api/projects/[projectId]/comics/export` (ZIP of pages+panels) and `/api/projects/[projectId]/production/generate-package` (the production package itself, fixed to auto-create World Bible rows — see the incident report) were not otherwise touched.

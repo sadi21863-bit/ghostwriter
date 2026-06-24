@@ -4,7 +4,7 @@ import { NextResponse } from "next/server";
 import { getRequiredSession } from "@/lib/auth-helpers";
 import { checkAiRateLimit } from "@/lib/ratelimit";
 import { db } from "@/db";
-import { projects, productionShots } from "@/db/schema";
+import { projects, productionShots, characters, locations } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import Anthropic from "@anthropic-ai/sdk";
 import { MODELS } from "@/lib/ai/engine";
@@ -129,10 +129,41 @@ Generate 3-6 shots per chapter. Focus on visually interesting moments. Make prom
   const pkg = safeParseJson(raw);
   if (!pkg?.shots) return NextResponse.json({ error: "Failed to analyze story. Try adding chapter content first." }, { status: 500 });
 
-  // Resolve character names to IDs
+  // Resolve character names to IDs — create World Bible rows for any character the
+  // package introduces that doesn't exist yet, so shots stay linked for portrait-based
+  // consistency (previously: a fresh project with no pre-existing characters meant every
+  // shot's primaryCharacterId silently stayed null and preview generation never got a
+  // reference image).
   const charMap: Record<string, string> = {};
   for (const c of project.characters) {
     charMap[c.name.toLowerCase()] = c.id;
+  }
+  for (const sheet of pkg.characterSheets ?? []) {
+    if (!sheet?.name || charMap[sheet.name.toLowerCase()]) continue;
+    const [created] = await db.insert(characters).values({
+      projectId,
+      name: sheet.name,
+      role: sheet.role ?? "",
+      appearance: sheet.soulIdPrompt ?? "",
+      speechPattern: sheet.voiceNotes ?? "",
+    }).returning();
+    charMap[sheet.name.toLowerCase()] = created.id;
+  }
+
+  // Same gap for locations: create any new location the package introduces.
+  const locMap: Record<string, string> = {};
+  for (const l of project.locations) {
+    locMap[l.name.toLowerCase()] = l.id;
+  }
+  for (const sheet of pkg.locationSheets ?? []) {
+    if (!sheet?.name || locMap[sheet.name.toLowerCase()]) continue;
+    const [created] = await db.insert(locations).values({
+      projectId,
+      name: sheet.name,
+      description: sheet.visualDescription ?? "",
+      atmosphere: (sheet.moodKeywords ?? []).join(", "),
+    }).returning();
+    locMap[sheet.name.toLowerCase()] = created.id;
   }
 
   // Resolve chapter titles to IDs

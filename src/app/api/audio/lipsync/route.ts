@@ -1,4 +1,7 @@
 export const dynamic = 'force-dynamic';
+// Full-chapter narration can take minutes for Hallo to lipsync; matches the
+// generous timeout in generateLipsync rather than the 300s used elsewhere.
+export const maxDuration = 1800;
 
 import { NextResponse } from "next/server";
 import { getRequiredSession } from "@/lib/auth-helpers";
@@ -44,13 +47,20 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Add your Segmind API key in Settings." }, { status: 400 });
   }
 
-  const { requestId, pollingUrl } = await generateLipsync({
+  const { requestId, pollingUrl, mediaUrl } = await generateLipsync({
     apiKey,
-    prompt: `${character.name}. ${character.appearance || ""}. Realistic talking head.`,
     audioUrl: audioExport.audioUrl!,
     characterImageUrl: character.portraitUrl,
-    soulId: character.soulId && !character.soulId.startsWith("training:") ? character.soulId : undefined,
   });
+
+  // This endpoint returns the finished video synchronously (raw binary, already
+  // uploaded to Blob by generateLipsync) rather than a job to poll for.
+  if (mediaUrl) {
+    await db.update(audioExports)
+      .set({ lipsyncVideoUrl: mediaUrl, lipsyncStatus: "completed" })
+      .where(eq(audioExports.id, audioExportId));
+    return NextResponse.json({ status: "completed", videoUrl: mediaUrl });
+  }
 
   await db.update(audioExports)
     .set({ lipsyncJobId: requestId, lipsyncStatus: "processing" })

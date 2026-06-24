@@ -19,7 +19,6 @@
     "@google/genai": "^2.8.0",
     "@growthbook/growthbook-react": "^1.6.5",
     "@neondatabase/serverless": "^1.1.0",
-    "@sentry/nextjs": "^10.56.0",
     "@tiptap/extension-character-count": "^3.26.0",
     "@tiptap/extension-focus": "^3.26.0",
     "@tiptap/extension-highlight": "^3.26.0",
@@ -49,6 +48,7 @@
     "recharts": "^3.8.1",
     "resend": "^6.12.4",
     "tailwind-merge": "^3.6.0",
+    "undici": "^8.5.0",
     "zod": "^4.4.3"
   },
   "devDependencies": {

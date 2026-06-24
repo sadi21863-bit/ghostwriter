@@ -38,13 +38,26 @@ export async function POST(req: Request, { params }: { params: Promise<{ project
   if (!validModels.includes(model))
     return NextResponse.json({ error: "Invalid model" }, { status: 400 });
 
-  const { requestId, pollingUrl } = await generateTextVideo({
+  const { requestId, pollingUrl, mediaUrl } = await generateTextVideo({
     apiKey: segmindKey,
     prompt: shot.videoPrompt || shot.soulPrompt || "Cinematic scene",
     model: model as VideoModelId,
     cameraPreset: shot.cameraPreset || undefined,
     viralPreset: shot.viralPreset || undefined,
+    // Hailuo requires a starting image; harmless extra context for models that don't use it.
+    imageUrl: shot.previewImageUrl || undefined,
   });
+
+  // This endpoint returns the finished video synchronously (raw binary, already
+  // uploaded to Blob by generateTextVideo) rather than a job to poll for.
+  if (mediaUrl) {
+    const [updated] = await db
+      .update(productionShots)
+      .set({ generationStatus: "final_ready", finalVideoUrl: mediaUrl, updatedAt: new Date() })
+      .where(and(eq(productionShots.id, shotId), eq(productionShots.projectId, pid)))
+      .returning();
+    return NextResponse.json({ shot: updated, status: "final_ready", videoUrl: mediaUrl });
+  }
 
   const [updated] = await db
     .update(productionShots)

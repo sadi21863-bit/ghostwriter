@@ -26,7 +26,7 @@ const nextConfig = {
               "style-src-elem 'self' 'unsafe-inline' https://fonts.googleapis.com",
               "img-src 'self' data: blob: https:",
               "font-src 'self' https://fonts.gstatic.com https://checkout-static-next.razorpay.com",
-              "connect-src 'self' https://api.anthropic.com https://cloud.higgsfield.ai https://api.resend.com https://cdn.growthbook.io https://*.ingest.sentry.io https://*.ingest.us.sentry.io https://api.razorpay.com https://checkout.razorpay.com https://lumberjack.razorpay.com https://cdn.razorpay.com wss: wss://api.sardine.ai",
+              "connect-src 'self' https://api.anthropic.com https://cloud.higgsfield.ai https://api.resend.com https://cdn.growthbook.io https://api.razorpay.com https://checkout.razorpay.com https://lumberjack.razorpay.com https://cdn.razorpay.com wss: wss://api.sardine.ai",
               "frame-src 'self' https://api.razorpay.com https://checkout.razorpay.com",
               "media-src 'self' blob:",
               "frame-ancestors 'none'",
@@ -38,18 +38,4 @@ const nextConfig = {
   },
 };
 
-const analyzedConfig = withBundleAnalyzer(nextConfig);
-
-try {
-  const { withSentryConfig } = require('@sentry/nextjs');
-  module.exports = withSentryConfig(analyzedConfig, {
-    silent: true,
-    org: process.env.SENTRY_ORG,
-    project: process.env.SENTRY_PROJECT,
-  }, {
-    widenClientFileUpload: true,
-    hideSourceMaps: true,
-  });
-} catch {
-  module.exports = analyzedConfig;
-}
+module.exports = withBundleAnalyzer(nextConfig);

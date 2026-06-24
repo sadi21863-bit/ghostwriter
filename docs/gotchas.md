@@ -375,3 +375,20 @@ The actual confirmed bug: `StoryBible.tsx` and `WorldBiblePanel.tsx`'s plot-thre
 `src/app/api/audio/generate/route.ts` loops `openai.audio.speech.create()` sequentially over every parsed segment of a chapter with no `export const maxDuration`, unlike every other long-running AI route in this codebase (`production/shots/.../animate`, `generate-video`, `preview`, `preview-all`, `comics` — all `maxDuration = 300`). A long chapter's segment loop can run past Vercel's default function timeout and get killed mid-request with no response ever reaching the client, leaving the "Generate Audio" button stuck on "Generating…" indefinitely. Fixed by adding the same `maxDuration = 300` convention already used by the other AI-generation routes, plus a client-side `AbortController` in `AudioNovelPanel.tsx` (300s timeout matching the server budget) so the button always recovers with a visible "timed out" message instead of waiting indefinitely if something does still go wrong. Deliberately did not parallelize the per-segment TTS loop or move to an async job/polling table in this pass — `maxDuration` + a bounded client timeout directly fixes the freeze; parallelizing is a separate wall-clock optimization, not required to fix the hang itself.
 
 Before 2026-06-18, `GW_GOLD`/`GW_DARK`/`GW_CREAM`/`GW_BORDER` were declared as page-local consts, and `GW_DARK` specifically had drifted: the constant existed but only 3 of its 15 actual color usages referenced it — the other 12 hardcoded the literal `"#0d0d10"` directly. Same story for `#1a1a1a`/`#888`/`#aaa`/`#f5f4f0`, which were never named at all (22/20/12/8 raw occurrences respectively). Moved all seven into `src/lib/dashboard-theme.ts` (`GW_GOLD`, `GW_DARK`, `GW_CREAM`, `GW_BORDER`, `GW_TEXT`, `GW_MUTED`, `GW_MUTED_LIGHT`, `GW_SURFACE_ALT`) and replaced every literal-hex occurrence with the named import — same visible colors, single source of truth. If you add a new repeated color to the dashboard, add it here rather than inlining the hex again.
+
+---
+
+## Node's Built-in `fetch` Has Its Own ~5-Minute Timeout — Independent of Your `AbortController`
+
+Found 2026-06-24 while debugging why every long-running Segmind video/lipsync call in `src/lib/higgsfield/client.ts` kept failing with `UND_ERR_HEADERS_TIMEOUT` regardless of how large a timeout value was passed to `fetchWithTimeout()`. Node's built-in `fetch` is backed by a bundled `undici` that enforces its own internal `headersTimeout`/`bodyTimeout` (~5 minutes by default) — this fires **independently of and can override** any `AbortController` `signal` you pass to `fetch()`. Passing `{ signal: ctrl.signal }` with a 10-minute `setTimeout(() => ctrl.abort(), ...)` does not help; the connection still dies around the 5-minute mark with a different error than your own abort logic produces.
+
+**Fix**: import `fetch` and `Agent` directly from the `undici` npm package (`npm install undici`) instead of relying on Node's global `fetch`, and pass a custom `Agent` with `headersTimeout: 0, bodyTimeout: 0` as the `dispatcher` option:
+
+```typescript
+import { fetch as undiciFetch, Agent } from "undici";
+const longRunningDispatcher = new Agent({ headersTimeout: 0, bodyTimeout: 0 });
+// ...
+await undiciFetch(url, { ...opts, signal: ctrl.signal, dispatcher: longRunningDispatcher });
+```
+
+**A second trap**: do not mix Node's *global* `fetch` with a `dispatcher` built from a *separately-installed* `undici` package — Node's bundled internal undici version and the npm package's version can mismatch, producing a different error (`UND_ERR_INVALID_ARG`, "invalid onRequestStart method") when the global fetch tries to use an Agent built by a different undici version's internals. Source `fetch` and `Agent` from the same package import to guarantee compatibility.

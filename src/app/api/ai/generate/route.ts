@@ -12,7 +12,7 @@ import { buildAiismsInstruction } from "@/lib/ai/aiisms";
 import { db } from "@/db";
 import { generations, projects, users } from "@/db/schema";
 import { and, eq, sql, lte, ne } from "drizzle-orm";
-import { universeEvents, universeCharacters, projectCharacterStates, seriesBibles } from "@/db/schema";
+import { universeEvents, universeCharacters, projectCharacterStates, seriesBibles, universes } from "@/db/schema";
 import { track } from "@/lib/analytics";
 import { isProseMode } from "@/lib/modes/registry";
 import { isFeatureOnServer } from "@/lib/growthbook-server";
@@ -80,7 +80,26 @@ async function buildSeriesUniverseContext(proj: any, userId: string): Promise<st
     }
   }
 
-  // UNIVERSE: inject canonical events + character states from earlier-positioned stories
+  // UNIVERSE: inject the universe's own premise/tone/sharedRules, plus canonical events
+  // and character states from earlier-positioned stories. The premise/tone/sharedRules
+  // half was previously missing entirely — this function only ever queried
+  // universeEvents/universeCharacters, never the universes table itself, so a
+  // universe's own foundational world rules could never reach generation regardless
+  // of timelineSort. Mirrors the equivalent series-bible pattern below.
+  if (proj.storyType === 'universe-story' && proj.universeId) {
+    const universe = await db.query.universes.findFirst({ where: eq(universes.id, proj.universeId) });
+    if (universe) {
+      lines.push(`UNIVERSE: "${universe.name}"`);
+      if (universe.premise) lines.push(`Premise: ${universe.premise}`);
+      if (universe.tone) lines.push(`Tone: ${universe.tone}`);
+      const sharedRules = (universe.sharedRules as string[] | null) ?? [];
+      if (sharedRules.length > 0) {
+        lines.push('Shared rules (must hold across every story in this universe):');
+        sharedRules.forEach((r) => lines.push(`- ${r}`));
+      }
+    }
+  }
+
   if (proj.storyType === 'universe-story' && proj.universeId && proj.timelineSort != null) {
     const canonEvents = await db.query.universeEvents.findMany({
       where: and(

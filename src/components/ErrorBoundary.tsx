@@ -13,14 +13,6 @@ export class ErrorBoundary extends Component<Props, State> {
 
   componentDidCatch(error: Error, info: { componentStack: string }) {
     console.error('[ErrorBoundary]', error, info.componentStack);
-    // Sentry is optional — only call if available to avoid crashing without DSN
-    try {
-      const Sentry = require('@sentry/nextjs');
-      const errorId = Sentry.captureException(error, { extra: { componentStack: info.componentStack } });
-      this.setState({ errorId });
-    } catch {
-      // Sentry not configured — log only
-    }
   }
 
   render() {

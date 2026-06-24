@@ -35,12 +35,23 @@ export async function POST(req: Request, { params }: { params: Promise<{ project
 
   const { dopModel } = await req.json().catch(() => ({}));
 
-  const { requestId, pollingUrl } = await generateDoPVideo({
+  const { requestId, pollingUrl, mediaUrl } = await generateDoPVideo({
     apiKey: segmindKey,
     prompt: shot.videoPrompt || shot.soulPrompt || "Cinematic motion",
     imageUrl: shot.previewImageUrl,
     model: dopModel ?? "dop-turbo",
   });
+
+  // This endpoint returns the finished video synchronously (raw binary, already
+  // uploaded to Blob by generateDoPVideo) rather than a job to poll for.
+  if (mediaUrl) {
+    const [updated] = await db
+      .update(productionShots)
+      .set({ generationStatus: "animated", animatedVideoUrl: mediaUrl, updatedAt: new Date() })
+      .where(eq(productionShots.id, (await params).shotId))
+      .returning();
+    return NextResponse.json({ shot: updated, status: "animated", videoUrl: mediaUrl });
+  }
 
   const [updated] = await db
     .update(productionShots)

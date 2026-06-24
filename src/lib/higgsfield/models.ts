@@ -20,7 +20,11 @@ export interface VideoModelDef {
 export const VIDEO_MODELS: Record<VideoModelId, VideoModelDef> = {
   kling: {
     id: "kling",
-    segmindEndpoint: "higgsfield-kling-text2video",
+    // Confirmed against Segmind's own docs (segmind.com/models/kling-text2video/api) —
+    // the "higgsfield-" prefix this codebase previously used doesn't exist on Segmind's
+    // side and 404s. Real Higgsfield-branded endpoints (text2image-soul, image2video)
+    // do use that prefix; these third-party model brands don't.
+    segmindEndpoint: "kling-text2video",
     label: "Kling 3.0",
     note: "Physics-aware · 4K · Best for action",
     badge: null,
@@ -29,7 +33,7 @@ export const VIDEO_MODELS: Record<VideoModelId, VideoModelDef> = {
   },
   veo: {
     id: "veo",
-    segmindEndpoint: "higgsfield-veo-text2video",
+    segmindEndpoint: "veo-3.1-fast", // confirmed via segmind.com/models/veo-3.1-fast/api
     label: "Veo 3.1",
     note: "Realistic · Cinematic · Native audio",
     badge: "AUDIO",
@@ -48,7 +52,7 @@ export const VIDEO_MODELS: Record<VideoModelId, VideoModelDef> = {
   },
   seedance: {
     id: "seedance",
-    segmindEndpoint: "higgsfield-seedance-text2video",
+    segmindEndpoint: "seedance-2.0", // confirmed via segmind.com/models/seedance-2.0/api
     label: "Seedance 2.0",
     note: "Fast · Social content · Best for shorts",
     badge: null,
@@ -57,7 +61,12 @@ export const VIDEO_MODELS: Record<VideoModelId, VideoModelDef> = {
   },
   wan: {
     id: "wan",
-    segmindEndpoint: "higgsfield-wan-text2video",
+    // NOTE: this is still wired for plain text2video (wan2.1-t2v), not lipsync —
+    // generateLipsync() in client.ts sends audio_url/talking_head params that have
+    // no basis in Segmind's actual Wan contract. Segmind's real lipsync models are
+    // separate dedicated endpoints (lipsync-pro, sync.so-lipsync-2-pro), which the
+    // Audio Novel lipsync feature should be ported to — out of scope for this fix.
+    segmindEndpoint: "wan2.1-t2v", // confirmed via segmind.com/models/wan2.1-t2v/api
     label: "WAN 2.5",
     note: "Talking heads · Lip-sync · Avatars",
     badge: null,
@@ -66,7 +75,7 @@ export const VIDEO_MODELS: Record<VideoModelId, VideoModelDef> = {
   },
   hailuo: {
     id: "hailuo",
-    segmindEndpoint: "higgsfield-hailuo-text2video",
+    segmindEndpoint: "hailuo-02-fast", // confirmed via segmind.com/models/hailuo-02-fast/api
     label: "Hailuo 02",
     note: "Smooth motion · Cinematic quality",
     badge: "NEW",
