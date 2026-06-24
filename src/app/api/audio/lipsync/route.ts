@@ -1,7 +1,9 @@
 export const dynamic = 'force-dynamic';
-// Full-chapter narration can take minutes for Hallo to lipsync; matches the
-// generous timeout in generateLipsync rather than the 300s used elsewhere.
-export const maxDuration = 1800;
+// Vercel Hobby plan caps Serverless Function maxDuration at 300s (hard limit,
+// not just a default) — values above it fail the entire deployment, not just
+// this route. generateLipsync's own internal timeout may still exceed this;
+// long lipsync jobs will hit this route's timeout first on Hobby.
+export const maxDuration = 300;
 
 import { NextResponse } from "next/server";
 import { getRequiredSession } from "@/lib/auth-helpers";
