@@ -38,6 +38,26 @@ Comic Studio currently calls `generateSoulImage()` — the same generic photorea
 
 **Recommendation**: switch Comic Studio's panel generation from N independent `generateSoulImage()` calls to one `storydiffusion` call per page, passing all 6 panel descriptions as `comic_description` and the character's established appearance as `character_description`. This is a more direct fix than building a custom multi-agent review layer on top of the wrong underlying model.
 
+### 2a. Deeper dive: how comic-specific apps and open-source pipelines actually structure this
+
+Beyond which image model to call, researched how dedicated comic-generation products and open-source repos architect the *whole pipeline* — confirms Comic Studio is missing more than just the right model:
+
+**Commercial comic apps converge on three techniques GhostWriter has none of:**
+1. **Reference-sheet architecture**: before generating any story panels, a dedicated character reference sheet is generated first (neutral poses, labeled features), and *that* reference sheet — not a single portrait — is what loads with every subsequent panel. GhostWriter generates one portrait and reuses that single image as the only reference for everything.
+2. **Panel layout intelligence**: panel *size and shape* vary with narrative rhythm — action beats get dynamic diagonal panels with speed lines, emotional beats get a large panel or full-page spread, dialogue-heavy beats get smaller, evenly-spaced panels with room for speech bubbles. Comic Studio's actual layout is a fixed, uniform grid regardless of content (confirmed via the earlier code audit — `ComicStudio.tsx`'s editor view is a static 2×3 grid every time).
+3. **Dedicated speech-bubble/lettering step**: professional tools run a *separate* agent specifically for placing dialogue into bubbles — text content, bubble shape, tail direction (pointing at the speaker), and reading-flow pacing across the page. Comic Studio currently generates panels with **no dialogue/text rendering mechanism at all** — confirmed: `comicPanels` schema has no caption/dialogue/bubble fields, and the generated images are pure illustration with no text overlay step anywhere in the pipeline.
+
+**Open-source repos researched (GitHub):**
+
+| Repo | Architecture | Relevance |
+|---|---|---|
+| [`jbilcke-hf/ai-comic-factory`](https://github.com/jbilcke-hf/ai-comic-factory) | LLM (pluggable: HF Inference, OpenAI GPT-4, Groq Mixtral, Claude 3 Opus) writes the narrative/JSON breakdown → SDXL (via VideoChain/Replicate/HF Inference Endpoints) renders panels. The most well-known free/open option. **Explicitly documents unresolved character-consistency issues** as a known limitation — confirms that consistency genuinely requires a dedicated mechanism, not just "call an LLM then an image model." Archived Oct 2025 (no longer maintained) — a useful cautionary data point, not a recommendation to adopt as-is. |
+| [`albinks/stylus`](https://albinks.github.io/stylus/) | A genuine multi-agent pipeline with **explicit separate agents**: Character Creation → Story Arc Generation → **Panel Layout Planning** → Art Generation → Coloring → **Final Composition**. This is the closest open-source match to the "AI Director + AI Editor" framing from the gap-analysis doc — it treats layout planning and final composition as their own discrete steps, not implicit side effects of image generation. |
+| [`Dapeng960208/AI-Comic-Generator`](https://github.com/Dapeng960208/AI-Comic-Generator) | Gemini-based, stores the entire pipeline (story outline → character settings → storyboard) as structured JSON end to end, plus an explicit "character consistency check" step and a visual editor. The "structured JSON all the way through" pattern plus an explicit consistency-check step (a real Reviewer-Agent analogue) is worth studying directly if building Phase B of the gap-analysis doc. |
+| [`alsaif1431/AI-Comic-Generation`](https://github.com/alsaif1431/AI-Comic-Generation), [`elder-plinius/MythGen`](https://github.com/elder-plinius/MythGen) | Smaller proof-of-concept repos (OpenAI text + Stable Diffusion images, 6-panel breakdown). Useful as minimal reference implementations, not production-grade architecture examples. |
+
+**Net implication**: even after switching to `storydiffusion` (section 2 above) for better underlying consistency, Comic Studio would still be missing layout intelligence and lettering/speech-bubble rendering — both real, separately-scoped gaps, not solved by a model swap alone. If "make Comic Studio actually look like a comic" becomes real work, scope it as: (1) model swap [cheap], (2) reference-sheet-first generation flow [medium], (3) panel layout variation [medium-large, needs either a layout-template system or a second Claude call that proposes panel shapes per beat], (4) speech-bubble/lettering rendering [a real new feature — likely an image-compositing step after generation, not something the generation model itself should be asked to draw, since AI-rendered in-image text is notoriously unreliable per the general "gibberish in-scene text" AI-slop tell from section 1 of the gap-analysis doc].
+
 ---
 
 ## 3. Higgsfield's own native tools — the "review, then animate" workflow already exists as a product
