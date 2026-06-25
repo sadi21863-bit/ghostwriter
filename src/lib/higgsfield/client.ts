@@ -239,7 +239,7 @@ function nearestOf(allowed: number[], value: number): number {
 
 function buildVideoRequestBody(
   model: VideoModelId,
-  p: { prompt: string; aspectRatio: string; duration?: number; seed: number; imageUrl?: string },
+  p: { prompt: string; aspectRatio: string; duration?: number; seed: number; imageUrl?: string; referenceImages?: string[] },
 ): Record<string, any> {
   switch (model) {
     case "kling":
@@ -277,7 +277,19 @@ function buildVideoRequestBody(
         duration: nearestOf([6, 10], p.duration ?? 6),
         prompt_optimizer: true,
       };
-    default: // seedance and any future model not yet given a specific mapping
+    case "seedance":
+      // reference_images (up to 9) and first_frame_image are mutually exclusive on
+      // Seedance 2.0 — this branch never sent an image field before, so there's
+      // nothing to drop; reference_images is purely additive for character consistency.
+      return {
+        prompt: p.prompt,
+        aspect_ratio: p.aspectRatio,
+        duration: p.duration ?? 5,
+        seed: p.seed,
+        enhance_prompt: true,
+        ...(p.referenceImages?.length && { reference_images: p.referenceImages }),
+      };
+    default: // any future model not yet given a specific mapping
       return {
         prompt: p.prompt,
         aspect_ratio: p.aspectRatio,
@@ -299,6 +311,7 @@ export async function generateTextVideo(params: {
   seed?: number;
   /** Required for hailuo (image-to-video only); ignored by models that don't use it. */
   imageUrl?: string;
+  referenceImages?: string[];
 }): Promise<{ requestId?: string; pollingUrl?: string; mediaUrl?: string }> {
   const endpoint = VIDEO_ENDPOINTS[params.model];
   if (!endpoint) throw new Error(`Unknown model: ${params.model}`);
@@ -320,6 +333,7 @@ export async function generateTextVideo(params: {
     duration: params.duration,
     seed: params.seed ?? Math.floor(Math.random() * 999999),
     imageUrl: params.imageUrl,
+    referenceImages: params.referenceImages,
   });
 
   // v2 (async submit) instead of v1 (synchronous) — v1 endpoints have repeatedly
