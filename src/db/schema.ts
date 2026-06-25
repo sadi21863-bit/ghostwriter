@@ -213,6 +213,7 @@ export const productionShots = pgTable("production_shots", {
   previewImageUrl:    text("preview_image_url").default(""),
   animatedVideoUrl:   text("animated_video_url").default(""),
   finalVideoUrl:      text("final_video_url").default(""),
+  sceneFinalVideoUrl: text("scene_final_video_url").default(""),
   generationStatus:   varchar("generation_status", { length: 30 }).default("idle"),
   higgsfieldJobId:    text("higgsfield_job_id").default(""),
   cameraPreset:       text("camera_preset").default(""),

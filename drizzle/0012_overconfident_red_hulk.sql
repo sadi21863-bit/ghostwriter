@@ -1,0 +1,1 @@
+ALTER TABLE "production_shots" ADD COLUMN "scene_final_video_url" text DEFAULT '';
