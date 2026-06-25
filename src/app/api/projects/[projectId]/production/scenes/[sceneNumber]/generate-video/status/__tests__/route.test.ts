@@ -14,14 +14,29 @@ vi.mock("@/lib/higgsfield/client", () => ({
   pollJob: (...args: any[]) => pollJob(...args),
 }));
 
-vi.mock("@vercel/blob", () => ({
-  put: vi.fn(async () => ({ url: "https://blob.example.com/final.mp4" })),
+const concatVideos = vi.fn();
+vi.mock("@/lib/video/concat", () => ({
+  concatVideos: (...args: any[]) => concatVideos(...args),
 }));
+
+vi.mock("node:fs/promises", () => ({
+  writeFile: vi.fn(async () => undefined),
+  readFile: vi.fn(async () => Buffer.from("stitched-bytes")),
+  mkdtemp: vi.fn(async () => "/tmp/scene-stitch-abc"),
+}));
+
+vi.mock("@vercel/blob", () => ({
+  put: vi.fn(async () => ({ url: "https://blob.example.com/scene-final.mp4" })),
+}));
+
+const fetchMock = vi.fn();
+global.fetch = fetchMock as any;
 
 const findFirstProjects = vi.fn();
 const findFirstUsers = vi.fn();
 const findManyShots = vi.fn();
 const updateSet = vi.fn();
+const updateWhere = vi.fn();
 vi.mock("@/db", () => ({
   db: {
     query: {
@@ -32,7 +47,7 @@ vi.mock("@/db", () => ({
     update: () => ({
       set: (vals: any) => {
         updateSet(vals);
-        return { where: () => Promise.resolve() };
+        return { where: (...args: any[]) => { updateWhere(...args); return Promise.resolve(); } };
       },
     }),
   },
@@ -44,44 +59,74 @@ function makeParams(sceneNumber = "1") {
   return { params: Promise.resolve({ projectId: "proj-1", sceneNumber }) };
 }
 
-describe("GET .../scenes/[sceneNumber]/generate-video/status", () => {
+describe("GET .../scenes/[sceneNumber]/generate-video/status (per-shot + stitch)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     findFirstProjects.mockResolvedValue({ id: "proj-1", userId: "user-1" });
     findFirstUsers.mockResolvedValue({ segmindApiKey: "encrypted-key" });
     decrypt.mockReturnValue("SG_real_key");
-    delete process.env.BLOB_READ_WRITE_TOKEN;
+    fetchMock.mockResolvedValue({ ok: true, arrayBuffer: async () => new ArrayBuffer(8) });
   });
 
-  it("returns final_ready immediately if any shot in the scene already has it", async () => {
+  it("returns generating_final while any shot is still pending, without stitching", async () => {
     findManyShots.mockResolvedValue([
-      { id: "shot-1", generationStatus: "final_ready", finalVideoUrl: "https://example.com/final.mp4", higgsfieldJobId: "" },
+      { id: "shot-1", shotNumber: 1, sceneNumber: 1, generationStatus: "final_ready", finalVideoUrl: "https://example.com/1.mp4", higgsfieldJobId: "", sceneFinalVideoUrl: "" },
+      { id: "shot-2", shotNumber: 2, sceneNumber: 1, generationStatus: "generating_final", finalVideoUrl: "", higgsfieldJobId: "req-2|https://api.segmind.com/v2/requests/req-2/status", sceneFinalVideoUrl: "" },
+    ]);
+    pollJob.mockResolvedValue({ status: "PROCESSING" });
+
+    const res = await GET(new Request("http://localhost"), makeParams());
+    const body = await res.json();
+
+    expect(body).toEqual({ status: "generating_final" });
+    expect(concatVideos).not.toHaveBeenCalled();
+  });
+
+  it("polls each shot's own pending job and updates that shot's own row on completion", async () => {
+    findManyShots.mockResolvedValue([
+      { id: "shot-1", shotNumber: 1, sceneNumber: 1, generationStatus: "generating_final", finalVideoUrl: "", higgsfieldJobId: "req-1|https://api.segmind.com/v2/requests/req-1/status", sceneFinalVideoUrl: "" },
+      { id: "shot-2", shotNumber: 2, sceneNumber: 1, generationStatus: "generating_final", finalVideoUrl: "", higgsfieldJobId: "req-2|https://api.segmind.com/v2/requests/req-2/status", sceneFinalVideoUrl: "" },
+    ]);
+    pollJob
+      .mockResolvedValueOnce({ status: "COMPLETED", mediaUrl: "https://example.com/1.mp4" })
+      .mockResolvedValueOnce({ status: "PROCESSING" });
+
+    const res = await GET(new Request("http://localhost"), makeParams());
+    const body = await res.json();
+
+    expect(body).toEqual({ status: "generating_final" });
+    expect(updateSet).toHaveBeenCalledWith(expect.objectContaining({ finalVideoUrl: "https://example.com/1.mp4", generationStatus: "final_ready" }));
+  });
+
+  it("stitches all shots into one file and returns final_ready once every shot has completed", async () => {
+    findManyShots.mockResolvedValue([
+      { id: "shot-1", shotNumber: 1, sceneNumber: 1, generationStatus: "final_ready", finalVideoUrl: "https://example.com/1.mp4", higgsfieldJobId: "", sceneFinalVideoUrl: "" },
+      { id: "shot-2", shotNumber: 2, sceneNumber: 1, generationStatus: "final_ready", finalVideoUrl: "https://example.com/2.mp4", higgsfieldJobId: "", sceneFinalVideoUrl: "" },
     ]);
 
     const res = await GET(new Request("http://localhost"), makeParams());
     const body = await res.json();
 
-    expect(body).toEqual({ status: "final_ready", videoUrl: "https://example.com/final.mp4" });
-    expect(pollJob).not.toHaveBeenCalled();
+    expect(concatVideos).toHaveBeenCalledTimes(1);
+    expect(body).toEqual({ status: "final_ready", videoUrl: "https://blob.example.com/scene-final.mp4" });
+    expect(updateSet).toHaveBeenCalledWith(expect.objectContaining({ sceneFinalVideoUrl: "https://blob.example.com/scene-final.mp4" }));
   });
 
-  it("polls using the job id and writes finalVideoUrl to every shot in the scene when COMPLETED", async () => {
+  it("returns the already-stitched sceneFinalVideoUrl immediately on repeat polls, without re-stitching", async () => {
     findManyShots.mockResolvedValue([
-      { id: "shot-1", generationStatus: "generating_final", finalVideoUrl: "", higgsfieldJobId: "req-1|https://api.segmind.com/v2/requests/req-1/status" },
-      { id: "shot-2", generationStatus: "generating_final", finalVideoUrl: "", higgsfieldJobId: "req-1|https://api.segmind.com/v2/requests/req-1/status" },
+      { id: "shot-1", shotNumber: 1, sceneNumber: 1, generationStatus: "final_ready", finalVideoUrl: "https://example.com/1.mp4", higgsfieldJobId: "", sceneFinalVideoUrl: "https://blob.example.com/already-stitched.mp4" },
     ]);
-    pollJob.mockResolvedValue({ status: "COMPLETED", mediaUrl: "https://segmind.example.com/result.mp4" });
 
     const res = await GET(new Request("http://localhost"), makeParams());
     const body = await res.json();
 
-    expect(body).toEqual({ status: "final_ready", videoUrl: "https://segmind.example.com/result.mp4" });
-    expect(updateSet).toHaveBeenCalledWith(expect.objectContaining({ generationStatus: "final_ready", finalVideoUrl: "https://segmind.example.com/result.mp4" }));
+    expect(body).toEqual({ status: "final_ready", videoUrl: "https://blob.example.com/already-stitched.mp4" });
+    expect(concatVideos).not.toHaveBeenCalled();
   });
 
-  it("marks every shot in the scene as error when the job FAILED", async () => {
+  it("returns error and stops polling siblings once any shot's job FAILS", async () => {
     findManyShots.mockResolvedValue([
-      { id: "shot-1", generationStatus: "generating_final", finalVideoUrl: "", higgsfieldJobId: "req-1|https://api.segmind.com/v2/requests/req-1/status" },
+      { id: "shot-1", shotNumber: 1, sceneNumber: 1, generationStatus: "generating_final", finalVideoUrl: "", higgsfieldJobId: "req-1|https://api.segmind.com/v2/requests/req-1/status", sceneFinalVideoUrl: "" },
     ]);
     pollJob.mockResolvedValue({ status: "FAILED" });
 
