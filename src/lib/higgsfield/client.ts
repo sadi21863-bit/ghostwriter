@@ -302,7 +302,7 @@ function buildVideoRequestBody(
 
 export async function generateTextVideo(params: {
   apiKey: string;
-  prompt: string;
+  prompt?: string;
   model: VideoModelId;
   aspectRatio?: "16:9" | "9:16" | "1:1";
   duration?: 5 | 10 | 15;
@@ -311,12 +311,15 @@ export async function generateTextVideo(params: {
   seed?: number;
   /** Required for hailuo (image-to-video only); ignored by models that don't use it. */
   imageUrl?: string;
+  /** Seedance 2.0 only: up to 9 character-reference image URLs for cross-shot consistency. */
   referenceImages?: string[];
+  /** When set, used as the base prompt instead of `prompt` — a "Shot 1: ... Shot 2: ..." script for one connected multi-shot sequence. */
+  multiShotPrompt?: string;
 }): Promise<{ requestId?: string; pollingUrl?: string; mediaUrl?: string }> {
   const endpoint = VIDEO_ENDPOINTS[params.model];
   if (!endpoint) throw new Error(`Unknown model: ${params.model}`);
 
-  let finalPrompt = params.prompt;
+  let finalPrompt = params.multiShotPrompt ?? params.prompt ?? "";
 
   if (params.cameraPreset && CAMERA_PRESETS[params.cameraPreset]) {
     finalPrompt += `. ${CAMERA_PRESETS[params.cameraPreset].promptInjection}`;
