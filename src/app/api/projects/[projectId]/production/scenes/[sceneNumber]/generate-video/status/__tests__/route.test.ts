@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
 vi.mock("@/lib/auth-helpers", () => ({
   getRequiredSession: vi.fn(async () => ({ user: { id: "user-1" } })),
@@ -70,6 +70,12 @@ describe("GET .../scenes/[sceneNumber]/generate-video/status (per-shot + stitch)
     fetchMock.mockResolvedValue({ ok: true, arrayBuffer: async () => new ArrayBuffer(8) });
     process.env.BLOB_READ_WRITE_TOKEN = "test-blob-token";
     rmMock.mockResolvedValue(undefined);
+  });
+
+  afterEach(() => {
+    // process.env is process-global, not per-file isolated like vitest's module
+    // registry — leaving this set would leak into other test files' runs.
+    delete process.env.BLOB_READ_WRITE_TOKEN;
   });
 
   it("returns generating_final while any shot is still pending, without stitching", async () => {

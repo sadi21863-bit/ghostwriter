@@ -109,6 +109,18 @@ describe("POST /api/projects/[projectId]/production/scenes/[sceneNumber]/generat
     expect(call.referenceImages.length).toBe(3);
   });
 
+  it("returns the existing sceneFinalVideoUrl and does not resubmit jobs when the scene is already stitched", async () => {
+    findManyShots.mockResolvedValue([
+      { id: "shot-1", shotNumber: 1, sceneNumber: 1, videoPrompt: "v1", soulPrompt: "p1", duration: 5, primaryCharacter: null, sceneFinalVideoUrl: "https://blob.example.com/already-stitched.mp4" },
+    ]);
+
+    const res = await POST(makeRequest(), makeParams());
+    const body = await res.json();
+
+    expect(body).toEqual({ status: "final_ready", videoUrl: "https://blob.example.com/already-stitched.mp4" });
+    expect(generateTextVideo).not.toHaveBeenCalled();
+  });
+
   it("returns 404 when the scene has no shots", async () => {
     findManyShots.mockResolvedValue([]);
 

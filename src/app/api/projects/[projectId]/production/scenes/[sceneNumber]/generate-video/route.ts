@@ -37,6 +37,13 @@ export async function POST(_: Request, { params }: { params: Promise<{ projectId
   });
   if (sceneShots.length === 0) return NextResponse.json({ error: "Scene not found" }, { status: 404 });
 
+  // Found during the final whole-branch review: without this, a duplicate
+  // click on an already-stitched scene would resubmit N fresh (real-money)
+  // Seedance jobs — the status route already short-circuits on repeat polls,
+  // but nothing stopped a second POST from spending again.
+  const alreadyStitched = sceneShots.find((sh: any) => sh.sceneFinalVideoUrl);
+  if (alreadyStitched) return NextResponse.json({ status: "final_ready", videoUrl: alreadyStitched.sceneFinalVideoUrl });
+
   const user = await db.query.users.findFirst({ where: eq(users.id, s.user.id) });
   const segmindKey = decrypt(user?.segmindApiKey ?? "");
   if (!segmindKey)

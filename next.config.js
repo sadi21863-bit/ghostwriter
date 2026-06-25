@@ -36,7 +36,10 @@ const nextConfig = {
               "font-src 'self' https://fonts.gstatic.com https://checkout-static-next.razorpay.com",
               "connect-src 'self' https://api.anthropic.com https://cloud.higgsfield.ai https://api.resend.com https://cdn.growthbook.io https://api.razorpay.com https://checkout.razorpay.com https://lumberjack.razorpay.com https://cdn.razorpay.com wss: wss://api.sardine.ai",
               "frame-src 'self' https://api.razorpay.com https://checkout.razorpay.com",
-              "media-src 'self' blob:",
+              // https: needed for <video> playback of Segmind/Vercel Blob URLs
+              // (production shot/scene videos) — matches img-src's existing
+              // broad https: allowance for the same class of provider URLs.
+              "media-src 'self' blob: https:",
               "frame-ancestors 'none'",
             ].join('; '),
           },
