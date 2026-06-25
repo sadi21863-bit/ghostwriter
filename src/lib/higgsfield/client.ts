@@ -395,6 +395,20 @@ export async function generateLipsync(params: {
 
 export type JobStatus = "QUEUED" | "PROCESSING" | "COMPLETED" | "FAILED" | "ERROR";
 
+// Segmind's v2 result payload shape varies by model: `output` is sometimes an
+// object with media_url/image_url/video_url sub-fields, but for Seedance 2.0
+// (confirmed live) `output` is itself a plain URL string, with the same URL
+// duplicated at `video.url`/`image.url`. Check the string case first since
+// property access on a string silently returns undefined rather than throwing.
+function extractMediaUrl(data: any): string | undefined {
+  if (typeof data?.output === "string") return data.output;
+  return data?.output?.media_url?.[0]
+    ?? data?.output?.image_url
+    ?? data?.output?.video_url
+    ?? data?.video?.url
+    ?? data?.image?.url;
+}
+
 export async function pollJob(params: {
   apiKey: string;
   pollingUrl: string;
@@ -404,7 +418,7 @@ export async function pollJob(params: {
   });
   if (!res.ok) return { status: "ERROR" };
   const data = await res.json();
-  let mediaUrl = data.output?.media_url?.[0] ?? data.output?.image_url ?? data.output?.video_url;
+  let mediaUrl = extractMediaUrl(data);
 
   // v2's status endpoint may not embed the result directly even once COMPLETED —
   // fall back to the dedicated result endpoint (same URL minus the /status suffix,
@@ -415,7 +429,7 @@ export async function pollJob(params: {
       const resultRes = await fetchWithTimeout(resultUrl, { headers: { "x-api-key": params.apiKey } });
       if (resultRes.ok) {
         const resultData = await resultRes.json();
-        mediaUrl = resultData.output?.media_url?.[0] ?? resultData.output?.image_url ?? resultData.output?.video_url;
+        mediaUrl = extractMediaUrl(resultData);
       }
     }
   }

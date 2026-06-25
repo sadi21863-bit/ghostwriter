@@ -16,7 +16,7 @@ function jsonResponse(body: any, opts: { ok?: boolean; status?: number } = {}) {
   };
 }
 
-import { generateTextVideo } from "../client";
+import { generateTextVideo, pollJob } from "../client";
 
 describe("generateTextVideo — Seedance 2.0 reference_images", () => {
   beforeEach(() => {
@@ -56,5 +56,46 @@ describe("generateTextVideo — Seedance 2.0 reference_images", () => {
     const [, opts] = fetchMock.mock.calls[0];
     const body = JSON.parse(opts.body);
     expect(body.prompt).toBe("Shot 1: @image1 enters. Shot 2: @image1 turns.");
+  });
+});
+
+describe("pollJob — Seedance 2.0 v2 result shape", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  // Real Segmind v2 response, captured live: the status endpoint has no
+  // `output` at all (just confirms status + gives `response_url`); the
+  // result endpoint's `output` is a plain URL STRING, not an object with
+  // media_url/image_url/video_url sub-fields as every other code path here
+  // assumed. There's also a `video.url` field carrying the same URL.
+  it("resolves mediaUrl when the result endpoint's `output` is a plain URL string", async () => {
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse({
+        request_id: "req-1",
+        status: "COMPLETED",
+        response_url: "https://api.segmind.com/v2/requests/req-1",
+        status_url: "https://api.segmind.com/v2/requests/req-1/status",
+      }))
+      .mockResolvedValueOnce(jsonResponse({
+        status: "COMPLETED",
+        output: "https://segmind-inference-io.s3.amazonaws.com/c4dcb-output.mp4",
+        video: { url: "https://segmind-inference-io.s3.amazonaws.com/c4dcb-output.mp4", content_type: "video/mp4" },
+      }));
+
+    const result = await pollJob({ apiKey: "key", pollingUrl: "https://api.segmind.com/v2/requests/req-1/status" });
+
+    expect(result).toEqual({ status: "COMPLETED", mediaUrl: "https://segmind-inference-io.s3.amazonaws.com/c4dcb-output.mp4" });
+  });
+
+  it("still resolves mediaUrl from the older object-shaped output.video_url, unchanged", async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse({
+      status: "COMPLETED",
+      output: { video_url: "https://example.com/older-shape.mp4" },
+    }));
+
+    const result = await pollJob({ apiKey: "key", pollingUrl: "https://api.segmind.com/v2/requests/req-2/status" });
+
+    expect(result).toEqual({ status: "COMPLETED", mediaUrl: "https://example.com/older-shape.mp4" });
   });
 });
