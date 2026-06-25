@@ -93,6 +93,12 @@ Generate a production package as JSON:
       "moodKeywords": ["string"]
     }
   ],
+  "scenes": [
+    {
+      "sceneNumber": 1,
+      "multiShotScript": "Full combined Shot 1: ... Shot 2: ... script for this scene, using @image1-style reference tags and the identity-weight pattern"
+    }
+  ],
   "shots": [
     {
       "sceneNumber": 1,
@@ -116,7 +122,7 @@ Generate a production package as JSON:
   ]
 }
 
-Generate 3-6 shots per chapter. Focus on visually interesting moments. Make prompts Higgsfield-ready.`;
+Generate 3-6 shots per chapter and one multiShotScript per scene. Focus on visually interesting moments. Make prompts Higgsfield-ready.`;
 
   const msg = await client.messages.create({
     model: MODELS.default,
@@ -175,6 +181,11 @@ Generate 3-6 shots per chapter. Focus on visually interesting moments. Make prom
   // Delete existing shots for this project (fresh slate)
   await db.delete(productionShots).where(eq(productionShots.projectId, projectId));
 
+  const sceneScriptMap: Record<number, string> = {};
+  for (const scene of pkg.scenes ?? []) {
+    if (scene?.sceneNumber != null) sceneScriptMap[scene.sceneNumber] = scene.multiShotScript ?? "";
+  }
+
   // Bulk insert shots
   const toInsert = pkg.shots.map((shot: any, i: number) => ({
     projectId: projectId,
@@ -194,6 +205,7 @@ Generate 3-6 shots per chapter. Focus on visually interesting moments. Make prom
       : null,
     soulPrompt: shot.soulPrompt ?? "",
     videoPrompt: shot.videoPrompt ?? "",
+    multiShotScript: sceneScriptMap[shot.sceneNumber ?? 1] ?? "",
     dialogue: shot.dialogue ?? "",
     speaker: shot.speaker ?? "",
     sortOrder: i,
