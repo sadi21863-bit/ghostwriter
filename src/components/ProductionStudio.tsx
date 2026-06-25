@@ -166,6 +166,35 @@ export default function ProductionStudio({ project, segmindKey }: { project: any
     else { setShots(prev => prev.map(s => s.id === shotId ? { ...s, generationStatus: "error" } : s)); setError(data.error || "Video generation failed"); }
   }
 
+  async function generateSceneVideo(sceneNumber: number) {
+    const sceneShotIds = shots.filter(s => s.sceneNumber === sceneNumber).map(s => s.id);
+    setShots(prev => prev.map(s => sceneShotIds.includes(s.id) ? { ...s, generationStatus: "generating_final" } : s));
+    const res = await fetch(`/api/projects/${project.id}/production/scenes/${sceneNumber}/generate-video`, { method: "POST" });
+    const data = await res.json();
+    if (res.ok) startScenePolling(sceneNumber, sceneShotIds);
+    else {
+      setShots(prev => prev.map(s => sceneShotIds.includes(s.id) ? { ...s, generationStatus: "error" } : s));
+      setError(data.error || "Scene video generation failed");
+    }
+  }
+
+  function startScenePolling(sceneNumber: number, shotIds: string[]) {
+    const key = `scene-${sceneNumber}`;
+    if (pollTimers.current[key]) return;
+    const timer = setInterval(async () => {
+      const res = await fetch(`/api/projects/${project.id}/production/scenes/${sceneNumber}/generate-video/status`);
+      const data = await res.json();
+      if (data.status === "final_ready" || data.status === "error") {
+        clearInterval(pollTimers.current[key]);
+        delete pollTimers.current[key];
+        setShots(prev => prev.map(s => shotIds.includes(s.id)
+          ? { ...s, generationStatus: data.status, finalVideoUrl: data.videoUrl || s.finalVideoUrl }
+          : s));
+      }
+    }, 3000);
+    pollTimers.current[key] = timer;
+  }
+
   async function previewAll() {
     setPreviewingAll(true);
     setError("");
@@ -404,8 +433,20 @@ export default function ProductionStudio({ project, segmindKey }: { project: any
             : "";
           return (
             <div key={scene} style={{ marginBottom: 24 }}>
-              <div style={{ fontSize: 12, fontWeight: 700, color: "#6c47ff", marginBottom: 10, borderBottom: "2px solid #ede9fe", paddingBottom: 4 }}>
-                ━━ Scene {scene}{chapterTitle ? ` — ${chapterTitle}` : ""} ━━
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10, borderBottom: "2px solid #ede9fe", paddingBottom: 4 }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: "#6c47ff" }}>
+                  ━━ Scene {scene}{chapterTitle ? ` — ${chapterTitle}` : ""} ━━
+                </div>
+                {segmindKey && sceneShots.length > 1 && (
+                  <button
+                    onClick={() => generateSceneVideo(scene)}
+                    disabled={sceneShots.some(sh => sh.generationStatus === "generating_final")}
+                    style={{ ...btn("#d97706"), marginLeft: "auto" }}
+                    title="Generates one connected Seedance 2.0 video for all shots in this scene, with character reference images, instead of generating each shot in isolation."
+                  >
+                    🎬 Generate Scene Video (multi-shot)
+                  </button>
+                )}
               </div>
               {sceneShots.map(shot => <ShotCard key={shot.id} shot={shot} projectId={project.id} segmindKey={segmindKey} onUpdate={updateShot} onPreview={previewShot} onAnimate={animateShot} onGenerateVideo={generateVideo} videoModel={videoModelMap[shot.id] || "kling"} onModelChange={m => setVideoModelMap(prev => ({ ...prev, [shot.id]: m }))} />)}
             </div>
