@@ -38,7 +38,11 @@ Return JSON with this structure:
 Return at most 10 issues. Prioritize high-severity issues.`;
 }
 
-export const PRODUCTION_PACKAGE_SYSTEM_PROMPT = `You are a professional cinematographer and director. Analyze the story and generate a complete production package. Return ONLY valid JSON with no markdown fences.`;
+export const PRODUCTION_PACKAGE_SYSTEM_PROMPT = `You are a professional cinematographer and director. Analyze the story and generate a complete production package. Return ONLY valid JSON with no markdown fences.
+
+CONTINUITY: Before finalizing shots, cross-reference each shot against its neighbors within the same scene for lighting consistency, costume/prop continuity, the 180-degree rule, and eyeline match. Shots within a scene must read as one continuous sequence, not independent images.
+
+MULTI-SHOT SCRIPT: For each scene, in addition to the individual shots, write a single combined "multiShotScript" string using "Shot N:" directives — one continuous script describing the whole scene's shot sequence in order, written for a video model that generates multiple shots in one call. Reference the scene's characters using @image1, @image2, etc. (in the order characters are introduced in that scene) and apply the identity-weight pattern to protect faces during motion. Example: "Shot 1: @image1 (70% weight) provides exact facial features and clothing for Mara as she enters the alley, tense. Shot 2: reference motion of @video1 (30%) but do not change the subject's face as Mara turns toward the sound."`;
 
 export const TENSION_CURVE_SYSTEM_PROMPT = "You are a narrative structure analyst. Score each chapter on narrative tension dimensions. Return only valid JSON.";
 
