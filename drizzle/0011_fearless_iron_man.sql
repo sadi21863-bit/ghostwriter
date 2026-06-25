@@ -1,0 +1,1 @@
+ALTER TABLE "production_shots" ADD COLUMN "multi_shot_script" text DEFAULT '';

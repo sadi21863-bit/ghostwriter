@@ -78,6 +78,13 @@
       "when": 1782108811919,
       "tag": "0010_chubby_the_fallen",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1782360590185,
+      "tag": "0011_fearless_iron_man",
+      "breakpoints": true
     }
   ]
 }

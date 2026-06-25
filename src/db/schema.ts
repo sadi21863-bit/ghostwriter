@@ -207,6 +207,7 @@ export const productionShots = pgTable("production_shots", {
   primaryCharacterId: uuid("primary_character_id").references(() => characters.id, { onDelete: "set null" }),
   soulPrompt:         text("soul_prompt").default(""),
   videoPrompt:        text("video_prompt").default(""),
+  multiShotScript:    text("multi_shot_script").default(""),
   dialogue:           text("dialogue").default(""),
   speaker:            text("speaker").default(""),
   previewImageUrl:    text("preview_image_url").default(""),
