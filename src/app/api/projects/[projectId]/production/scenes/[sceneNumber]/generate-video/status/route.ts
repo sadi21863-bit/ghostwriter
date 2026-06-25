@@ -10,7 +10,7 @@ import { pollJob } from "@/lib/higgsfield/client";
 import { put } from "@vercel/blob";
 import { decrypt } from "@/lib/crypto";
 import { concatVideos } from "@/lib/video/concat";
-import { writeFile, readFile, mkdtemp } from "node:fs/promises";
+import { writeFile, readFile, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -69,30 +69,41 @@ export async function GET(_: Request, { params }: { params: Promise<{ projectId:
   const stillPending = sceneShots.some(sh => sh.generationStatus !== "final_ready" || !sh.finalVideoUrl);
   if (stillPending) return NextResponse.json({ status: "generating_final" });
 
+  // Stitching produces a genuinely new file with no provider URL to fall back
+  // to (unlike the per-shot routes, which can return the raw Segmind URL when
+  // Blob isn't configured) — fail fast here, before downloading/running
+  // ffmpeg, rather than failing deep inside put() after that work is done.
+  if (!process.env.BLOB_READ_WRITE_TOKEN)
+    return NextResponse.json({ error: "Blob storage is not configured." }, { status: 500 });
+
   // Every shot is final_ready — stitch them together in shot-number order.
   const workDir = await mkdtemp(join(tmpdir(), "scene-stitch-"));
-  const localPaths: string[] = [];
-  for (const shot of sceneShots) {
-    const res = await fetch(shot.finalVideoUrl!);
-    const buf = Buffer.from(await res.arrayBuffer());
-    const localPath = join(workDir, `${shot.shotNumber}.mp4`);
-    await writeFile(localPath, buf);
-    localPaths.push(localPath);
+  try {
+    const localPaths: string[] = [];
+    for (const shot of sceneShots) {
+      const res = await fetch(shot.finalVideoUrl!);
+      const buf = Buffer.from(await res.arrayBuffer());
+      const localPath = join(workDir, `${shot.shotNumber}.mp4`);
+      await writeFile(localPath, buf);
+      localPaths.push(localPath);
+    }
+
+    const outputPath = join(workDir, "stitched.mp4");
+    await concatVideos(localPaths, outputPath);
+    const stitchedBuf = await readFile(outputPath);
+
+    const blob = await put(
+      `production/${projectId}/scene-${sceneNumber}/stitched-${Date.now()}.mp4`,
+      stitchedBuf,
+      { access: "public", contentType: "video/mp4" }
+    );
+
+    await db.update(productionShots)
+      .set({ sceneFinalVideoUrl: blob.url, updatedAt: new Date() })
+      .where(and(eq(productionShots.projectId, projectId), eq(productionShots.sceneNumber, sceneNumber)));
+
+    return NextResponse.json({ status: "final_ready", videoUrl: blob.url });
+  } finally {
+    await rm(workDir, { recursive: true, force: true });
   }
-
-  const outputPath = join(workDir, "stitched.mp4");
-  await concatVideos(localPaths, outputPath);
-  const stitchedBuf = await readFile(outputPath);
-
-  const blob = await put(
-    `production/${projectId}/scene-${sceneNumber}/stitched-${Date.now()}.mp4`,
-    stitchedBuf,
-    { access: "public", contentType: "video/mp4" }
-  );
-
-  await db.update(productionShots)
-    .set({ sceneFinalVideoUrl: blob.url, updatedAt: new Date() })
-    .where(and(eq(productionShots.projectId, projectId), eq(productionShots.sceneNumber, sceneNumber)));
-
-  return NextResponse.json({ status: "final_ready", videoUrl: blob.url });
 }

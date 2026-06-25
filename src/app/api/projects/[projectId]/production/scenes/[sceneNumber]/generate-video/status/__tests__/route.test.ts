@@ -19,10 +19,12 @@ vi.mock("@/lib/video/concat", () => ({
   concatVideos: (...args: any[]) => concatVideos(...args),
 }));
 
+const rmMock = vi.fn();
 vi.mock("node:fs/promises", () => ({
   writeFile: vi.fn(async () => undefined),
   readFile: vi.fn(async () => Buffer.from("stitched-bytes")),
   mkdtemp: vi.fn(async () => "/tmp/scene-stitch-abc"),
+  rm: (...args: any[]) => rmMock(...args),
 }));
 
 vi.mock("@vercel/blob", () => ({
@@ -66,6 +68,8 @@ describe("GET .../scenes/[sceneNumber]/generate-video/status (per-shot + stitch)
     findFirstUsers.mockResolvedValue({ segmindApiKey: "encrypted-key" });
     decrypt.mockReturnValue("SG_real_key");
     fetchMock.mockResolvedValue({ ok: true, arrayBuffer: async () => new ArrayBuffer(8) });
+    process.env.BLOB_READ_WRITE_TOKEN = "test-blob-token";
+    rmMock.mockResolvedValue(undefined);
   });
 
   it("returns generating_final while any shot is still pending, without stitching", async () => {
@@ -110,6 +114,31 @@ describe("GET .../scenes/[sceneNumber]/generate-video/status (per-shot + stitch)
     expect(concatVideos).toHaveBeenCalledTimes(1);
     expect(body).toEqual({ status: "final_ready", videoUrl: "https://blob.example.com/scene-final.mp4" });
     expect(updateSet).toHaveBeenCalledWith(expect.objectContaining({ sceneFinalVideoUrl: "https://blob.example.com/scene-final.mp4" }));
+  });
+
+  it("cleans up the temp work directory after stitching", async () => {
+    findManyShots.mockResolvedValue([
+      { id: "shot-1", shotNumber: 1, sceneNumber: 1, generationStatus: "final_ready", finalVideoUrl: "https://example.com/1.mp4", higgsfieldJobId: "", sceneFinalVideoUrl: "" },
+    ]);
+
+    await GET(new Request("http://localhost"), makeParams());
+
+    expect(rmMock).toHaveBeenCalledWith("/tmp/scene-stitch-abc", { recursive: true, force: true });
+  });
+
+  it("fails fast with a clear error when Blob storage isn't configured, without downloading or running ffmpeg", async () => {
+    delete process.env.BLOB_READ_WRITE_TOKEN;
+    findManyShots.mockResolvedValue([
+      { id: "shot-1", shotNumber: 1, sceneNumber: 1, generationStatus: "final_ready", finalVideoUrl: "https://example.com/1.mp4", higgsfieldJobId: "", sceneFinalVideoUrl: "" },
+    ]);
+
+    const res = await GET(new Request("http://localhost"), makeParams());
+    const body = await res.json();
+
+    expect(res.status).toBe(500);
+    expect(body.error).toContain("Blob");
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(concatVideos).not.toHaveBeenCalled();
   });
 
   it("returns the already-stitched sceneFinalVideoUrl immediately on repeat polls, without re-stitching", async () => {
