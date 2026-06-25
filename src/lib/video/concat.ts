@@ -13,24 +13,28 @@ export async function concatVideos(inputPaths: string[], outputPath: string): Pr
   const listContent = inputPaths.map(p => `file '${p}'`).join("\n");
   await writeFile(listPath, listContent);
 
-  await new Promise<void>((resolve, reject) => {
-    const proc = spawn(ffmpegPath as unknown as string, [
-      "-y",
-      "-f", "concat",
-      "-safe", "0",
-      "-i", listPath,
-      "-c", "copy",
-      outputPath,
-    ]);
+  try {
+    await new Promise<void>((resolve, reject) => {
+      const proc = spawn(ffmpegPath as unknown as string, [
+        "-y",
+        "-f", "concat",
+        "-safe", "0",
+        "-i", listPath,
+        "-c", "copy",
+        outputPath,
+      ]);
 
-    let stderr = "";
-    proc.stderr.on("data", (chunk: Buffer) => { stderr += chunk.toString(); });
-    proc.on("error", reject);
-    proc.on("close", (code: number) => {
-      if (code === 0) resolve();
-      else reject(new Error(`ffmpeg concat failed (exit ${code}): ${stderr}`));
+      let stderr = "";
+      proc.stderr.on("data", (chunk: Buffer) => { stderr += chunk.toString(); });
+      proc.on("error", reject);
+      proc.on("close", (code: number) => {
+        if (code === 0) resolve();
+        else reject(new Error(`ffmpeg concat failed (exit ${code}): ${stderr}`));
+      });
     });
-  });
-
-  await unlink(listPath);
+  } finally {
+    // Clean up the list file on both success and failure — a failed ffmpeg
+    // run shouldn't leave it behind.
+    await unlink(listPath);
+  }
 }

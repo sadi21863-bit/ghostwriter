@@ -65,4 +65,12 @@ describe("concatVideos", () => {
 
     expect(unlinkMock).toHaveBeenCalledTimes(1);
   });
+
+  it("still cleans up the temporary concat-list file when ffmpeg fails", async () => {
+    spawnMock.mockReturnValue(makeFakeProcess(1, "boom"));
+
+    await expect(concatVideos(["/tmp/a.mp4"], "/tmp/out.mp4")).rejects.toThrow();
+
+    expect(unlinkMock).toHaveBeenCalledTimes(1);
+  });
 });
