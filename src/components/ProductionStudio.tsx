@@ -442,9 +442,9 @@ export default function ProductionStudio({ project, segmindKey }: { project: any
                     onClick={() => generateSceneVideo(scene)}
                     disabled={sceneShots.some(sh => sh.generationStatus === "generating_final")}
                     style={{ ...btn("#d97706"), marginLeft: "auto" }}
-                    title="Generates one connected Seedance 2.0 video for all shots in this scene, with character reference images, instead of generating each shot in isolation."
+                    title="Generates each shot in this scene as its own Seedance 2.0 video, sharing character reference images for consistency, then stitches them into one continuous scene video."
                   >
-                    🎬 Generate Scene Video (multi-shot)
+                    🎬 Generate Scene Video (stitched)
                   </button>
                 )}
               </div>
