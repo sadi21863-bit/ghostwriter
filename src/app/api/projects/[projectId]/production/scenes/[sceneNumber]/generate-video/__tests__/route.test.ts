@@ -67,6 +67,17 @@ describe("POST /api/projects/[projectId]/production/scenes/[sceneNumber]/generat
     }));
   });
 
+  it("requests the max 15s duration for multi-shot calls (found live: the 5s single-shot default badly compresses a multi-shot script)", async () => {
+    findManyShots.mockResolvedValue([
+      { id: "shot-1", shotNumber: 1, sceneNumber: 1, videoPrompt: "v1", soulPrompt: "p1", multiShotScript: "s", primaryCharacter: null },
+    ]);
+    generateTextVideo.mockResolvedValue({ requestId: "req-1", pollingUrl: "https://api.segmind.com/v2/requests/req-1/status" });
+
+    await POST(makeRequest(), makeParams());
+
+    expect(generateTextVideo).toHaveBeenCalledWith(expect.objectContaining({ duration: 15 }));
+  });
+
   it("synthesizes a fallback Shot N script when no shot has a stored multiShotScript", async () => {
     findManyShots.mockResolvedValue([
       { id: "shot-1", shotNumber: 1, sceneNumber: 1, videoPrompt: "Mara enters the alley.", soulPrompt: "p1", multiShotScript: "", primaryCharacter: null },

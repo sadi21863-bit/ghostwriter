@@ -48,11 +48,17 @@ export async function POST(_: Request, { params }: { params: Promise<{ projectId
     sceneShots.map(sh => (sh as any).primaryCharacter?.portraitUrl).filter((u: any): u is string => !!u)
   )).slice(0, 9);
 
+  // Without an explicit duration, buildVideoRequestBody falls back to the
+  // single-shot default of 5s — confirmed live to badly compress a 6-shot
+  // multi-shot script. Segmind's seedance-2.0 docs cap duration at 15s (the
+  // max available) and their own multi-shot example uses 8 shots over 10s —
+  // proportionally more breathing room than a 5s/6-shot ratio gives.
   const { requestId, pollingUrl, mediaUrl } = await generateTextVideo({
     apiKey: segmindKey,
     model: "seedance",
     multiShotPrompt,
     referenceImages,
+    duration: 15,
   });
 
   if (mediaUrl) {
