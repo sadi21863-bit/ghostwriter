@@ -7,6 +7,14 @@ const nextConfig = {
   // Prevent @neondatabase/serverless from being bundled
   // Requires DATABASE_URL at build time — set in Vercel + use copy .env.local .env locally
   serverExternalPackages: ['@neondatabase/serverless'],
+  // ffmpeg-static's binary must be explicitly declared or Vercel's default file
+  // tracing fails to find it at runtime in the serverless bundle (confirmed via
+  // vercel-labs/ffmpeg-on-vercel and github.com/vercel/next.js#53791) — it works
+  // locally without this, which is why the bug stays hidden until deployed.
+  outputFileTracingIncludes: {
+    "/api/projects/[projectId]/production/scenes/[sceneNumber]/generate-video/status":
+      ["./node_modules/ffmpeg-static/ffmpeg"],
+  },
   async headers() {
     return [
       {
