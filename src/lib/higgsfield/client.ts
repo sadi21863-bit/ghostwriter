@@ -5,6 +5,7 @@
 
 import { CAMERA_PRESETS, VIRAL_PRESETS } from "./presets";
 import { VIDEO_ENDPOINTS, type VideoModelId } from "./models";
+import { buildStoryDiffusionBody } from "@/lib/comic-gen/storydiffusion";
 // Using undici's own fetch + Agent (not Node's global fetch) — mixing Node's
 // built-in fetch with a separately-installed undici package's Agent threw
 // "InvalidArgumentError: invalid onRequestStart method" (UND_ERR_INVALID_ARG),
@@ -389,6 +390,36 @@ export async function generateLipsync(params: {
   const { mediaUrl, json } = await resolveMediaResponse(res, "video", "production-videos");
   if (mediaUrl) return { mediaUrl };
   return { requestId: json.request_id, pollingUrl: json.polling_url };
+}
+
+// ── STORYDIFFUSION (sequence-aware comic) ─────────────────────────────────────
+// Segmind's StoryDiffusion keeps ONE character consistent across a whole multi-
+// panel `comic_description` in a single call — the sequence-aware comic model the
+// research called for, vs N independent generateSoulImage calls. Submitted async
+// (v2) and polled with the same pollJob/extractMediaUrl path as video. The result
+// is a single composed comic-strip page image (see src/lib/comic-gen/storydiffusion.ts
+// notes). OPT-IN: kept alongside the proven per-panel path until cost/output-shape
+// are confirmed with a real validation call.
+export async function generateStoryDiffusion(params: {
+  apiKey: string;
+  characterDescription: string;
+  comicDescription: string;
+  styleName?: string;
+  comicStyle?: "Classic Comic Style" | "Four Pannel";
+  refImage?: string;
+  numIds?: number;
+  seed?: number;
+}): Promise<{ requestId?: string; pollingUrl?: string; mediaUrl?: string }> {
+  const body = buildStoryDiffusionBody(params);
+  const res = await fetchWithTimeout(`https://api.segmind.com/v2/storydiffusion`, {
+    method: "POST",
+    headers: { "x-api-key": params.apiKey, "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  }, 60_000);
+  if (!res.ok) throw new Error(`StoryDiffusion submit failed (${res.status}): ${await res.text()}`);
+  const json = await res.json();
+  if (extractMediaUrl(json)) return { mediaUrl: extractMediaUrl(json) };
+  return { requestId: json.request_id, pollingUrl: json.status_url ?? `https://api.segmind.com/v2/requests/${json.request_id}/status` };
 }
 
 // ── POLLING ───────────────────────────────────────────────────────────────────
