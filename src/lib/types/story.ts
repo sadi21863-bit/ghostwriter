@@ -234,3 +234,41 @@ export function decodeStoryBeats(raw: unknown): StoryBeat[] {
 export function encodeStoryBeats(value: unknown): StoryBeat[] {
   return z.array(StoryBeatSchema).parse(value);
 }
+
+// ---------------------------------------------------------------------------
+// world_entities.properties  (jsonb) — World Bible expansion
+// One flat, all-optional properties shape covering every kind's useful fields.
+// Each field independently `.catch`es so one malformed field drops only itself.
+// ---------------------------------------------------------------------------
+export const WORLD_ENTITY_KINDS = ["object", "weapon", "organization", "faction", "phenomenon", "entity", "concept"] as const;
+export const WorldEntityKindSchema = z.enum(WORLD_ENTITY_KINDS).catch("object");
+export type WorldEntityKind = z.infer<typeof WorldEntityKindSchema>;
+
+export const WorldEntityPropertiesSchema = z.object({
+  origin:        z.string().optional().catch(undefined),  // object/weapon: where it came from
+  material:      z.string().optional().catch(undefined),  // object/weapon
+  powers:        z.array(z.string()).optional().catch(undefined), // abilities/properties
+  significance:  z.string().optional().catch(undefined),  // why it matters to the plot
+  goal:          z.string().optional().catch(undefined),  // organization/faction
+  leader:        z.string().optional().catch(undefined),  // organization/faction
+  members:       z.array(z.string()).optional().catch(undefined), // organization/faction
+  allegiance:    z.string().optional().catch(undefined),  // organization/faction
+  nature:        z.string().optional().catch(undefined),  // phenomenon/entity/concept
+  rules:         z.array(z.string()).optional().catch(undefined), // how it works
+  manifestation: z.string().optional().catch(undefined),  // phenomenon/entity
+  notes:         z.string().optional().catch(undefined),  // freeform
+});
+export type WorldEntityProperties = z.infer<typeof WorldEntityPropertiesSchema>;
+
+export function decodeWorldEntityProperties(raw: unknown): WorldEntityProperties {
+  if (!isPlainObject(raw)) {
+    if (raw != null) console.warn(`[story] worldEntityProperties: expected an object — falling back to {}`);
+    return {};
+  }
+  const parsed = WorldEntityPropertiesSchema.safeParse(raw);
+  if (!parsed.success) return {};
+  return stripUndefined(parsed.data);
+}
+export function encodeWorldEntityProperties(value: unknown): WorldEntityProperties {
+  return stripUndefined(WorldEntityPropertiesSchema.parse(value));
+}
