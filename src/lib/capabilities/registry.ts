@@ -1,5 +1,7 @@
-import type { FeatureGate } from "@/types/subscription";
+import type { FeatureGate, SubscriptionTier } from "@/types/subscription";
 import { MODE_REGISTRY, type ModeVisibility } from "@/lib/modes/registry";
+import { canAccessFeature } from "@/lib/subscription";
+import { isCreatorFormat } from "@/lib/formats";
 import type { CapabilityRole, CapabilityStage, CapabilityProvider } from "./types";
 
 export type { CapabilityRole, CapabilityStage, CapabilityProvider } from "./types";
@@ -71,4 +73,55 @@ export function getCapabilitiesByStage(stage: CapabilityStage): Capability[] {
 
 export function getCapabilitiesByRole(role: CapabilityRole): Capability[] {
   return getCapabilities().filter(c => c.role === role);
+}
+
+// ─── Availability / preflight ───────────────────────────────────────────────
+export interface CapabilityContext {
+  tier: SubscriptionTier;
+  hasSegmindKey: boolean;
+  hasOpenAIKey: boolean;
+  format: string;
+}
+
+export interface CapabilityAvailability {
+  available: boolean;
+  reason?: "upgrade_required" | "missing_segmind_key" | "missing_openai_key" | "not_applicable_for_format";
+}
+
+export function isCapabilityAvailable(cap: Capability, ctx: CapabilityContext): CapabilityAvailability {
+  // 1. Format applicability first — so an inapplicable tool never shows an upgrade/key nag.
+  if (cap.visibility === "story_only" && isCreatorFormat(ctx.format))
+    return { available: false, reason: "not_applicable_for_format" };
+
+  // 2. Tier gate.
+  if (cap.gate && !canAccessFeature(ctx.tier, cap.gate))
+    return { available: false, reason: "upgrade_required" };
+
+  // 3. Provider key (anthropic/internal are server-side — no user key needed).
+  if (cap.provider === "segmind" && !ctx.hasSegmindKey)
+    return { available: false, reason: "missing_segmind_key" };
+  if (cap.provider === "openai" && !ctx.hasOpenAIKey)
+    return { available: false, reason: "missing_openai_key" };
+
+  return { available: true };
+}
+
+export interface SupportEnvelope {
+  stages: Record<CapabilityStage, Record<CapabilityRole, Array<Capability & CapabilityAvailability>>>;
+}
+
+const STAGES: CapabilityStage[] = ["discover", "shape", "write", "produce"];
+const ROLES: CapabilityRole[] = ["director", "writer", "editor"];
+
+export function supportEnvelope(ctx: CapabilityContext): SupportEnvelope {
+  const stages = {} as SupportEnvelope["stages"];
+  for (const stage of STAGES) {
+    stages[stage] = {} as Record<CapabilityRole, Array<Capability & CapabilityAvailability>>;
+    for (const role of ROLES) stages[stage][role] = [];
+  }
+  for (const cap of getCapabilities()) {
+    const availability = isCapabilityAvailable(cap, ctx);
+    stages[cap.stage][cap.role].push({ ...cap, ...availability });
+  }
+  return { stages };
 }
