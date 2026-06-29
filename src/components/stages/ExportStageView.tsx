@@ -5,6 +5,7 @@ import { co, sBtn, sBtnSm } from "@/lib/styles";
 import { type GuideAction } from "@/lib/guide/next-action";
 import { isStoryFormat } from "@/lib/formats";
 import { AdaptPanel } from "@/components/AdaptPanel";
+import { chapterApprovalSummary } from "@/lib/editor/approval";
 
 interface ExportStageViewProps {
   project: any;
@@ -32,6 +33,10 @@ export default function ExportStageView({ project, onGuideRun, onOpenProductionS
   const [adaptOpen, setAdaptOpen] = useState(false);
   const chapters = project.chapters || [];
   const totalWords = chapters.reduce((sum: number, c: any) => sum + (c.wordCount || 0), 0);
+  // Soft approve-gate: warn (don't block) before launching paid media generation
+  // on chapters the Editor hasn't approved. The hard gate folds into #5.
+  const approval = chapterApprovalSummary(chapters.map((c: any) => ({ title: c.title, reviewStatus: c.reviewStatus })));
+  const showApprovalNudge = isStoryFormat(project.format) && approval.total > 0 && !approval.allApproved;
 
   return (
     <div style={{ flex: 1, overflow: "auto", padding: "32px 24px", display: "flex", justifyContent: "center" }}>
@@ -45,6 +50,16 @@ export default function ExportStageView({ project, onGuideRun, onOpenProductionS
         <p style={{ fontSize: 13, color: co.muted, lineHeight: 1.6, marginBottom: 16 }}>
           {chapters.length} chapter{chapters.length === 1 ? "" : "s"}, {totalWords.toLocaleString()} words total. Export it, adapt it into another format, or start your next story.
         </p>
+        {showApprovalNudge && (
+          <div style={{ display: "flex", alignItems: "flex-start", gap: 8, padding: "10px 12px", borderRadius: 8, background: `${co.orange}14`, border: `1px solid ${co.orange}40`, marginBottom: 12, fontSize: 12, color: co.text }}>
+            <span>⚠️</span>
+            <span>
+              {approval.unapproved.length} of {approval.total} chapter{approval.total === 1 ? "" : "s"} not yet Editor-approved
+              ({approval.unapproved.slice(0, 3).join(", ")}{approval.unapproved.length > 3 ? "…" : ""}).
+              Review in the Editor panel (Polish) before generating comics or video — you can still proceed if you want.
+            </span>
+          </div>
+        )}
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
           <button style={sBtn} onClick={() => onGuideRun(EXPORT_ACTION)}>Open Export →</button>
           {project.isHiggsfieldProject && (

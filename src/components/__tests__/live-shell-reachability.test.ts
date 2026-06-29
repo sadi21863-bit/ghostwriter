@@ -33,6 +33,7 @@ const LIVE_SHELL_FILES = [
 const MUST_BE_REACHABLE = [
   "StageRoleRail",
   "BeatSheetPanel",
+  "EditorNotesPanel",
   "AudioNovelPanel",
   "SprintMode",
   "StoryInsightsPanel",

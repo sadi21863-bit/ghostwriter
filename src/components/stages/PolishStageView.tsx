@@ -9,6 +9,8 @@ import { RetentionEditPanel } from "@/components/panels/toolbar/tools/RetentionE
 import { CreatorSEOPanel } from "@/components/panels/toolbar/tools/CreatorSEOPanel";
 import { isValidTipTapJson, tiptapToPlainText } from "@/lib/editor/content-migration";
 import { analyzeProseRhythm } from "@/lib/analysis/rhythm";
+import EditorNotesPanel from "@/components/EditorNotesPanel";
+import { isStoryFormat } from "@/lib/formats";
 
 interface PolishStageViewProps {
   project: any;
@@ -61,6 +63,7 @@ export default function PolishStageView({ project, qualityReview, onGuideRun, on
         <div style={{ fontSize: 11, fontWeight: 700, color: co.muted, textTransform: "uppercase", letterSpacing: 1.5, marginBottom: 8 }}>
           Polish
         </div>
+        {isStoryFormat(project.format) && <EditorNotesPanel project={project} updateProject={updateProject} />}
         <p style={{ fontSize: 14, color: co.text, lineHeight: 1.6, marginBottom: 4 }}>
           {chapter ? <>&ldquo;{chapter.title}&rdquo; — {chapter.wordCount} words</> : "This chapter is ready for a story health check."}
         </p>
