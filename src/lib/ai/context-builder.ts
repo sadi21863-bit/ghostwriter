@@ -6,6 +6,7 @@ import { buildRealismContext, getRealismDomainsForMode } from "@/lib/realism";
 import { extractVoiceFingerprint, fingerprintToConstraints } from "@/lib/ai/voice-fingerprint";
 import { MODE_REGISTRY, type ContextPolicy } from "@/lib/modes/registry";
 import { CONTEXT_CHAR_CAPS } from "@/lib/ai/context-caps";
+import { decodeAIRules, decodeMemoryStructuredData } from "@/lib/types/story";
 
 export interface CharacterRelationship {
   characterAId: string;
@@ -165,11 +166,13 @@ export function buildStaticContext(p: ContextProject, mode?: string, tier?: stri
     }
   }
 
-  // AI Project Rules — injected first, highest priority
-  const rules: any[] = (p as any).aiRules ?? [];
+  // AI Project Rules — injected first, highest priority. Decoded through the
+  // story zod guard so a malformed/legacy rule blob can't inject `undefined`
+  // (or worse) straight into the system prompt.
+  const rules = decodeAIRules((p as any).aiRules);
   if (rules.length > 0) {
     r.push('PROJECT WRITING RULES — THESE OVERRIDE ALL DEFAULTS. DO NOT VIOLATE THEM.');
-    rules.forEach((rule: any, i: number) => r.push(`${i + 1}. ${rule.text}`));
+    rules.forEach((rule, i) => r.push(`${i + 1}. ${rule.text}`));
     r.push('');
   }
 
@@ -711,7 +714,10 @@ export function buildDynamicContext(p: ContextProject, mode?: string): string {
     const salient = scoredMemories(p.storyMemories, p.chapters ?? [], p.activeChapter ?? "");
     r.push("STORY MEMORY — key facts from previous chapters:");
     salient.forEach((m) => {
-      const sd = (m as any).structuredData;
+      // Decoded through the story guard so a corrupt/legacy structuredData blob
+      // can't push malformed text into the prompt — bad sub-fields drop to
+      // undefined, the rest survives.
+      const sd = decodeMemoryStructuredData((m as any).structuredData);
       if (sd && sd.keyEvents?.length) {
         r.push(`[${sd.chapterTitle ?? 'Chapter'}${sd.arcPosition ? ' — ' + sd.arcPosition : ''}]`);
         if (sd.charactersPresent?.length) r.push(`  Present: ${sd.charactersPresent.join(', ')}`);

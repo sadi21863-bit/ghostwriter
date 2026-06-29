@@ -5,6 +5,7 @@ import { getRequiredSession } from "@/lib/auth-helpers";
 import { db } from "@/db";
 import { storyMemories, projects } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
+import { decodeMemoryStructuredData } from "@/lib/types/story";
 
 async function verifyOwnership(projectId: string, userId: string) {
   return db.query.projects.findFirst({
@@ -36,7 +37,10 @@ export async function POST(req: Request, { params }: { params: Promise<{ project
     projectId: (await params).projectId,
     fact: fact.trim(),
     category,
-    structuredData: structuredData ?? null,
+    // Normalize through the story guard so only a consistent, known shape is
+    // ever persisted. Lenient (not strict encode) because structuredData is
+    // AI-generated best-effort — drop bad sub-fields rather than reject the memory.
+    structuredData: structuredData != null ? decodeMemoryStructuredData(structuredData) : null,
     autoExtracted: false,
   }).returning();
 
