@@ -6,7 +6,9 @@ import type { ChapterEditorHandle } from "@/components/editor/ChapterEditor";
 import { co, sBtn, sBtnSm, sTextarea } from "@/lib/styles";
 import { toast } from "@/lib/toast";
 import { getChapterLabel, isCreatorFormat } from "@/lib/formats";
-import { currentStage, STAGE_ORDER, type GuideStage, type GuideAction } from "@/lib/guide/next-action";
+import { currentStage, type GuideStage, type GuideAction } from "@/lib/guide/next-action";
+import { FUNNEL_ORDER, FUNNEL_LABELS, CREATOR_FUNNEL_LABELS, guideStageToFunnel, funnelStageToGuide } from "@/lib/guide/funnel";
+import StageRoleRail from "@/components/StageRoleRail";
 import { MODE_REGISTRY, type GenerationMode } from "@/lib/modes/registry";
 import { getVisibleModes, filterModesByQuery } from "@/lib/modes/slash-menu";
 import { LIBRARY_MODES, classifyBeat } from "@/lib/modes/classify";
@@ -31,22 +33,6 @@ import { TikTokNativePanel } from "@/components/panels/toolbar/tools/TikTokNativ
 import { RepurposePanel } from "@/components/panels/toolbar/tools/RepurposePanel";
 import { ResearchScaffoldPanel } from "@/components/panels/toolbar/tools/ResearchScaffoldPanel";
 import type { QualityReview } from "@/components/panels/QualityReviewPanel";
-
-const STAGE_LABELS: Record<GuideStage, string> = {
-  idea: "Idea",
-  structure: "Structure",
-  draft: "Draft",
-  polish: "Polish",
-  export: "Export",
-};
-
-const CREATOR_STAGE_LABELS: Record<GuideStage, string> = {
-  idea: "Angle",
-  structure: "Outline/Hooks",
-  draft: "Script",
-  polish: "Retention edit",
-  export: "Publish pack",
-};
 
 interface WritingRoomProps {
   project: any;
@@ -147,7 +133,9 @@ export default function WritingRoom({
     dismissedGuideIds: project.dismissedGuideIds,
   });
   const stage = manualStage ?? computedStage;
-  const stageIdx = STAGE_ORDER.indexOf(stage);
+  // The UI presents 4 funnel stages over the guide engine's 5 (Polish+Export → Produce).
+  const funnelStage = guideStageToFunnel(stage);
+  const funnelIdx = FUNNEL_ORDER.indexOf(funnelStage);
 
   const goToStage = (s: GuideStage) => {
     setManualStage(s);
@@ -193,7 +181,7 @@ export default function WritingRoom({
     updateChapter("content", json);
   };
 
-  const stageLabels = isCreatorFormat(project.format) ? CREATOR_STAGE_LABELS : STAGE_LABELS;
+  const funnelLabels = isCreatorFormat(project.format) ? CREATOR_FUNNEL_LABELS : FUNNEL_LABELS;
 
   async function handleSurgicalEdit() {
     if (!surgicalInstruction.trim() || !activeChap?.content) return;
@@ -253,15 +241,15 @@ export default function WritingRoom({
           </div>
         </div>
         <div style={{ display: "flex", gap: 4, fontSize: 11, alignItems: "center" }}>
-          {STAGE_ORDER.map((s, i) => (
-            <button key={s} onClick={() => goToStage(s)} style={{
+          {FUNNEL_ORDER.map((fs, i) => (
+            <button key={fs} onClick={() => goToStage(funnelStageToGuide(fs))} style={{
               padding: "2px 8px", borderRadius: 6, border: "none", cursor: "pointer",
               fontFamily: "inherit", fontSize: 11,
-              fontWeight: i === stageIdx ? 700 : 400,
-              color: i < stageIdx ? co.green : i === stageIdx ? co.accent : co.muted,
-              background: i === stageIdx ? co.accentBg : "transparent",
+              fontWeight: i === funnelIdx ? 700 : 400,
+              color: i < funnelIdx ? co.green : i === funnelIdx ? co.accent : co.muted,
+              background: i === funnelIdx ? co.accentBg : "transparent",
             }}>
-              {i < stageIdx ? "✓ " : ""}{stageLabels[s]}
+              {i < funnelIdx ? "✓ " : ""}{funnelLabels[fs]}
             </button>
           ))}
           <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 6 }}>
@@ -364,13 +352,31 @@ export default function WritingRoom({
           </div>
         </div>
       ) : stage === "idea" ? (
-        <IdeaStageView project={project} updateProject={updateProject} onOpenBible={onOpenBible} prompt={prompt} setPrompt={setPrompt} onUpgradeRequired={onUpgradeRequired} onOpenActions={onOpenActions} />
+        <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
+          <div style={{ padding: "12px 20px 0" }}>
+            <StageRoleRail funnelStage="discover" format={project.format} onSelectMode={onSelectMode} onOpenActions={onOpenActions} onOpenComicStudio={onOpenComicStudio} onOpenProductionStudio={onOpenProductionStudio} onUpgradeRequired={onUpgradeRequired} />
+          </div>
+          <div style={{ flex: 1, minHeight: 0, overflow: "auto", display: "flex", flexDirection: "column" }}>
+            <IdeaStageView project={project} updateProject={updateProject} onOpenBible={onOpenBible} prompt={prompt} setPrompt={setPrompt} onUpgradeRequired={onUpgradeRequired} onOpenActions={onOpenActions} />
+          </div>
+        </div>
       ) : stage === "structure" ? (
-        <StructureStageView project={project} setPrompt={setPrompt} onSelectMode={onSelectMode} prompt={prompt} mode={mode} topic={activeChap.title} setSavedMsg={setSavedMsg} onUpgradeRequired={onUpgradeRequired} onOpenActions={onOpenActions} />
-      ) : stage === "polish" ? (
-        <PolishStageView project={project} qualityReview={qualityReview} onGuideRun={onGuideRun} onGuideDismiss={onGuideDismiss} mode={mode} content={activeChap.content} updateProject={updateProject} setSavedMsg={setSavedMsg} onUpgradeRequired={onUpgradeRequired} onOpenActions={onOpenActions} />
-      ) : stage === "export" ? (
-        <ExportStageView project={project} onGuideRun={onGuideRun} onOpenProductionStudio={onOpenProductionStudio} onOpenComicStudio={onOpenComicStudio} />
+        <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
+          <div style={{ padding: "12px 20px 0" }}>
+            <StageRoleRail funnelStage="shape" format={project.format} onSelectMode={onSelectMode} onOpenActions={onOpenActions} onOpenComicStudio={onOpenComicStudio} onOpenProductionStudio={onOpenProductionStudio} onUpgradeRequired={onUpgradeRequired} />
+          </div>
+          <div style={{ flex: 1, minHeight: 0, overflow: "auto", display: "flex", flexDirection: "column" }}>
+            <StructureStageView project={project} setPrompt={setPrompt} onSelectMode={onSelectMode} prompt={prompt} mode={mode} topic={activeChap.title} setSavedMsg={setSavedMsg} onUpgradeRequired={onUpgradeRequired} onOpenActions={onOpenActions} />
+          </div>
+        </div>
+      ) : guideStageToFunnel(stage) === "produce" ? (
+        <div style={{ flex: 1, minHeight: 0, overflow: "auto", display: "flex", flexDirection: "column" }}>
+          <div style={{ padding: "12px 20px 0" }}>
+            <StageRoleRail funnelStage="produce" format={project.format} onSelectMode={onSelectMode} onOpenActions={onOpenActions} onOpenComicStudio={onOpenComicStudio} onOpenProductionStudio={onOpenProductionStudio} onUpgradeRequired={onUpgradeRequired} />
+          </div>
+          <PolishStageView project={project} qualityReview={qualityReview} onGuideRun={onGuideRun} onGuideDismiss={onGuideDismiss} mode={mode} content={activeChap.content} updateProject={updateProject} setSavedMsg={setSavedMsg} onUpgradeRequired={onUpgradeRequired} onOpenActions={onOpenActions} />
+          <ExportStageView project={project} onGuideRun={onGuideRun} onOpenProductionStudio={onOpenProductionStudio} onOpenComicStudio={onOpenComicStudio} />
+        </div>
       ) : null}
 
       {/* Footer */}

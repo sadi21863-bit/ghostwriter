@@ -31,6 +31,7 @@ const LIVE_SHELL_FILES = [
 // If you build a new top-level feature component and it's not in this list,
 // add it here once it's wired in — that's what makes this test catch the next one.
 const MUST_BE_REACHABLE = [
+  "StageRoleRail",
   "AudioNovelPanel",
   "SprintMode",
   "StoryInsightsPanel",
