@@ -109,6 +109,11 @@ export async function POST(req: Request, { params }: { params: Promise<{ project
     return { referenceStrength: 0.85 };
   }
 
+  // A single page-level seed base keeps every panel on the page visually
+  // coherent (style/character feel) while `+ i` keeps each panel distinct and
+  // the whole page reproducible. Costs nothing extra — same number of calls.
+  const pageSeed = Math.floor(Math.random() * 900000);
+
   // Generate all panels (allow partial success)
   const panelResults = await Promise.allSettled(
     specs.map(async (spec, i) => {
@@ -125,6 +130,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ project
         referenceImageUrl,
         soulId,
         referenceStrength,
+        seed: pageSeed + i,
       });
 
       let imageUrl = soulUrl;

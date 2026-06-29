@@ -1,12 +1,28 @@
+// Each art style now carries concrete `styleModifiers` (line work, colour
+// treatment, shading, reading feel) that get baked into the panel prompt — a
+// zero-extra-cost quality lift over the bare preset label. `color` drives future
+// layout/format logic. `higgsfieldPreset` is kept for backward compatibility
+// (ComicStudio's picker + the persisted artStylePreset column still read it).
 export const ART_STYLES = [
-  { id: "manga",         label: "Manga",         higgsfieldPreset: "Manga" },
-  { id: "western",       label: "Western Comic",  higgsfieldPreset: "Comic Book" },
-  { id: "graphic_novel", label: "Graphic Novel",  higgsfieldPreset: "Graphic Novel" },
-  { id: "watercolor",    label: "Watercolor",     higgsfieldPreset: "Watercolor" },
-  { id: "noir",          label: "Noir",           higgsfieldPreset: "Dark Fantasy" },
-  { id: "anime",         label: "Anime",          higgsfieldPreset: "Anime" },
-  { id: "cartoon",       label: "Cartoon",        higgsfieldPreset: "Cartoon" },
+  { id: "manga",         label: "Manga",            higgsfieldPreset: "Manga",         color: "bw",
+    styleModifiers: "authentic black-and-white manga, crisp inked linework, screentone shading, expressive eyes, dynamic diagonal composition, speed lines for motion" },
+  { id: "manhwa",        label: "Manhwa / Webtoon", higgsfieldPreset: "Anime",         color: "color",
+    styleModifiers: "full-colour Korean manhwa / webtoon art, soft cel shading, clean digital linework, vibrant ambient lighting, tall vertical-scroll friendly composition" },
+  { id: "western",       label: "Western Comic",    higgsfieldPreset: "Comic Book",    color: "color",
+    styleModifiers: "American comic-book art, bold confident ink outlines, halftone dot shading, saturated primary colours, dramatic chiaroscuro lighting" },
+  { id: "graphic_novel", label: "Graphic Novel",    higgsfieldPreset: "Graphic Novel", color: "color",
+    styleModifiers: "literary graphic-novel illustration, painterly muted palette, textured brushwork, grounded realistic proportions, atmospheric lighting" },
+  { id: "watercolor",    label: "Watercolor",       higgsfieldPreset: "Watercolor",    color: "color",
+    styleModifiers: "soft watercolour illustration, bleeding pigments, visible paper texture, gentle gradients, delicate linework" },
+  { id: "noir",          label: "Noir",             higgsfieldPreset: "Dark Fantasy",  color: "bw",
+    styleModifiers: "high-contrast noir ink art, deep blacks, hard rim light, heavy shadow, rain-slick textures, moody low-key lighting" },
+  { id: "anime",         label: "Anime",            higgsfieldPreset: "Anime",         color: "color",
+    styleModifiers: "modern anime key-visual style, clean cel shading, bright saturated colours, sharp highlights, detailed eyes" },
+  { id: "cartoon",       label: "Cartoon",          higgsfieldPreset: "Cartoon",       color: "color",
+    styleModifiers: "stylised cartoon art, bold simple shapes, thick clean outlines, flat bright colours, exaggerated expressions" },
 ];
+
+export type ArtStyle = typeof ART_STYLES[number];
 
 export type PanelSpec = {
   beatIndex: number;
@@ -42,7 +58,7 @@ ${content}`,
 export function buildPanelPrompt(
   spec: PanelSpec,
   characters: any[],
-  artStyle: typeof ART_STYLES[0],
+  artStyle: ArtStyle,
   projectName: string
 ): string {
   const charDetails = spec.characters
@@ -51,7 +67,13 @@ export function buildPanelPrompt(
     .map((c: any) => `${c.name}: ${c.visualProfile || c.appearance || "no description"}`)
     .join(". ");
 
-  return `${artStyle.higgsfieldPreset} style comic panel. ${spec.shotType}. ${spec.action}. Setting: ${spec.location}. Mood: ${spec.mood}.${charDetails ? " Characters — " + charDetails + "." : ""} Story: ${projectName}. Professional sequential art, cinematic framing, high detail. Leave blank space at bottom 15% for dialogue overlay. No text, no speech bubbles, no captions in the image.`;
+  // Prefer the rich style modifiers; fall back to the legacy preset label for any
+  // style that hasn't been given modifiers.
+  const styleDirective = (artStyle as any).styleModifiers
+    ? `${(artStyle as any).styleModifiers}.`
+    : `${artStyle.higgsfieldPreset} style.`;
+
+  return `Comic panel, ${styleDirective} ${spec.shotType}. ${spec.action}. Setting: ${spec.location}. Mood: ${spec.mood}.${charDetails ? " Characters — " + charDetails + "." : ""} Story: ${projectName}. Professional sequential art, consistent character designs, cinematic framing, high detail. Leave blank space at the bottom 15% for a dialogue bubble. No text, no speech bubbles, no captions, no lettering in the image.`;
 }
 
 export function getCharacterReference(characterName: string, characters: any[]): string | undefined {
