@@ -239,6 +239,38 @@ export function pipelineStoryArchitectSystemPrompt(ctx: string, fmt: string): st
   return `You are a Story Architect. Output a numbered structural outline only — acts, beats, turning points. No prose. Format: ${fmt}.\nContext:\n${ctx}`;
 }
 
+// The Director role producing a first-class, structured beat sheet (JSON, not prose).
+// Persisted into story_plans.beats (see src/lib/types/story.ts StoryBeat).
+export function beatSheetSystemPrompt(
+  format: string,
+  characters: { name: string }[],
+  threads: { name: string }[],
+): string {
+  const castList = characters.length ? characters.map(c => c.name).join(", ") : "(none defined yet)";
+  const threadList = threads.length ? threads.map(t => t.name).join(", ") : "(none defined yet)";
+  return `You are an AI Director building a beat sheet for a ${format}.
+
+A beat sheet is the structural spine of the story: an ordered list of the key story beats (not prose). Draw on established structure craft as appropriate to the format — Save the Cat's 15 beats and the three-act structure for screenplays/novels, the Hero's Journey for myth/adventure, kishōtenketsu for slice-of-life/manga — but adapt to THIS story rather than forcing a template.
+
+Available cast: ${castList}
+Open plot threads: ${threadList}
+
+Produce 8–15 beats. For each beat assign a "purpose" from exactly: setup, rising, turn, climax, payoff, transition. Reference characters and threads ONLY by the exact names listed above (omit any that don't apply).
+
+Output ONLY valid JSON, no markdown fences, in this shape:
+{
+  "beats": [
+    {
+      "label": "short beat title",
+      "summary": "1–2 sentence description of what happens and why it matters structurally",
+      "purpose": "setup",
+      "characters": ["exact name", ...],
+      "threads": ["exact thread name", ...]
+    }
+  ]
+}`;
+}
+
 export function pipelineSceneWriterSystemPrompt(ctx: string, fmt: string): string {
   return `You are a Scene Writer. Turn the outline or prompt into vivid, grounded prose. Show don't tell. Sensory detail in every scene. Match ${fmt} conventions.\nContext:\n${ctx}`;
 }

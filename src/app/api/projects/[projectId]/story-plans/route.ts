@@ -1,0 +1,123 @@
+export const dynamic = 'force-dynamic';
+
+import { NextResponse } from "next/server";
+import { getRequiredSession } from "@/lib/auth-helpers";
+import { checkAiRateLimit } from "@/lib/ratelimit";
+import { db } from "@/db";
+import { projects, storyPlans } from "@/db/schema";
+import { eq, and } from "drizzle-orm";
+import Anthropic from "@anthropic-ai/sdk";
+import { MODELS } from "@/lib/ai/engine";
+import { beatSheetSystemPrompt } from "@/lib/ai/prompts";
+import { encodeStoryBeats, type StoryBeat } from "@/lib/types/story";
+
+const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! });
+
+function safeParseJson(raw: string) {
+  const clean = raw.replace(/```json\n?|```/g, "").trim();
+  try { return JSON.parse(clean); } catch { return null; }
+}
+
+async function verifyOwnership(projectId: string, userId: string) {
+  return db.query.projects.findFirst({
+    where: and(eq(projects.id, projectId), eq(projects.userId, userId)),
+  });
+}
+
+export async function GET(_: Request, { params }: { params: Promise<{ projectId: string }> }) {
+  const s = await getRequiredSession();
+  const { projectId } = await params;
+  if (!await verifyOwnership(projectId, s.user.id))
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  const plans = await db.query.storyPlans.findMany({
+    where: eq(storyPlans.projectId, projectId),
+    orderBy: (p, { desc }) => [desc(p.createdAt)],
+  });
+  return NextResponse.json({ plans });
+}
+
+export async function POST(req: Request, { params }: { params: Promise<{ projectId: string }> }) {
+  const s = await getRequiredSession();
+  const rl = await checkAiRateLimit(s.user.id);
+  if (rl) return rl;
+  const { projectId } = await params;
+
+  const project = await db.query.projects.findFirst({
+    where: and(eq(projects.id, projectId), eq(projects.userId, s.user.id)),
+    with: { characters: true, plotThreads: true },
+  });
+  if (!project) return NextResponse.json({ error: "Not found" }, { status: 404 });
+
+  const { prompt = "", title } = await req.json().catch(() => ({}));
+  const cast = (project as any).characters ?? [];
+  const threads = (project as any).plotThreads ?? [];
+
+  const msg = await client.messages.create({
+    model: MODELS.default,
+    max_tokens: 2000,
+    system: beatSheetSystemPrompt(project.format, cast, threads),
+    messages: [{ role: "user", content: prompt || "Build the beat sheet for this story." }],
+  });
+  const raw = (msg.content as any[]).filter(b => b.type === "text").map(b => b.text).join("");
+  const parsed = safeParseJson(raw);
+  if (!parsed || !Array.isArray(parsed.beats))
+    return NextResponse.json({ error: "Couldn't structure a beat sheet. Try a longer prompt." }, { status: 500 });
+
+  // The model reasons in names; we persist ids. Map each beat's character/thread
+  // names back to World Bible ids, assign order + a stable id, then validate.
+  const nameToId = (list: { id: string; name: string }[]) =>
+    (names: unknown): string[] => Array.isArray(names)
+      ? names.map(n => list.find(x => x.name === n)?.id).filter((id): id is string => !!id)
+      : [];
+  const mapChars = nameToId(cast);
+  const mapThreads = nameToId(threads);
+
+  const beats = encodeStoryBeats((parsed.beats as any[]).map((b, i) => ({
+    id: crypto.randomUUID(),
+    order: i + 1,
+    label: String(b?.label ?? `Beat ${i + 1}`),
+    summary: String(b?.summary ?? ""),
+    purpose: b?.purpose,
+    characterIds: mapChars(b?.characters),
+    threadIds: mapThreads(b?.threads),
+  })));
+
+  const [plan] = await db.insert(storyPlans).values({
+    projectId,
+    kind: "beat_sheet",
+    title: title || "Beat Sheet",
+    beats,
+  }).returning();
+
+  return NextResponse.json({ plan });
+}
+
+export async function PATCH(req: Request, { params }: { params: Promise<{ projectId: string }> }) {
+  const s = await getRequiredSession();
+  const { projectId } = await params;
+  if (!await verifyOwnership(projectId, s.user.id))
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+
+  const { planId, title, beats } = await req.json();
+  const set: { title?: string; beats?: StoryBeat[]; updatedAt: Date } = { updatedAt: new Date() };
+  if (title !== undefined) set.title = title;
+  if (beats !== undefined) {
+    try { set.beats = encodeStoryBeats(beats); }
+    catch { return NextResponse.json({ error: "Invalid beats shape." }, { status: 400 }); }
+  }
+
+  const [updated] = await db.update(storyPlans).set(set)
+    .where(and(eq(storyPlans.id, planId), eq(storyPlans.projectId, projectId)))
+    .returning();
+  return NextResponse.json({ plan: updated });
+}
+
+export async function DELETE(req: Request, { params }: { params: Promise<{ projectId: string }> }) {
+  const s = await getRequiredSession();
+  const { projectId } = await params;
+  if (!await verifyOwnership(projectId, s.user.id))
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  const { planId } = await req.json();
+  await db.delete(storyPlans).where(and(eq(storyPlans.id, planId), eq(storyPlans.projectId, projectId)));
+  return NextResponse.json({ ok: true });
+}
