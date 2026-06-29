@@ -15,11 +15,7 @@ export function GrowthBookClientProvider({ children }: { children: React.ReactNo
 
   useEffect(() => {
     if (!process.env.NEXT_PUBLIC_GROWTHBOOK_CLIENT_KEY) return;
-    growthbook.loadFeatures({ autoRefresh: true }).then(() => {
-      if (process.env.NODE_ENV === "development") {
-        console.log("[GrowthBook] writing_room_shell =", growthbook.isOn("writing_room_shell"));
-      }
-    });
+    growthbook.loadFeatures({ autoRefresh: true });
   }, [growthbook]);
 
   return <GrowthBookProvider growthbook={growthbook}>{children}</GrowthBookProvider>;

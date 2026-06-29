@@ -12,7 +12,7 @@ export function useGeneration({
   project, mode, prompt, activeChap,
   updateChapter, updateProject, setUpgradeRequired,
   creatorBible, cohostVoice,
-  activeInfluence, activePatterns, writingRoomEnabled,
+  activeInfluence, activePatterns,
   setUndoStack, setStreamText, buildFullContext,
   runQualityCheck, runEntityExtraction,
 }: {
@@ -24,7 +24,6 @@ export function useGeneration({
   cohostVoice?: string;
   activeInfluence?: any;
   activePatterns?: any[];
-  writingRoomEnabled?: boolean;
   setUndoStack: React.Dispatch<React.SetStateAction<string[]>>;
   setStreamText: React.Dispatch<React.SetStateAction<string>>;
   buildFullContext: (p?: any) => string;
@@ -151,7 +150,7 @@ export function useGeneration({
         if (MODE_REGISTRY[mode as GenerationMode]?.qualityCheck && (project as any).qualityGradingEnabled) {
           runQualityCheck(r.text, project.id);
         }
-        if (mode === "write" && writingRoomEnabled) {
+        if (mode === "write") {
           runEntityExtraction(r.text);
         }
       }

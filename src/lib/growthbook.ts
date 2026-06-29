@@ -20,7 +20,6 @@ export const FLAGS = {
   commandPalette:      "command_palette",
   adaptiveOnboarding:  "adaptive_onboarding",
   newDesignTokens:     "new_design_tokens",
-  writingRoomShell:    "writing_room_shell",
   homeRedesign:        "home_redesign",
   // Gates ONLY the costly Haiku scene-blueprint pre-pass (default OFF). The
   // free grounding helpers (promise-ledger, voice-exemplars) run unconditionally

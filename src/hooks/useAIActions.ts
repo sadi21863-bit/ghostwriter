@@ -12,7 +12,7 @@ export function useAIActions({
   project, mode, prompt, activeChap,
   updateChapter, updateProject, setErrorMsg, setSavedMsg,
   creatorBible, cohostVoice, setUpgradeRequired,
-  activeInfluence, activePatterns, writingRoomEnabled,
+  activeInfluence, activePatterns,
 }: {
   project: any; mode: string; prompt: string; activeChap: any;
   updateChapter: (f: string, v: any) => void;
@@ -24,7 +24,6 @@ export function useAIActions({
   setUpgradeRequired?: (feature: string) => void;
   activeInfluence?: any;
   activePatterns?: any[];
-  writingRoomEnabled?: boolean;
 }) {
   const [undoStack, setUndoStack] = useState<string[]>([]);
   const [streamText, setStreamText] = useState("");
@@ -49,7 +48,7 @@ export function useAIActions({
   const proseTools = useProseTools({ activeChap, mode, updateChapter, buildFullContext });
   const generation = useGeneration({
     project, mode, prompt, activeChap, updateChapter, updateProject, setUpgradeRequired,
-    creatorBible, cohostVoice, activeInfluence, activePatterns, writingRoomEnabled,
+    creatorBible, cohostVoice, activeInfluence, activePatterns,
     setUndoStack, setStreamText, buildFullContext,
     runQualityCheck: pipelines.runQualityCheck,
     runEntityExtraction: entitySync.runEntityExtraction,

@@ -5,15 +5,12 @@ import type { SkillSuggestion } from "@/lib/ai/skill-router";
 import { useProjectState } from "@/hooks/useProjectState";
 import { useAIActions } from "@/hooks/useAIActions";
 import { useWorldBible } from "@/hooks/useWorldBible";
-import ChapterEditor from "@/components/panels/ChapterEditor";
 import { ToastContainer } from "@/components/ToastContainer";
 import type { FeatureGate } from "@/types/subscription";
 import type { CompositionLayer } from "@/lib/ai/composer";
 import { co, sBtn, sBtnSm } from "@/lib/styles";
 import { GuideBar } from "@/components/GuideBar";
 import { nextAction, type GuideAction } from "@/lib/guide/next-action";
-import { useFeatureIsOn } from "@growthbook/growthbook-react";
-import { FLAGS } from "@/lib/growthbook";
 import WritingRoom from "@/components/WritingRoom";
 import EntitySuggestionsChip from "@/components/EntitySuggestionsChip";
 import type { GenerationMode } from "@/lib/modes/registry";
@@ -38,7 +35,6 @@ export default function GhostWriterApp({ projectId }: { projectId: string }) {
   const [showProductionStudio, setShowProductionStudio] = useState(false);
   const [leftCollapsed, setLeftCollapsed] = useState(false);
   const [storyBibleOpen, setStoryBibleOpen] = useState(false);
-  const [rightCollapsed, setRightCollapsed] = useState(false);
   const [cohostVoice, setCohostVoice] = useState("curious_generalist");
   const [dialogueArchetype, setDialogueArchetype] = useState("Argument");
   const [combatStyleA, setCombatStyleA] = useState("");
@@ -70,12 +66,10 @@ export default function GhostWriterApp({ projectId }: { projectId: string }) {
   const [skillSuggestion, setSkillSuggestion] = useState<SkillSuggestion | null>(null);
   const [activeInfluence, setActiveInfluence] = useState<any | null>(null);
   const [activePatterns, setActivePatterns] = useState<any[]>([]);
-  const [mobileToolbarOpen, setMobileToolbarOpen] = useState(false);
   const [subscription, setSubscription] = useState<{ status: string; currentPeriodEnd: string | null; emailVerified?: boolean } | null>(null);
   const [verifyBannerDismissed, setVerifyBannerDismissed] = useState(false);
   const [resendingVerification, setResendingVerification] = useState(false);
   const [resendSent, setResendSent] = useState(false);
-  const writingRoomEnabled = useFeatureIsOn(FLAGS.writingRoomShell);
   const [actionsOpen, setActionsOpen] = useState(false);
   const insertIntoEditorRef = useRef<((text: string) => void) | null>(null);
   const autoFireTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -110,9 +104,11 @@ export default function GhostWriterApp({ projectId }: { projectId: string }) {
     document.documentElement.style.setProperty("--library-tint", tint);
   }, [mode]);
 
+  // The writing room starts with the left (toolbar) panel collapsed — it's reached
+  // on demand via the Actions drawer, not always-visible.
   useEffect(() => {
-    if (writingRoomEnabled) setLeftCollapsed(true);
-  }, [writingRoomEnabled]);
+    setLeftCollapsed(true);
+  }, []);
 
   const projectState = useProjectState(projectId);
   const {
@@ -136,10 +132,10 @@ export default function GhostWriterApp({ projectId }: { projectId: string }) {
     dismissedGuideIds: project?.dismissedGuideIds,
   }), [project?.format, project?.controllingIdea, project?.characters, project?.chapters, project?.dismissedGuideIds]);
 
-  // In the writing room, default to "write" unless the Actions overlay is open for
-  // a mode the user picked via the slash menu (see handleSelectMode below).
-  const effectiveMode = writingRoomEnabled ? (actionsOpen ? mode : "write") : mode;
-  const effectivePrompt = writingRoomEnabled && effectiveMode === "write"
+  // Default to "write" unless the Actions overlay is open for a mode the user picked
+  // via the slash menu (see handleSelectMode below).
+  const effectiveMode = actionsOpen ? mode : "write";
+  const effectivePrompt = effectiveMode === "write"
     ? (prompt.trim() || guideAction?.run.prompt || "Continue this scene.")
     : prompt;
 
@@ -162,7 +158,6 @@ export default function GhostWriterApp({ projectId }: { projectId: string }) {
     setUpgradeRequired: (f) => setUpgradeRequired(f as FeatureGate),
     activeInfluence,
     activePatterns,
-    writingRoomEnabled,
   });
 
   const worldBible = useWorldBible({
@@ -508,111 +503,66 @@ export default function GhostWriterApp({ projectId }: { projectId: string }) {
         setLeftCollapsed={setLeftCollapsed}
       />
 
-      {writingRoomEnabled ? (
-        <>
-          <WritingRoom
-            project={project}
-            activeChap={activeChap}
-            updateProject={projectState.updateProject}
-            updateChapter={projectState.updateChapter}
-            generating={aiActions.generating}
-            generate={aiActions.generate}
-            onOpenBible={() => setStoryBibleOpen(true)}
-            onOpenActions={() => setActionsOpen(true)}
-            prompt={prompt}
-            setPrompt={setPrompt}
-            onSelectMode={handleSelectMode}
-            onGuideRun={handleGuideRun}
-            onGuideDismiss={handleGuideDismiss}
-            qualityReview={aiActions.qualityReview}
-            onOpenProductionStudio={() => { setShowProductionStudio(true); setActionsOpen(true); }}
-            onOpenComicStudio={() => { setShowComicStudio(true); setActionsOpen(true); }}
-            mode={mode}
-            setSavedMsg={setSavedMsg}
-            onUpgradeRequired={(f) => setUpgradeRequired(f as FeatureGate)}
-            onRegisterInsert={(fn) => { insertIntoEditorRef.current = fn; }}
-            activeInfluence={activeInfluence}
-            onClearInfluence={() => setActiveInfluence(null)}
-            addChapter={projectState.addChapter}
-          />
-          {actionsOpen && (
-            <div
-              style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.3)", zIndex: 1500, display: "flex", justifyContent: "flex-end" }}
-              onClick={() => setActionsOpen(false)}
-            >
-              <div
-                style={{ width: 420, maxWidth: "100%", height: "100%", background: co.surface, overflow: "auto", position: "relative" }}
-                onClick={(e) => e.stopPropagation()}
-              >
-                <button
-                  onClick={() => setActionsOpen(false)}
-                  style={{ position: "absolute", top: 10, right: 10, background: "none", border: "none", fontSize: 22, lineHeight: 1, cursor: "pointer", color: co.muted, zIndex: 1 }}
-                  aria-label="Close"
-                >
-                  ×
-                </button>
-                {toolbarPanelElement}
-              </div>
-            </div>
-          )}
-        </>
-      ) : (
-        <>
-          <div className={`gw-toolbar-panel${mobileToolbarOpen ? " mobile-open" : ""}`}>
-          {toolbarPanelElement}
-          </div>
-
-          {/* Mobile toolbar toggle — hidden on desktop via CSS */}
-          <button
-            className="mobile-toolbar-toggle"
-            onClick={() => setMobileToolbarOpen(p => !p)}
-            style={{
-              display: 'none',
-              position: 'fixed', bottom: 24, right: 24, zIndex: 200,
-              width: 52, height: 52, borderRadius: '50%',
-              background: 'var(--color-accent)', color: '#fff', border: 'none',
-              cursor: 'pointer', fontSize: 22,
-              alignItems: 'center', justifyContent: 'center',
-              boxShadow: '0 4px 20px rgba(0,0,0,0.3)',
-            }}
+      <WritingRoom
+        project={project}
+        activeChap={activeChap}
+        updateProject={projectState.updateProject}
+        updateChapter={projectState.updateChapter}
+        generating={aiActions.generating}
+        generate={aiActions.generate}
+        onOpenBible={() => setStoryBibleOpen(true)}
+        onOpenActions={() => setActionsOpen(true)}
+        prompt={prompt}
+        setPrompt={setPrompt}
+        onSelectMode={handleSelectMode}
+        onGuideRun={handleGuideRun}
+        onGuideDismiss={handleGuideDismiss}
+        qualityReview={aiActions.qualityReview}
+        onOpenProductionStudio={() => { setShowProductionStudio(true); setActionsOpen(true); }}
+        onOpenComicStudio={() => { setShowComicStudio(true); setActionsOpen(true); }}
+        mode={mode}
+        setSavedMsg={setSavedMsg}
+        onUpgradeRequired={(f) => setUpgradeRequired(f as FeatureGate)}
+        onRegisterInsert={(fn) => { insertIntoEditorRef.current = fn; }}
+        activeInfluence={activeInfluence}
+        onClearInfluence={() => setActiveInfluence(null)}
+        addChapter={projectState.addChapter}
+      />
+      {actionsOpen && (
+        <div
+          style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.3)", zIndex: 1500, display: "flex", justifyContent: "flex-end" }}
+          onClick={() => setActionsOpen(false)}
+        >
+          <div
+            style={{ width: 420, maxWidth: "100%", height: "100%", background: co.surface, overflow: "auto", position: "relative" }}
+            onClick={(e) => e.stopPropagation()}
           >
-            {mobileToolbarOpen ? '✕' : '☰'}
-          </button>
-
-          <ChapterEditor
-            project={project}
-            updateProject={projectState.updateProject}
-            updateChapter={projectState.updateChapter}
-            addChapter={projectState.addChapter}
-            deleteChapter={projectState.deleteChapter}
-            moveChapter={projectState.moveChapter}
-            rightCollapsed={rightCollapsed}
-            setRightCollapsed={setRightCollapsed}
-            passiveSuggestions={projectState.passiveSuggestions}
-            setPassiveSuggestions={projectState.setPassiveSuggestions}
-            setUpgradeRequired={(f) => setUpgradeRequired(f as FeatureGate)}
-          />
-        </>
+            <button
+              onClick={() => setActionsOpen(false)}
+              style={{ position: "absolute", top: 10, right: 10, background: "none", border: "none", fontSize: 22, lineHeight: 1, cursor: "pointer", color: co.muted, zIndex: 1 }}
+              aria-label="Close"
+            >
+              ×
+            </button>
+            {toolbarPanelElement}
+          </div>
+        </div>
       )}
 
-      {writingRoomEnabled && (
-        <StoryBible
-          project={project}
-          updateProject={projectState.updateProject}
-          open={storyBibleOpen}
-          onClose={() => setStoryBibleOpen(false)}
-          onOpenAdvanced={() => { setStoryBibleOpen(false); setLeftCollapsed(false); }}
-          setConfirmModal={setConfirmModal}
-        />
-      )}
+      <StoryBible
+        project={project}
+        updateProject={projectState.updateProject}
+        open={storyBibleOpen}
+        onClose={() => setStoryBibleOpen(false)}
+        onOpenAdvanced={() => { setStoryBibleOpen(false); setLeftCollapsed(false); }}
+        setConfirmModal={setConfirmModal}
+      />
 
-      {writingRoomEnabled && (
-        <EntitySuggestionsChip
-          suggestions={aiActions.entitySuggestions}
-          onAccept={aiActions.acceptEntitySuggestion}
-          onReject={aiActions.rejectEntitySuggestion}
-        />
-      )}
+      <EntitySuggestionsChip
+        suggestions={aiActions.entitySuggestions}
+        onAccept={aiActions.acceptEntitySuggestion}
+        onReject={aiActions.rejectEntitySuggestion}
+      />
 
       {showStoryHealth && (
         <StoryHealthPanel

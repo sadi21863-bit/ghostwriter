@@ -8,7 +8,7 @@
 // but it catches the case that actually happened multiple times: a component
 // that's imported NOWHERE in the files that make up the live shell.
 import { describe, it, expect } from "vitest";
-import { readFileSync } from "node:fs";
+import { readFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
 
 const COMPONENTS_DIR = join(__dirname, "..");
@@ -55,5 +55,33 @@ describe("live shell reachability", () => {
     // Dynamic `import("@/components/X")`, including the `dynamic(() => import(...))` pattern
     const dynamicImport = new RegExp(`import\\(['"][^'"]*${name}[^'"]*['"]\\)`).test(combinedSource);
     expect(staticImport || dynamicImport, `${name} is not imported (static or dynamic) by any of: ${LIVE_SHELL_FILES.join(", ")}`).toBe(true);
+  });
+});
+
+// Regression guard for the 2026-06-29 dual-shell consolidation: there is now ONE
+// render path (WritingRoom). The legacy toolbar-driven shell, its feature flag, and
+// the legacy editor must stay deleted — if any of these reappears, the dual-shell
+// debt is back. (This is the "don't resurrect the old shell" guard.)
+describe("legacy shell stays deleted", () => {
+  const appSource = readFileSync(join(COMPONENTS_DIR, "GhostWriterApp.tsx"), "utf-8");
+
+  it("GhostWriterApp no longer branches on a writingRoomEnabled flag", () => {
+    expect(appSource).not.toMatch(/writingRoomEnabled/);
+    expect(appSource).not.toMatch(/FLAGS\.writingRoomShell/);
+  });
+
+  it("GhostWriterApp no longer imports the legacy panels/ChapterEditor", () => {
+    expect(appSource).not.toMatch(/from ["']@\/components\/panels\/ChapterEditor["']/);
+  });
+
+  it("the legacy panels/ChapterEditor.tsx file is gone", () => {
+    const legacyEditor = join(COMPONENTS_DIR, "panels/ChapterEditor.tsx");
+    expect(existsSync(legacyEditor)).toBe(false);
+  });
+
+  it("the writingRoomShell flag is removed from the FLAGS registry", () => {
+    const flagsSource = readFileSync(join(COMPONENTS_DIR, "../lib/growthbook.ts"), "utf-8");
+    expect(flagsSource).not.toMatch(/writingRoomShell/);
+    expect(flagsSource).not.toMatch(/writing_room_shell/);
   });
 });

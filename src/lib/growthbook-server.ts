@@ -1,7 +1,7 @@
 import { GrowthBook } from "@growthbook/growthbook-react";
 
 // Server-side GrowthBook evaluation — first use of this pattern in the codebase.
-// Every other flag (writingRoomShell, homeRedesign, etc.) is only ever checked
+// Every other flag (homeRedesign, streaming, etc.) is only ever checked
 // client-side via GrowthBookClientProvider/useFeatureIsOn. This mirrors that
 // setup but as a lazy singleton (same pattern as src/db/index.ts's getDb()),
 // re-fetching feature definitions at most every 5 minutes instead of per request.
