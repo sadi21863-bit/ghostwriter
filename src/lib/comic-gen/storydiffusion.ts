@@ -16,6 +16,7 @@
 //   it adds incidental text anyway is the one thing the real validation call must
 //   confirm.
 import type { ArtStyle } from "@/lib/ai/panel-prompt-builder";
+import { ANATOMY_NEGATIVE_PROMPT } from "@/lib/ai/image-quality";
 
 // ART_STYLES.id → StoryDiffusion style_name (the model's fixed option list).
 export const STORYDIFFUSION_STYLE_BY_ART: Record<string, string> = {
@@ -57,6 +58,7 @@ export interface StoryDiffusionBodyParams {
   refImage?: string;
   numIds?: number;
   seed?: number;
+  negativePrompt?: string;
 }
 
 export function buildStoryDiffusionBody(params: StoryDiffusionBodyParams): Record<string, unknown> {
@@ -68,6 +70,7 @@ export function buildStoryDiffusionBody(params: StoryDiffusionBodyParams): Recor
     comic_style: params.comicStyle ?? "Classic Comic Style",
     num_ids: params.numIds ?? 3,
     seed: params.seed ?? Math.floor(Math.random() * 999999),
+    negative_prompt: params.negativePrompt ?? ANATOMY_NEGATIVE_PROMPT,
     output_format: "png",
   };
   if (params.refImage) {

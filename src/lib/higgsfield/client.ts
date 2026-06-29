@@ -6,6 +6,7 @@
 import { CAMERA_PRESETS, VIRAL_PRESETS } from "./presets";
 import { VIDEO_ENDPOINTS, type VideoModelId } from "./models";
 import { buildStoryDiffusionBody } from "@/lib/comic-gen/storydiffusion";
+import { ANATOMY_NEGATIVE_PROMPT } from "@/lib/ai/image-quality";
 // Using undici's own fetch + Agent (not Node's global fetch) — mixing Node's
 // built-in fetch with a separately-installed undici package's Agent threw
 // "InvalidArgumentError: invalid onRequestStart method" (UND_ERR_INVALID_ARG),
@@ -81,11 +82,17 @@ export async function generateSoulImage(params: {
   seed?: number;
   width?: number;
   height?: number;
+  negativePrompt?: string;
+  /** Segmind's enhance_prompt is a hidden LLM rewriter that adds adjectives
+   *  (often aging/"weathered") and varies per call, hurting age fidelity and
+   *  cross-panel consistency. Default OFF; opt in explicitly when wanted. */
+  enhancePrompt?: boolean;
 }): Promise<string> {
   const body: Record<string, any> = {
     prompt: params.prompt,
     seed: params.seed ?? Math.floor(Math.random() * 999999),
-    enhance_prompt: true,
+    enhance_prompt: params.enhancePrompt ?? false,
+    negative_prompt: params.negativePrompt ?? ANATOMY_NEGATIVE_PROMPT,
   };
 
   if (params.stylePreset) body.style_preset = params.stylePreset;
@@ -282,12 +289,16 @@ function buildVideoRequestBody(
       // reference_images (up to 9) and first_frame_image are mutually exclusive on
       // Seedance 2.0 — this branch never sent an image field before, so there's
       // nothing to drop; reference_images is purely additive for character consistency.
+      // negative_prompt added to curb anatomy/physics errors (only on seedance, the
+      // active model — other models' schemas aren't verified for this field, and the
+      // prior video work showed sending fields a model doesn't expect causes bugs).
       return {
         prompt: p.prompt,
         aspect_ratio: p.aspectRatio,
         duration: p.duration ?? 5,
         seed: p.seed,
         enhance_prompt: true,
+        negative_prompt: ANATOMY_NEGATIVE_PROMPT,
         ...(p.referenceImages?.length && { reference_images: p.referenceImages }),
       };
     default: // any future model not yet given a specific mapping

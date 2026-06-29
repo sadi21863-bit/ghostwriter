@@ -73,7 +73,7 @@ export function buildPanelPrompt(
     ? `${(artStyle as any).styleModifiers}.`
     : `${artStyle.higgsfieldPreset} style.`;
 
-  return `Comic panel, ${styleDirective} ${spec.shotType}. ${spec.action}. Setting: ${spec.location}. Mood: ${spec.mood}.${charDetails ? " Characters — " + charDetails + "." : ""} Story: ${projectName}. Professional sequential art, consistent character designs, cinematic framing, high detail. Leave blank space at the bottom 15% for a dialogue bubble. No text, no speech bubbles, no captions, no lettering in the image.`;
+  return `Comic panel, ${styleDirective} ${spec.shotType}. ${spec.action}. Setting: ${spec.location}. Mood: ${spec.mood}.${charDetails ? " Characters — " + charDetails + "." : ""} Story: ${projectName}. Professional sequential art, consistent character designs, anatomically correct with natural proportions and correct hands, physically plausible poses, cinematic framing, high detail. Leave blank space at the bottom 15% for a dialogue bubble. No text, no speech bubbles, no captions, no lettering in the image.`;
 }
 
 export function getCharacterReference(characterName: string, characters: any[]): string | undefined {

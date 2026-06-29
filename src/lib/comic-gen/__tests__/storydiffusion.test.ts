@@ -52,6 +52,7 @@ describe("buildStoryDiffusionBody", () => {
       output_format: "png",
     });
     expect(body.ref_image).toBeUndefined();
+    expect(body.negative_prompt).toContain("bad anatomy"); // anatomy guard applied by default
   });
 
   it("when a ref_image is given, sets it and appends the required 'img' trigger word", () => {
