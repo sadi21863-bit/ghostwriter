@@ -3,7 +3,8 @@
 import { co, sBtn, sBtnSm } from "@/lib/styles";
 import { parseBeatList } from "@/lib/modes/beats";
 import type { GenerationMode } from "@/lib/modes/registry";
-import { isCreatorFormat } from "@/lib/formats";
+import { isCreatorFormat, isStoryFormat } from "@/lib/formats";
+import BeatSheetPanel from "@/components/BeatSheetPanel";
 import { HookABPanel } from "@/components/panels/toolbar/tools/HookABPanel";
 import { ThumbnailConceptsPanel } from "@/components/panels/toolbar/tools/ThumbnailConceptsPanel";
 import { TitleHookPanel } from "@/components/panels/toolbar/tools/TitleHookPanel";
@@ -36,6 +37,11 @@ export default function StructureStageView({ project, setPrompt, onSelectMode, p
     return (
       <div style={{ flex: 1, overflow: "auto", padding: "32px 24px", display: "flex", justifyContent: "center" }}>
         <div style={{ maxWidth: 560, width: "100%", textAlign: "center", paddingTop: 48 }}>
+          {isStoryFormat(project.format) && (
+            <div style={{ textAlign: "left", marginBottom: 24 }}>
+              <BeatSheetPanel project={project} onSelectMode={onSelectMode} setPrompt={setPrompt} />
+            </div>
+          )}
           <div style={{ fontSize: 11, fontWeight: 700, color: co.muted, textTransform: "uppercase", letterSpacing: 1.5, marginBottom: 8 }}>
             Structure
           </div>
@@ -59,6 +65,7 @@ export default function StructureStageView({ project, setPrompt, onSelectMode, p
   return (
     <div style={{ flex: 1, overflow: "auto", padding: "32px 24px", display: "flex", justifyContent: "center" }}>
       <div style={{ maxWidth: 560, width: "100%" }}>
+        {isStoryFormat(project.format) && <BeatSheetPanel project={project} onSelectMode={onSelectMode} setPrompt={setPrompt} />}
         <div style={{ fontSize: 11, fontWeight: 700, color: co.muted, textTransform: "uppercase", letterSpacing: 1.5, marginBottom: 4 }}>
           Structure
         </div>

@@ -32,6 +32,7 @@ const LIVE_SHELL_FILES = [
 // add it here once it's wired in — that's what makes this test catch the next one.
 const MUST_BE_REACHABLE = [
   "StageRoleRail",
+  "BeatSheetPanel",
   "AudioNovelPanel",
   "SprintMode",
   "StoryInsightsPanel",
