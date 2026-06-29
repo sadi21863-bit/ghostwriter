@@ -7,6 +7,9 @@ import { ACTIVE_VIDEO_MODELS } from "@/lib/higgsfield/models";
 import SeriesPipelinePanel from "@/components/panels/SeriesPipelinePanel";
 import { EmptyState } from "@/components/EmptyState";
 import { toast } from "@/lib/toast";
+import ProductionPipelineBar from "@/components/ProductionPipelineBar";
+import { getProductionPipelines } from "@/lib/production/pipelines";
+import { chapterApprovalSummary } from "@/lib/editor/approval";
 
 type Shot = {
   id: string;
@@ -396,6 +399,21 @@ export default function ProductionStudio({ project, segmindKey }: { project: any
   // ── SHOT LIST VIEW ───────────────────────────────────────────────────────────
   const scenes = Array.from(new Set(shots.map(s => s.sceneNumber))).sort((a: number, b: number) => a - b);
 
+  // Production pipeline (sub-project #5): the trailer pipeline + its gate state.
+  const trailerPipeline = getProductionPipelines(project.format).find(p => p.output === "trailer");
+  const pipelineCtx = {
+    hasShots: shots.length > 0,
+    hasGeneratedMedia: shots.some(s => s.finalVideoUrl || (s as any).sceneFinalVideoUrl),
+    chaptersApproved: chapterApprovalSummary((project.chapters || []).map((c: any) => ({ title: c.title, reviewStatus: c.reviewStatus }))).allApproved,
+    hasSegmindKey: !!segmindKey,
+    blobConfigured: true, // server-validated; the client can't see the token
+  };
+  const runPipelineStage = (stageId: string) => {
+    if (stageId === "plan") generateShotList();
+    else if (stageId === "generate") { if (scenes[0] != null) generateSceneVideo(scenes[0]); }
+    else if (stageId === "package") setView("export");
+  };
+
   return (
     <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
       {/* Top bar */}
@@ -422,6 +440,9 @@ export default function ProductionStudio({ project, segmindKey }: { project: any
 
       {/* Shots */}
       <div style={{ flex: 1, overflow: "auto", padding: "16px" }}>
+        {trailerPipeline && (
+          <ProductionPipelineBar pipeline={trailerPipeline} ctx={pipelineCtx} itemCount={shots.length} onRunStage={runPipelineStage} />
+        )}
         {shots.length === 0 && (
           <EmptyState icon="🎬" title="No shots yet"
             description="Generate a production package from your chapters to start directing." />

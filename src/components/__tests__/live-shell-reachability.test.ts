@@ -25,6 +25,7 @@ const LIVE_SHELL_FILES = [
   "stages/PolishStageView.tsx",
   "stages/ExportStageView.tsx",
   "panels/ToolbarPanel.tsx",
+  "ProductionStudio.tsx",
 ];
 
 // Maintained list: feature components that must be reachable from a live user.
@@ -34,6 +35,7 @@ const MUST_BE_REACHABLE = [
   "StageRoleRail",
   "BeatSheetPanel",
   "EditorNotesPanel",
+  "ProductionPipelineBar",
   "AudioNovelPanel",
   "SprintMode",
   "StoryInsightsPanel",

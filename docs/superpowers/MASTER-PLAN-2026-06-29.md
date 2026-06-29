@@ -86,7 +86,7 @@ Cross-cutting (feed every stage): **context builder** (graph-driven selection), 
 2. ✅ **4-stage funnel + role rails** — first surface; makes roles visible.
 3. ✅ **Director beat sheet** — first role-data; feeds Writer/Editor/Comic/Graph.
 4. ✅ **Editor data + approve-gate (#4)** — SHIPPED. `editor_notes` table + `chapters.reviewStatus` (migration 0014); `/api/projects/[id]/editor-notes` (notes CRUD + chapter approve); `chapterApprovalSummary` helper; `EditorNotesPanel` in the Produce stage (notes resolve/dismiss/add + approve chapters); soft approve-gate banner in `ExportStageView`; `editor_review` registry cap. Follow-ups deferred: AI auto-scan (persist quality-check output as notes) + per-note "Fix This" via prose-fix; hard gate folds into #5. **The approve-gate chokepoint now exists** for #5/Comic/Video to build on.
-5. ⏳ **Production-as-pipeline (#5)** — wraps comic/video/audio in Director-plan → generate → Editor-QA → package, gated by #4's approval. Reuses `usePipelines`. Apply `video-use` EDL+self-eval and `ai-film-director-mega-skill` CINE-LOCK patterns (MIT, adaptable).
+5. ✅ **Production-as-pipeline (#5)** — SHIPPED (v1). Declarative `PRODUCTION_PIPELINES` (`src/lib/production/pipelines.ts`, media analog of the text `PIPELINES`), a pure `computePipelineState` gate engine (`pipeline-state.ts`) that **hard-blocks paid stages until chapters are Editor-approved** (the QA-before-spend gate, `blocked_gate`), `estimatePipelineCost`, and a `ProductionPipelineBar` stepper in ProductionStudio driving the existing routes. Drift-guard ties pipeline `capabilityId`s to the registry. Deferred: the `video-use` render→self-eval auto-fix loop, OpenMontage 7-dim tool-scoring, budget caps.
 6. ⏳ **Story Graph Phase 1** (multi-entity nodes) → **Phase 2** (dataflow on 1–2 pipelines, using registry caps as widgets) → 3 (probes) → 4 (subgraphs). The visual-programming north star; every phase rides the registry + `capabilityAction`.
 7. ⏳ **Comic Studio overhaul** — Phase 1 generation-core (batched page gen + char ref sheets + style presets) is the real non-toy unlock; B1 lettering is Phase 2. Gated by #4 at Phase 4.
 8. ⏳ **Story Resources** — small, drop in anytime (Discover).
@@ -127,6 +127,6 @@ Cross-cutting (feed every stage): **context builder** (graph-driven selection), 
 
 ## 8. Current state snapshot
 
-Shipped this cycle: per-shot ref fix (real-money validated) · zod-typed JSONB · dual-shell deletion · capability registry (#1) · 4-stage funnel + rails (#2) · Director beat sheet (#3). **54 test files / 351 tests green, tsc clean.** Live DB migrations through 0013 (`story_plans`).
+Shipped this cycle: per-shot ref fix (real-money validated) · zod-typed JSONB · dual-shell deletion · capability registry (#1) · 4-stage funnel + rails (#2) · Director beat sheet (#3) · Editor data + approve-gate (#4) · production-as-pipeline (#5). **All four funnel role/stage sub-projects + the registry spine are now in place.** Live DB migrations through 0014 (`story_plans`, `editor_notes`, `chapters.reviewStatus`).
 
-Next per §5: **Editor data + approve-gate (#4)** — the linchpin.
+Next: the queued items — **Story Graph Phase 1** (visual-programming north star; registry is already the widget primitive), **Comic Studio overhaul** (generation-core Phase 1 is the real unlock), **Story Resources** (small), **Headroom** (last). The core funnel architecture is complete; these are enhancements on top of it.
