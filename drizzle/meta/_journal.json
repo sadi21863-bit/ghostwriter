@@ -99,6 +99,13 @@
       "when": 1782745959780,
       "tag": "0013_overrated_next_avengers",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1782752100301,
+      "tag": "0014_noisy_shadow_king",
+      "breakpoints": true
     }
   ]
 }
