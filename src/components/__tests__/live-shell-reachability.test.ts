@@ -36,6 +36,7 @@ const MUST_BE_REACHABLE = [
   "BeatSheetPanel",
   "EditorNotesPanel",
   "ProductionPipelineBar",
+  "InspirationLibrary",
   "AudioNovelPanel",
   "SprintMode",
   "StoryInsightsPanel",

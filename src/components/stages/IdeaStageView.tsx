@@ -6,6 +6,7 @@ import { isCreatorFormat } from "@/lib/formats";
 import { TrendNichePanel } from "@/components/panels/toolbar/tools/TrendNichePanel";
 import { TrendAnglesPanel } from "@/components/panels/toolbar/tools/TrendAnglesPanel";
 import { ChannelAutopsyPanel } from "@/components/panels/toolbar/tools/ChannelAutopsyPanel";
+import InspirationLibrary from "@/components/InspirationLibrary";
 
 interface IdeaStageViewProps {
   project: any;
@@ -96,6 +97,8 @@ export default function IdeaStageView({ project, updateProject, onOpenBible, pro
             <button style={sBtnSm} onClick={onOpenActions}>More →</button>
           </div>
         )}
+
+        <InspirationLibrary />
       </div>
     </div>
   );
