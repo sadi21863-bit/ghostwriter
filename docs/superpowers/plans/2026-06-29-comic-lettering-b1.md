@@ -1046,3 +1046,33 @@ git commit -m "Add bubble-type picker and Letter Panel action to Comic Studio UI
 - [ ] Run the full suite: `npx vitest run` — expect all files passing, count increased by the new test files added in Tasks 2-6.
 - [ ] Run `npx tsc --noEmit` — expect exit 0.
 - [ ] Dispatch a final whole-branch code review (per `superpowers:subagent-driven-development`) before merging, covering: font license compliance (OFL.txt bundled), no AI spend introduced anywhere in the lettering path, `letteredImageUrl` never overwrites `imageUrl`, and the new `sharp` dependency doesn't break the existing `next.config.js` Vercel build (sharp is unlike `ffmpeg-static` — already a *commonly Vercel-bundled* native dependency via Next's own image optimizer — but this has not been verified against a real Vercel deploy in this plan; flag it as a post-merge deploy-log check, the same way `outputFileTracingIncludes` had to be discovered for `ffmpeg-static` in the prior video-stitching plan).
+
+---
+
+# Broader Comic Studio Upgrade Roadmap (this B1 plan = the lettering slice of it)
+
+**Status: HALTED / design backlog (2026-06-29).** This lettering plan (above) is one phase of a larger Comic Studio overhaul. Competitor + open-source research (Dashtoon, Koma, Anifusion, LlamaGen; `Aschen/comics_generator`, `another-ai/manga_generator`, `jbilcke-hf/ai-comic-factory`, `SaikaSakura/...manga-maker`) confirms the current "generic photoreal model → one independent image per panel → static 2×3 grid → no lettering/review" is the naive starter pattern. Convergent fix across all serious tools: **(1) sequence/character-aware batched generation, (2) explicit character reference pipeline, (3) panel-layout intelligence, (4) a separate lettering stage, (5) make it a pipeline with a review loop.**
+
+This overlaps heavily with the funnel roadmap: Comic Studio is a **Produce-stage** surface, so its Director/Editor steps should run through the same capability registry + role model (sub-projects #1/#2, shipped) and the Editor approve-gate (#4) rather than a parallel path. It also reuses the per-shot reference-scoping lesson from the video work (commit 71eff9e) and the `storydiffusion`-swap finding from CLAUDE.md item 26.
+
+## Ruthless phased order (do NOT do all at once)
+
+**Phase 1 — Generation core (must-do, biggest slop→quality jump):**
+- **Page-level batched generation** — treat a page as a unit; gather 4–8 panel descriptions into one panel-list; call the backend once per page (or with shared conditioning) instead of N isolated calls. Replaces the current per-panel `generateSoulImage`. (See `comics_generator`'s scenario→6-panel pattern, `manga_generator`'s batched page.)
+- **Character reference-sheet flow** — World Bible → Comic Studio bridge: generate 3–6 ref shots per character (front/3-4/profile/expressions), store as the *only* references passed to panel generation. Mirrors the per-shot reference scoping already proven on the video side.
+- **Comic-style presets** — inked B&W / greyscale manga / full-color webtoon / flat-color manhwa → concrete backend params (model/LoRA/format). Evaluate the `storydiffusion` model swap (CLAUDE.md item 26) here.
+
+**Phase 2 — Lettering stage:** ← **THIS B1 PLAN.** Composite bubbles/caption/SFX onto bare art server-side (sharp + bundled OFL font). Keep `letteredImageUrl` separate from raw art. Later: draggable-bubble editor with tail handles + stored bubble metadata (position/text/speaker) so re-render survives art regen.
+
+**Phase 3 — Panel-layout engine (nice, manageable):**
+- Layout templates as data (6–10 per format: manga grids/splash, webtoon vertical, gag-strip) = normalized rects / CSS grid.
+- Beat→template mapping: classify each beat (action/dialogue/emotional/exposition/transition) → pick template (action→dynamic/diagonal, emotional turn→splash, dialogue→even small panels w/ bubble whitespace). **Reuses the beat-purpose data from sub-project #3's StoryBeat** (`setup/rising/turn/climax/payoff/transition`).
+- UI: switch template per page, drag panel bounds within constraints, "needs emphasis" → auto-expand.
+
+**Phase 4 — Pipeline + review loop:** Scene-select → beat→panel planning (Director) → layout select → per-page art → lettering → **page-strip review (Editor): per-panel regenerate, reorder, dialogue tweak, approve-before-next**. Export: rectangular page (PDF/CBZ — the B1 plan already upgrades CBZ), webtoon vertical strip, social crops. This is where Comic Studio becomes a real Produce pipeline, gated by the Editor approve-gate (#4) — the same "QA-before-spend" discipline as the video CINE-LOCK/`video-use` finding.
+
+**Phase 5 — Advanced UX (only after 1–4 solid):** Cast-from-photo (selfie→character ref sheet), expanded multi-style menu, filmstrip/page editor (thumbnail timeline, drag-reorder pages/panels, right-click regenerate/relayout/edit-dialogue).
+
+## Sequencing note
+
+Phase 1 (generation core) is the biggest single quality jump and is the true "non-toy" unlock; Phase 2 (this lettering plan) is independently shippable and the second-biggest perceived jump. Phases 3–5 are additive. When Comic Studio work resumes, **prefer Phase 1 first** unless the lettering slice is wanted as a quick standalone win — then this B1 plan ships, and Phase 1 follows. Everything rides on the existing Comic Studio + the capability registry; no parallel execution path.
