@@ -51,11 +51,20 @@ export async function POST(_: Request, { params }: { params: Promise<{ projectId
 
   // Only character.portraitUrl (AI-generated via generateSoulImage, this feature's
   // own portrait pipeline) is ever used as a reference — never a user-supplied photo.
-  const referenceImages = Array.from(new Set(
+  //
+  // Scene-wide fallback only — used for shots that name no character of their own
+  // (e.g. an establishing shot). A shot WITH a primaryCharacter gets ONLY that
+  // character's portrait (see below); without this scoping, every character in the
+  // scene bled into every shot, including ones that never mention them (the shot-6
+  // misfire documented in commit 373299f).
+  const sceneWideReferenceImages = Array.from(new Set(
     sceneShots.map(sh => (sh as any).primaryCharacter?.portraitUrl).filter((u: any): u is string => !!u)
   )).slice(0, 9);
 
   for (const shot of sceneShots) {
+    const ownPortrait = (shot as any).primaryCharacter?.portraitUrl;
+    const referenceImages = ownPortrait ? [ownPortrait] : sceneWideReferenceImages;
+
     const { requestId, pollingUrl, mediaUrl } = await generateTextVideo({
       apiKey: segmindKey,
       model: "seedance",

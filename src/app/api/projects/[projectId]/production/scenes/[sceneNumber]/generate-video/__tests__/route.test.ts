@@ -77,6 +77,44 @@ describe("POST /api/projects/[projectId]/production/scenes/[sceneNumber]/generat
     expect(generateTextVideo.mock.calls[0][0].multiShotPrompt).toBeUndefined();
   });
 
+  it("scopes each shot's referenceImages to ITS OWN primaryCharacter, not every character in the scene", async () => {
+    findManyShots.mockResolvedValue([
+      { id: "shot-1", shotNumber: 1, sceneNumber: 1, videoPrompt: "The Dealer alone", soulPrompt: "p1", duration: 5, primaryCharacter: { portraitUrl: "https://example.com/dealer.png" } },
+      { id: "shot-2", shotNumber: 2, sceneNumber: 1, videoPrompt: "Kessler confronts him", soulPrompt: "p2", duration: 5, primaryCharacter: { portraitUrl: "https://example.com/kessler.png" } },
+    ]);
+    generateTextVideo.mockResolvedValue({ requestId: "req-x", pollingUrl: "https://api.segmind.com/v2/requests/req-x/status" });
+
+    await POST(makeRequest(), makeParams());
+
+    // The bug this fixes: shot-1 (The Dealer's own shot) must NOT receive Kessler's portrait too.
+    expect(generateTextVideo.mock.calls[0][0].referenceImages).toEqual(["https://example.com/dealer.png"]);
+    expect(generateTextVideo.mock.calls[1][0].referenceImages).toEqual(["https://example.com/kessler.png"]);
+  });
+
+  it("falls back to the deduped, capped scene-wide reference set only for shots with no primaryCharacter", async () => {
+    const characterShots = Array.from({ length: 10 }, (_, i) => ({
+      id: `char-shot-${i}`, shotNumber: i + 1, sceneNumber: 1, videoPrompt: `v${i}`, soulPrompt: `p${i}`, duration: 5,
+      primaryCharacter: { portraitUrl: `https://example.com/char-${i}.png` },
+    }));
+    const noCharacterShot = {
+      id: "establishing-shot", shotNumber: 11, sceneNumber: 1, videoPrompt: "Wide establishing shot, empty street", soulPrompt: "p-est", duration: 5,
+      primaryCharacter: null,
+    };
+    findManyShots.mockResolvedValue([...characterShots, noCharacterShot]);
+    generateTextVideo.mockResolvedValue({ requestId: "req-1", pollingUrl: "https://api.segmind.com/v2/requests/req-1/status" });
+
+    await POST(makeRequest(), makeParams());
+
+    // Each character shot still gets ONLY its own portrait.
+    expect(generateTextVideo.mock.calls[0][0].referenceImages).toEqual(["https://example.com/char-0.png"]);
+    // The no-character shot falls back to the scene-wide set, deduped and capped at 9.
+    const fallbackCall = generateTextVideo.mock.calls[10][0];
+    expect(fallbackCall.referenceImages).toHaveLength(9);
+    expect(fallbackCall.referenceImages).toEqual(
+      characterShots.slice(0, 9).map(s => s.primaryCharacter.portraitUrl)
+    );
+  });
+
   it("writes generatingStatus/higgsfieldJobId onto each shot's OWN row independently, not broadcast to the scene", async () => {
     findManyShots.mockResolvedValue([
       { id: "shot-1", shotNumber: 1, sceneNumber: 1, videoPrompt: "v1", soulPrompt: "p1", duration: 5, primaryCharacter: null },
@@ -93,20 +131,6 @@ describe("POST /api/projects/[projectId]/production/scenes/[sceneNumber]/generat
     expect(updateSet).toHaveBeenCalledTimes(2);
     expect(updateSet).toHaveBeenNthCalledWith(1, expect.objectContaining({ higgsfieldJobId: "req-1|https://api.segmind.com/v2/requests/req-1/status" }));
     expect(updateSet).toHaveBeenNthCalledWith(2, expect.objectContaining({ higgsfieldJobId: "req-2|https://api.segmind.com/v2/requests/req-2/status" }));
-  });
-
-  it("dedupes character portrait URLs and caps referenceImages at 9 (same as before, scene-wide)", async () => {
-    const shots = Array.from({ length: 12 }, (_, i) => ({
-      id: `shot-${i}`, shotNumber: i + 1, sceneNumber: 1, videoPrompt: `v${i}`, soulPrompt: `p${i}`, duration: 5,
-      primaryCharacter: { portraitUrl: `https://example.com/char-${i % 3}.png` },
-    }));
-    findManyShots.mockResolvedValue(shots);
-    generateTextVideo.mockResolvedValue({ requestId: "req-1", pollingUrl: "https://api.segmind.com/v2/requests/req-1/status" });
-
-    await POST(makeRequest(), makeParams());
-
-    const call = generateTextVideo.mock.calls[0][0];
-    expect(call.referenceImages.length).toBe(3);
   });
 
   it("returns the existing sceneFinalVideoUrl and does not resubmit jobs when the scene is already stitched", async () => {
