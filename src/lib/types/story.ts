@@ -105,6 +105,23 @@ export const StoryMemoryStructuredDataSchema = z.object({
 });
 export type StoryMemoryStructuredData = z.infer<typeof StoryMemoryStructuredDataSchema>;
 
+// ---------------------------------------------------------------------------
+// story_plans.beats  (jsonb StoryBeat[]) — the Director's first-class beat sheet
+// ---------------------------------------------------------------------------
+export const StoryBeatPurposeSchema = z.enum(["setup", "rising", "turn", "climax", "payoff", "transition"]);
+export const StoryBeatSchema = z.object({
+  id: z.string(),
+  order: z.number(),
+  label: z.string(),
+  summary: z.string().catch(""),
+  // An unknown purpose is coerced to "rising" rather than dropping the beat.
+  purpose: StoryBeatPurposeSchema.catch("rising"),
+  characterIds: z.array(z.string()).catch([]),
+  threadIds: z.array(z.string()).catch([]),
+  chapterId: z.string().optional(),
+});
+export type StoryBeat = z.infer<typeof StoryBeatSchema>;
+
 // ===========================================================================
 // Helpers
 // ===========================================================================
@@ -208,4 +225,12 @@ export function decodeMemoryStructuredData(raw: unknown): StoryMemoryStructuredD
 }
 export function encodeMemoryStructuredData(value: unknown): StoryMemoryStructuredData {
   return stripUndefined(StoryMemoryStructuredDataSchema.parse(value));
+}
+
+// ---- story-plan beats ----
+export function decodeStoryBeats(raw: unknown): StoryBeat[] {
+  return decodeArray(raw, StoryBeatSchema, "beats");
+}
+export function encodeStoryBeats(value: unknown): StoryBeat[] {
+  return z.array(StoryBeatSchema).parse(value);
 }

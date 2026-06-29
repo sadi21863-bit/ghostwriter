@@ -5,6 +5,7 @@ import {
   decodeIntelligenceProfile, encodeIntelligenceProfile,
   decodeCharacterSkills, encodeCharacterSkills,
   decodeMemoryStructuredData, encodeMemoryStructuredData,
+  decodeStoryBeats, encodeStoryBeats,
 } from "../story";
 
 // decode = lenient (DB reads may be legacy/corrupt): never throws, drops bad
@@ -149,5 +150,42 @@ describe("decodeMemoryStructuredData / encodeMemoryStructuredData", () => {
   it("encode strips unknown keys", () => {
     const result = encodeMemoryStructuredData({ chapterTitle: "T", junk: 1 });
     expect(result).toEqual({ chapterTitle: "T" });
+  });
+});
+
+describe("decodeStoryBeats / encodeStoryBeats", () => {
+  let warn: ReturnType<typeof vi.spyOn>;
+  beforeEach(() => { warn = vi.spyOn(console, "warn").mockImplementation(() => {}); });
+  afterEach(() => { warn.mockRestore(); });
+
+  const goodBeat = {
+    id: "b1", order: 1, label: "Opening Image", summary: "The dealer enters.",
+    purpose: "setup", characterIds: ["c1"], threadIds: ["t1"],
+  };
+
+  it("returns valid beats, applies defaults, drops malformed ones", () => {
+    const raw = [goodBeat, { id: "b2" /* missing order+label */ }, "junk"];
+    const result = decodeStoryBeats(raw);
+    expect(result).toHaveLength(1);
+    expect(result[0].label).toBe("Opening Image");
+    expect(result[0].purpose).toBe("setup");
+    expect(warn).toHaveBeenCalled();
+  });
+
+  it("coerces an unknown purpose to 'rising' rather than dropping the beat", () => {
+    const result = decodeStoryBeats([{ ...goodBeat, purpose: "banana" }]);
+    expect(result).toHaveLength(1);
+    expect(result[0].purpose).toBe("rising");
+  });
+
+  it("falls back to [] for non-array input", () => {
+    expect(decodeStoryBeats(null)).toEqual([]);
+    expect(decodeStoryBeats({})).toEqual([]);
+  });
+
+  it("encode strips unknown keys and throws on a structurally invalid beat", () => {
+    const ok = encodeStoryBeats([{ ...goodBeat, junk: 9 }]);
+    expect(ok[0]).not.toHaveProperty("junk");
+    expect(() => encodeStoryBeats([{ id: "b1" }])).toThrow();
   });
 });

@@ -378,6 +378,20 @@ export const storyCheckpoints = pgTable("story_checkpoints", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+// First-class Director artifact: a structured, persisted beat sheet (the `beats`
+// JSONB is zod-guarded via decodeStoryBeats/encodeStoryBeats in src/lib/types/story.ts).
+// `kind` is generic so outline/production-plan can join later without a new table.
+export const storyPlans = pgTable("story_plans", {
+  id:        uuid("id").defaultRandom().primaryKey(),
+  projectId: uuid("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
+  kind:      varchar("kind", { length: 20 }).notNull().default("beat_sheet"),
+  title:     text("title").notNull().default("Beat Sheet"),
+  beats:     jsonb("beats").$type<unknown[]>().notNull().default(sql`'[]'`),
+  status:    varchar("status", { length: 20 }).notNull().default("draft"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
 export const seriesBibles = pgTable("series_bibles", {
   id:                  uuid("id").defaultRandom().primaryKey(),
   userId:              uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
@@ -507,7 +521,7 @@ export const seriesBiblesRelations = relations(seriesBibles, ({ one }) => ({
 export const platformEventsRelations = relations(platformEvents, ({ one }) => ({
   user: one(users, { fields: [platformEvents.userId], references: [users.id] }),
 }));
-export const projectsRelations = relations(projects, ({ one, many }) => ({ user: one(users, { fields: [projects.userId], references: [users.id] }), characters: many(characters), locations: many(locations), plotThreads: many(plotThreads), chapters: many(chapters), referenceWorks: many(referenceWorks), generations: many(generations), creatorBible: one(creatorBibles, { fields: [projects.id], references: [creatorBibles.projectId] }), storyMemories: many(storyMemories), comicPages: many(comicPages), productionShots: many(productionShots), characterEvolutionLogs: many(characterEvolutionLog), audioExports: many(audioExports), characterRelationships: many(characterRelationships), storyThreads: many(storyThreads), storyPromises: many(storyPromises), storyCheckpoints: many(storyCheckpoints) }));
+export const projectsRelations = relations(projects, ({ one, many }) => ({ user: one(users, { fields: [projects.userId], references: [users.id] }), characters: many(characters), locations: many(locations), plotThreads: many(plotThreads), chapters: many(chapters), referenceWorks: many(referenceWorks), generations: many(generations), creatorBible: one(creatorBibles, { fields: [projects.id], references: [creatorBibles.projectId] }), storyMemories: many(storyMemories), comicPages: many(comicPages), productionShots: many(productionShots), characterEvolutionLogs: many(characterEvolutionLog), audioExports: many(audioExports), characterRelationships: many(characterRelationships), storyThreads: many(storyThreads), storyPromises: many(storyPromises), storyCheckpoints: many(storyCheckpoints), storyPlans: many(storyPlans) }));
 export const storyThreadsRelations = relations(storyThreads, ({ one, many }) => ({ project: one(projects, { fields: [storyThreads.projectId], references: [projects.id] }), promises: many(storyPromises) }));
 export const storyPromisesRelations = relations(storyPromises, ({ one }) => ({ project: one(projects, { fields: [storyPromises.projectId], references: [projects.id] }), thread: one(storyThreads, { fields: [storyPromises.threadId], references: [storyThreads.id] }) }));
 export const audioExportsRelations = relations(audioExports, ({ one }) => ({ project: one(projects, { fields: [audioExports.projectId], references: [projects.id] }) }));
