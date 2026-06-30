@@ -1,13 +1,20 @@
 "use client";
-import { useEffect } from "react";
+import { useEffect, useState, useCallback } from "react";
 import {
   ReactFlow, Background, Controls, MiniMap,
   useNodesState, useEdgesState,
 } from "@xyflow/react";
 import type { Node, Edge } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
+import { selectionKinds, confirmMessageFor, isOptionActionable, blockedReasonText } from "@/lib/graph/graph-canvas";
+import type { GraphRunPlan } from "@/lib/graph/graph-program";
 
-type Props = { projectId: string; onSelectPair?: (aId: string, bId: string) => void };
+type Props = {
+  projectId: string;
+  onSelectPair?: (aId: string, bId: string) => void;
+  /** Host wires actual execution of a confirmed, available capability run. */
+  onRunCapability?: (plan: GraphRunPlan) => void;
+};
 
 const RELATIONSHIP_COLORS: Record<string, string> = {
   ally:     "#22c55e", enemy:    "#ef4444",
@@ -16,33 +23,39 @@ const RELATIONSHIP_COLORS: Record<string, string> = {
   family:   "#14b8a6", "":       "#6b7280",
 };
 
-// Node styling per entity type — the multi-entity Story Graph (Phase 1).
+// Node styling per entity type — the multi-entity Story Graph (Phase 1 + world entities).
 const NODE_TYPE_STYLE: Record<string, { bg: string; border: string; shape: number }> = {
-  character: { bg: "#1A1A1E", border: "#818cf8", shape: 8 },   // rounded rect
-  location:  { bg: "#13201a", border: "#22c55e", shape: 20 },  // pill
-  thread:    { bg: "#201a13", border: "#f59e0b", shape: 2 },   // sharp
+  character:    { bg: "#1A1A1E", border: "#818cf8", shape: 8 },   // rounded rect
+  location:     { bg: "#13201a", border: "#22c55e", shape: 20 },  // pill
+  thread:       { bg: "#201a13", border: "#f59e0b", shape: 2 },   // sharp
+  world_entity: { bg: "#1d1320", border: "#c084fc", shape: 6 },   // world element
 };
 const EDGE_KIND_STYLE: Record<string, { stroke: string; dashed?: boolean; label?: string }> = {
   appears_at: { stroke: "#22c55e", dashed: true, label: "at" },
   drives:     { stroke: "#f59e0b", dashed: true, label: "drives" },
+  involves:   { stroke: "#c084fc", dashed: true, label: "involves" },
 };
 
-export function ConstellationView({ projectId, onSelectPair }: Props) {
+export function ConstellationView({ projectId, onSelectPair, onRunCapability }: Props) {
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
+  const [selected, setSelected] = useState<{ id: string; type?: string }[]>([]);
+  const [options, setOptions] = useState<GraphRunPlan[] | null>(null);
+  const [loadingOpts, setLoadingOpts] = useState(false);
 
   useEffect(() => {
     fetch(`/api/projects/${projectId}/story-graph`)
       .then(r => r.json())
       .then(data => {
         const all = data.nodes || [];
-        // Lay out each type on its own ring so the three entity kinds are visually distinct.
-        const byType: Record<string, any[]> = { character: [], location: [], thread: [] };
+        // Lay out each type on its own ring so the entity kinds are visually distinct.
+        const byType: Record<string, any[]> = { character: [], location: [], thread: [], world_entity: [] };
         for (const n of all) (byType[n.type] ?? (byType[n.type] = [])).push(n);
         const RING: Record<string, { r: number; cx: number; cy: number }> = {
-          character: { r: 230, cx: 350, cy: 300 },
-          location:  { r: 110, cx: 350, cy: 300 },
-          thread:    { r: 360, cx: 350, cy: 300 },
+          location:     { r: 110, cx: 350, cy: 300 },
+          character:    { r: 230, cx: 350, cy: 300 },
+          thread:       { r: 360, cx: 350, cy: 300 },
+          world_entity: { r: 470, cx: 350, cy: 300 },
         };
         const pos: Record<string, { x: number; y: number }> = {};
         for (const [type, list] of Object.entries(byType)) {
@@ -53,11 +66,17 @@ export function ConstellationView({ projectId, onSelectPair }: Props) {
           });
         }
 
+        const labelFor = (n: any) =>
+          n.type === "thread" ? `🧵 ${n.name}`
+          : n.type === "location" ? `📍 ${n.name}`
+          : n.type === "world_entity" ? `✦ ${n.name}`
+          : n.name;
+
         const rfNodes: Node[] = all.map((n: any) => {
           const st = NODE_TYPE_STYLE[n.type] ?? NODE_TYPE_STYLE.character;
           return {
             id: n.id,
-            data: { label: n.type === "thread" ? `🧵 ${n.name}` : n.type === "location" ? `📍 ${n.name}` : n.name },
+            data: { label: labelFor(n), nodeType: n.type },
             position: pos[n.id] ?? { x: 350, y: 300 },
             style: {
               background: st.bg, border: `1px solid ${st.border}`, borderRadius: st.shape,
@@ -97,13 +116,42 @@ export function ConstellationView({ projectId, onSelectPair }: Props) {
       .catch(() => {});
   }, [projectId, setNodes, setEdges]);
 
+  // Phase 2 dataflow: when nodes are selected, ask the server which capabilities can
+  // run on that selection (preflight + cost + confirm). The server never executes.
+  const onSelectionChange = useCallback(({ nodes: selNodes }: { nodes: Node[] }) => {
+    setSelected(selNodes.map(n => ({ id: n.id, type: (n.data as any)?.nodeType })));
+  }, []);
+
+  useEffect(() => {
+    if (selected.length === 0) { setOptions(null); return; }
+    const kinds = selectionKinds(selected);
+    const nodeIds = selected.map(s => s.id);
+    if (kinds.length === 0) { setOptions([]); return; }
+    setLoadingOpts(true);
+    fetch(`/api/projects/${projectId}/graph/run-plan`, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ kinds, nodeIds }),
+    })
+      .then(r => r.json())
+      .then(d => setOptions(d.options ?? []))
+      .catch(() => setOptions([]))
+      .finally(() => setLoadingOpts(false));
+  }, [projectId, selected]);
+
+  const runOption = (plan: GraphRunPlan) => {
+    if (!isOptionActionable(plan)) return;
+    const confirmMsg = confirmMessageFor(plan);
+    if (confirmMsg && !window.confirm(confirmMsg)) return; // QA-before-spend gate
+    onRunCapability?.(plan);
+  };
+
   return (
     <div style={{ position: "relative", width: "100%", height: 500, borderRadius: 12, overflow: "hidden", border: "1px solid var(--color-border-subtle, rgba(255,255,255,0.05))" }}>
       <ReactFlow
         nodes={nodes} edges={edges}
         onNodesChange={onNodesChange} onEdgesChange={onEdgesChange}
+        onSelectionChange={onSelectionChange}
         onEdgeClick={(_, edge) => {
-          // Only character↔character relationship edges are editable pairs.
           if ((edge.data as any)?.kind === "relationship") onSelectPair?.(edge.source, edge.target);
         }}
         fitView
@@ -115,11 +163,45 @@ export function ConstellationView({ projectId, onSelectPair }: Props) {
           style={{ background: "var(--color-bg-surface, #111113)" }}
         />
       </ReactFlow>
+
       <div style={{ position: "absolute", top: 8, left: 8, display: "flex", gap: 10, fontSize: 11, background: "rgba(17,17,19,0.8)", padding: "4px 8px", borderRadius: 6, color: "#9898A6", zIndex: 5 }}>
         <span><span style={{ color: "#818cf8" }}>●</span> Character</span>
         <span><span style={{ color: "#22c55e" }}>●</span> Location</span>
         <span><span style={{ color: "#f59e0b" }}>●</span> Thread</span>
+        <span><span style={{ color: "#c084fc" }}>●</span> Element</span>
       </div>
+
+      {/* Run-on-selection panel (Phase 2 dataflow). Appears when nodes are selected. */}
+      {selected.length > 0 && (
+        <div style={{ position: "absolute", top: 8, right: 8, width: 240, maxHeight: 460, overflow: "auto", background: "rgba(17,17,19,0.94)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 10, padding: 10, zIndex: 6, color: "#E8E8F0", fontSize: 12 }}>
+          <div style={{ fontWeight: 700, marginBottom: 8 }}>Run on {selected.length} selected</div>
+          {loadingOpts && <div style={{ color: "#9898A6" }}>Checking…</div>}
+          {!loadingOpts && options?.length === 0 && <div style={{ color: "#9898A6" }}>No capabilities apply to this selection.</div>}
+          {!loadingOpts && options?.map(plan => {
+            const blocked = blockedReasonText(plan);
+            return (
+              <button
+                key={plan.capabilityId}
+                onClick={() => runOption(plan)}
+                disabled={!isOptionActionable(plan)}
+                title={blocked ?? (plan.requiresConfirm ? `~$${plan.costUsd.toFixed(2)}` : "")}
+                style={{
+                  display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%",
+                  padding: "7px 9px", marginBottom: 6, borderRadius: 7, textAlign: "left",
+                  border: "1px solid rgba(255,255,255,0.08)", cursor: isOptionActionable(plan) ? "pointer" : "not-allowed",
+                  background: isOptionActionable(plan) ? "rgba(129,140,248,0.12)" : "transparent",
+                  color: isOptionActionable(plan) ? "#E8E8F0" : "#6b6b80",
+                }}
+              >
+                <span>{plan.label}</span>
+                <span style={{ fontSize: 10, color: blocked ? "#e0a05c" : plan.requiresConfirm ? "#c084fc" : "#6b6b80" }}>
+                  {blocked ?? (plan.requiresConfirm ? `$${plan.costUsd.toFixed(2)}` : "free")}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
