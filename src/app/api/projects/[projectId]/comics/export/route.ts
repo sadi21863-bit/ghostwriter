@@ -37,8 +37,10 @@ export async function GET(
   const allPanels: { page: number; panel: number; url: string }[] = [];
   for (const page of pages) {
     for (const panel of (page as any).panels || []) {
-      if (panel.imageUrl) {
-        allPanels.push({ page: page.pageNumber, panel: panel.panelIndex, url: panel.imageUrl });
+      // Prefer the lettered composite (bubbles/captions baked in) over raw art.
+      const url = panel.letteredImageUrl || panel.imageUrl;
+      if (url) {
+        allPanels.push({ page: page.pageNumber, panel: panel.panelIndex, url });
       }
     }
   }
