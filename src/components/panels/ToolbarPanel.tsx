@@ -4,7 +4,8 @@ import dynamic from "next/dynamic";
 import { MODES, PODCAST_MODES, isStoryFormat, isCreatorFormat, formatHasCohost } from "@/lib/formats";
 import { MODE_REGISTRY, type GenerationMode } from "@/lib/modes/registry";
 import { co, sBtn, sBtnSm } from "@/lib/styles";
-import { useDensity, type Density } from "@/hooks/useDensity";
+import { useDensity } from "@/hooks/useDensity";
+import { isModeVisibleAtDensity, type Density } from "@/lib/modes/density";
 
 // Mode panels
 import { DialoguePanel } from "./toolbar/modes/DialoguePanel";
@@ -256,12 +257,9 @@ export default function ToolbarPanel(props: Props) {
     ? MODES
     : MODES.filter(m => MODE_REGISTRY[m as GenerationMode]?.visibility !== "story_only");
 
-  const DENSITY_ORDER: Record<Density, number> = { simple: 0, standard: 1, full: 2 };
   const densityFiltered = visibleModes.filter((m) => {
     const entry = MODE_REGISTRY[m as GenerationMode] as import("@/lib/modes/registry").ModeConfig | undefined;
-    const minD = entry?.minDensity;
-    if (!minD) return true; // always shown
-    return DENSITY_ORDER[density] >= DENSITY_ORDER[minD];
+    return isModeVisibleAtDensity(entry?.minDensity, density);
   });
 
   const isCreator = isCreatorFormat(project.format);
