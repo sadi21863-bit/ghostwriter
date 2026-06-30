@@ -25,7 +25,7 @@ export async function GET(_: Request, { params }: { params: Promise<{ projectId:
 
   const project = await db.query.projects.findFirst({
     where: eq(projects.id, projectId),
-    with: { characters: true, locations: true, plotThreads: true, chapters: true },
+    with: { characters: true, locations: true, plotThreads: true, chapters: true, worldEntities: true },
   });
   if (!project) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
@@ -39,6 +39,7 @@ export async function GET(_: Request, { params }: { params: Promise<{ projectId:
     plotThreads: (project as any).plotThreads ?? [],
     chapters: (project as any).chapters ?? [],
     storedRels: storedRels.map(r => ({ characterAId: r.characterAId, characterBId: r.characterBId, trustLevel: r.trustLevel, relationshipType: r.relationshipType })),
+    worldEntities: (project as any).worldEntities ?? [],
   });
 
   return NextResponse.json(graph);

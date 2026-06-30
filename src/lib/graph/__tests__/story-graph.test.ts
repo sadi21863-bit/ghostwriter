@@ -59,3 +59,33 @@ describe("buildStoryGraph", () => {
     expect(new Set(ids).size).toBe(ids.length);
   });
 });
+
+describe("buildStoryGraph — world entities", () => {
+  const g = buildStoryGraph({
+    ...baseInput,
+    worldEntities: [
+      { id: "w1", name: "The Ember Blade", kind: "weapon", linkedCharacterIds: ["c1"], linkedLocationIds: ["l1"], linkedPlotThreadIds: ["t1"], linkedEntityIds: [] },
+      { id: "w2", name: "The Syndicate", kind: "organization", linkedCharacterIds: ["c2"], linkedLocationIds: [], linkedPlotThreadIds: [], linkedEntityIds: ["w1"] },
+    ],
+  });
+
+  it("emits a world_entity node per entity carrying its kind", () => {
+    const w = g.nodes.filter(n => n.type === "world_entity");
+    expect(w.map(n => n.id).sort()).toEqual(["w1", "w2"]);
+    expect(w.find(n => n.id === "w1")!.kind).toBe("weapon");
+  });
+
+  it("creates involves edges from an entity's link arrays to existing nodes", () => {
+    const involves = g.edges.filter(e => e.kind === "involves").map(e => `${e.source}->${e.target}`).sort();
+    // w1 → c1, l1, t1 ; w2 → c2, w1
+    expect(involves).toEqual(["w1->c1", "w1->l1", "w1->t1", "w2->c2", "w2->w1"]);
+  });
+
+  it("ignores entity links pointing at non-existent nodes", () => {
+    const g2 = buildStoryGraph({
+      ...baseInput,
+      worldEntities: [{ id: "w1", name: "Orphan", kind: "object", linkedCharacterIds: ["nope"], linkedLocationIds: [], linkedPlotThreadIds: [], linkedEntityIds: [] }],
+    });
+    expect(g2.edges.filter(e => e.kind === "involves")).toHaveLength(0);
+  });
+});

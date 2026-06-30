@@ -3,8 +3,8 @@
 // exist in the World Bible (co-occurrence + characterRelationships, plus the
 // linkedLocationIds/linkedPlotThreadIds/linkedCharacterIds link fields) — no new
 // data, just a graph view over it. Kept pure so it's unit-testable without a DB.
-export type StoryGraphNodeType = "character" | "location" | "thread";
-export type StoryGraphEdgeKind = "relationship" | "appears_at" | "drives";
+export type StoryGraphNodeType = "character" | "location" | "thread" | "world_entity";
+export type StoryGraphEdgeKind = "relationship" | "appears_at" | "drives" | "involves";
 
 export interface StoryGraphNode {
   id: string;
@@ -12,6 +12,8 @@ export interface StoryGraphNode {
   name: string;
   role?: string;
   portraitUrl?: string;
+  /** For world_entity nodes: the entity kind (object/weapon/organization/…). */
+  kind?: string;
 }
 
 export interface StoryGraphEdge {
@@ -30,6 +32,7 @@ export interface StoryGraphInput {
   plotThreads: { id: string; name: string }[];
   chapters: { content?: string | null }[];
   storedRels: { characterAId: string; characterBId: string; trustLevel?: number | null; relationshipType?: string | null }[];
+  worldEntities?: { id: string; name: string; kind: string; linkedCharacterIds?: string[] | null; linkedLocationIds?: string[] | null; linkedPlotThreadIds?: string[] | null; linkedEntityIds?: string[] | null }[];
 }
 
 export interface StoryGraphResult {
@@ -40,14 +43,17 @@ export interface StoryGraphResult {
 
 export function buildStoryGraph(input: StoryGraphInput): StoryGraphResult {
   const { characters, locations, plotThreads, chapters, storedRels } = input;
+  const worldEntities = input.worldEntities ?? [];
   const charIds = new Set(characters.map(c => c.id));
   const locIds = new Set(locations.map(l => l.id));
   const threadIds = new Set(plotThreads.map(t => t.id));
+  const entityIds = new Set(worldEntities.map(e => e.id));
 
   const nodes: StoryGraphNode[] = [
     ...characters.map((c): StoryGraphNode => ({ id: c.id, type: "character", name: c.name, role: c.role ?? undefined, portraitUrl: c.portraitUrl ?? undefined })),
     ...locations.map((l): StoryGraphNode => ({ id: l.id, type: "location", name: l.name })),
     ...plotThreads.map((t): StoryGraphNode => ({ id: t.id, type: "thread", name: t.name })),
+    ...worldEntities.map((e): StoryGraphNode => ({ id: e.id, type: "world_entity", name: e.name, kind: e.kind })),
   ];
 
   const edges: StoryGraphEdge[] = [];
@@ -105,6 +111,23 @@ export function buildStoryGraph(input: StoryGraphInput): StoryGraphResult {
       if (!threadIds.has(threadId)) continue;
       edges.push({ id: `thr:${c.id}:${threadId}`, source: c.id, target: threadId, kind: "drives" });
       touched.add(c.id);
+    }
+  }
+
+  // 4. involves edges (world_entity → character / location / thread / entity),
+  //    from the entity's four link arrays. Only edges to existing nodes.
+  for (const e of worldEntities) {
+    const targets: Array<[string[] | null | undefined, Set<string>]> = [
+      [e.linkedCharacterIds, charIds],
+      [e.linkedLocationIds, locIds],
+      [e.linkedPlotThreadIds, threadIds],
+      [e.linkedEntityIds, entityIds],
+    ];
+    for (const [ids, valid] of targets) {
+      for (const targetId of ids ?? []) {
+        if (!valid.has(targetId)) continue;
+        edges.push({ id: `inv:${e.id}:${targetId}`, source: e.id, target: targetId, kind: "involves" });
+      }
     }
   }
 
