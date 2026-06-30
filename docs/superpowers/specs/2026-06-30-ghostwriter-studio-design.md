@@ -19,19 +19,42 @@ Studio shell**, not adopting ~10 new libraries.
 - **Tiny, sharp, story-centric mini-tools** ("detect orphaned threads", "underused characters"). ✅
   — and we already shipped the first of these as `analyzeGraphHealth` (graph-health probes).
 
-## What to change (research-backed)
+## Build philosophy: reuse aggressively, reimplement only what's blocked
 
-| Proposal | Decision | Why |
+**Decision (user directive 2026-06-30):** *Be intelligent — minimise work.* We **freely use the
+permissively-licensed libraries** (no reinventing wheels) and only **reimplement-by-inspiration the
+features that are license-blocked**. Concretely:
+
+- **Use directly (MIT / permissive — already free):** **React Flow** (`@xyflow/react`, already in
+  `ConstellationView`) as the canvas for Story Graph + Pipelines; **Cytoscape.js** *if/when* a graph
+  outgrows React Flow (don't pull it in early); **Mermaid/Graphviz** libs for portable export;
+  Rete's *pattern* we already mirror in `graph-program.ts`. These cost us nothing and save months.
+- **Reimplement only the blocked bits:** **GoJS** (and JointJS's commercial tier) have great UX we
+  want but a license we won't pay — so we copy *just those specific features* on top of the
+  permissive stack (e.g. orthogonal link routing, minimap, palette, collapsible groups). Many of
+  these React Flow already provides or has free community plugins for, so the actual reimplementation
+  surface is small.
+- **Own the domain layer regardless** — the story-aware node model, the capability dataflow +
+  cost-gating, the health overlay, narrative-tuned layouts. That's GhostWriter's real value and is
+  ~70% built; no library provides it.
+
+The engine stays **decoupled from the renderer** so the substrate can be swapped later if ever needed
+— but we do NOT build a canvas engine from scratch.
+
+### Feature harvest — best idea from each (reuse the lib, or copy just the feature)
+
+| Inspiration | License | What we do |
 |---|---|---|
-| GoJS for graphs | **Drop entirely** | Commercial, *most restrictive* license on the market, no free tier, per-domain/per-app fees. Conflicts with the MIT React Flow already shipped. |
-| Cytoscape.js / AntV X6 as the Story Graph engine | **Defer — lazy escape hatch only** | Cytoscape is the powerhouse for *large* graph-theory networks (WebGL, layouts, algorithms), but adds a second rendering paradigm. Only adopt when a real project exceeds React Flow's comfort (~hundreds of visible nodes). |
-| Rete.js / Flume for the pipeline node editor | **Don't adopt** | `src/lib/graph/graph-program.ts` already IS the dataflow engine (Rete's `rete-engine` equivalent): node-selection → capability → preflight + cost + `requiresConfirm`. Rendering rides React Flow. Adopting Rete = a parallel framework for something we built. |
-| React Flow | **Keep — single canvas for BOTH surfaces** | MIT, React-native, viewport-virtualized, already in use (`@xyflow/react` v12, `ConstellationView`). One lib for Story Graph *and* Pipelines. |
-| Mermaid / Kroki / JSON Crack as a dependency | **Export-only, not UX** | The live UX is our React layer over real data. Generate Mermaid/Graphviz *text* as a secondary portable export (one pure serializer, no runtime dep). |
-| LeaderLine / jsPlumb for "light" views | **Not needed** | React Flow + plain SVG/HTML cover the light cases; one fewer lib. |
+| **React Flow / X6** | MIT | **Use directly** — node-editor canvas (handles, snapping, controls, minimap, viewport virtualisation) for both panes. |
+| **Cytoscape.js** | MIT | **Use when needed** — large-graph WebGL rendering + auto-layouts (force/concentric/BFS); lazy, only past React Flow's comfort. |
+| **Rete.js / Flume** | MIT | **Pattern already ours** — dataflow execution (`graph-program.ts`); extend with control-flow. |
+| **Mermaid / Graphviz** | MIT/EPL | **Use as export** — serialize our graph to portable Mermaid/Graphviz text. |
+| **GoJS** | commercial | **Copy features only** — orthogonal link routing, link labels, drag-from-palette, collapsible groups/subgraphs, data-bound templates, undo/redo. Implemented on the React Flow substrate. |
+| **JointJS** | open-core | **Copy features only** — clean port model + the commercial virtualisation idea (React Flow already virtualises). |
+| **ikalas / TinyWow / DevToys** | n/a | **Copy the UX** — tool-grid launcher; ours reads the typed capability registry (stateful, gated, cost-priced — better than their stateless converters). |
 
-**Net stack:** React Flow (have) + the existing registry/graph-program/graph-health spine + one
-pure Mermaid/Graphviz exporter. Cytoscape stays on the shelf as a documented escape hatch.
+**Net:** reuse React Flow (+ Cytoscape/Mermaid when warranted), copy a handful of GoJS UX features,
+own the story-domain engine. No commercial deps, no license exposure, minimal new code.
 
 ## The core reframe: Studio is a shell over an existing spine
 
@@ -82,6 +105,37 @@ launcher into four panes — all reading the same registry + graph data:
 - **Probe cards** ("orphaned threads", "underused characters", "POV drift") = thin reads over the
   graph; each is a `graph-health`-style pure analyzer, trivially unit-tested and added over time.
 
+## More features to add (researched — story tools + node-AI builders)
+
+Beyond the proposal, two source families the original brief missed: **story/worldbuilding tools**
+(Campfire, World Anvil) and **node-based AI workflow builders** (ComfyUI, Langflow, Flowise). The
+strongest additive ideas, each cheap because the data already exists in GhostWriter:
+
+1. **Timeline pane** (Campfire) — chronology of beats/scenes/events along horizontal timelines, with
+   **multiple simultaneous timelines** for dual-timeline / multi-POV / series stories. Data already
+   present: `story_plans` beats, `chapters.sortOrder`, `universe_events`, `storylineId`. High value,
+   no new model.
+2. **Character-arc track** (Campfire) — each character's trajectory across the manuscript (start →
+   transformation beats → end). Data present: `character_evolution_log`, beat `characterIds`, the
+   `arc` field. Renders as a swimlane under the timeline.
+3. **Pipeline templates + JSON save/share/version** (ComfyUI) — save a wired pipeline as a reusable
+   template; export/import as small JSON; version it. ComfyUI's killer trait. Maps onto our subgraph
+   presets — a `pipeline_templates` artifact.
+4. **Per-node playground / isolated run** (Langflow) — test ONE capability node in isolation (with the
+   cost-confirm) before running the whole pipeline. Falls out of `buildRunPlan` for a single node.
+5. **Pipeline-as-capability** (Langflow/MCP) — a saved user pipeline becomes a **first-class registry
+   capability** other surfaces can call. This is the compounding feature: users *extend* the
+   capability registry visually, no code. (Gated, cost-aggregated from its stages.)
+6. **Run provenance** (ComfyUI embeds the workflow in output metadata) — store which graph/pipeline +
+   inputs produced a chapter/comic/video, for reproducibility and "regenerate with the same recipe."
+7. **Template gallery** (Flowise marketplace) — ship a few starter graphs/pipelines/arc-templates
+   (Hero's Journey wiring, Three-Act beat graph) seeded per project; later shareable.
+8. **Interactive location map** (World Anvil) — spatial pane for locations (lower priority; locations
+   + `linkedCharacterIds` exist). Defer unless asked.
+
+These slot into the phases below (Timeline+arcs → Phase 3 Analytics; pipeline templates / playground /
+pipeline-as-capability → Phase 2 Pipelines; provenance → cross-cutting; gallery → Phase 4).
+
 ## Phased plan (most of Phase 0 already shipped)
 
 - **Phase 0 — Spine (DONE):** capability registry, Story-Graph builder + ConstellationView, graph-program
@@ -93,13 +147,16 @@ launcher into four panes — all reading the same registry + graph data:
 - **Phase 3 — Analytics pane:** graph-health card + tension-curve/arc-heatmap/presence probes as cards;
   add 2–3 new pure probes (underused-character, POV-drift).
 - **Phase 4 — Exports + subgraph presets:** Mermaid/Graphviz serializer; arc-preset subgraph nodes.
-- **Phase 5 (escape hatch):** if a real project's graph gets too big for React Flow, add a Cytoscape
-  renderer behind the *same* graph data — swap the view layer only, keep the engine.
+- **Phase 5 (scale, lazy):** when a real project's graph outgrows React Flow, **drop in Cytoscape.js**
+  (MIT) behind the *same* engine + graph data — swap the view layer only, no rewrite, no new license.
 
 ## Risks / non-goals
 
-- **No GoJS** (license). **No second graph lib until a real perf wall is hit** (avoid premature Cytoscape).
-- **No Rete** — would duplicate `graph-program`.
+- **Reuse-first** — use the MIT/permissive libs directly (React Flow now, Cytoscape/Mermaid when
+  warranted). Only GoJS/JointJS-commercial features are reimplemented, and only the specific ones we
+  want, on top of the permissive stack. No commercial deps, no license exposure.
+- **Don't reinvent the canvas** — never build pan/zoom/virtualisation from scratch; own the
+  domain/execution layers (high leverage), lean on libraries for the substrate.
 - Studio must reuse the **one execution path** (`capabilityAction` / run-plan), never a parallel one
   (MASTER-PLAN invariant). The canvas is just a third surface, like the funnel rails and slash menu.
 - Keep paid runs **always behind a confirm** — the graph must never auto-fire a fan-out of paid generations.
@@ -110,3 +167,6 @@ launcher into four panes — all reading the same registry + graph data:
 - Rete.js v2 docs + DEV/Medium writeups — `rete-engine` dataflow/control-flow (the pattern graph-program already implements).
 - React Flow (reactflow.dev) — node-based UIs, viewport virtualization, MIT.
 - xyflow/awesome-node-based-uis — landscape of node-editor libraries.
+- Loreteller / Kindlepreneur / ScribeCount — Campfire Write modules (Relationships map, Timelines, Arcs) + World Anvil (wiki, interactive maps, timelines, 25+ templates).
+- ComfyUI docs / Creators AI — node workflow templates, JSON save/version/share, workflow embedded in output metadata.
+- Leanware "Langflow vs Flowise" / Runchat comparison — per-component playground (isolated debugging), flow-as-reusable-tool via API/MCP, Flowise template marketplace + multi-agent orchestration.
