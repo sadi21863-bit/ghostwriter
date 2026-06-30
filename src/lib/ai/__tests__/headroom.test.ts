@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { compactContext, headroomSaved } from "../headroom";
+import { compactContext, headroomSaved, packToBudget, TRIM_MARKER } from "../headroom";
 
 describe("compactContext", () => {
   it("strips trailing whitespace and collapses internal double spaces", () => {
@@ -47,5 +47,40 @@ describe("headroomSaved", () => {
   it("reports zero saving for already-compact text", () => {
     const text = "Tight line one.\nTight line two.";
     expect(headroomSaved(text).saved).toBe(0);
+  });
+});
+
+describe("packToBudget", () => {
+  const header = ["PROJECT: Demo"];
+  const big = [Array.from({ length: 400 }, (_, i) => `big line ${i} ${"x".repeat(40)}`).join("\n")];
+  const small = ["WORLD ELEMENTS:", "- The Ember Blade: a cold-fire sword"];
+
+  it("keeps everything and adds no marker when it all fits", () => {
+    const out = packToBudget([header, small], 10_000);
+    expect(out).toContain("PROJECT: Demo");
+    expect(out).toContain("The Ember Blade");
+    expect(out).not.toContain(TRIM_MARKER);
+  });
+
+  it("always keeps the header even under a tiny budget", () => {
+    const out = packToBudget([header, big], 1);
+    expect(out).toContain("PROJECT: Demo");
+    expect(out).toContain(TRIM_MARKER);
+  });
+
+  it("best-effort: skips an oversized section but still fits a smaller later one", () => {
+    // Budget large enough for header+small but NOT for big. A stop-at-first-overflow
+    // cutoff would drop `small` too; best-effort keeps it.
+    const out = packToBudget([header, big, small], 60);
+    expect(out).toContain("PROJECT: Demo");
+    expect(out).toContain("The Ember Blade"); // survived despite `big` being skipped
+    expect(out).not.toContain("big line 0");   // the oversized section was skipped
+    expect(out).toContain(TRIM_MARKER);
+  });
+
+  it("is deterministic for identical input", () => {
+    const a = packToBudget([header, big, small], 60);
+    const b = packToBudget([header, big, small], 60);
+    expect(a).toBe(b);
   });
 });

@@ -54,3 +54,33 @@ export function headroomSaved(text: string): { before: number; after: number; sa
   const after = estimateTokens(compactContext(text));
   return { before, after, saved: before - after };
 }
+
+export const TRIM_MARKER = "[Context trimmed — project too large]";
+
+/**
+ * Headroom v2 — best-effort, priority-ordered budget packing.
+ *
+ * `sections` are ordered by priority (index 0 = header, always kept). Each later
+ * section is included only if the compacted running block still fits the budget;
+ * an over-budget section is SKIPPED (not a hard stop), so a smaller lower-priority
+ * section further down can still make it in. A trim marker is appended iff at
+ * least one section was skipped.
+ *
+ * Improvement over a stop-at-first-overflow cutoff: more total useful context fits
+ * (e.g. a tiny WORLD ELEMENTS section survives even when a huge CHARACTERS section
+ * couldn't). Deterministic for identical input → prompt-cache stays stable.
+ */
+export function packToBudget(sections: string[][], budgetTokens: number, marker: string = TRIM_MARKER): string {
+  const included: string[] = [];
+  let trimmed = false;
+  for (let i = 0; i < sections.length; i++) {
+    const lines = sections[i];
+    if (!lines || lines.length === 0) continue;
+    if (i === 0) { included.push(...lines); continue; } // header: always kept
+    const candidate = compactContext([...included, ...lines].join("\n"));
+    if (estimateTokens(candidate) > budgetTokens) { trimmed = true; continue; }
+    included.push(...lines);
+  }
+  const out = trimmed ? [...included, marker] : included;
+  return compactContext(out.join("\n"));
+}

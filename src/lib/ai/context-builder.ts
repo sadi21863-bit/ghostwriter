@@ -7,7 +7,7 @@ import { extractVoiceFingerprint, fingerprintToConstraints } from "@/lib/ai/voic
 import { MODE_REGISTRY, type ContextPolicy } from "@/lib/modes/registry";
 import { CONTEXT_CHAR_CAPS } from "@/lib/ai/context-caps";
 import { decodeAIRules, decodeMemoryStructuredData } from "@/lib/types/story";
-import { compactContext } from "@/lib/ai/headroom";
+import { packToBudget } from "@/lib/ai/headroom";
 
 export interface CharacterRelationship {
   characterAId: string;
@@ -121,9 +121,6 @@ const GENRE_CONTRACTS: Partial<Record<string, string>> = {
   'Drama': 'OPENING PROMISE (Drama): This is your first chapter. Establish the specific tension in the protagonist\'s world — not the external conflict but the internal one they\'ve been living with. Something has been wrong for a long time. This chapter is where it becomes impossible to ignore.',
 };
 
-function estimateTokens(text: string): number {
-  return Math.ceil(text.length / 4);
-}
 
 const STATIC_CONTEXT_BUDGET = 8_000;
 
@@ -726,25 +723,11 @@ export function buildStaticContext(p: ContextProject, mode?: string, tier?: stri
     }
   }
 
-  // Assemble sections in priority order, stopping when the static context
-  // budget is exceeded. Section 0 (header) is always included so the output
-  // is never empty. Truncation is deterministic for identical project data,
-  // keeping the prompt-cache block stable.
-  const result: string[] = [];
-  for (let i = 0; i < sections.length; i++) {
-    const sectionLines = sections[i];
-    if (sectionLines.length === 0) continue;
-    // Headroom: estimate against the COMPACTED candidate, so whitespace/duplicate
-    // savings let more real sections fit under the same budget before truncation.
-    const candidate = compactContext([...result, ...sectionLines].join("\n"));
-    if (i > 0 && estimateTokens(candidate) > budget) {
-      result.push('[Context trimmed — project too large]');
-      break;
-    }
-    result.push(...sectionLines);
-  }
-  // Final block is compacted too — deterministic, so the prompt-cache stays stable.
-  return compactContext(result.join("\n"));
+  // Headroom: priority-ordered, best-effort packing into the budget. Section 0
+  // (header) is always kept; an over-budget section is skipped (not a hard stop)
+  // so a smaller lower-priority section can still fit. Compaction + packing are
+  // deterministic for identical project data, keeping the prompt-cache stable.
+  return packToBudget(sections, budget);
 }
 
 export function buildDynamicContext(p: ContextProject, mode?: string): string {
