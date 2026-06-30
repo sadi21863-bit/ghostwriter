@@ -6,14 +6,18 @@ import {
 } from "@xyflow/react";
 import type { Node, Edge } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
-import { selectionKinds, confirmMessageFor, isOptionActionable, blockedReasonText } from "@/lib/graph/graph-canvas";
+import { selectionKinds, confirmMessageFor, isOptionActionable, blockedReasonText, nodeHealthAccent } from "@/lib/graph/graph-canvas";
 import type { GraphRunPlan } from "@/lib/graph/graph-program";
+import type { GraphHealthIssue, GraphHealthReport } from "@/lib/graph/graph-health";
 
 type Props = {
   projectId: string;
   onSelectPair?: (aId: string, bId: string) => void;
   /** Host wires actual execution of a confirmed, available capability run. */
   onRunCapability?: (plan: GraphRunPlan) => void;
+  /** Container height. Defaults to 500 (the original fixed-height embed used by
+   * StoryInsightsPanel); Studio passes a larger value to fill its Graph pane. */
+  height?: number | string;
 };
 
 const RELATIONSHIP_COLORS: Record<string, string> = {
@@ -36,18 +40,25 @@ const EDGE_KIND_STYLE: Record<string, { stroke: string; dashed?: boolean; label?
   involves:   { stroke: "#c084fc", dashed: true, label: "involves" },
 };
 
-export function ConstellationView({ projectId, onSelectPair, onRunCapability }: Props) {
+export function ConstellationView({ projectId, onSelectPair, onRunCapability, height = 500 }: Props) {
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
   const [selected, setSelected] = useState<{ id: string; type?: string }[]>([]);
   const [options, setOptions] = useState<GraphRunPlan[] | null>(null);
   const [loadingOpts, setLoadingOpts] = useState(false);
+  const [health, setHealth] = useState<GraphHealthReport | null>(null);
 
   useEffect(() => {
     fetch(`/api/projects/${projectId}/story-graph`)
       .then(r => r.json())
       .then(data => {
         const all = data.nodes || [];
+        const issuesByNode = new Map<string, GraphHealthIssue[]>();
+        for (const issue of (data.health?.issues ?? []) as GraphHealthIssue[]) {
+          const arr = issuesByNode.get(issue.nodeId) ?? [];
+          arr.push(issue);
+          issuesByNode.set(issue.nodeId, arr);
+        }
         // Lay out each type on its own ring so the entity kinds are visually distinct.
         const byType: Record<string, any[]> = { character: [], location: [], thread: [], world_entity: [] };
         for (const n of all) (byType[n.type] ?? (byType[n.type] = [])).push(n);
@@ -74,12 +85,15 @@ export function ConstellationView({ projectId, onSelectPair, onRunCapability }: 
 
         const rfNodes: Node[] = all.map((n: any) => {
           const st = NODE_TYPE_STYLE[n.type] ?? NODE_TYPE_STYLE.character;
+          const accent = nodeHealthAccent(issuesByNode.get(n.id) ?? []);
           return {
             id: n.id,
             data: { label: labelFor(n), nodeType: n.type },
             position: pos[n.id] ?? { x: 350, y: 300 },
             style: {
-              background: st.bg, border: `1px solid ${st.border}`, borderRadius: st.shape,
+              background: st.bg,
+              border: accent ? `2px solid ${accent}` : `1px solid ${st.border}`,
+              borderRadius: st.shape,
               padding: "8px 12px", fontSize: 12, color: "#F2F2F3",
               minWidth: 70, textAlign: "center" as const,
             },
@@ -110,6 +124,7 @@ export function ConstellationView({ projectId, onSelectPair, onRunCapability }: 
           } as Edge;
         });
 
+        setHealth((data.health as GraphHealthReport) ?? null);
         setNodes(rfNodes);
         setEdges(rfEdges);
       })
@@ -146,7 +161,7 @@ export function ConstellationView({ projectId, onSelectPair, onRunCapability }: 
   };
 
   return (
-    <div style={{ position: "relative", width: "100%", height: 500, borderRadius: 12, overflow: "hidden", border: "1px solid var(--color-border-subtle, rgba(255,255,255,0.05))" }}>
+    <div style={{ position: "relative", width: "100%", height, borderRadius: 12, overflow: "hidden", border: "1px solid var(--color-border-subtle, rgba(255,255,255,0.05))" }}>
       <ReactFlow
         nodes={nodes} edges={edges}
         onNodesChange={onNodesChange} onEdgesChange={onEdgesChange}
@@ -170,6 +185,17 @@ export function ConstellationView({ projectId, onSelectPair, onRunCapability }: 
         <span><span style={{ color: "#f59e0b" }}>●</span> Thread</span>
         <span><span style={{ color: "#c084fc" }}>●</span> Element</span>
       </div>
+
+      {health && (
+        <div style={{
+          position: "absolute", bottom: 8, left: 8, fontSize: 11,
+          background: "rgba(17,17,19,0.8)", padding: "4px 8px", borderRadius: 6,
+          color: health.score < 70 ? "#f87171" : health.score < 90 ? "#f59e0b" : "#9898A6",
+          zIndex: 5,
+        }}>
+          Health: {health.score}/100{health.counts.warning > 0 ? ` · ${health.counts.warning} warning${health.counts.warning === 1 ? "" : "s"}` : ""}
+        </div>
+      )}
 
       {/* Run-on-selection panel (Phase 2 dataflow). Appears when nodes are selected. */}
       {selected.length > 0 && (
