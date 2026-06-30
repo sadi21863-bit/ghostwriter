@@ -6,6 +6,7 @@ import { db } from "@/db";
 import { projects, characterRelationships } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { buildStoryGraph } from "@/lib/graph/story-graph";
+import { analyzeGraphHealth } from "@/lib/graph/graph-health";
 
 async function verifyOwnership(projectId: string, userId: string) {
   return db.query.projects.findFirst({
@@ -42,5 +43,5 @@ export async function GET(_: Request, { params }: { params: Promise<{ projectId:
     worldEntities: (project as any).worldEntities ?? [],
   });
 
-  return NextResponse.json(graph);
+  return NextResponse.json({ ...graph, health: analyzeGraphHealth(graph) });
 }
