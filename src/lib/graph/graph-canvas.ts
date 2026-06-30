@@ -2,6 +2,7 @@
 // React component so the selection→capability→confirm logic is unit-testable
 // without a DOM/React Flow. The component just renders what these return.
 import type { GraphNodeKind, GraphRunPlan } from "./graph-program";
+import type { GraphHealthIssue } from "./graph-health";
 
 // The canvas node types (from buildStoryGraph) map 1:1 onto the dataflow engine's
 // node kinds for the four World-Bible entity types.
@@ -47,4 +48,11 @@ export function blockedReasonText(plan: GraphRunPlan): string | null {
     case "not_applicable_for_format": return "Not available for this format";
     default:                     return "Unavailable";
   }
+}
+
+/** Border accent color for a node's health issues; null when it has none.
+ * Warning issues (isolated character, unrooted thread) outrank info issues for color. */
+export function nodeHealthAccent(issues: GraphHealthIssue[]): string | null {
+  if (issues.length === 0) return null;
+  return issues.some(i => i.severity === "warning") ? "#f87171" : "#f59e0b";
 }

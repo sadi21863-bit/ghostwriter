@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
-import { selectionKinds, confirmMessageFor, isOptionActionable, blockedReasonText } from "../graph-canvas";
+import { selectionKinds, confirmMessageFor, isOptionActionable, blockedReasonText, nodeHealthAccent } from "../graph-canvas";
 import type { GraphRunPlan } from "../graph-program";
+import type { GraphHealthIssue } from "../graph-health";
 
 function plan(over: Partial<GraphRunPlan>): GraphRunPlan {
   return {
@@ -47,5 +48,24 @@ describe("isOptionActionable / blockedReasonText", () => {
   });
   it("an upgrade-gated plan explains the gate", () => {
     expect(blockedReasonText(plan({ available: false, reason: "upgrade_required" }))).toBe("Upgrade required");
+  });
+});
+
+function issue(over: Partial<GraphHealthIssue>): GraphHealthIssue {
+  return {
+    kind: "isolated_entity", severity: "info", nodeId: "n1", nodeName: "Thing",
+    message: "msg", ...over,
+  };
+}
+
+describe("nodeHealthAccent", () => {
+  it("returns null when there are no issues", () => {
+    expect(nodeHealthAccent([])).toBeNull();
+  });
+  it("returns the warning color when any issue is a warning", () => {
+    expect(nodeHealthAccent([issue({ severity: "info" }), issue({ severity: "warning" })])).toBe("#f87171");
+  });
+  it("returns the info color when all issues are info", () => {
+    expect(nodeHealthAccent([issue({ severity: "info" })])).toBe("#f59e0b");
   });
 });
