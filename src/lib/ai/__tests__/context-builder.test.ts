@@ -385,3 +385,30 @@ describe("buildStaticContext — character embodiment", () => {
     expect(ctx).not.toContain("collision between want and need");
   });
 });
+
+describe("world entities (World Bible expansion)", () => {
+  const entity = { kind: "weapon", name: "The Ember Blade", summary: "a sword that burns cold", alwaysInContext: true };
+
+  it("includes the WORLD ELEMENTS section under a needsWorldEntities policy (combat)", () => {
+    const ctx = buildStaticContext(baseProject({ worldEntities: [entity] }), "combat");
+    expect(ctx).toContain("WORLD ELEMENTS:");
+    expect(ctx).toContain("The Ember Blade");
+    expect(ctx).toContain("Weapons:");
+  });
+
+  it("omits the section for a mode that does not opt in (atmosphere)", () => {
+    const ctx = buildStaticContext(baseProject({ worldEntities: [entity] }), "atmosphere");
+    expect(ctx).not.toContain("WORLD ELEMENTS:");
+    expect(ctx).not.toContain("The Ember Blade");
+  });
+
+  it("includes the section for no-mode callers (FULL policy)", () => {
+    const ctx = buildStaticContext(baseProject({ worldEntities: [entity] }));
+    expect(ctx).toContain("The Ember Blade");
+  });
+
+  it("skips an entity flagged alwaysInContext=false", () => {
+    const ctx = buildStaticContext(baseProject({ worldEntities: [{ ...entity, alwaysInContext: false }] }), "combat");
+    expect(ctx).not.toContain("The Ember Blade");
+  });
+});

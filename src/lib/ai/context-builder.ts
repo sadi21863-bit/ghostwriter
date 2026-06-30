@@ -53,8 +53,16 @@ export interface CreatorBible {
   defaultCta?: string;
 }
 
+export interface WorldEntityContext {
+  kind: string;
+  name: string;
+  summary?: string | null;
+  alwaysInContext?: boolean | null;
+}
+
 export interface ContextProject extends Project {
   storyMemories?: StoryMemory[];
+  worldEntities?: WorldEntityContext[];
   activeChapter?: string;
   creatorBible?: CreatorBible;
   characterRelationships?: CharacterRelationship[];
@@ -124,6 +132,7 @@ const FULL_CONTEXT_POLICY: ContextPolicy = {
   needsMemories: true,
   needsPlotThreads: true,
   needsRealism: true,
+  needsWorldEntities: true,
   charDepth: "full",
 };
 
@@ -686,6 +695,34 @@ export function buildStaticContext(p: ContextProject, mode?: string, tier?: stri
       if (t.connections) parts.push("  Connections: " + t.connections);
       r.push(parts.join("\n"));
     });
+  }
+
+  r = [];
+  sections.push(r);
+
+  // WORLD ELEMENTS: objects/weapons/organizations/factions/phenomena/entities/
+  // concepts, grouped by kind. Only assembled for modes that opt in via
+  // needsWorldEntities (combat/horror/action) or the no-mode FULL policy.
+  if (policy.needsWorldEntities && p.worldEntities?.length) {
+    const KIND_LABEL: Record<string, string> = {
+      object: "Objects", weapon: "Weapons", organization: "Organizations",
+      faction: "Factions", phenomenon: "Phenomena", entity: "Entities", concept: "Concepts",
+    };
+    const byKind = new Map<string, string[]>();
+    for (const e of p.worldEntities) {
+      if (e.alwaysInContext === false) continue;
+      const line = "- " + e.name + (e.summary ? ": " + e.summary : "");
+      const arr = byKind.get(e.kind) ?? [];
+      arr.push(line);
+      byKind.set(e.kind, arr);
+    }
+    if (byKind.size > 0) {
+      r.push("WORLD ELEMENTS:");
+      for (const [kind, items] of byKind) {
+        r.push((KIND_LABEL[kind] ?? kind) + ":");
+        r.push(...items);
+      }
+    }
   }
 
   // Assemble sections in priority order, stopping when the static context
