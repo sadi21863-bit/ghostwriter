@@ -9,6 +9,7 @@ import { RetentionEditPanel } from "@/components/panels/toolbar/tools/RetentionE
 import { CreatorSEOPanel } from "@/components/panels/toolbar/tools/CreatorSEOPanel";
 import { isValidTipTapJson, tiptapToPlainText } from "@/lib/editor/content-migration";
 import { analyzeProseRhythm } from "@/lib/analysis/rhythm";
+import { voiceLockStatus } from "@/lib/ai/voice-lock";
 import EditorNotesPanel from "@/components/EditorNotesPanel";
 import { isStoryFormat } from "@/lib/formats";
 
@@ -57,11 +58,26 @@ export default function PolishStageView({ project, qualityReview, onGuideRun, on
     return analyzeProseRhythm(plain);
   }, [content]);
 
+  // "Lock Voice" lever — surfaces the (already-automatic) voice fingerprint as a
+  // visible status chip, computed from all chapters' plain text. Zero cost.
+  const voice = useMemo(() => {
+    const texts = (project.chapters || []).map((c: any) => {
+      const raw = c.content || "";
+      return isValidTipTapJson(raw) ? tiptapToPlainText(JSON.parse(raw)) : raw;
+    });
+    return voiceLockStatus(texts);
+  }, [project.chapters]);
+
   return (
     <div style={{ flex: 1, overflow: "auto", padding: "32px 24px", display: "flex", justifyContent: "center" }}>
       <div style={{ maxWidth: 560, width: "100%" }}>
-        <div style={{ fontSize: 11, fontWeight: 700, color: co.muted, textTransform: "uppercase", letterSpacing: 1.5, marginBottom: 8 }}>
-          Polish
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: co.muted, textTransform: "uppercase", letterSpacing: 1.5 }}>
+            Polish
+          </div>
+          <span title={voice.detail} style={{ fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 20, cursor: "default", background: voice.ready ? co.accentBg : "transparent", color: voice.ready ? co.accent : co.muted, border: `1px solid ${voice.ready ? co.accent : co.border}` }}>
+            {voice.label}
+          </span>
         </div>
         {isStoryFormat(project.format) && <EditorNotesPanel project={project} updateProject={updateProject} />}
         <p style={{ fontSize: 14, color: co.text, lineHeight: 1.6, marginBottom: 4 }}>
