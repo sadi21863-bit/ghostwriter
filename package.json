@@ -11,6 +11,9 @@
     "db:studio": "drizzle-kit studio",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "scrape": "node scripts/scrape.mjs",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
@@ -55,6 +58,7 @@
   },
   "devDependencies": {
     "@next/bundle-analyzer": "^16.2.7",
+    "@playwright/test": "^1.61.1",
     "@tailwindcss/postcss": "^4.3.0",
     "@types/bcryptjs": "^3.0.0",
     "@types/node": "^25.9.1",
