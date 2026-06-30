@@ -50,4 +50,22 @@ describe("buildPanelPrompt", () => {
     const p = buildPanelPrompt({ ...spec, characters: ["Unknown"] }, characters, manga, "X");
     expect(p).not.toContain("Characters —");
   });
+
+  it("injects a world element named in the action so the image generator renders it", () => {
+    const entities = [{ name: "Ember Blade", summary: "a sword wreathed in cold blue fire", alwaysInContext: false }];
+    const p = buildPanelPrompt({ ...spec, action: "He draws the Ember Blade" }, characters, manga, "X", entities);
+    expect(p).toContain("World elements — Ember Blade: a sword wreathed in cold blue fire");
+  });
+
+  it("always injects an alwaysInContext world element even when unmentioned", () => {
+    const entities = [{ name: "The Syndicate", summary: "a crime cartel in red", alwaysInContext: true }];
+    const p = buildPanelPrompt(spec, characters, manga, "X", entities);
+    expect(p).toContain("The Syndicate");
+  });
+
+  it("omits unmentioned, non-always world elements", () => {
+    const entities = [{ name: "Ghost Relic", summary: "x", alwaysInContext: false }];
+    const p = buildPanelPrompt(spec, characters, manga, "X", entities);
+    expect(p).not.toContain("Ghost Relic");
+  });
 });

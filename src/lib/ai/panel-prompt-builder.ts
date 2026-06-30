@@ -33,15 +33,16 @@ export type PanelSpec = {
   mood: string;
 };
 
-export function buildBreakdownPrompt(sceneContent: string, characters: any[]): { prompt: string; wasTruncated: boolean } {
+export function buildBreakdownPrompt(sceneContent: string, characters: any[], worldEntities: any[] = []): { prompt: string; wasTruncated: boolean } {
   const MAX_CHARS = 3000;
   const wasTruncated = sceneContent.length > MAX_CHARS;
   const content = sceneContent.substring(0, MAX_CHARS);
   const charList = characters.map((c: any) => c.name).join(", ");
+  const elementList = (worldEntities ?? []).map((e: any) => e.name).filter(Boolean).join(", ");
   return {
     prompt: `Break this story scene into exactly 6 comic panel visual descriptions.
 
-Characters in this story: ${charList || "none specified"}
+Characters in this story: ${charList || "none specified"}${elementList ? `\n\nKey world elements (objects, weapons, organizations, phenomena) — depict these when the scene calls for them: ${elementList}` : ""}
 
 Rules:
 - action must be purely visual (no dialogue, no inner thoughts)
@@ -55,11 +56,24 @@ ${content}`,
   };
 }
 
+// Pick the world elements visually relevant to a panel: any flagged
+// alwaysInContext (signature props/factions you want consistent everywhere) plus
+// any whose name is mentioned in the panel's action text. Capped so the prompt
+// stays focused.
+export function relevantWorldElements(action: string, worldEntities: any[]): any[] {
+  if (!worldEntities?.length) return [];
+  const actionLower = (action || "").toLowerCase();
+  return worldEntities
+    .filter((e: any) => e?.name && (e.alwaysInContext || actionLower.includes(String(e.name).toLowerCase())))
+    .slice(0, 4);
+}
+
 export function buildPanelPrompt(
   spec: PanelSpec,
   characters: any[],
   artStyle: ArtStyle,
-  projectName: string
+  projectName: string,
+  worldEntities: any[] = []
 ): string {
   const charDetails = spec.characters
     .map((name: string) => characters.find((c: any) => c.name === name))
@@ -73,7 +87,14 @@ export function buildPanelPrompt(
     ? `${(artStyle as any).styleModifiers}.`
     : `${artStyle.higgsfieldPreset} style.`;
 
-  return `Comic panel, ${styleDirective} ${spec.shotType}. ${spec.action}. Setting: ${spec.location}. Mood: ${spec.mood}.${charDetails ? " Characters — " + charDetails + "." : ""} Story: ${projectName}. Professional sequential art, consistent character designs, anatomically correct with natural proportions and correct hands, physically plausible poses, cinematic framing, high detail. Leave blank space at the bottom 15% for a dialogue bubble. No text, no speech bubbles, no captions, no lettering in the image.`;
+  // Inject visually-relevant world elements (a signature weapon, a faction's
+  // banner, a phenomenon) so the image generator renders them consistently —
+  // the visual parallel to the prose context's WORLD ELEMENTS section.
+  const elementDetails = relevantWorldElements(spec.action, worldEntities)
+    .map((e: any) => `${e.name}: ${e.summary || e.description || e.properties?.significance || "as described"}`)
+    .join(". ");
+
+  return `Comic panel, ${styleDirective} ${spec.shotType}. ${spec.action}. Setting: ${spec.location}. Mood: ${spec.mood}.${charDetails ? " Characters — " + charDetails + "." : ""}${elementDetails ? " World elements — " + elementDetails + "." : ""} Story: ${projectName}. Professional sequential art, consistent character designs, anatomically correct with natural proportions and correct hands, physically plausible poses, cinematic framing, high detail. Leave blank space at the bottom 15% for a dialogue bubble. No text, no speech bubbles, no captions, no lettering in the image.`;
 }
 
 export function getCharacterReference(characterName: string, characters: any[]): string | undefined {

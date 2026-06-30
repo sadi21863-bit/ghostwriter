@@ -66,16 +66,17 @@ export async function POST(req: Request, { params }: { params: Promise<{ project
 
   const project = await db.query.projects.findFirst({
     where: eq(projects.id, (await params).projectId),
-    with: { characters: true },
+    with: { characters: true, worldEntities: true },
   });
   if (!project) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  const worldEntities = (project as any).worldEntities ?? [];
 
   // Determine page number
   const existingPages = await db.query.comicPages.findMany({ where: eq(comicPages.projectId, (await params).projectId) });
   const pageNumber = existingPages.length + 1;
 
   // Call Claude to break scene into panel specs
-  const { prompt: breakdownPrompt, wasTruncated } = buildBreakdownPrompt(chapter.content, project.characters);
+  const { prompt: breakdownPrompt, wasTruncated } = buildBreakdownPrompt(chapter.content, project.characters, worldEntities);
   const msg = await client.messages.create({
     model: MODELS.fast,
     max_tokens: 1200,
@@ -117,7 +118,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ project
   // Generate all panels (allow partial success)
   const panelResults = await Promise.allSettled(
     specs.map(async (spec, i) => {
-      const prompt = buildPanelPrompt(spec, project.characters, artStyleObj, project.name);
+      const prompt = buildPanelPrompt(spec, project.characters, artStyleObj, project.name, worldEntities);
       const refName = spec.characters?.[0];
       const { referenceImageUrl, soulId, referenceStrength } = refName
         ? getCharacterSoulReference(refName, project.characters)

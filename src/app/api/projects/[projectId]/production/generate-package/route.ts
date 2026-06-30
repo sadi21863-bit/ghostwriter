@@ -37,6 +37,7 @@ export async function POST(_: Request, { params }: { params: Promise<{ projectId
       characters: true,
       locations: true,
       plotThreads: true,
+      worldEntities: true,
       chapters: { orderBy: (c, { asc }) => [asc(c.sortOrder)] },
       referenceWorks: true,
       storyMemories: true,
@@ -53,6 +54,9 @@ export async function POST(_: Request, { params }: { params: Promise<{ projectId
   const locsText = project.locations
     .map((l: any) => `${l.name}: ${l.description || ""}`)
     .join("\n");
+  const elementsText = ((project as any).worldEntities ?? [])
+    .map((e: any) => `${e.name} (${e.kind}): ${e.summary || e.description || ""}`.trim())
+    .join("\n");
 
   const systemPrompt = PRODUCTION_PACKAGE_SYSTEM_PROMPT;
 
@@ -63,6 +67,9 @@ ${charsText || "None defined"}
 
 LOCATIONS:
 ${locsText || "None defined"}
+
+WORLD ELEMENTS (objects, weapons, organizations, factions, phenomena — depict these consistently in shots that feature them):
+${elementsText || "None defined"}
 
 CHAPTERS:
 ${chaptersText || "(no chapters written yet)"}
