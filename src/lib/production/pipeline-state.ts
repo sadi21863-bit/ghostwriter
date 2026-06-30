@@ -1,4 +1,5 @@
 import type { ProductionPipeline, ProductionStage } from "./pipelines";
+import { unitCostFor } from "@/lib/capabilities/cost";
 
 export interface PipelineContext {
   hasShots: boolean;          // a production package / shot list exists
@@ -58,11 +59,9 @@ function plainState(stage: ProductionStage, ctx: PipelineContext): StageState {
   return { id: stage.id, status: "blocked_deps", reason: "Generate the media first" };
 }
 
-// ─── Cost preflight (rough, documented-approximate constants) ───────────────
-const PAID_UNIT_USD: Record<string, number> = {
-  production_video: 0.10, // per shot, Seedance 2.0 ballpark
-  comic_generate:   0.04, // per panel
-};
+// ─── Cost preflight ─────────────────────────────────────────────────────────
+// Per-capability unit costs live in @/lib/capabilities/cost (shared with the
+// Story-Graph dataflow runner so both agree on what a paid run costs).
 
 export interface CostEstimate {
   usd: number;
@@ -73,7 +72,7 @@ export function estimatePipelineCost(pipeline: ProductionPipeline, itemCount: nu
   const breakdown = pipeline.stages
     .filter(s => s.paid && s.capabilityId)
     .map(s => {
-      const perItem = PAID_UNIT_USD[s.capabilityId!] ?? 0.05;
+      const perItem = unitCostFor(s.capabilityId!);
       return { stageId: s.id, capabilityId: s.capabilityId!, items: itemCount, perItem };
     });
   const usd = breakdown.reduce((sum, b) => sum + b.items * b.perItem, 0);
