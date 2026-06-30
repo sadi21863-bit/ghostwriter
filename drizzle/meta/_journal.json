@@ -120,6 +120,13 @@
       "when": 1782800945246,
       "tag": "0016_bouncy_colossus",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1782824095826,
+      "tag": "0017_previous_eternals",
+      "breakpoints": true
     }
   ]
 }

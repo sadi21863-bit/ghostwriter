@@ -5,17 +5,26 @@ export type { Density };
 
 const KEY = "gw:density";
 
-export function useDensity() {
-  const [density, setDensity] = useState<Density>("standard");
+/**
+ * Density preference. Backward compatible: called with no args it uses the
+ * per-browser localStorage default. Pass `{ projectDensity, onChange }` to make it
+ * a per-project setting (projects.densityLevel) — the picker then persists via
+ * onChange instead of localStorage.
+ */
+export function useDensity(opts?: { projectDensity?: string | null; onChange?: (d: Density) => void }) {
+  const projectScoped = opts?.projectDensity != null;
+  const [density, setDensity] = useState<Density>(() => projectScoped ? normalizeDensity(opts!.projectDensity) : "standard");
 
   useEffect(() => {
+    if (projectScoped) { setDensity(normalizeDensity(opts!.projectDensity)); return; }
     const stored = localStorage.getItem(KEY);
     if (stored) setDensity(normalizeDensity(stored));
-  }, []);
+  }, [projectScoped, opts?.projectDensity]);
 
   function changeDensity(d: Density) {
     setDensity(d);
-    localStorage.setItem(KEY, d);
+    if (opts?.onChange) opts.onChange(d);
+    else localStorage.setItem(KEY, d);
   }
 
   return { density, changeDensity };

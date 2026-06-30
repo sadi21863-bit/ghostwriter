@@ -1,0 +1,1 @@
+ALTER TABLE "projects" ADD COLUMN "density_level" varchar(10) DEFAULT 'standard';

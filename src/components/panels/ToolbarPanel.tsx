@@ -246,7 +246,15 @@ export default function ToolbarPanel(props: Props) {
   // Local UI toggle (not business logic)
   const [showDissect, setShowDissect] = useState(false);
 
-  const { density, changeDensity } = useDensity();
+  // Per-project density (projects.densityLevel), persisted via PATCH. Falls back to
+  // the per-browser localStorage default for projects created before the column.
+  const { density, changeDensity } = useDensity({
+    projectDensity: project.densityLevel ?? "standard",
+    onChange: (d) => {
+      updateProject((p: any) => ({ ...p, densityLevel: d }));
+      fetch(`/api/projects/${project.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ densityLevel: d }) }).catch(() => {});
+    },
+  });
 
   const wordCount = (activeChap.content || "").trim().split(/\s+/).filter(Boolean).length;
   const totalWords = project.chapters.reduce((a: number, c: any) => a + (c.content || "").trim().split(/\s+/).filter(Boolean).length, 0);
