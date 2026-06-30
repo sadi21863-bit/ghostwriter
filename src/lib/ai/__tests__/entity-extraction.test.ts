@@ -56,4 +56,27 @@ describe("diffEntity", () => {
     expect(diffEntity("plotThreads", { description: "x" }, {})).toEqual([]);
     expect(diffEntity("plotThreads", { description: "x" }, null)).toEqual([]);
   });
+
+  it("diffs a world entity's summary/description fields", () => {
+    const existing = { name: "Ember Blade", summary: "a sword", description: "" };
+    const proposed = { name: "Ember Blade", summary: "a sword wreathed in cold fire", description: "forged in the north" };
+    expect(diffEntity("worldEntities", existing, proposed)).toEqual([
+      { field: "summary", label: "Summary", oldValue: "a sword", newValue: "a sword wreathed in cold fire" },
+      { field: "description", label: "Description", oldValue: "", newValue: "forged in the north" },
+    ]);
+  });
+});
+
+describe("matchEntities — world entities", () => {
+  const project = {
+    characters: [{ id: "c1", name: "Ava" }],
+    locations: [],
+    plotThreads: [],
+    worldEntities: [{ id: "w1", name: "Ember Blade" }],
+  };
+
+  it("matches a world entity named in the text (after characters/locations/threads)", () => {
+    const result = matchEntities("Ava raised the Ember Blade.", project, 3);
+    expect(result.map(r => `${r.type}:${r.entity.name}`)).toEqual(["characters:Ava", "worldEntities:Ember Blade"]);
+  });
 });

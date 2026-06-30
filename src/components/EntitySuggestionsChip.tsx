@@ -14,7 +14,8 @@ export default function EntitySuggestionsChip({ suggestions, onAccept, onReject 
 
   if (!suggestions.length) return null;
 
-  const typeLabel = (type: EntitySuggestion["type"]) => type === "characters" ? "Character" : type === "locations" ? "Location" : "Plot thread";
+  const typeLabel = (type: EntitySuggestion["type"]) =>
+    type === "characters" ? "Character" : type === "locations" ? "Location" : type === "worldEntities" ? "World element" : "Plot thread";
 
   return (
     <div style={{ position: "fixed", bottom: 90, right: 24, zIndex: 1250, display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 8 }}>

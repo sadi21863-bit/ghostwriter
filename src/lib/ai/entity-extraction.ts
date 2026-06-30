@@ -1,15 +1,17 @@
-export type EntityKey = "characters" | "locations" | "plotThreads";
+export type EntityKey = "characters" | "locations" | "plotThreads" | "worldEntities";
 
 export const ENTITY_API_PATH: Record<EntityKey, string> = {
   characters: "characters",
   locations: "locations",
   plotThreads: "plot-threads",
+  worldEntities: "world-entities",
 };
 
 export const ENTITY_TYPE: Record<EntityKey, string> = {
   characters: "character",
   locations: "location",
   plotThreads: "plotThread",
+  worldEntities: "worldEntity",
 };
 
 export interface EntityChange {
@@ -38,9 +40,12 @@ export const DIFF_FIELDS: Record<EntityKey, { field: string; label: string }[]> 
   plotThreads: [
     ["description", "Description"], ["stakes", "Stakes"], ["connections", "Connections"], ["status", "Status"],
   ].map(([field, label]) => ({ field, label })),
+  worldEntities: [
+    ["summary", "Summary"], ["description", "Description"],
+  ].map(([field, label]) => ({ field, label })),
 };
 
-const ENTITY_KEYS: EntityKey[] = ["characters", "locations", "plotThreads"];
+const ENTITY_KEYS: EntityKey[] = ["characters", "locations", "plotThreads", "worldEntities"];
 
 /**
  * Finds Story Bible entities whose name appears (case-insensitively, whole-word)
