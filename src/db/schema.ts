@@ -227,6 +227,10 @@ export const comicPanels = pgTable("comic_panels", {
   dialogue: text("dialogue").default(""),
   caption: text("caption").default(""),
   speakerName: text("speaker_name").default(""),
+  // Compositing output (FIX B1) — never overwrites imageUrl, so re-lettering
+  // after a text edit never requires regenerating art.
+  letteredImageUrl: text("lettered_image_url").default(""),
+  bubbleType: varchar("bubble_type", { length: 20 }).default("speech"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
