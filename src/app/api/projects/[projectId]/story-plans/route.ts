@@ -10,6 +10,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { MODELS } from "@/lib/ai/engine";
 import { beatSheetSystemPrompt } from "@/lib/ai/prompts";
 import { encodeStoryBeats, type StoryBeat } from "@/lib/types/story";
+import { expandArcPreset, getArcPreset } from "@/lib/graph/arc-presets";
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! });
 
@@ -48,9 +49,22 @@ export async function POST(req: Request, { params }: { params: Promise<{ project
   });
   if (!project) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  const { prompt = "", title } = await req.json().catch(() => ({}));
+  const { prompt = "", title, presetId } = await req.json().catch(() => ({}));
   const cast = (project as any).characters ?? [];
   const threads = (project as any).plotThreads ?? [];
+
+  // Phase 4 subgraph/arc preset: scaffold a beat sheet from a known structure
+  // (Three-Act / Hero's Journey / Save the Cat / Detective) — zero AI spend,
+  // instant, ready to flesh out.
+  if (presetId) {
+    const preset = getArcPreset(presetId);
+    if (!preset) return NextResponse.json({ error: "Unknown arc preset." }, { status: 400 });
+    const beats = encodeStoryBeats(expandArcPreset(presetId));
+    const [plan] = await db.insert(storyPlans).values({
+      projectId, kind: "beat_sheet", title: title || preset.label, beats,
+    }).returning();
+    return NextResponse.json({ plan });
+  }
 
   const msg = await client.messages.create({
     model: MODELS.default,

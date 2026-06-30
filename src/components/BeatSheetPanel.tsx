@@ -4,6 +4,7 @@ import { co, sBtn, sBtnSm, sInput } from "@/lib/styles";
 import { toast } from "@/lib/toast";
 import type { GenerationMode } from "@/lib/modes/registry";
 import type { StoryBeat } from "@/lib/types/story";
+import { ARC_PRESETS } from "@/lib/graph/arc-presets";
 
 const PURPOSES: StoryBeat["purpose"][] = ["setup", "rising", "turn", "climax", "payoff", "transition"];
 
@@ -53,6 +54,26 @@ export default function BeatSheetPanel({ project, onSelectMode, setPrompt }: Bea
     }
   };
 
+  // Phase 4: scaffold a beat sheet from a narrative arc preset — zero AI spend.
+  const scaffoldFromPreset = async (presetId: string) => {
+    if (generating) return;
+    setGenerating(true);
+    try {
+      const res = await fetch(`/api/projects/${project.id}/story-plans`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ presetId }),
+      });
+      const data = await res.json();
+      if (!res.ok) { toast.error(data.error || "Couldn't scaffold from that template."); return; }
+      setPlanId(data.plan.id);
+      setBeats(Array.isArray(data.plan.beats) ? data.plan.beats : []);
+    } catch {
+      toast.error("Template scaffold failed.");
+    } finally {
+      setGenerating(false);
+    }
+  };
+
   const persist = (next: StoryBeat[]) => {
     if (!planId) return;
     if (saveTimer.current) clearTimeout(saveTimer.current);
@@ -89,6 +110,16 @@ export default function BeatSheetPanel({ project, onSelectMode, setPrompt }: Bea
         <button style={{ ...sBtn, opacity: generating ? 0.6 : 1 }} disabled={generating} onClick={generate}>
           {generating ? "Planning…" : "Generate beat sheet →"}
         </button>
+        <div style={{ marginTop: 12 }}>
+          <div style={{ fontSize: 10, fontWeight: 700, color: co.muted, textTransform: "uppercase", letterSpacing: 1, marginBottom: 6 }}>Or start from a structure (free)</div>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+            {ARC_PRESETS.map(p => (
+              <button key={p.id} title={p.description} style={{ ...sBtnSm, opacity: generating ? 0.6 : 1 }} disabled={generating} onClick={() => scaffoldFromPreset(p.id)}>
+                {p.label}
+              </button>
+            ))}
+          </div>
+        </div>
       </div>
     );
   }
