@@ -14,8 +14,9 @@ export default function ComicStudio({ project, segmindKey, onOpenStudio }: { pro
   const [generating, setGenerating] = useState(false);
   const [generationMsg, setGenerationMsg] = useState("");
   const [genError, setGenError] = useState("");
-  const [panelEdits, setPanelEdits] = useState<Record<string, { dialogue: string; caption: string; speakerName: string }>>({});
+  const [panelEdits, setPanelEdits] = useState<Record<string, { dialogue: string; caption: string; speakerName: string; bubbleType: string }>>({});
   const [regenerating, setRegenerating] = useState<Record<string, boolean>>({});
+  const [lettering, setLettering] = useState<Record<string, boolean>>({});
   const saveTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
 
   const chaptersWithContent = (project.chapters || []).filter((c: any) => c.content?.trim());
@@ -36,7 +37,7 @@ export default function ComicStudio({ project, segmindKey, onOpenStudio }: { pro
     setActivePageIndex(index);
     const edits: Record<string, any> = {};
     for (const p of page.panels) {
-      edits[p.id] = { dialogue: p.dialogue || "", caption: p.caption || "", speakerName: p.speakerName || "" };
+      edits[p.id] = { dialogue: p.dialogue || "", caption: p.caption || "", speakerName: p.speakerName || "", bubbleType: p.bubbleType || "speech" };
     }
     setPanelEdits(prev => ({ ...prev, ...edits }));
     setView("editor");
@@ -98,6 +99,25 @@ export default function ComicStudio({ project, segmindKey, onOpenStudio }: { pro
     }
   };
 
+  // Zero-spend: composites the panel's dialogue/caption bubbles onto its existing
+  // art server-side (no AI call) and shows the lettered result.
+  const letterPanel = async (panelId: string) => {
+    if (lettering[panelId]) return;
+    setLettering(prev => ({ ...prev, [panelId]: true }));
+    try {
+      const res = await fetch(`/api/projects/${project.id}/comics/${activePage.id}/panels/${panelId}/letter`, { method: "POST" });
+      const data = await res.json();
+      if (data.panel) {
+        setActivePage((prev: any) => ({
+          ...prev,
+          panels: prev.panels.map((p: any) => p.id === panelId ? { ...p, letteredImageUrl: data.panel.letteredImageUrl } : p),
+        }));
+      }
+    } finally {
+      setLettering(prev => ({ ...prev, [panelId]: false }));
+    }
+  };
+
   const deletePage = async (pageId: string) => {
     await fetch(`/api/projects/${project.id}/comics/${pageId}`, { method: "DELETE" });
     const newPages = pages.filter((p: any) => p.id !== pageId);
@@ -131,35 +151,22 @@ export default function ComicStudio({ project, segmindKey, onOpenStudio }: { pro
     ctx.fillRect(0, 0, 1056, 1584);
     const pw = 528, ph = 528;
     const panels = [...activePage.panels].sort((a: any, b: any) => a.panelIndex - b.panelIndex);
+    // Lettering is now composited server-side and stored as letteredImageUrl, so
+    // we just draw whichever image is available — no crude canvas text overlay.
     for (let i = 0; i < Math.min(panels.length, 6); i++) {
       const panel = panels[i];
       const x = (i % 2) * pw;
       const y = Math.floor(i / 2) * ph;
+      const src = panel.letteredImageUrl || panel.imageUrl;
       try {
         const img = new Image();
         img.crossOrigin = "anonymous";
-        await new Promise<void>((res, rej) => { img.onload = () => res(); img.onerror = rej; img.src = panel.imageUrl; });
+        await new Promise<void>((res, rej) => { img.onload = () => res(); img.onerror = rej; img.src = src; });
         ctx.drawImage(img, x, y, pw, ph);
       } catch { ctx.fillStyle = "#eee"; ctx.fillRect(x, y, pw, ph); }
       ctx.strokeStyle = "#000";
       ctx.lineWidth = 3;
       ctx.strokeRect(x, y, pw, ph);
-      const edit = panelEdits[panel.id] ?? panel;
-      if (edit.dialogue) {
-        const ty = y + ph * 0.84;
-        ctx.fillStyle = "rgba(255,255,255,0.92)";
-        ctx.fillRect(x + 4, ty, pw - 8, ph * 0.14);
-        ctx.fillStyle = "#000";
-        ctx.font = "bold 13px serif";
-        ctx.fillText((edit.speakerName ? edit.speakerName + ": " : "") + edit.dialogue.substring(0, 70), x + 10, ty + 18);
-      }
-      if (edit.caption) {
-        ctx.fillStyle = "rgba(0,0,0,0.7)";
-        ctx.fillRect(x + 4, y + 4, pw - 8, 22);
-        ctx.fillStyle = "#fff";
-        ctx.font = "11px sans-serif";
-        ctx.fillText(edit.caption.substring(0, 60), x + 10, y + 18);
-      }
     }
     const url = canvas.toDataURL("image/png");
     const a = document.createElement("a");
@@ -199,7 +206,7 @@ export default function ComicStudio({ project, segmindKey, onOpenStudio }: { pro
         <div style={{ flex: 1, overflow: "auto", padding: 16 }}>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, maxWidth: 960, margin: "0 auto" }}>
             {panels.map((panel: any, i: number) => {
-              const edit = panelEdits[panel.id] ?? { dialogue: panel.dialogue, caption: panel.caption, speakerName: panel.speakerName };
+              const edit = panelEdits[panel.id] ?? { dialogue: panel.dialogue, caption: panel.caption, speakerName: panel.speakerName, bubbleType: panel.bubbleType || "speech" };
               return (
                 <div key={panel.id} style={{ background: co.surface, borderRadius: 10, overflow: "hidden", border: "1px solid " + co.border }}>
                   {/* Image area */}
@@ -208,8 +215,8 @@ export default function ComicStudio({ project, segmindKey, onOpenStudio }: { pro
                     <button style={{ position: "absolute", top: 8, right: 8, zIndex: 2, ...sBtnSm, padding: "3px 8px" }} onClick={() => regeneratePanel(panel.id)} disabled={regenerating[panel.id]}>
                       {regenerating[panel.id] ? "..." : "🔄"}
                     </button>
-                    {panel.imageUrl
-                      ? <img src={panel.imageUrl} alt={`Panel ${i + 1}`} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+                    {(panel.letteredImageUrl || panel.imageUrl)
+                      ? <img src={panel.letteredImageUrl || panel.imageUrl} alt={`Panel ${i + 1}`} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
                       : <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", color: co.muted, fontSize: 12 }}>No image</div>}
                   </div>
                   {/* Edit area */}
@@ -217,6 +224,20 @@ export default function ComicStudio({ project, segmindKey, onOpenStudio }: { pro
                     <input style={sInput} placeholder="Speaker name..." value={edit.speakerName ?? ""} onChange={e => updatePanel(panel.id, "speakerName", e.target.value)} />
                     <textarea style={{ ...sInput, resize: "none", minHeight: 44 }} placeholder="Dialogue..." rows={2} value={edit.dialogue ?? ""} onChange={e => updatePanel(panel.id, "dialogue", e.target.value)} />
                     <input style={sInput} placeholder="Caption (narrator box)..." value={edit.caption ?? ""} onChange={e => updatePanel(panel.id, "caption", e.target.value)} />
+                    {edit.dialogue?.trim() && (
+                      <div style={{ display: "flex", gap: 4 }}>
+                        {(["speech", "shout", "thought"] as const).map(bt => (
+                          <button key={bt} style={{ ...sBtnSm, padding: "3px 8px", flex: 1, borderColor: edit.bubbleType === bt ? co.accent : co.border, color: edit.bubbleType === bt ? co.accent : co.text }} onClick={() => updatePanel(panel.id, "bubbleType", bt)}>
+                            {bt === "speech" ? "💬" : bt === "shout" ? "💥" : "💭"} {bt}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                    {(edit.dialogue?.trim() || edit.caption?.trim()) && (
+                      <button style={{ ...sBtnSm, opacity: lettering[panel.id] ? 0.6 : 1 }} onClick={() => letterPanel(panel.id)} disabled={lettering[panel.id]}>
+                        {lettering[panel.id] ? "Lettering…" : "✏️ Letter Panel"}
+                      </button>
+                    )}
                   </div>
                 </div>
               );
