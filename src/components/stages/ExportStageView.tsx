@@ -6,6 +6,7 @@ import { type GuideAction } from "@/lib/guide/next-action";
 import { isStoryFormat } from "@/lib/formats";
 import { AdaptPanel } from "@/components/AdaptPanel";
 import { chapterApprovalSummary } from "@/lib/editor/approval";
+import ReaderInsightsPanel from "@/components/ReaderInsightsPanel";
 
 interface ExportStageViewProps {
   project: any;
@@ -50,6 +51,8 @@ export default function ExportStageView({ project, onGuideRun, onOpenProductionS
         <p style={{ fontSize: 13, color: co.muted, lineHeight: 1.6, marginBottom: 16 }}>
           {chapters.length} chapter{chapters.length === 1 ? "" : "s"}, {totalWords.toLocaleString()} words total. Export it, adapt it into another format, or start your next story.
         </p>
+
+        {isStoryFormat(project.format) && <ReaderInsightsPanel project={project} />}
         {showApprovalNudge && (
           <div style={{ display: "flex", alignItems: "flex-start", gap: 8, padding: "10px 12px", borderRadius: 8, background: `${co.orange}14`, border: `1px solid ${co.orange}40`, marginBottom: 12, fontSize: 12, color: co.text }}>
             <span>⚠️</span>
