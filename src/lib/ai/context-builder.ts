@@ -7,6 +7,7 @@ import { extractVoiceFingerprint, fingerprintToConstraints } from "@/lib/ai/voic
 import { MODE_REGISTRY, type ContextPolicy } from "@/lib/modes/registry";
 import { CONTEXT_CHAR_CAPS } from "@/lib/ai/context-caps";
 import { decodeAIRules, decodeMemoryStructuredData } from "@/lib/types/story";
+import { compactContext } from "@/lib/ai/headroom";
 
 export interface CharacterRelationship {
   characterAId: string;
@@ -733,14 +734,17 @@ export function buildStaticContext(p: ContextProject, mode?: string, tier?: stri
   for (let i = 0; i < sections.length; i++) {
     const sectionLines = sections[i];
     if (sectionLines.length === 0) continue;
-    const candidate = [...result, ...sectionLines].join("\n");
+    // Headroom: estimate against the COMPACTED candidate, so whitespace/duplicate
+    // savings let more real sections fit under the same budget before truncation.
+    const candidate = compactContext([...result, ...sectionLines].join("\n"));
     if (i > 0 && estimateTokens(candidate) > budget) {
       result.push('[Context trimmed — project too large]');
       break;
     }
     result.push(...sectionLines);
   }
-  return result.join("\n");
+  // Final block is compacted too — deterministic, so the prompt-cache stays stable.
+  return compactContext(result.join("\n"));
 }
 
 export function buildDynamicContext(p: ContextProject, mode?: string): string {
