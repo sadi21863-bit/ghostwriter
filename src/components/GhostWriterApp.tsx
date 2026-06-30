@@ -9,6 +9,7 @@ import { ToastContainer } from "@/components/ToastContainer";
 import type { FeatureGate } from "@/types/subscription";
 import type { CompositionLayer } from "@/lib/ai/composer";
 import { co, sBtn, sBtnSm } from "@/lib/styles";
+import { resolveInitiative } from "@/lib/ai/initiative";
 import { GuideBar } from "@/components/GuideBar";
 import { nextAction, type GuideAction } from "@/lib/guide/next-action";
 import WritingRoom from "@/components/WritingRoom";
@@ -247,7 +248,7 @@ export default function GhostWriterApp({ projectId }: { projectId: string }) {
       projectState.updateProject((p: any) => ({ ...p, activeChapter: runChapterId }));
     }
 
-    if ((project.aiInitiative ?? "Collaborates") === "Leads") {
+    if (resolveInitiative(project.aiInitiative).autoFires) {
       autoFireTimerRef.current = setTimeout(() => {
         autoFireTimerRef.current = null;
         aiActions.generate({ insertViaEditor: insertIntoEditorRef.current ?? undefined });
@@ -444,7 +445,20 @@ export default function GhostWriterApp({ projectId }: { projectId: string }) {
           </button>
         </div>
       )}
-      {(project.aiInitiative ?? "Collaborates") !== "Assists" && <GuideBar action={guideAction} onRun={handleGuideRun} onDismiss={handleGuideDismiss} />}
+      {(() => {
+        const init = resolveInitiative(project.aiInitiative);
+        const next = init.mode === "Leads" ? "Collaborates" : init.mode === "Collaborates" ? "Assists" : "Leads";
+        const cycle = () => {
+          projectState.updateProject((p: any) => ({ ...p, aiInitiative: next }));
+          fetch(`/api/projects/${project.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ aiInitiative: next }) });
+        };
+        return (
+          <button onClick={cycle} title={`${init.description} (click → AI ${next})`} style={{ ...sBtnSm, alignSelf: "flex-start", margin: "6px 0 0 12px" }}>
+            ⚡ {init.label}
+          </button>
+        );
+      })()}
+      {!resolveInitiative(project.aiInitiative).hidesGuide && <GuideBar action={guideAction} onRun={handleGuideRun} onDismiss={handleGuideDismiss} />}
       <div style={{ display: "flex", flex: 1, overflow: "hidden" }}>
       {aiActions.violationBanner && (
         <div style={{ position: "fixed", top: 0, left: 0, right: 0, background: "#92400e", color: "#fef3c7", padding: "12px 20px", zIndex: 1999, borderBottom: "1px solid #d97706" }}>
