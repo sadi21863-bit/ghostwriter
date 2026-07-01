@@ -7,6 +7,11 @@ describe("studioDeepLink", () => {
     expect(studioDeepLink("proj1", { type: "selectMode", mode: "villain_pov" }))
       .toBe("/project/proj1?studioMode=villain_pov");
   });
+  it("encodes a mode value that contains a space", () => {
+    expect(studioDeepLink("p1", { type: "selectMode", mode: "villain pov" })).toBe(
+      "/project/p1?studioMode=villain%20pov"
+    );
+  });
   it("builds a studioOpen=comic param for openComicStudio", () => {
     expect(studioDeepLink("proj1", { type: "openComicStudio" })).toBe("/project/proj1?studioOpen=comic");
   });
