@@ -48,6 +48,7 @@ const MUST_BE_REACHABLE = [
   "ProductionStudio",
   "GuideBar",
   "EntitySuggestionsChip",
+  "ChapterPlanPanel",
 ];
 
 describe("live shell reachability", () => {
