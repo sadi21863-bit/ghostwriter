@@ -8,6 +8,8 @@ import { getUserTier, canAccessFeature } from "@/lib/subscription";
 import Anthropic from "@anthropic-ai/sdk";
 import { MODELS } from "@/lib/ai/engine";
 import { proseTargetedFixSystemPrompt } from "@/lib/ai/prompts";
+import { extractVoiceFingerprint, fingerprintToConstraints } from "@/lib/ai/voice-fingerprint";
+import { buildPromiseLedger } from "@/lib/ai/promise-ledger";
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! });
 
@@ -22,20 +24,25 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'upgrade_required', feature: 'prose_fix' }, { status: 403 });
   }
 
-  const { text, fixInstruction } = await req.json();
+  const { text, fixInstruction, projectId } = await req.json();
 
   if (!text?.trim() || !fixInstruction?.trim()) {
     return NextResponse.json({ error: "text and fixInstruction are required" }, { status: 400 });
   }
 
-  // Cap the text to avoid token overrun on very long chapters
   const cappedText = text.length > 6000 ? text.slice(0, 6000) + "\n\n[...chapter continues...]" : text;
+
+  const fp = extractVoiceFingerprint([cappedText]);
+  const voiceConstraints = fp ? fingerprintToConstraints(fp) : "";
+  const promiseLedger = projectId ? await buildPromiseLedger(projectId, "preserve") : "";
+  const extra = [voiceConstraints, promiseLedger].filter(Boolean).join("\n\n");
+  const system = proseTargetedFixSystemPrompt(fixInstruction) + (extra ? `\n\n${extra}` : "");
 
   try {
     const msg = await client.messages.create({
       model: MODELS.default,
       max_tokens: 3000,
-      system: proseTargetedFixSystemPrompt(fixInstruction),
+      system,
       messages: [{ role: "user", content: cappedText }],
     });
 

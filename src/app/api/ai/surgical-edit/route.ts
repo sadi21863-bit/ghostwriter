@@ -9,6 +9,8 @@ import Anthropic from "@anthropic-ai/sdk";
 import { MODELS } from "@/lib/ai/engine";
 import { surgicalEditSystemPrompt } from "@/lib/ai/prompts";
 import { isValidTipTapJson, tiptapToPlainText, plainTextToTipTap } from "@/lib/editor/content-migration";
+import { extractVoiceFingerprint, fingerprintToConstraints } from "@/lib/ai/voice-fingerprint";
+import { buildPromiseLedger } from "@/lib/ai/promise-ledger";
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! });
 
@@ -23,13 +25,12 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'upgrade_required', feature: 'surgical_edit' }, { status: 403 });
   }
 
-  const { chapterContent, instruction } = await req.json();
+  const { chapterContent, instruction, projectId } = await req.json();
 
   if (!chapterContent?.trim() || !instruction?.trim()) {
     return NextResponse.json({ error: "chapterContent and instruction are required" }, { status: 400 });
   }
 
-  // Convert TipTap JSON to plain text if needed
   let plainText: string;
   if (isValidTipTapJson(chapterContent)) {
     plainText = tiptapToPlainText(JSON.parse(chapterContent));
@@ -37,14 +38,19 @@ export async function POST(req: Request) {
     plainText = chapterContent;
   }
 
-  // Cap input to avoid token overrun
   const cappedText = plainText.length > 8000 ? plainText.slice(0, 8000) + "\n\n[...chapter continues...]" : plainText;
+
+  const fp = extractVoiceFingerprint([cappedText]);
+  const voiceConstraints = fp ? fingerprintToConstraints(fp) : "";
+  const promiseLedger = projectId ? await buildPromiseLedger(projectId, "preserve") : "";
+  const extra = [voiceConstraints, promiseLedger].filter(Boolean).join("\n\n");
+  const system = surgicalEditSystemPrompt() + (extra ? `\n\n${extra}` : "");
 
   try {
     const msg = await client.messages.create({
       model: MODELS.default,
       max_tokens: 2000,
-      system: surgicalEditSystemPrompt(),
+      system,
       messages: [{ role: "user", content: `Chapter:\n\n${cappedText}\n\nInstruction: ${instruction}` }],
     });
 
