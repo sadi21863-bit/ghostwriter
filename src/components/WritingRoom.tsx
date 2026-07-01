@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
+import Link from "next/link";
 import { ChapterEditor } from "@/components/editor/ChapterEditor";
 import type { ChapterEditorHandle } from "@/components/editor/ChapterEditor";
 import { co, sBtn, sBtnSm, sTextarea } from "@/lib/styles";
@@ -522,7 +523,15 @@ export default function WritingRoom({
           />
         </div>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <button style={sBtnSm} onClick={onOpenActions}>Actions</button>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button style={sBtnSm} onClick={onOpenActions}>Actions</button>
+            <Link
+              href={`/project/${project.id}/studio`}
+              style={{ ...sBtnSm, textDecoration: "none", display: "inline-flex", alignItems: "center" }}
+            >
+              Studio →
+            </Link>
+          </div>
           <button style={{ ...sBtn, opacity: generating ? 0.6 : 1 }} disabled={generating} onClick={runGenerate}>
             {generating ? `${MODE_REGISTRY.write.label}…` : MODE_REGISTRY.write.label}
           </button>
