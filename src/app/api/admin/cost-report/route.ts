@@ -7,9 +7,13 @@ import { gte, eq, sql } from 'drizzle-orm';
 
 // Blended USD per million tokens (tokensUsed = input + output combined, so a
 // single blended rate is used rather than separate input/output pricing).
+// Sonnet 5 (claude-sonnet-5, released 2026-06-30) is priced at an introductory
+// $2/$10 per MTok (in/out) through 2026-08-31, then reverts to standard $3/$15
+// (same as the prior Sonnet 4.6 rate) — bump 3.6 -> 5.4 for sonnet-5 after that date.
 const BLENDED_COST_PER_MTOK: Record<string, number> = {
   'claude-haiku-4-5-20251001': 1.6,
-  'claude-sonnet-4-6':         5.4,
+  'claude-sonnet-4-6':         5.4, // historical rows predating the Sonnet 5 switch
+  'claude-sonnet-5':           3.6, // introductory rate through 2026-08-31
   'claude-opus-4-6':           27.0,
   'claude-opus-4-8':           27.0,
 };

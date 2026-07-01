@@ -38,7 +38,7 @@ Do not "fix" these warnings by adding `'use client'` everywhere or removing func
 The `generations` table has:
 
 ```typescript
-model: varchar("model", { length: 100 }).default("claude-sonnet-4-6")
+model: varchar("model", { length: 100 }).default("claude-sonnet-5")
 ```
 
 This is a **literal string hardcoded in the DB schema**, not a `MODELS.default` reference. This is intentional and correct.

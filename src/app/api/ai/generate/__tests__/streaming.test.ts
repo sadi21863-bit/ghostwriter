@@ -83,7 +83,7 @@ describe("POST /api/ai/generate — stream: true", () => {
     generateStream.mockImplementation(async (_params: any, onDelta: (d: string) => void) => {
       onDelta("Once upon ");
       onDelta("a time.");
-      return { text: "Once upon a time.", tokensUsed: 12, model: "claude-sonnet-4-6" };
+      return { text: "Once upon a time.", tokensUsed: 12, model: "claude-sonnet-5" };
     });
 
     const res = await POST(makeRequest({ mode: "write", prompt: "Write the opening.", projectId: "proj-1", format: "Novel", stream: true }));
@@ -95,7 +95,7 @@ describe("POST /api/ai/generate — stream: true", () => {
   it("persists the generation and tracks streamed: true on completion", async () => {
     generateStream.mockImplementation(async (_params: any, onDelta: (d: string) => void) => {
       onDelta("text");
-      return { text: "text", tokensUsed: 5, model: "claude-sonnet-4-6" };
+      return { text: "text", tokensUsed: 5, model: "claude-sonnet-5" };
     });
 
     const res = await POST(makeRequest({ mode: "write", prompt: "p", projectId: "proj-1", chapterId: "chap-1", format: "Novel", stream: true }));
@@ -118,7 +118,7 @@ describe("POST /api/ai/generate — stream: true", () => {
 
   it("non-streaming requests are unaffected (stream omitted entirely)", async () => {
     const { generate } = await import("@/lib/ai/engine");
-    vi.mocked(generate).mockResolvedValue({ text: "plain result", tokensUsed: 3, model: "claude-sonnet-4-6" } as any);
+    vi.mocked(generate).mockResolvedValue({ text: "plain result", tokensUsed: 3, model: "claude-sonnet-5" } as any);
 
     const res = await POST(makeRequest({ mode: "write", prompt: "p", projectId: "proj-1", format: "Novel" }));
 

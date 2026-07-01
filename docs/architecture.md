@@ -158,7 +158,7 @@ All model selections are centralized in `src/lib/ai/engine.ts`:
 ```typescript
 export const MODELS = {
   fast:    "claude-haiku-4-5-20251001",   // lightweight tasks
-  default: "claude-sonnet-4-6",           // most generation
+  default: "claude-sonnet-5",             // most generation
   quality: "claude-opus-4-8",             // deep reasoning
 };
 ```

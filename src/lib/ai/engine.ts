@@ -24,7 +24,7 @@ const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! });
 
 export const MODELS = {
   fast:    'claude-haiku-4-5-20251001',
-  default: 'claude-sonnet-4-6',
+  default: 'claude-sonnet-5',
   quality: 'claude-opus-4-8',
 } as const;
 

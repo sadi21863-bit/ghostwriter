@@ -127,6 +127,13 @@
       "when": 1782824095826,
       "tag": "0017_previous_eternals",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1782921442999,
+      "tag": "0018_calm_madelyne_pryor",
+      "breakpoints": true
     }
   ]
 }

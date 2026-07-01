@@ -19,7 +19,7 @@ Everything AI-related flows through this file. It exports:
 ```typescript
 export const MODELS = {
   fast:    "claude-haiku-4-5-20251001",
-  default: "claude-sonnet-4-6",
+  default: "claude-sonnet-5",
   quality: "claude-opus-4-8",
 };
 ```
