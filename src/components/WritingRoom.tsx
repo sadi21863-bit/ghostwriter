@@ -196,6 +196,7 @@ export default function WritingRoom({
         body: JSON.stringify({
           chapterContent: activeChap.content,
           instruction: surgicalInstruction,
+          projectId: project.id,
         }),
       });
       const data = await res.json();

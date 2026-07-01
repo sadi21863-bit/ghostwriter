@@ -245,7 +245,7 @@ export function StoryHealthPanel({ project, projectId, activeChapContent, onClos
       const res = await fetch("/api/ai/prose-fix", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: activeChapContent, fixInstruction }),
+        body: JSON.stringify({ text: activeChapContent, fixInstruction, projectId }),
       });
       const data = await res.json();
       if (data.error) {

@@ -86,7 +86,7 @@ export default function EditorNotesPanel({ project, updateProject }: EditorNotes
     try {
       const res = await fetch(`/api/ai/prose-fix`, {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text, fixInstruction: n.suggestedFix ? `${n.message} — ${n.suggestedFix}` : n.message }),
+        body: JSON.stringify({ text, fixInstruction: n.suggestedFix ? `${n.message} — ${n.suggestedFix}` : n.message, projectId: project.id }),
       });
       if (res.status === 403) { toast.error("Fix This needs a paid plan."); return; }
       const d = await res.json();
