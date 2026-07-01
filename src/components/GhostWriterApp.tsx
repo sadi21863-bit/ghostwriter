@@ -145,6 +145,28 @@ export default function GhostWriterApp({ projectId }: { projectId: string }) {
     if (selected !== "write") setActionsOpen(true);
   };
 
+  // Studio (/project/[id]/studio) is a separate route and navigates back here with a
+  // one-shot query param to dispatch a confirmed capability run through this
+  // component's own state — the project's one execution path, never a parallel one.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const studioMode = params.get("studioMode");
+    const studioOpen = params.get("studioOpen");
+    if (studioMode) {
+      setMode(studioMode);
+      setActionsOpen(true);
+    } else if (studioOpen === "comic") {
+      setShowComicStudio(true);
+      setActionsOpen(true);
+    } else if (studioOpen === "production") {
+      setShowProductionStudio(true);
+      setActionsOpen(true);
+    } else if (studioOpen === "actions") {
+      setActionsOpen(true);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const aiActions = useAIActions({
     project: project || {},
     mode: effectiveMode,
