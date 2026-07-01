@@ -5,7 +5,10 @@ import { eq } from "drizzle-orm";
 // Reader-Promise Ledger (P1): aggregate unresolved story promises from continuity
 // memory and feed them back to the writer so long threads aren't dropped or resolved
 // prematurely. DB-only — no LLM cost. Lives in the DYNAMIC context block.
-export async function buildPromiseLedger(projectId: string): Promise<string> {
+export async function buildPromiseLedger(
+  projectId: string,
+  mode: "generate" | "preserve" = "generate",
+): Promise<string> {
   try {
     const memories = await db.query.storyMemories.findMany({
       where: eq(storyMemories.projectId, projectId),
@@ -25,10 +28,11 @@ export async function buildPromiseLedger(projectId: string): Promise<string> {
     // De-dupe, keep the 8 most recent.
     const uniq = [...new Set(open)].slice(-8);
     if (!uniq.length) return "";
-    return (
-      "OPEN STORY PROMISES (honor these threads — advance or deepen them; do NOT resolve prematurely or let them vanish):\n" +
-      uniq.map((p) => `- ${p}`).join("\n")
-    );
+    const header =
+      mode === "preserve"
+        ? "OPEN STORY PROMISES (do NOT delete, contradict, or accidentally resolve any of these while editing — if your edit touches a sentence connected to one of these, preserve its substance):"
+        : "OPEN STORY PROMISES (honor these threads — advance or deepen them; do NOT resolve prematurely or let them vanish):";
+    return header + "\n" + uniq.map((p) => `- ${p}`).join("\n");
   } catch {
     return "";
   }

@@ -40,3 +40,32 @@ describe("buildPromiseLedger", () => {
     expect(lines.length).toBe(8);
   });
 });
+
+describe('buildPromiseLedger — preserve mode', () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it("uses the preserve-mode header when mode is 'preserve'", async () => {
+    findMany.mockResolvedValue([
+      { chapterIndex: 0, structuredData: { openPromisesCreated: ["the missing letter"], openPromisesResolved: [] } },
+    ]);
+    const result = await buildPromiseLedger("proj-1", "preserve");
+    expect(result).toContain("do NOT delete, contradict, or accidentally resolve");
+    expect(result).not.toContain("advance or deepen them");
+    expect(result).toContain("the missing letter");
+  });
+
+  it("defaults to generate mode when mode param is omitted (regression check)", async () => {
+    findMany.mockResolvedValue([
+      { chapterIndex: 0, structuredData: { openPromisesCreated: ["the missing letter"], openPromisesResolved: [] } },
+    ]);
+    const result = await buildPromiseLedger("proj-1");
+    expect(result).toContain("advance or deepen them");
+    expect(result).not.toContain("do NOT delete");
+  });
+
+  it("fails open in preserve mode (returns empty string when DB throws)", async () => {
+    findMany.mockRejectedValue(new Error("db down"));
+    const result = await buildPromiseLedger("proj-1", "preserve");
+    expect(result).toBe("");
+  });
+});
