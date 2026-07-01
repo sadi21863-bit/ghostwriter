@@ -9,6 +9,7 @@ import { eq, and } from "drizzle-orm";
 import Anthropic from "@anthropic-ai/sdk";
 import { MODELS } from "@/lib/ai/engine";
 import { PRODUCTION_PACKAGE_SYSTEM_PROMPT } from "@/lib/ai/prompts";
+import { buildPromiseLedger } from "@/lib/ai/promise-ledger";
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! });
 
@@ -25,6 +26,7 @@ async function verifyOwnership(projectId: string, userId: string) {
 
 export async function POST(_: Request, { params }: { params: Promise<{ projectId: string }> }) {
   const { projectId } = await params;
+  const promiseLedger = await buildPromiseLedger(projectId, "generate");
   const s = await getRequiredSession();
   const rl = await checkAiRateLimit(s.user.id);
   if (rl) return rl;
@@ -72,7 +74,7 @@ WORLD ELEMENTS (objects, weapons, organizations, factions, phenomena — depict 
 ${elementsText || "None defined"}
 
 CHAPTERS:
-${chaptersText || "(no chapters written yet)"}
+${chaptersText || "(no chapters written yet)"}${promiseLedger ? `\n\n${promiseLedger}` : ""}
 
 Generate a production package as JSON:
 {
