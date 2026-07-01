@@ -6,7 +6,7 @@ import { tiptapToPlainText, isValidTipTapJson } from "@/lib/editor/content-migra
 export type GuideStage = "idea" | "structure" | "draft" | "polish" | "export";
 
 export type GuideRunSpec = {
-  mode: GenerationMode | "story_health" | "export";
+  mode: GenerationMode | "story_health" | "export" | "plan_chapter";
   prompt?: string;
   chapterId?: string;
 };
@@ -36,6 +36,7 @@ export interface GuideProject {
   characters: { id: string }[];
   chapters: GuideChapter[];
   dismissedGuideIds?: string[];
+  plannedChapterIds?: string[];
 }
 
 const REVIEW_THRESHOLD = 500;
@@ -108,6 +109,30 @@ function computeAction(project: GuideProject): GuideAction | null {
     return c.wordCount > 0;
   });
 
+  const undrafted = sortedChapters.find((c) => c.wordCount === 0);
+
+  // If there's an undrafted chapter and no draft exists anywhere yet, offer to plan it first
+  if (undrafted && !hasAnyDraft) {
+    const dismissed = project.dismissedGuideIds ?? [];
+    const planned = project.plannedChapterIds ?? [];
+    if (!planned.includes(undrafted.id) && !dismissed.includes(`plan-chapter-${undrafted.id}`)) {
+      return {
+        id: `plan-chapter-${undrafted.id}`,
+        stage: "draft",
+        message: `Before you draft "${undrafted.title}" — want a quick scene plan?`,
+        cta: "Plan this chapter",
+        run: { mode: "plan_chapter", chapterId: undrafted.id },
+      };
+    }
+    return {
+      id: `draft-chapter-${undrafted.id}`,
+      stage: "draft",
+      message: `Ready to draft "${undrafted.title}" — let's write the opening scene.`,
+      cta: "Start writing",
+      run: { mode: "write", prompt: `Write the opening scene for "${undrafted.title}".`, chapterId: undrafted.id },
+    };
+  }
+
   if (!hasAnyDraft) {
     return {
       id: "structure-outline",
@@ -118,7 +143,6 @@ function computeAction(project: GuideProject): GuideAction | null {
     };
   }
 
-  const undrafted = sortedChapters.find((c) => c.wordCount === 0);
   if (undrafted) {
     return {
       id: `draft-chapter-${undrafted.id}`,

@@ -25,7 +25,7 @@ describe("nextAction", () => {
     expect(action?.run.prompt).toContain("A thief discovers her mark is her sister.");
   });
 
-  it("skips the characters check for creator-format projects and goes straight to outlining", () => {
+  it("skips the characters check for creator-format projects and goes straight to planning a chapter if one exists", () => {
     const action = nextAction({
       ...base,
       format: "YouTube Long-form",
@@ -33,8 +33,8 @@ describe("nextAction", () => {
       characters: [],
       chapters: [{ id: "ch-1", title: "Chapter 1", wordCount: 0, sortOrder: 0 }],
     });
-    expect(action?.id).toBe("structure-outline");
-    expect(action?.stage).toBe("structure");
+    expect(action?.id).toBe("plan-chapter-ch-1");
+    expect(action?.stage).toBe("draft");
   });
 
   it("still requires characters for non-creator formats with the same premise", () => {
@@ -49,18 +49,18 @@ describe("nextAction", () => {
     expect(action?.stage).toBe("idea");
   });
 
-  it("suggests outlining once characters exist but no chapter has a draft", () => {
+  it("suggests planning a chapter once it exists but has no draft", () => {
     const action = nextAction({
       ...base,
       controllingIdea: "Premise.",
       characters: [{ id: "char-1" }],
       chapters: [{ id: "ch-1", title: "Chapter 1", wordCount: 0, sortOrder: 0 }],
     });
-    expect(action?.id).toBe("structure-outline");
-    expect(action?.run.mode).toBe("outline");
+    expect(action?.id).toBe("plan-chapter-ch-1");
+    expect(action?.run.mode).toBe("plan_chapter");
   });
 
-  it("suggests drafting the earliest empty chapter once at least one chapter has content", () => {
+  it("suggests drafting (not planning) the earliest empty chapter once at least one chapter has content", () => {
     const action = nextAction({
       ...base,
       controllingIdea: "Premise.",
@@ -183,6 +183,56 @@ describe("nextAction", () => {
     expect(action?.id).toBe("keep-writing-ch-1");
     expect(action?.stage).toBe("draft");
   });
+
+  it("suggests planning an undrafted chapter before offering to draft it", () => {
+    const action = nextAction({
+      ...base,
+      controllingIdea: "Premise.",
+      characters: [{ id: "char-1" }],
+      chapters: [{ id: "ch-1", title: "Chapter 1", wordCount: 0, sortOrder: 0 }],
+    });
+    expect(action?.id).toBe("plan-chapter-ch-1");
+    expect(action?.stage).toBe("draft");
+    expect(action?.run.mode).toBe("plan_chapter");
+    expect(action?.run.chapterId).toBe("ch-1");
+  });
+
+  it("suggests planning for chapter 1 specifically, same as any other chapter", () => {
+    const action = nextAction({
+      ...base,
+      controllingIdea: "Premise.",
+      characters: [{ id: "char-1" }],
+      chapters: [
+        { id: "ch-1", title: "Chapter 1", wordCount: 0, sortOrder: 0 },
+        { id: "ch-2", title: "Chapter 2", wordCount: 0, sortOrder: 1 },
+      ],
+    });
+    expect(action?.id).toBe("plan-chapter-ch-1");
+  });
+
+  it("skips the plan rung and suggests drafting directly once the chapter has a saved plan", () => {
+    const action = nextAction({
+      ...base,
+      controllingIdea: "Premise.",
+      characters: [{ id: "char-1" }],
+      chapters: [{ id: "ch-1", title: "Chapter 1", wordCount: 0, sortOrder: 0 }],
+      plannedChapterIds: ["ch-1"],
+    });
+    expect(action?.id).toBe("draft-chapter-ch-1");
+    expect(action?.run.mode).toBe("write");
+  });
+
+  it("falls through to the draft rung when the plan rung has been dismissed, instead of hiding the Guide bar", () => {
+    const action = nextAction({
+      ...base,
+      controllingIdea: "Premise.",
+      characters: [{ id: "char-1" }],
+      chapters: [{ id: "ch-1", title: "Chapter 1", wordCount: 0, sortOrder: 0 }],
+      dismissedGuideIds: ["plan-chapter-ch-1"],
+    });
+    expect(action?.id).toBe("draft-chapter-ch-1");
+    expect(action?.run.mode).toBe("write");
+  });
 });
 
 describe("currentStage", () => {
@@ -209,6 +259,21 @@ describe("currentStage", () => {
 
   it("matches the expected stage order", () => {
     expect(STAGE_ORDER).toEqual(["idea", "structure", "draft", "polish", "export"]);
+  });
+
+  it("reports 'draft' for both the plan-chapter rung and the draft-chapter rung underneath it", () => {
+    const unplanned: GuideProject = {
+      ...base,
+      controllingIdea: "Premise.",
+      characters: [{ id: "char-1" }],
+      chapters: [{ id: "ch-1", title: "Chapter 1", wordCount: 0, sortOrder: 0 }],
+    };
+    expect(nextAction(unplanned)?.id).toBe("plan-chapter-ch-1");
+    expect(currentStage(unplanned)).toBe("draft");
+
+    const planned: GuideProject = { ...unplanned, plannedChapterIds: ["ch-1"] };
+    expect(nextAction(planned)?.id).toBe("draft-chapter-ch-1");
+    expect(currentStage(planned)).toBe("draft");
   });
 });
 
