@@ -109,10 +109,18 @@ function computeAction(project: GuideProject): GuideAction | null {
     return c.wordCount > 0;
   });
 
-  const undrafted = sortedChapters.find((c) => c.wordCount === 0);
+  if (!hasAnyDraft) {
+    return {
+      id: "structure-outline",
+      stage: "structure",
+      message: "Time to outline — map out your story's major beats.",
+      cta: "Generate outline",
+      run: { mode: "outline", prompt: `Create a chapter-by-chapter outline for this story: ${project.controllingIdea}` },
+    };
+  }
 
-  // If there's an undrafted chapter and no draft exists anywhere yet, offer to plan it first
-  if (undrafted && !hasAnyDraft) {
+  const undrafted = sortedChapters.find((c) => c.wordCount === 0);
+  if (undrafted) {
     const dismissed = project.dismissedGuideIds ?? [];
     const planned = project.plannedChapterIds ?? [];
     if (!planned.includes(undrafted.id) && !dismissed.includes(`plan-chapter-${undrafted.id}`)) {
@@ -124,26 +132,6 @@ function computeAction(project: GuideProject): GuideAction | null {
         run: { mode: "plan_chapter", chapterId: undrafted.id },
       };
     }
-    return {
-      id: `draft-chapter-${undrafted.id}`,
-      stage: "draft",
-      message: `Ready to draft "${undrafted.title}" — let's write the opening scene.`,
-      cta: "Start writing",
-      run: { mode: "write", prompt: `Write the opening scene for "${undrafted.title}".`, chapterId: undrafted.id },
-    };
-  }
-
-  if (!hasAnyDraft) {
-    return {
-      id: "structure-outline",
-      stage: "structure",
-      message: "Time to outline — map out your story's major beats.",
-      cta: "Generate outline",
-      run: { mode: "outline", prompt: `Create a chapter-by-chapter outline for this story: ${project.controllingIdea}` },
-    };
-  }
-
-  if (undrafted) {
     return {
       id: `draft-chapter-${undrafted.id}`,
       stage: "draft",
