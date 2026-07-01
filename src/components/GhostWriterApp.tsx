@@ -164,6 +164,7 @@ export default function GhostWriterApp({ projectId }: { projectId: string }) {
     } else if (studioOpen === "actions") {
       setActionsOpen(true);
     }
+    window.history.replaceState(null, "", window.location.pathname);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
