@@ -10,6 +10,8 @@ import { eq, and } from "drizzle-orm";
 import Anthropic from "@anthropic-ai/sdk";
 import { MODELS } from "@/lib/ai/engine";
 import { villainPovSystemPrompt } from "@/lib/ai/prompts";
+import { buildPromiseLedger } from "@/lib/ai/promise-ledger";
+import { buildVoiceExemplars } from "@/lib/ai/exemplars";
 
 const anthropic = new Anthropic();
 
@@ -23,8 +25,10 @@ export async function POST(req: Request, { params }: { params: Promise<{ project
     return NextResponse.json({ error: "upgrade_required" }, { status: 403 });
   }
 
+  const { projectId } = await params;
+
   const project = await db.query.projects.findFirst({
-    where: and(eq(projects.id, (await params).projectId), eq(projects.userId, session.user.id)),
+    where: and(eq(projects.id, projectId), eq(projects.userId, session.user.id)),
   });
   if (!project) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
@@ -34,7 +38,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ project
   }
 
   const character = await db.query.characters.findFirst({
-    where: and(eq(characters.id, characterId), eq(characters.projectId, (await params).projectId)),
+    where: and(eq(characters.id, characterId), eq(characters.projectId, projectId)),
   });
   if (!character) return NextResponse.json({ error: "Character not found" }, { status: 404 });
 
@@ -50,14 +54,19 @@ export async function POST(req: Request, { params }: { params: Promise<{ project
     ? typeMap[character.antagonistType as string]
     : "This character believes they are acting correctly. The protagonist appears as an obstacle to something they genuinely want.";
 
+  const [promiseLedger, voiceExemplars] = await Promise.all([
+    buildPromiseLedger(projectId, "generate"),
+    buildVoiceExemplars(session.user.id, sceneDescription),
+  ]);
+  const extra = [promiseLedger, voiceExemplars].filter(Boolean).join("\n\n");
+  const system = villainPovSystemPrompt(character.name, character.role, profileNote, character.personality, character.desires)
+    + (extra ? `\n\n${extra}` : "");
+
   const response = await anthropic.messages.create({
     model: MODELS.default,
     max_tokens: 2000,
-    system: villainPovSystemPrompt(character.name, character.role, profileNote, character.personality, character.desires),
-    messages: [{
-      role: "user",
-      content: sceneDescription,
-    }],
+    system,
+    messages: [{ role: "user", content: sceneDescription }],
   });
 
   const text = response.content[0].type === "text" ? response.content[0].text : "";
