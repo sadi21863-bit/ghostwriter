@@ -4,13 +4,14 @@ import { NextResponse } from "next/server";
 import { getRequiredSession } from "@/lib/auth-helpers";
 import { checkAiRateLimit } from "@/lib/ratelimit";
 import { db } from "@/db";
-import { projects, storyPlans } from "@/db/schema";
+import { projects, storyPlans, chapters } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import Anthropic from "@anthropic-ai/sdk";
 import { MODELS } from "@/lib/ai/engine";
 import { beatSheetSystemPrompt } from "@/lib/ai/prompts";
 import { encodeStoryBeats, type StoryBeat } from "@/lib/types/story";
 import { expandArcPreset, getArcPreset } from "@/lib/graph/arc-presets";
+import { buildSceneBlueprint } from "@/lib/ai/scene-blueprint";
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! });
 
@@ -49,9 +50,42 @@ export async function POST(req: Request, { params }: { params: Promise<{ project
   });
   if (!project) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  const { prompt = "", title, presetId } = await req.json().catch(() => ({}));
+  const { prompt = "", title, presetId, kind, chapterId } = await req.json().catch(() => ({}));
   const cast = (project as any).characters ?? [];
   const threads = (project as any).plotThreads ?? [];
+
+  if (kind === "chapter_plan") {
+    if (!chapterId) return NextResponse.json({ error: "chapterId is required for a chapter plan." }, { status: 400 });
+    // The project query above only loads `with: { characters, plotThreads }` — chapters
+    // are not included, so look the chapter up directly rather than assuming it's on `project`.
+    const chapter = await db.query.chapters.findFirst({
+      where: and(eq(chapters.id, chapterId), eq(chapters.projectId, projectId)),
+    });
+    if (!chapter) return NextResponse.json({ error: "Chapter not found." }, { status: 404 });
+
+    const staticContext = cast.map((c: any) => `${c.name}: ${c.personality ?? ""}`).join("\n");
+    const blueprint = await buildSceneBlueprint({
+      prompt: prompt || `Plan the next scene for "${chapter.title}".`,
+      staticContext,
+      format: project.format,
+    });
+    if (!blueprint) return NextResponse.json({ error: "Couldn't draft a scene plan. Try again." }, { status: 500 });
+
+    const beats = encodeStoryBeats([{
+      id: crypto.randomUUID(),
+      order: 1,
+      label: chapter.title,
+      summary: blueprint,
+      purpose: "rising",
+      characterIds: [],
+      threadIds: [],
+      chapterId,
+    }]);
+    const [plan] = await db.insert(storyPlans).values({
+      projectId, kind: "chapter_plan", title: `Plan: ${chapter.title}`, beats,
+    }).returning();
+    return NextResponse.json({ plan });
+  }
 
   // Phase 4 subgraph/arc preset: scaffold a beat sheet from a known structure
   // (Three-Act / Hero's Journey / Save the Cat / Detective) — zero AI spend,

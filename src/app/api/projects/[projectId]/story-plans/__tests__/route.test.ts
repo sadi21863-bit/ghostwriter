@@ -11,6 +11,7 @@ vi.mock("@anthropic-ai/sdk", () => ({
 }));
 
 const findFirstProjects = vi.fn();
+const findFirstChapter = vi.fn();
 const insertValues = vi.fn();
 const insertReturning = vi.fn();
 const findManyPlans = vi.fn();
@@ -22,6 +23,7 @@ vi.mock("@/db", () => ({
     query: {
       projects: { findFirst: (...a: any[]) => findFirstProjects(...a) },
       storyPlans: { findMany: (...a: any[]) => findManyPlans(...a) },
+      chapters: { findFirst: (...a: any[]) => findFirstChapter(...a) },
     },
     insert: () => ({ values: (v: any) => { insertValues(v); return { returning: (...a: any[]) => insertReturning(...a) }; } }),
     update: () => ({ set: (v: any) => { updateSet(v); return { where: () => ({ returning: (...a: any[]) => updateReturning(...a) }) }; } }),
@@ -51,6 +53,8 @@ describe("story-plans route", () => {
       plotThreads: [{ id: "t1", name: "The Heist" }],
     });
     insertReturning.mockResolvedValue([{ id: "plan-1", beats: [] }]);
+    findFirstChapter.mockResolvedValue({ id: "chap-1", projectId: "proj-1", title: "The Descent" });
+    messagesCreate.mockResolvedValue({ content: [{ type: "text", text: "GOAL: escape\nOBSTACLE: locked door\nTURN: finds a key\nCHANGE: reaches the surface\nSENSORY: damp stone, distant drip, cold air\nEXIT: a decision" }] });
   });
 
   it("POST generates beats, maps character/thread NAMES to ids, assigns order+ids, persists via encode", async () => {
@@ -98,5 +102,35 @@ describe("story-plans route", () => {
 
     const bad = await PATCH(makeReq({ planId: "plan-1", beats: [{ id: "b1" }] }), params);
     expect(bad.status).toBe(400);
+  });
+
+  it("POST with kind:'chapter_plan' calls buildSceneBlueprint and persists one beat with the chapter's id", async () => {
+    const res = await POST(makeReq({ kind: "chapter_plan", chapterId: "chap-1", prompt: "next scene" }), params);
+    expect(res.status).toBe(200);
+
+    const inserted = insertValues.mock.calls[0][0];
+    expect(inserted.projectId).toBe("proj-1");
+    expect(inserted.kind).toBe("chapter_plan");
+    expect(inserted.beats).toHaveLength(1);
+    expect(inserted.beats[0]).toMatchObject({ order: 1, label: "The Descent", chapterId: "chap-1" });
+    expect(inserted.beats[0].summary.length).toBeGreaterThan(0);
+  });
+
+  it("POST with kind:'chapter_plan' and no chapterId returns 400", async () => {
+    const res = await POST(makeReq({ kind: "chapter_plan" }), params);
+    expect(res.status).toBe(400);
+  });
+
+  it("POST with kind:'chapter_plan' and an unknown chapterId returns 404", async () => {
+    findFirstChapter.mockResolvedValue(undefined);
+    const res = await POST(makeReq({ kind: "chapter_plan", chapterId: "missing-chap" }), params);
+    expect(res.status).toBe(404);
+  });
+
+  it("POST with kind:'chapter_plan' returns 500 when buildSceneBlueprint fails open (empty string)", async () => {
+    messagesCreate.mockRejectedValue(new Error("model unavailable"));
+    const res = await POST(makeReq({ kind: "chapter_plan", chapterId: "chap-1" }), params);
+    expect(res.status).toBe(500);
+    expect(insertValues).not.toHaveBeenCalled();
   });
 });
