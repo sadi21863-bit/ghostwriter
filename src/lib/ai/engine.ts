@@ -483,9 +483,13 @@ ${content.slice(0, 8000)}`;
   };
 }
 
-export async function refinePassage(text: string, format: string): Promise<{ text: string; tokensUsed: number; model: string }> {
+export async function refinePassage(
+  text: string,
+  format: string,
+  extraContext = "",
+): Promise<{ text: string; tokensUsed: number; model: string }> {
   const model = MODELS.default;
-  const system = `You are a precise line editor for ${format} fiction. Revise the passage to remove AI-slop while preserving the author's plot, meaning, characters, facts, and VOICE exactly. Fix ONLY these defects:
+  const baseSystem = `You are a precise line editor for ${format} fiction. Revise the passage to remove AI-slop while preserving the author's plot, meaning, characters, facts, and VOICE exactly. Fix ONLY these defects:
 - cliché openings and stock phrases ("little did they know", "the air was thick with", "a chill ran down")
 - filler transitions and throat-clearing ("as the sun dipped below the horizon", "without warning")
 - vague emotional summaries — replace naming an emotion ("she felt sad") with physical/behavioral evidence
@@ -499,6 +503,7 @@ HARD RULES:
 - Do NOT add new scenes, characters, or content. Do NOT summarize.
 - Keep length within ~10% of the original. Preserve paragraph breaks.
 - Return ONLY the revised prose — no preamble, no commentary, no labels.`;
+  const system = extraContext ? `${baseSystem}\n\n${extraContext}` : baseSystem;
   const msg = await client.messages.create({
     model,
     max_tokens: 4000,

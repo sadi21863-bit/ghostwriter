@@ -5,6 +5,8 @@ import { getRequiredSession } from "@/lib/auth-helpers";
 import { checkAiRateLimit } from "@/lib/ratelimit";
 import { meterAndGate, refundCredits } from "@/lib/metering/meter";
 import { refinePassage } from "@/lib/ai/engine";
+import { extractVoiceFingerprint, fingerprintToConstraints } from "@/lib/ai/voice-fingerprint";
+import { buildPromiseLedger } from "@/lib/ai/promise-ledger";
 import { db } from "@/db";
 import { generations } from "@/db/schema";
 import { track } from "@/lib/analytics";
@@ -25,8 +27,13 @@ export async function POST(req: Request) {
   const gate = await meterAndGate(session.user.id, "refine");
   if (gate) return gate;
 
+  const fp = extractVoiceFingerprint([text]);
+  const voiceConstraints = fp ? fingerprintToConstraints(fp) : "";
+  const promiseLedger = projectId ? await buildPromiseLedger(projectId, "preserve") : "";
+  const extraContext = [voiceConstraints, promiseLedger].filter(Boolean).join("\n\n");
+
   try {
-    const r = await refinePassage(text, format || "Novel");
+    const r = await refinePassage(text, format || "Novel", extraContext);
     await db.insert(generations).values({
       projectId: projectId || null, chapterId: chapterId || null,
       mode: "refine", prompt: "polish", output: r.text, model: r.model, tokensUsed: r.tokensUsed,

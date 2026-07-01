@@ -26,6 +26,19 @@ vi.mock("@/db", () => ({
   db: { insert: () => ({ values: (...args: any[]) => insertGenerations(...args) }) },
 }));
 
+// New mocks for context helpers
+const buildPromiseLedger = vi.fn();
+vi.mock("@/lib/ai/promise-ledger", () => ({
+  buildPromiseLedger: (...args: any[]) => buildPromiseLedger(...args),
+}));
+
+const extractVoiceFingerprint = vi.fn();
+const fingerprintToConstraints = vi.fn();
+vi.mock("@/lib/ai/voice-fingerprint", () => ({
+  extractVoiceFingerprint: (...args: any[]) => extractVoiceFingerprint(...args),
+  fingerprintToConstraints: (...args: any[]) => fingerprintToConstraints(...args),
+}));
+
 const { POST } = await import("../route");
 
 function makeRequest(body: unknown) {
@@ -63,5 +76,43 @@ describe("POST /api/ai/refine", () => {
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.text).toBe("polished prose");
+  });
+
+  it("passes voice constraints to refinePassage when fingerprint succeeds", async () => {
+    refinePassage.mockResolvedValue({ text: "polished", tokensUsed: 10, model: "claude" });
+    extractVoiceFingerprint.mockReturnValue({ avgSentenceLength: 12 });
+    fingerprintToConstraints.mockReturnValue("BINDING VOICE CONSTRAINTS");
+    buildPromiseLedger.mockResolvedValue("");
+    await POST(makeRequest({ text: "a passage long enough to pass the minimum length check", format: "Novel", projectId: "proj-1" }));
+    expect(refinePassage).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.any(String),
+      expect.stringContaining("BINDING VOICE CONSTRAINTS"),
+    );
+  });
+
+  it("passes promise ledger to refinePassage when projectId is supplied", async () => {
+    refinePassage.mockResolvedValue({ text: "polished", tokensUsed: 10, model: "claude" });
+    extractVoiceFingerprint.mockReturnValue(null);
+    buildPromiseLedger.mockResolvedValue("OPEN STORY PROMISES");
+    await POST(makeRequest({ text: "a passage long enough to pass the minimum length check", format: "Novel", projectId: "proj-1" }));
+    expect(buildPromiseLedger).toHaveBeenCalledWith("proj-1", "preserve");
+    expect(refinePassage).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.any(String),
+      expect.stringContaining("OPEN STORY PROMISES"),
+    );
+  });
+
+  it("calls refinePassage with empty extraContext when helpers return empty strings", async () => {
+    refinePassage.mockResolvedValue({ text: "polished", tokensUsed: 10, model: "claude" });
+    extractVoiceFingerprint.mockReturnValue(null);
+    buildPromiseLedger.mockResolvedValue("");
+    await POST(makeRequest({ text: "a passage long enough to pass the minimum length check", format: "Novel" }));
+    expect(refinePassage).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.any(String),
+      "",
+    );
   });
 });
