@@ -10,6 +10,7 @@ import { eq, and } from "drizzle-orm";
 import { generateSoulImage } from "@/lib/higgsfield/client";
 import { put } from "@vercel/blob";
 import { decrypt } from "@/lib/crypto";
+import { enforceBudgetCap, CAPABILITY_UNIT_USD, MAX_BATCH_SPEND_USD } from "@/lib/capabilities/cost";
 
 async function verifyOwnership(projectId: string, userId: string) {
   return db.query.projects.findFirst({
@@ -41,7 +42,18 @@ export async function POST(_: Request, { params }: { params: Promise<{ projectId
     return NextResponse.json({ completed: 0, total: 0, errors: [], remaining: 0 });
 
   const CEILING = 20;
-  const toProcess = pending.slice(0, CEILING);
+  // Shot previews render through Segmind's Soul model — the same model
+  // comic_generate's measured $0.29/image cost was validated against
+  // (outputtestresults/comic-validation/FINDINGS.md), so it's the honest
+  // per-item cost here too even though this route predates the registry.
+  const perItemUsd = CAPABILITY_UNIT_USD.comic_generate;
+  const budgetCeilingItems = Math.max(1, Math.floor(MAX_BATCH_SPEND_USD / perItemUsd));
+  const toProcess = pending.slice(0, Math.min(CEILING, budgetCeilingItems));
+  const estimateUsd = toProcess.length * perItemUsd;
+  const budget = enforceBudgetCap(estimateUsd, MAX_BATCH_SPEND_USD);
+  if (!budget.allowed) {
+    return NextResponse.json({ error: budget.reason }, { status: 400 });
+  }
   const remaining = pending.length - toProcess.length;
 
   const BATCH = 3;

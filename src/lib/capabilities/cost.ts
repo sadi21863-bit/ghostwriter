@@ -15,6 +15,15 @@ export const CAPABILITY_UNIT_USD: Record<string, number> = {
 // is never shown as free.
 export const DEFAULT_UNIT_USD = 0.05;
 
+// Hard ceiling (USD) for a single unattended multi-item batch spend — e.g.
+// preview-all's per-click shot-preview batch, which loops through paid
+// generations with no per-item confirmation. This is the one place today
+// where the server decides how much to spend on its own; enforceBudgetCap
+// must gate it. Any future auto-retry/self-eval loop (see
+// src/lib/production/self-eval.ts) must reuse this same server-side gate
+// before it is wired into a paid route — a UI-side cap alone is not enough.
+export const MAX_BATCH_SPEND_USD = 5;
+
 export function unitCostFor(capabilityId: string): number {
   return CAPABILITY_UNIT_USD[capabilityId] ?? DEFAULT_UNIT_USD;
 }
