@@ -24,12 +24,17 @@ interface StageRoleRailProps {
   onOpenActions: () => void;
   onOpenComicStudio: () => void;
   onOpenProductionStudio: () => void;
+  onOpenInsights: (tab: "arc" | "tension") => void;
+  onOpenStoryHealth: (tab: "validator") => void;
+  onOpenPolishStage: () => void;
   onUpgradeRequired: (feature: string) => void;
 }
 
 export default function StageRoleRail({
   funnelStage, format,
-  onSelectMode, onOpenActions, onOpenComicStudio, onOpenProductionStudio, onUpgradeRequired,
+  onSelectMode, onOpenActions, onOpenComicStudio, onOpenProductionStudio,
+  onOpenInsights, onOpenStoryHealth, onOpenPolishStage,
+  onUpgradeRequired,
 }: StageRoleRailProps) {
   const [envelope, setEnvelope] = useState<Envelope | null>(null);
 
@@ -52,6 +57,9 @@ export default function StageRoleRail({
       case "selectMode": onSelectMode(action.mode as GenerationMode); break;
       case "openComicStudio": onOpenComicStudio(); break;
       case "openProductionStudio": onOpenProductionStudio(); break;
+      case "openInsights": onOpenInsights(action.tab); break;
+      case "openStoryHealth": onOpenStoryHealth(action.tab); break;
+      case "openPolishStage": onOpenPolishStage(); break;
       case "openActions": onOpenActions(); break;
       case "upgrade": onUpgradeRequired(action.gate); break;
       case "hint":
