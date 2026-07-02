@@ -33,10 +33,11 @@ interface StoryHealthPanelProps {
   activeChapContent: string;
   onClose: () => void;
   onApplyFix?: (content: string) => void;
+  initialTab?: "validator" | "dead-scenes" | "theme" | "tension" | "transport" | "promises" | "heatmap" | "checkpoints" | "audit";
 }
 
-export function StoryHealthPanel({ project, projectId, activeChapContent, onClose, onApplyFix }: StoryHealthPanelProps) {
-  const [tab, setTab] = useState<"validator" | "dead-scenes" | "theme" | "tension" | "transport" | "promises" | "heatmap" | "checkpoints" | "audit">("validator");
+export function StoryHealthPanel({ project, projectId, activeChapContent, onClose, onApplyFix, initialTab }: StoryHealthPanelProps) {
+  const [tab, setTab] = useState<"validator" | "dead-scenes" | "theme" | "tension" | "transport" | "promises" | "heatmap" | "checkpoints" | "audit">(initialTab ?? "validator");
 
   // Checkpoints state
   const [checkpoints, setCheckpoints] = useState<any[]>([]);

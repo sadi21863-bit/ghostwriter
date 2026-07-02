@@ -5,11 +5,12 @@ import { ArcHeatMap } from "@/components/ArcHeatMap";
 import { TensionCurve } from "@/components/TensionCurve";
 import { ConstellationView } from "@/components/ConstellationView";
 
+type Tab = "arc" | "tension" | "relationships";
+
 interface Props {
   projectId: string;
+  initialTab?: Tab;
 }
-
-type Tab = "arc" | "tension" | "relationships";
 
 const TABS: { id: Tab; label: string }[] = [
   { id: "arc", label: "Character Arc" },
@@ -17,8 +18,8 @@ const TABS: { id: Tab; label: string }[] = [
   { id: "relationships", label: "Relationships" },
 ];
 
-export function StoryInsightsPanel({ projectId }: Props) {
-  const [tab, setTab] = useState<Tab>("arc");
+export function StoryInsightsPanel({ projectId, initialTab }: Props) {
+  const [tab, setTab] = useState<Tab>(initialTab ?? "arc");
 
   return (
     <div style={{ padding: "10px 12px", background: co.surface, border: `1px solid ${co.border}`, borderRadius: 8 }}>
