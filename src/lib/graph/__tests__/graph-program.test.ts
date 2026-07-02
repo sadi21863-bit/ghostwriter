@@ -27,7 +27,7 @@ describe("buildRunPlan", () => {
     expect(plan.available).toBe(true);
     expect(plan.costUsd).toBe(0);
     expect(plan.requiresConfirm).toBe(false);
-    expect(plan.action.type).toBe("openActions");
+    expect(plan.action.type).toBe("openInsights");
   });
 
   it("a paid segmind capability (comic) costs per node and REQUIRES confirm when available", () => {
