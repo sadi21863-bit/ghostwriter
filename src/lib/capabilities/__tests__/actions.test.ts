@@ -49,4 +49,29 @@ describe("capabilityAction", () => {
     expect(capabilityAction(c, { available: false, reason: "not_applicable_for_format" }))
       .toEqual({ type: "noop" });
   });
+
+  it("tension_curve → openInsights with tab 'tension'", () => {
+    const c = cap({ kind: "tool", id: "tension_curve" });
+    expect(capabilityAction(c, AVAIL)).toEqual({ type: "openInsights", tab: "tension" });
+  });
+
+  it("arc_heatmap → openInsights with tab 'arc'", () => {
+    const c = cap({ kind: "tool", id: "arc_heatmap" });
+    expect(capabilityAction(c, AVAIL)).toEqual({ type: "openInsights", tab: "arc" });
+  });
+
+  it("prose_fix → openStoryHealth with tab 'validator'", () => {
+    const c = cap({ kind: "tool", id: "prose_fix" });
+    expect(capabilityAction(c, AVAIL)).toEqual({ type: "openStoryHealth", tab: "validator" });
+  });
+
+  it("editor_review → openPolishStage", () => {
+    const c = cap({ kind: "tool", id: "editor_review" });
+    expect(capabilityAction(c, AVAIL)).toEqual({ type: "openPolishStage" });
+  });
+
+  it("refine is unaffected — still falls through to openActions", () => {
+    const c = cap({ kind: "tool", id: "refine" });
+    expect(capabilityAction(c, AVAIL)).toEqual({ type: "openActions" });
+  });
 });
