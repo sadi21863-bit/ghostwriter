@@ -23,6 +23,8 @@ import { test, expect } from "@playwright/test";
  *  4. Graph pane: ConstellationView container renders at 640 px height
  *  5. "← Back to writing room" link returns to the correct project URL
  *  6. Studio route returns HTTP 200 (not a 404 orphan)
+ *  7. ?studioOpen=comic deep-link opens Comic Studio in the Actions drawer
+ *  8. ?studioOpen=production deep-link opens Production Studio in the Actions drawer
  */
 
 const TEST_EMAIL = process.env.E2E_TEST_EMAIL;
@@ -146,5 +148,25 @@ test.describe("Studio Phase 1 — shell + entry point", () => {
     await page.waitForURL(`**/project/${projectId}`, { timeout: 20_000 });
     expect(page.url()).toContain(`/project/${projectId}`);
     expect(page.url()).not.toContain("/studio");
+
+    // ── 6. ?studioOpen=comic deep link ────────────────────────────────────────
+    // Studio dispatches back to the writing room via a one-shot query param
+    // (GhostWriterApp reads it on mount, opens the Actions drawer + the
+    // requested studio, then scrubs the param from the URL). This is the
+    // dispatch path Task 8's E2E only exercised for ?studioOpen=actions —
+    // verifying the comic/production branches actually work too.
+    await page.goto(`/project/${projectId}?studioOpen=comic`, { waitUntil: "load", timeout: 90_000 });
+    await expect(page.getByText("🎨 Comic Studio", { exact: true })).toBeVisible({ timeout: 20_000 });
+    // The one-shot param must be scrubbed after dispatch (regression guard for
+    // the URL-scrub fix from the Phase 1 final review).
+    expect(page.url()).not.toContain("studioOpen");
+
+    // ── 7. ?studioOpen=production deep link ───────────────────────────────────
+    // A fresh navigation (no click-to-close needed — the Actions drawer has no
+    // keyboard handler, only a backdrop click; a full page.goto already resets
+    // all React state, including actionsOpen/showComicStudio, for free).
+    await page.goto(`/project/${projectId}?studioOpen=production`, { waitUntil: "load", timeout: 90_000 });
+    await expect(page.getByRole("heading", { name: "Production Studio" })).toBeVisible({ timeout: 20_000 });
+    expect(page.url()).not.toContain("studioOpen");
   });
 });
