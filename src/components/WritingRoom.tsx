@@ -494,17 +494,21 @@ export default function WritingRoom({
             >
               {audioNovelOpen ? "✕ Close Audio Novel" : "🎧 Audio Novel"}
             </button>
-            <button
-              onClick={() => setInsightsOpen(o => !o)}
-              style={{ ...sBtnSm, fontSize: 11, opacity: 0.8, marginLeft: 6 }}
-            >
-              {insightsOpen ? "✕ Close Story Insights" : "📊 Story Insights"}
-            </button>
             {audioNovelOpen && (
               <div style={{ marginTop: 8 }}>
                 <AudioNovelPanel project={project} activeChap={activeChap} />
               </div>
             )}
+          </div>
+        )}
+        {(stage === "draft" || stage === "polish" || forceEditor || insightsOpen) && (
+          <div style={{ marginBottom: 0 }}>
+            <button
+              onClick={() => setInsightsOpen(o => !o)}
+              style={{ ...sBtnSm, fontSize: 11, opacity: 0.8 }}
+            >
+              {insightsOpen ? "✕ Close Story Insights" : "📊 Story Insights"}
+            </button>
             {insightsOpen && (
               <div style={{ marginTop: 8 }}>
                 <StoryInsightsPanel key={insightsTab} projectId={project.id} initialTab={insightsTab} />
