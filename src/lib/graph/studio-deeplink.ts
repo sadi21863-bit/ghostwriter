@@ -13,6 +13,9 @@ export function studioDeepLink(projectId: string, action: CapabilityActionResult
     case "selectMode": return `${base}?studioMode=${encodeURIComponent(action.mode)}`;
     case "openComicStudio": return `${base}?studioOpen=comic`;
     case "openProductionStudio": return `${base}?studioOpen=production`;
+    case "openInsights": return `${base}?studioOpen=insights&tab=${action.tab}`;
+    case "openStoryHealth": return `${base}?studioOpen=story-health&tab=${action.tab}`;
+    case "openPolishStage": return `${base}?studioOpen=polish`;
     case "openActions": return `${base}?studioOpen=actions`;
     case "upgrade":
     case "hint":

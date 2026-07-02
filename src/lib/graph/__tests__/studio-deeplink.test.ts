@@ -27,4 +27,20 @@ describe("studioDeepLink", () => {
     expect(studioDeepLink("proj1", { type: "hint", reason: "missing_segmind_key" })).toBeNull();
     expect(studioDeepLink("proj1", { type: "noop" })).toBeNull();
   });
+  it("builds a studioOpen=insights&tab=tension param for openInsights (tension)", () => {
+    expect(studioDeepLink("proj1", { type: "openInsights", tab: "tension" }))
+      .toBe("/project/proj1?studioOpen=insights&tab=tension");
+  });
+  it("builds a studioOpen=insights&tab=arc param for openInsights (arc)", () => {
+    expect(studioDeepLink("proj1", { type: "openInsights", tab: "arc" }))
+      .toBe("/project/proj1?studioOpen=insights&tab=arc");
+  });
+  it("builds a studioOpen=story-health&tab=validator param for openStoryHealth", () => {
+    expect(studioDeepLink("proj1", { type: "openStoryHealth", tab: "validator" }))
+      .toBe("/project/proj1?studioOpen=story-health&tab=validator");
+  });
+  it("builds a studioOpen=polish param for openPolishStage", () => {
+    expect(studioDeepLink("proj1", { type: "openPolishStage" }))
+      .toBe("/project/proj1?studioOpen=polish");
+  });
 });
