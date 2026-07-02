@@ -26,6 +26,7 @@ const QualityReviewPanel = dynamic(() => import("@/components/panels/QualityRevi
 const WorldBiblePanel    = dynamic(() => import("@/components/panels/WorldBiblePanel"), { ssr: false });
 const ToolbarPanel       = dynamic(() => import("@/components/panels/ToolbarPanel"), { ssr: false });
 const StoryBible         = dynamic(() => import("@/components/StoryBible"), { ssr: false });
+const ChapterPlanPanel  = dynamic(() => import("@/components/ChapterPlanPanel"), { ssr: false });
 
 export default function GhostWriterApp({ projectId }: { projectId: string }) {
   const [mode, setMode] = useState("brainstorm");
@@ -62,6 +63,9 @@ export default function GhostWriterApp({ projectId }: { projectId: string }) {
   const [upgradeRequired, setUpgradeRequired] = useState<FeatureGate | null>(null);
   const [showStoryHealth, setShowStoryHealth] = useState(false);
   const [showExport, setShowExport] = useState(false);
+  const [showChapterPlan, setShowChapterPlan] = useState(false);
+  const [chapterPlanChapterId, setChapterPlanChapterId] = useState<string | null>(null);
+  const [plannedChapterIds, setPlannedChapterIds] = useState<string[]>([]);
   const [showAltDraft, setShowAltDraft] = useState(false);
   const [showSprintMode, setShowSprintMode] = useState(false);
   const [skillSuggestion, setSkillSuggestion] = useState<SkillSuggestion | null>(null);
@@ -78,6 +82,21 @@ export default function GhostWriterApp({ projectId }: { projectId: string }) {
   useEffect(() => {
     fetch('/api/subscription').then(r => r.json()).then(setSubscription).catch(() => {});
   }, []);
+
+  useEffect(() => {
+    if (!projectId) return;
+    fetch(`/api/projects/${projectId}/story-plans`)
+      .then(r => (r.ok ? r.json() : null))
+      .then(data => {
+        const plans = Array.isArray(data?.plans) ? data.plans : [];
+        const ids = plans
+          .filter((p: any) => p.kind === "chapter_plan")
+          .map((p: any) => p.beats?.[0]?.chapterId)
+          .filter((id: unknown): id is string => typeof id === "string");
+        setPlannedChapterIds(ids);
+      })
+      .catch(() => {});
+  }, [projectId]);
 
   function getTrialDaysLeft(trialEnd: string | null): number | null {
     if (!trialEnd) return null;
@@ -131,7 +150,8 @@ export default function GhostWriterApp({ projectId }: { projectId: string }) {
     characters: project?.characters || [],
     chapters: project?.chapters || [],
     dismissedGuideIds: project?.dismissedGuideIds,
-  }), [project?.format, project?.controllingIdea, project?.characters, project?.chapters, project?.dismissedGuideIds]);
+    plannedChapterIds,
+  }), [project?.format, project?.controllingIdea, project?.characters, project?.chapters, project?.dismissedGuideIds, plannedChapterIds]);
 
   // Default to "write" unless the Actions overlay is open for a mode the user picked
   // via the slash menu (see handleSelectMode below).
@@ -265,6 +285,7 @@ export default function GhostWriterApp({ projectId }: { projectId: string }) {
     const { mode: runMode, prompt: runPrompt, chapterId: runChapterId } = action.run;
     if (runMode === "story_health") { setShowStoryHealth(true); return; }
     if (runMode === "export") { setShowExport(true); return; }
+    if (runMode === "plan_chapter") { setChapterPlanChapterId(runChapterId ?? null); setShowChapterPlan(true); return; }
     setMode(runMode);
     setPrompt(runPrompt ?? "");
     if (runChapterId && runChapterId !== project.activeChapter) {
@@ -616,6 +637,18 @@ export default function GhostWriterApp({ projectId }: { projectId: string }) {
           projectId={project.id}
           projectFormat={project.format}
           onClose={() => setShowExport(false)}
+        />
+      )}
+
+      {showChapterPlan && chapterPlanChapterId && (
+        <ChapterPlanPanel
+          projectId={project.id}
+          chapterId={chapterPlanChapterId}
+          chapterTitle={project.chapters?.find((c: any) => c.id === chapterPlanChapterId)?.title ?? "Chapter"}
+          onClose={() => setShowChapterPlan(false)}
+          onSelectMode={(m) => setMode(m)}
+          setPrompt={setPrompt}
+          onDismissGuide={() => handleGuideDismiss(`plan-chapter-${chapterPlanChapterId}`)}
         />
       )}
 
