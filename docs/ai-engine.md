@@ -218,6 +218,40 @@ Each of the 26 `MODE_REGISTRY` entries carries a `contextPolicy`, built from two
 
 ---
 
+## RAG / Craft-Library Context Helpers
+
+Three retrieval-style helpers augment generation with context beyond the standard project data (`context-builder.ts`) — none of them are LLM calls in themselves except `buildVoiceExemplars`' one cheap embedding lookup:
+
+| Helper | File | What it does | Cost |
+|---|---|---|---|
+| `buildPromiseLedger(projectId, mode?)` | `src/lib/ai/promise-ledger.ts` | DB-only aggregation of unresolved plot promises (open threads, planted questions). `mode: "generate" \| "preserve"` (default `"generate"`) selects the instruction header — `"generate"` tells the model to advance/deepen threads; `"preserve"` (added 2026-07-01 for Editor tools) tells it not to delete/contradict/resolve them while editing. | DB query only, no LLM |
+| `buildVoiceExemplars(userId, query)` | `src/lib/ai/exemplars.ts` | Top-2 embedding-similarity craft-library retrieval (`work_packets`, pgvector) — pulls in external craft anchors for the requested query | One `text-embedding-3-small` call |
+| `buildSceneBlueprint(...)` | `src/lib/ai/scene-blueprint.ts` | Haiku scene-planning pre-pass, gated behind the `sceneBlueprint` GrowthBook flag (default OFF) | One Haiku call when the flag is on |
+
+All three are **fail-open** — a DB error, embedding-API error, or insufficient-text case returns `""`/`null` and never throws, so a failure silently degrades to pre-helper behavior rather than breaking generation.
+
+### Writer path (original, 2026-06-21)
+
+`buildPromiseLedger("generate")` and `buildVoiceExemplars` run unconditionally (no flag) for any qualifying request in `/api/ai/generate/route.ts` — `isProseMode(mode) && tier !== 'free' && projectId`, checked before anything else so non-qualifying requests pay zero added latency. `buildSceneBlueprint` is the only one still behind the `sceneBlueprint` flag.
+
+### Director & Editor tools extension (2026-07-01, commit `74c048a`)
+
+Before this, `buildVoiceExemplars`/`buildPromiseLedger`/`buildSceneBlueprint` were called from exactly one place — the Writer-role generate route. Every Editor tool (`refine`, `prose-fix`, `surgical-edit`) and every Director tool called Anthropic directly with zero retrieval context. Reading the Editor tools' system prompts revealed a real constraint: all three carry an explicit **preserve-only mandate** ("preserve the author's voice... do NOT add new scenes/plot/subplots") — so copy-pasting the generate-path helpers verbatim would actively contradict that mandate (e.g. `buildVoiceExemplars` is designed to *pull* generation toward an external craft anchor; the existing `"generate"`-mode promise-ledger copy says "advance or deepen these threads"). The fix uses tool-appropriate context instead:
+
+**Editor tools** (`POST /api/ai/refine`, `/api/ai/prose-fix`, `/api/ai/surgical-edit`) — two additions, both new call sites of *existing* code, no new I/O:
+- **Voice constraint from the passage itself**: `extractVoiceFingerprint([text])` (already used on the Writer path via `context-builder.ts`) computed on the text/chapterContent already in the request body — no DB call, pure sync function, `null` if under 500 chars / 10 sentences. `fingerprintToConstraints(fp)` turns it into numeric constraints appended to the system prompt.
+- **Preserve-mode promise ledger**: `buildPromiseLedger(projectId, "preserve")` — `prose-fix` and `surgical-edit` gained an optional `projectId` field in their request body for this (`refine` already had it); when absent, skipped silently.
+
+**Director tools** — generation-mode context, since these tools are genuinely generative (not edit-only):
+- **`villain-pov`** (`POST /api/projects/[projectId]/villain-pov`): `buildPromiseLedger(projectId, "generate")` + `buildVoiceExemplars(userId, sceneDescription)` in parallel, appended to the system prompt.
+- **`generate-package`** (`POST /api/projects/[projectId]/production/generate-package`): `buildPromiseLedger(projectId, "generate")` only — no `buildVoiceExemplars` (no single representative query string for a whole-package batch generation) and no scene blueprint (not a "draft the next prose scene" request).
+
+**Explicitly out of scope** (confirmed via route audit, not oversight): `tension-curve`/`arc-heatmap` are read-only analysis of text the route already has in full — nothing to anchor. `series-plan`/`research-scaffold` are YouTube-creator content-planning tools, not fiction-narrative tools — neither touches `work_packets`, promises, or project prose in a way this context would apply to.
+
+Design doc: `docs/superpowers/specs/2026-06-30-rag-director-editor-wiring-design.md`. Plan: `docs/superpowers/plans/2026-07-01-rag-director-editor-wiring.md`.
+
+---
+
 ## Prompt Caching
 
 Anthropic's ephemeral prompt caching (5-minute TTL per conversation prefix) is applied to the static portions of every generation:

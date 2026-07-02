@@ -88,6 +88,16 @@ Response format for errors:
 |---|---|---|---|---|
 | POST | `/api/ai/series-plan` | Required | creator_pro | Generate a content series plan |
 
+### Editor Tools
+
+Preserve-only mandate — these edit existing text rather than generate new scenes/plot. All three carry `buildPromiseLedger(projectId, "preserve")` + a voice fingerprint computed from the passage itself, added 2026-07-01 (see "RAG / Craft-Library Context Helpers" in `docs/ai-engine.md`).
+
+| Method | Route | Auth | Tier | Description |
+|---|---|---|---|---|
+| POST | `/api/ai/refine` | Required | story_modes_advanced | Critic-editor polish pass over a passage — metered at 0.5 credits (`"refine"` weight, cheaper than full `"generate"`) |
+| POST | `/api/ai/prose-fix` | Required | story_modes_advanced | Fix a specific weakness flagged by Story Health — accepts `{ text, fixInstruction, projectId? }` |
+| POST | `/api/ai/surgical-edit` | Required | story_modes_advanced | Locates a passage in chapter content by instruction, returns a targeted replacement — accepts `{ chapterContent, instruction, projectId? }` |
+
 ---
 
 ## Project Routes: `/api/projects/`
@@ -155,6 +165,16 @@ Response format for errors:
 | GET, POST | `/api/projects/[projectId]/relationship-map` | Required | story_pro | Character relationship graph |
 | GET | `/api/projects/[projectId]/dead-scenes` | Required | story_pro | Archived/cut scenes |
 | POST | `/api/projects/[projectId]/suggest-links` | Required | story_pro | Suggest connections between elements |
+| POST | `/api/projects/[projectId]/story-plans` | Required | story_pro | Generate a story plan — `kind: "beat_sheet"` (existing) or `kind: "chapter_plan"` (added 2026-07-01, wraps one `buildSceneBlueprint` call as a single `StoryBeat` for the Guide's `plan-chapter` rung) |
+| GET | `/api/projects/[projectId]/chapter-research` | Required | story_pro | Added 2026-07-01 for `ChapterPlanPanel` — composes `buildPromiseLedger(projectId, "preserve")` + the prior chapter's summary |
+
+### Story Graph / Capability Routes
+
+| Method | Route | Auth | Tier | Description |
+|---|---|---|---|---|
+| GET | `/api/projects/[projectId]/story-graph` | Required | any | Graph data (nodes/edges) + `analyzeGraphHealth()` result (isolated characters, unrooted threads, unvisited locations, unused world elements) |
+| POST | `/api/projects/[projectId]/graph/run-plan` | Required | any (per-capability gate) | Body `{ kinds, nodeIds, capabilityId? }` — with a `capabilityId`, preflights one capability via `isCapabilityAvailable` and returns `{ plan }` (`costUsd`, `requiresConfirm`, the `CapabilityActionResult`); without, returns all runnable options. Pure preflight — never executes; the client confirms then calls the capability's own endpoint. |
+| GET | `/api/capabilities` | Required | any | `supportEnvelope(ctx)` — the full capability catalog (`MODE_REGISTRY` + `TOOL_REGISTRY`), grouped stage→role, availability annotated per the caller's tier/format/provider keys |
 
 ### Quality Analysis Routes
 
@@ -283,6 +303,7 @@ Response format for errors:
 |---|---|---|---|
 | GET | `/api/admin/analytics` | Required (admin) | Platform analytics |
 | POST | `/api/admin/seed-work-packets` | Required (admin) | Seed 18 platform work packets (idempotent) |
+| GET | `/api/admin/cost-report` | `ADMIN_SECRET` bearer | 30-day blended AI cost estimate by model, top users, top modes |
 
 ---
 

@@ -400,6 +400,32 @@ Status polling via /status routes
 
 ---
 
+## Studio Route + Capability Deep-Link Routing
+
+`/project/[projectId]/studio` (`StudioShell.tsx`) is a lightweight graph/analytics dashboard sitting alongside the writing room — 4 tabs (Graph/Pipelines/Analytics/Exports), Graph being the only one built out (renders `ConstellationView` at 640px). Clicking a Story Graph node's capability (e.g. "Tension Curve" on a thread node) doesn't run anything itself — it calls `capabilityAction(cap, availability)` (`src/lib/capabilities/actions.ts`), a pure function returning a discriminated union `CapabilityActionResult` that decides what should happen: run a free preflight, require payment confirmation, or navigate somewhere. Two consumers interpret that result differently:
+
+1. **`studioDeepLink(projectId, action)`** (`src/lib/graph/studio-deeplink.ts`) — used when the click originates on the Studio route. Converts the action into a URL: `router.push('/project/{id}?studioOpen=X[&tab=Y]')`. `GhostWriterApp`'s mount `useEffect` (deps `[]`) reads `window.location.search` **once**, dispatches based on `studioOpen`/`tab`, then calls `window.history.replaceState(null, "", window.location.pathname)` to scrub every query param — a one-shot dispatch, not a persistent URL state.
+2. **`StageRoleRail.tsx`** — used when the click originates directly in the writing room (Discover/Shape/Produce funnel-stage capability rows). No URL involved; the same `capabilityAction()` result drives bound callback props straight into local state.
+
+| `studioOpen` value | Capability(ies) | Destination |
+|---|---|---|
+| `comic` | comic-related | Comic Studio (Actions drawer) |
+| `production` | production-related | Production Studio (Actions drawer) |
+| `insights&tab=arc\|tension` | `tension_curve`, `arc_heatmap` | `StoryInsightsPanel`, seeded to the matching tab |
+| `story-health&tab=validator` | `prose_fix` | `StoryHealthPanel`, validator tab |
+| `polish` | `editor_review` | Writing room switches to the Polish stage (`EditorNotesPanel`) |
+| `actions` | fallback (no dedicated UI) | generic Actions drawer |
+
+**State ownership spans two components**, which is why the wiring has two different shapes: `insightsOpen`/`insightsTab`/`manualStage` live inside `WritingRoom.tsx` itself (so `StageRoleRail` calls straight into local setters); `showStoryHealth` lives one level up in `GhostWriterApp.tsx` (so `WritingRoom` receives `onOpenStoryHealth` as a prop and the deep-link dispatch effect sets `GhostWriterApp`'s own state directly). `StoryInsightsPanel`/`StoryHealthPanel` are conditionally rendered (`{open && <Panel initialTab={tab} />}`), so `initialTab` (read via `useState(initialTab ?? default)`) only takes effect on a fresh mount — both panels are mounted with `key={tab}` to force a remount when the target tab changes while the panel is already open.
+
+**A capability's own visibility gate is a separate concern from the dispatch mechanism** and can silently swallow a correctly-dispatched deep link — this actually happened during Phase 2's own E2E verification: `StoryInsightsPanel`'s toggle+panel block was gated to `stage === "draft" || "polish" || forceEditor`, but neither `StageRoleRail`'s direct-click path nor the deep-link effect ever changed `stage` — only `insightsOpen`. A capability click from Discover/Shape/Produce (any stage other than Draft/Polish) set `insightsOpen = true` internally but rendered nothing. Fixed by decoupling the panel's visibility from `stage` (`|| insightsOpen` added to the gate) rather than force-navigating the user's funnel stage as a side effect of opening an analysis panel.
+
+Only 10 of the ~26 registry capabilities are reachable from the Story Graph at all (`NODE_CAPABILITIES` in `src/lib/graph/graph-program.ts` maps `GraphNodeKind` → applicable capability ids) — most nodes have no wired capability yet. `editor_review` deep-linked for a creator-format project switches to Polish stage but shows nothing there (`EditorNotesPanel` is gated `isStoryFormat`) — a documented, accepted limitation, not a bug.
+
+Shipped in two phases: Phase 1 (2026-06-30, commit `656ebc6`) built the Studio route shell + `comic`/`production`/`actions` deep-links. Phase 2 (2026-07-02, commit `168745b`) added the `insights`/`story-health`/`polish` routing above. `villain_pov`/Refine capabilities still have zero dedicated UI (deferred sub-projects B/C of the same decomposition) and fall into the `actions` catch-all.
+
+---
+
 ## Data Flow Diagram (simplified)
 
 ```

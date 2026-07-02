@@ -9,61 +9,15 @@ UI component hierarchy, how the panel system works, and how writing modes connec
 ```
 src/app/project/[projectId]/page.tsx
   └─ GhostWriterApp.tsx  ← root component for the editor
-      ├─ Left panel tabs (Chapters, Characters, Locations, etc.)
-      ├─ ChapterEditor.tsx  ← center writing area
-      ├─ ToolbarPanel.tsx   ← right panel with mode selector + active panel
-      └─ CommandPalette.tsx ← ⌘K interface
+      └─ WritingRoom.tsx  ← the ONE shell (see "WritingRoom" section below)
+          └─ ToolbarPanel.tsx  ← reused on-demand as Actions-drawer content, not a second shell
 ```
 
-`GhostWriterApp.tsx` holds the central state: which project, which chapter is open, which mode is selected, and what the current generation output is.
+`GhostWriterApp.tsx` holds the central state: which project, which chapter is open, which mode is selected, the current generation output, and the top-level dispatch `useEffect` that reads Studio deep-link query params on mount (see "Studio Route + Capability Deep-Link Routing" in `docs/architecture.md`).
+
+**As of 2026-06-29 (commit `119fce2`), `WritingRoom` is the only shell** — the legacy always-visible `ToolbarPanel`-driven layout and the legacy `panels/ChapterEditor.tsx` panel system described in older versions of this doc were hard-deleted, along with the `writingRoomShell` GrowthBook flag. `ToolbarPanel` itself still exists and is still mounted, but only as the content of an on-demand Actions-drawer overlay inside `WritingRoom` — there is no parallel always-visible three-column layout anymore. See `docs/product-history.md` for why the redesign shipped as a second shell first and what the removal involved.
 
 All AI calls go through `useAIActions(...)`, a thin composition of 5 hooks in `src/hooks/` (`useGeneration`, `useEntitySync`, `usePipelines`, `useProseTools`, plus the shared `ai-shared.ts` fetch wrapper) — see "Client-Side Hooks" in `docs/architecture.md` for the breakdown.
-
----
-
-## Panel Architecture
-
-The editor has three columns:
-
-```
-┌──────────────────────────────────────────────────────────┐
-│  Left Panel      │  Editor (center)   │  Right Panel     │
-│                  │                    │                    │
-│  World Bible     │  ChapterEditor     │  ToolbarPanel     │
-│  Characters      │  (TipTap editor)   │  ├─ Mode selector │
-│  Locations       │                    │  └─ Active panel  │
-│  Plot Threads    │                    │                    │
-│  Story Health    │                    │                    │
-│  Trends          │                    │                    │
-└──────────────────────────────────────────────────────────┘
-```
-
-### Left Panel Tabs
-
-| Tab | Component | What it shows |
-|---|---|---|
-| Chapters | Panel in GhostWriterApp | Chapter list, create/reorder/delete |
-| Characters | WorldBiblePanel | Character cards with full profiles |
-| Locations | WorldBiblePanel | Location cards |
-| Plot Threads | WorldBiblePanel | Thread tracker with status |
-| Story Health | StoryHealthPanel | Arc heatmap, tension curve, theme tracker |
-| Trends | (Creator Pro) | YouTube/Instagram trend tools |
-| Series | SeriesPipelinePanel | Series planner and bible |
-| Export | ExportPanel | DOCX, blurb, query letter |
-
-### Right Panel (ToolbarPanel)
-
-The right panel is a mode selector + the active mode's panel:
-
-```
-ToolbarPanel.tsx
-  ├─ Mode grid (26 mode buttons)
-  └─ Active panel (conditionally rendered)
-      ├─ modes/ (26 writing mode panels)
-      └─ tools/ (18 creator tool panels)
-```
-
-Each mode button click sets `activeMode` in state, which swaps in the corresponding panel component.
 
 ---
 
@@ -253,9 +207,9 @@ Similar to ArcHeatMap but visualizing narrative tension. Data from `/api/project
 
 ---
 
-## "One Path, Five Stages" UI Redesign (behind GrowthBook flags — `writingRoomShell` ON, `homeRedesign` OFF)
+## "One Path, Five Stages" UI Redesign — `WritingRoom` (the only shell as of 2026-06-29)
 
-An alternative shell that replaces the toolbar-driven editor above with a guided, stage-based flow. Gated behind two GrowthBook flags — `writingRoomShell` (`writing_room_shell`) and `homeRedesign` (`home_redesign`). As of 2026-06-15, **`writingRoomShell` is enabled in production** — `GhostWriterApp` renders `WritingRoom` (not the legacy toolbar flow described above) for all users. `homeRedesign` remains **OFF**, so the dashboard architecture above is still what users see at `/dashboard`.
+The guided, stage-based flow that replaced the legacy toolbar-driven editor. Originally shipped behind a `writingRoomShell` GrowthBook flag (enabled in production 2026-06-15); the flag and the legacy shell it toggled between were both removed 2026-06-29 (commit `119fce2`) once the redesign was confirmed feature-complete — `GhostWriterApp` now renders `WritingRoom` unconditionally. `homeRedesign` (`home_redesign`) remains a live flag, still **OFF** — the dashboard at `/dashboard` is unaffected by any of this.
 
 ```
 src/components/
@@ -279,7 +233,8 @@ src/components/
 - **Audio Novel:** the shared `AudioNovelPanel` component (see below) is reachable from a toggleable "🎧 Audio Novel" button in `WritingRoom`'s footer (Draft/Polish stages) — added 2026-06-17, since it was previously only reachable via the legacy sidebar that `WritingRoom` never mounts.
 - **Comic Studio:** the Export stage view has a "🎨 Open Comic Studio →" button that reuses the same Actions-drawer mechanism Production Studio already used (`setShowComicStudio(true); setActionsOpen(true)`) — added 2026-06-17 for the same reason as Audio Novel above.
 - **Sprint Mode:** `src/components/SprintMode.tsx` (full-screen distraction-free timed writing) is reachable from a "🏃 Sprint Mode" button in `WritingRoom`'s footer (Draft stage) — added 2026-06-18, since it was previously only reachable via the legacy slash-command palette.
-- **Story Insights:** `src/components/StoryInsightsPanel.tsx` (new, dynamically imported) bundles `ArcHeatMap`, `TensionCurve`, and `ConstellationView` behind tabs, reachable from a "📊 Story Insights" button next to Audio Novel in `WritingRoom`'s footer — added 2026-06-18. All three visualizations existed with working API routes but had zero imports anywhere before this.
+- **Story Insights:** `src/components/StoryInsightsPanel.tsx` (dynamically imported) bundles `ArcHeatMap`, `TensionCurve`, and `ConstellationView` behind tabs, reachable from a "📊 Story Insights" button in `WritingRoom`'s footer — added 2026-06-18. All three visualizations existed with working API routes but had zero imports anywhere before this. As of 2026-07-02 the toggle+panel are also reachable via a Story Graph capability click or a Studio deep-link (`?studioOpen=insights&tab=arc|tension`) — both routes seed `insightsTab` and set `insightsOpen`, and the button/panel render whenever `insightsOpen` is true, not just in Draft/Polish (see "Studio Route + Capability Deep-Link Routing" in `docs/architecture.md`).
+- **Plan Next Chapter:** the Guide ladder (`nextAction()`, see below) gained a `plan-chapter` rung (2026-07-01) between `structure-outline` and `draft-chapter` — one Haiku `buildSceneBlueprint()` call wrapped as a single `StoryBeat`, shown in `ChapterPlanPanel.tsx` (mirrors `BeatSheetPanel`). Clicking "Draft this chapter →" from the plan switches `project.activeChapter` to the planned chapter before generating — this class of bug (AI drafting into whatever chapter happened to be active, not the one the user just planned) is the same one `docs/product-history.md`'s "AI wrote everything into one chapter" section describes; the plan-chapter rung shipped with its own regression test guarding it.
 - **Continuous-drafting momentum:** when the active chapter is the last one (by `sortOrder`) and has `wordCount > 0`, `WritingRoom`'s footer shows a "Continue → Start next {chapter label}" banner that calls the same `addChapter()` as the header button — added 2026-06-18 so finishing a chapter doesn't require noticing a header button to keep going. Paired with a `next-action.ts` fix: dismissing the "ready to export?" suggestion now falls back to a real `keep-writing` suggestion instead of `nextAction()` going `null` forever (see `docs/gotchas.md`).
 
 ⚠️ **This redesign has a history of porting incompletely** — see `docs/product-history.md` for the full account of what got dropped (Add Chapter, Comic Studio, Audio Novel, Sprint Mode, Story Insights) when this shell first shipped, and the recommendation going forward. Before treating `WritingRoom` as feature-complete, check whether a capability you expect from the legacy shell below actually has an equivalent here. Also be aware that not every "orphaned" claim turns out to be true on inspection — see the 2026-06-18 port-audit section in `docs/product-history.md` for several confident audit findings that were wrong.
