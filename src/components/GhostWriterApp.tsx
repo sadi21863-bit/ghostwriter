@@ -11,7 +11,7 @@ import type { CompositionLayer } from "@/lib/ai/composer";
 import { co, sBtn, sBtnSm } from "@/lib/styles";
 import { resolveInitiative } from "@/lib/ai/initiative";
 import { GuideBar } from "@/components/GuideBar";
-import { nextAction, type GuideAction } from "@/lib/guide/next-action";
+import { nextAction, type GuideAction, type GuideStage } from "@/lib/guide/next-action";
 import WritingRoom from "@/components/WritingRoom";
 import EntitySuggestionsChip from "@/components/EntitySuggestionsChip";
 import type { GenerationMode } from "@/lib/modes/registry";
@@ -65,6 +65,9 @@ export default function GhostWriterApp({ projectId }: { projectId: string }) {
   const [showExport, setShowExport] = useState(false);
   const [showChapterPlan, setShowChapterPlan] = useState(false);
   const [chapterPlanChapterId, setChapterPlanChapterId] = useState<string | null>(null);
+  const [deepLinkInsightsTab, setDeepLinkInsightsTab] = useState<"arc" | "tension" | null>(null);
+  const [deepLinkStage, setDeepLinkStage] = useState<GuideStage | null>(null);
+  const [storyHealthInitialTab, setStoryHealthInitialTab] = useState<"validator" | "dead-scenes" | "theme" | "tension" | "transport" | "promises" | "heatmap" | "checkpoints" | "audit">("validator");
   const [plannedChapterIds, setPlannedChapterIds] = useState<string[]>([]);
   const [showAltDraft, setShowAltDraft] = useState(false);
   const [showSprintMode, setShowSprintMode] = useState(false);
@@ -181,6 +184,14 @@ export default function GhostWriterApp({ projectId }: { projectId: string }) {
     } else if (studioOpen === "production") {
       setShowProductionStudio(true);
       setActionsOpen(true);
+    } else if (studioOpen === "insights") {
+      const tab = params.get("tab");
+      setDeepLinkInsightsTab(tab === "arc" || tab === "tension" ? tab : "arc");
+    } else if (studioOpen === "story-health") {
+      setStoryHealthInitialTab("validator");
+      setShowStoryHealth(true);
+    } else if (studioOpen === "polish") {
+      setDeepLinkStage("polish");
     } else if (studioOpen === "actions") {
       setActionsOpen(true);
     }
@@ -588,6 +599,9 @@ export default function GhostWriterApp({ projectId }: { projectId: string }) {
         qualityReview={aiActions.qualityReview}
         onOpenProductionStudio={() => { setShowProductionStudio(true); setActionsOpen(true); }}
         onOpenComicStudio={() => { setShowComicStudio(true); setActionsOpen(true); }}
+        onOpenStoryHealth={(tab) => { setStoryHealthInitialTab(tab); setShowStoryHealth(true); }}
+        deepLinkInsightsTab={deepLinkInsightsTab}
+        deepLinkStage={deepLinkStage}
         mode={mode}
         setSavedMsg={setSavedMsg}
         onUpgradeRequired={(f) => setUpgradeRequired(f as FeatureGate)}
@@ -634,11 +648,13 @@ export default function GhostWriterApp({ projectId }: { projectId: string }) {
 
       {showStoryHealth && (
         <StoryHealthPanel
+          key={storyHealthInitialTab}
           project={project}
           projectId={project.id}
           activeChapContent={activeChap?.content || ""}
           onClose={() => setShowStoryHealth(false)}
           onApplyFix={(content: string) => projectState.updateChapter("content", content)}
+          initialTab={storyHealthInitialTab}
         />
       )}
 
