@@ -52,6 +52,9 @@ interface WritingRoomProps {
   qualityReview: QualityReview | null;
   onOpenProductionStudio: () => void;
   onOpenComicStudio: () => void;
+  onOpenStoryHealth: (tab: "validator") => void;
+  deepLinkInsightsTab?: "arc" | "tension" | null;
+  deepLinkStage?: GuideStage | null;
   mode: string;
   setSavedMsg: (msg: string) => void;
   onUpgradeRequired: (feature: string) => void;
@@ -66,6 +69,7 @@ export default function WritingRoom({
   generating, generate, onOpenBible, onOpenActions,
   prompt, setPrompt, onSelectMode,
   onGuideRun, onGuideDismiss, qualityReview, onOpenProductionStudio, onOpenComicStudio,
+  onOpenStoryHealth, deepLinkInsightsTab, deepLinkStage,
   mode, setSavedMsg, onUpgradeRequired, onRegisterInsert,
   activeInfluence, onClearInfluence, addChapter,
 }: WritingRoomProps) {
@@ -81,6 +85,7 @@ export default function WritingRoom({
   const [audioNovelOpen, setAudioNovelOpen] = useState(false);
   const [sprintModeOpen, setSprintModeOpen] = useState(false);
   const [insightsOpen, setInsightsOpen] = useState(false);
+  const [insightsTab, setInsightsTab] = useState<"arc" | "tension">("arc");
   const [adaptedFromName, setAdaptedFromName] = useState<string | null>(null);
   const [surgicalInstruction, setSurgicalInstruction] = useState("");
   const [surgicalResult, setSurgicalResult] = useState<{
@@ -100,6 +105,20 @@ export default function WritingRoom({
       onRegisterInsert((text: string) => editorRef.current?.insertContent(text));
     }
   }, []);
+
+  useEffect(() => {
+    if (deepLinkInsightsTab) {
+      setInsightsOpen(true);
+      setInsightsTab(deepLinkInsightsTab);
+    }
+  }, [deepLinkInsightsTab]);
+
+  useEffect(() => {
+    if (deepLinkStage) {
+      goToStage(deepLinkStage);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [deepLinkStage]);
 
   // Generate prose with a live typewriter stream into the editor when the
   // streaming flag is on; falls back to the existing insert-on-completion
@@ -356,7 +375,7 @@ export default function WritingRoom({
       ) : stage === "idea" ? (
         <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
           <div style={{ padding: "12px 20px 0" }}>
-            <StageRoleRail funnelStage="discover" format={project.format} onSelectMode={onSelectMode} onOpenActions={onOpenActions} onOpenComicStudio={onOpenComicStudio} onOpenProductionStudio={onOpenProductionStudio} onUpgradeRequired={onUpgradeRequired} />
+            <StageRoleRail funnelStage="discover" format={project.format} onSelectMode={onSelectMode} onOpenActions={onOpenActions} onOpenComicStudio={onOpenComicStudio} onOpenProductionStudio={onOpenProductionStudio} onOpenInsights={(tab) => { setInsightsOpen(true); setInsightsTab(tab); }} onOpenStoryHealth={onOpenStoryHealth} onOpenPolishStage={() => goToStage("polish")} onUpgradeRequired={onUpgradeRequired} />
           </div>
           <div style={{ flex: 1, minHeight: 0, overflow: "auto", display: "flex", flexDirection: "column" }}>
             <IdeaStageView project={project} updateProject={updateProject} onOpenBible={onOpenBible} prompt={prompt} setPrompt={setPrompt} onUpgradeRequired={onUpgradeRequired} onOpenActions={onOpenActions} />
@@ -365,7 +384,7 @@ export default function WritingRoom({
       ) : stage === "structure" ? (
         <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
           <div style={{ padding: "12px 20px 0" }}>
-            <StageRoleRail funnelStage="shape" format={project.format} onSelectMode={onSelectMode} onOpenActions={onOpenActions} onOpenComicStudio={onOpenComicStudio} onOpenProductionStudio={onOpenProductionStudio} onUpgradeRequired={onUpgradeRequired} />
+            <StageRoleRail funnelStage="shape" format={project.format} onSelectMode={onSelectMode} onOpenActions={onOpenActions} onOpenComicStudio={onOpenComicStudio} onOpenProductionStudio={onOpenProductionStudio} onOpenInsights={(tab) => { setInsightsOpen(true); setInsightsTab(tab); }} onOpenStoryHealth={onOpenStoryHealth} onOpenPolishStage={() => goToStage("polish")} onUpgradeRequired={onUpgradeRequired} />
           </div>
           <div style={{ flex: 1, minHeight: 0, overflow: "auto", display: "flex", flexDirection: "column" }}>
             <StructureStageView project={project} setPrompt={setPrompt} onSelectMode={onSelectMode} prompt={prompt} mode={mode} topic={activeChap.title} setSavedMsg={setSavedMsg} onUpgradeRequired={onUpgradeRequired} onOpenActions={onOpenActions} />
@@ -374,7 +393,7 @@ export default function WritingRoom({
       ) : guideStageToFunnel(stage) === "produce" ? (
         <div style={{ flex: 1, minHeight: 0, overflow: "auto", display: "flex", flexDirection: "column" }}>
           <div style={{ padding: "12px 20px 0" }}>
-            <StageRoleRail funnelStage="produce" format={project.format} onSelectMode={onSelectMode} onOpenActions={onOpenActions} onOpenComicStudio={onOpenComicStudio} onOpenProductionStudio={onOpenProductionStudio} onUpgradeRequired={onUpgradeRequired} />
+            <StageRoleRail funnelStage="produce" format={project.format} onSelectMode={onSelectMode} onOpenActions={onOpenActions} onOpenComicStudio={onOpenComicStudio} onOpenProductionStudio={onOpenProductionStudio} onOpenInsights={(tab) => { setInsightsOpen(true); setInsightsTab(tab); }} onOpenStoryHealth={onOpenStoryHealth} onOpenPolishStage={() => goToStage("polish")} onUpgradeRequired={onUpgradeRequired} />
           </div>
           <PolishStageView project={project} qualityReview={qualityReview} onGuideRun={onGuideRun} onGuideDismiss={onGuideDismiss} mode={mode} content={activeChap.content} updateProject={updateProject} setSavedMsg={setSavedMsg} onUpgradeRequired={onUpgradeRequired} onOpenActions={onOpenActions} />
           <ExportStageView project={project} onGuideRun={onGuideRun} onOpenProductionStudio={onOpenProductionStudio} onOpenComicStudio={onOpenComicStudio} />
@@ -488,7 +507,7 @@ export default function WritingRoom({
             )}
             {insightsOpen && (
               <div style={{ marginTop: 8 }}>
-                <StoryInsightsPanel projectId={project.id} />
+                <StoryInsightsPanel key={insightsTab} projectId={project.id} initialTab={insightsTab} />
               </div>
             )}
           </div>
