@@ -285,7 +285,17 @@ export default function GhostWriterApp({ projectId }: { projectId: string }) {
     const { mode: runMode, prompt: runPrompt, chapterId: runChapterId } = action.run;
     if (runMode === "story_health") { setShowStoryHealth(true); return; }
     if (runMode === "export") { setShowExport(true); return; }
-    if (runMode === "plan_chapter") { setChapterPlanChapterId(runChapterId ?? null); setShowChapterPlan(true); return; }
+    if (runMode === "plan_chapter") {
+      setChapterPlanChapterId(runChapterId ?? null);
+      setShowChapterPlan(true);
+      // Switch the active chapter now, mirroring the draft-rung branch below —
+      // otherwise "Draft this chapter →" in the panel generates into whatever
+      // chapter was already active, not the one that was just planned.
+      if (runChapterId && runChapterId !== project.activeChapter) {
+        projectState.updateProject((p: any) => ({ ...p, activeChapter: runChapterId }));
+      }
+      return;
+    }
     setMode(runMode);
     setPrompt(runPrompt ?? "");
     if (runChapterId && runChapterId !== project.activeChapter) {
