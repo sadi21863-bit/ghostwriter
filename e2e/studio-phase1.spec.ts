@@ -25,6 +25,10 @@ import { test, expect } from "@playwright/test";
  *  6. Studio route returns HTTP 200 (not a 404 orphan)
  *  7. ?studioOpen=comic deep-link opens Comic Studio in the Actions drawer
  *  8. ?studioOpen=production deep-link opens Production Studio in the Actions drawer
+ *  9. ?studioOpen=insights&tab=tension deep-link opens Story Insights on the Tension Curve tab
+ *  10. ?studioOpen=insights&tab=arc deep-link opens Story Insights on the Character Arc tab
+ *  11. ?studioOpen=story-health&tab=validator deep-link opens Story Health on the Scene Validator tab
+ *  12. ?studioOpen=polish deep-link switches the writing room to the Polish stage
  */
 
 const TEST_EMAIL = process.env.E2E_TEST_EMAIL;
@@ -167,6 +171,48 @@ test.describe("Studio Phase 1 — shell + entry point", () => {
     // all React state, including actionsOpen/showComicStudio, for free).
     await page.goto(`/project/${projectId}?studioOpen=production`, { waitUntil: "load", timeout: 90_000 });
     await expect(page.getByRole("heading", { name: "Production Studio" })).toBeVisible({ timeout: 20_000 });
+    expect(page.url()).not.toContain("studioOpen");
+
+    // ── 8. ?studioOpen=insights&tab=tension deep link ─────────────────────────
+    await page.goto(`/project/${projectId}?studioOpen=insights&tab=tension`, { waitUntil: "load", timeout: 90_000 });
+    const tensionTabBtn = page.getByRole("button", { name: "Tension Curve" });
+    const arcTabBtn = page.getByRole("button", { name: "Character Arc" });
+    await expect(tensionTabBtn).toBeVisible({ timeout: 20_000 });
+    // The deep-linked tab (tension) must be the ACTIVE one (non-transparent bg);
+    // the default tab (arc) must be inactive (transparent) — proves the deep
+    // link overrode StoryInsightsPanel's own default rather than merely opening
+    // the panel with its usual "arc" starting tab.
+    await expect(tensionTabBtn).not.toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
+    await expect(arcTabBtn).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
+    expect(page.url()).not.toContain("studioOpen");
+
+    // ── 9. ?studioOpen=insights&tab=arc deep link ──────────────────────────────
+    await page.goto(`/project/${projectId}?studioOpen=insights&tab=arc`, { waitUntil: "load", timeout: 90_000 });
+    const arcTabBtn2 = page.getByRole("button", { name: "Character Arc" });
+    await expect(arcTabBtn2).toBeVisible({ timeout: 20_000 });
+    // "arc" is StoryInsightsPanel's own default, so this alone can't prove the
+    // deep link (vs. the default) drove it — check 8 already proved the
+    // non-default "tension" case works, which is the meaningful discriminator.
+    await expect(arcTabBtn2).not.toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
+    expect(page.url()).not.toContain("studioOpen");
+
+    // ── 10. ?studioOpen=story-health&tab=validator deep link ───────────────────
+    // "validator" is StoryHealthPanel's own pre-existing default tab, so — unlike
+    // check 8 — this can't prove the tab param itself took effect vs. defaulting.
+    // What IS new and worth proving: ?studioOpen=story-health opens StoryHealthPanel
+    // at all via a Studio deep link, which was not possible before this plan (the
+    // only prior path was the in-session slash command).
+    await page.goto(`/project/${projectId}?studioOpen=story-health&tab=validator`, { waitUntil: "load", timeout: 90_000 });
+    await expect(page.getByRole("button", { name: "Scene Validator" })).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByText(/Declare 2\+ purposes/i)).toBeVisible({ timeout: 10_000 });
+    expect(page.url()).not.toContain("studioOpen");
+
+    // ── 11. ?studioOpen=polish deep link ────────────────────────────────────────
+    await page.goto(`/project/${projectId}?studioOpen=polish`, { waitUntil: "load", timeout: 90_000 });
+    // The Produce funnel stage pill (which covers both Polish and Export in the
+    // 4-stage funnel view) should be highlighted; PolishStageView's own content
+    // (the "Editor Review" section from EditorNotesPanel) should be reachable.
+    await expect(page.getByText(/Editor Review/i)).toBeVisible({ timeout: 20_000 });
     expect(page.url()).not.toContain("studioOpen");
   });
 });
