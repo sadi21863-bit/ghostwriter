@@ -7,6 +7,8 @@ interface Props {
   activeChap: any;
 }
 
+const TTS_VOICES = ["alloy", "echo", "fable", "onyx", "nova", "shimmer"];
+
 export function AudioNovelPanel({ project, activeChap }: Props) {
   const [audioGenerating, setAudioGenerating] = useState(false);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
@@ -16,6 +18,21 @@ export function AudioNovelPanel({ project, activeChap }: Props) {
   const [lipsyncStatus, setLipsyncStatus] = useState<"idle" | "processing" | "completed" | "failed">("idle");
   const [lipsyncVideoUrl, setLipsyncVideoUrl] = useState<string | null>(null);
   const [lipsyncMsg, setLipsyncMsg] = useState("");
+  const [voiceOverrides, setVoiceOverrides] = useState<Record<string, string>>({});
+  const [savingVoiceFor, setSavingVoiceFor] = useState<string | null>(null);
+
+  const setCharacterVoice = async (characterId: string, voiceId: string) => {
+    setSavingVoiceFor(characterId);
+    setVoiceOverrides(prev => ({ ...prev, [characterId]: voiceId }));
+    try {
+      await fetch(`/api/projects/${project.id}/characters/${characterId}`, {
+        method: "PATCH", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ voiceId }),
+      });
+    } finally {
+      setSavingVoiceFor(null);
+    }
+  };
 
   const generateAudio = async () => {
     if (audioGenerating || !activeChap?.content) return;
@@ -49,6 +66,8 @@ export function AudioNovelPanel({ project, activeChap }: Props) {
     setAudioGenerating(false);
   };
 
+  const castCharacters: { id: string; name: string; voiceId?: string }[] = project.characters || [];
+
   return (
     <div style={{ border: `1px solid ${co.border}`, borderRadius: 10, background: co.surface, overflow: "hidden" }}>
       <div style={{ padding: "10px 14px", display: "flex", alignItems: "center", justifyContent: "space-between", borderBottom: audioUrl ? `1px solid ${co.border}` : "none" }}>
@@ -61,6 +80,30 @@ export function AudioNovelPanel({ project, activeChap }: Props) {
           {audioGenerating ? "Generating…" : "Generate Audio"}
         </button>
       </div>
+
+      {castCharacters.length > 0 && (
+        <div style={{ padding: "8px 14px", borderBottom: `1px solid ${co.border}` }}>
+          <div style={{ fontSize: 10, fontWeight: 700, color: co.muted, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4 }}>Voice Casting</div>
+          {castCharacters.map((c) => {
+            const effectiveVoice = voiceOverrides[c.id] ?? c.voiceId ?? "";
+            return (
+              <div key={c.id} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, padding: "2px 0" }}>
+                <span>{effectiveVoice ? "✅" : "⚠️"}</span>
+                <span style={{ fontWeight: 600, color: co.text, minWidth: 80 }}>{c.name}</span>
+                <select
+                  value={effectiveVoice}
+                  onChange={e => setCharacterVoice(c.id, e.target.value)}
+                  disabled={savingVoiceFor === c.id}
+                  style={{ fontSize: 11, padding: "2px 6px", border: `1px solid ${co.border}`, borderRadius: 4, background: co.surfaceAlt, color: co.text, cursor: "pointer" }}
+                >
+                  <option value="">Narrator voice (default)</option>
+                  {TTS_VOICES.map(v => <option key={v} value={v}>{v}</option>)}
+                </select>
+              </div>
+            );
+          })}
+        </div>
+      )}
 
       {audioUrl && (
         <div style={{ padding: "10px 14px", borderBottom: `1px solid ${co.border}` }}>

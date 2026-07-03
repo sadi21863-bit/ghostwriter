@@ -67,4 +67,14 @@ describe("analyzeGraphHealth", () => {
     const report = analyzeGraphHealth(g);
     expect(report.issues.find(i => i.nodeId === "w2")).toMatchObject({ kind: "isolated_entity", severity: "info" });
   });
+
+  it("does not flag an unwritten (degree-0) chapter as an isolation issue", () => {
+    const g = buildStoryGraph({
+      ...healthy,
+      chapters: [{ id: "ch1", title: "Chapter 3", content: "" }],
+    });
+    const report = analyzeGraphHealth(g);
+    expect(report.issues.find(i => i.nodeId === "ch1")).toBeUndefined();
+    expect(report.score).toBe(100);
+  });
 });

@@ -192,6 +192,11 @@ export default function WritingRoom({
     onSelectMode(m);
   };
 
+  const mentionName = (name: string) => {
+    setPrompt(prompt.trim() ? prompt.trim() + ` @${name} ` : `@${name} `);
+    toast.success(`Mentioned "${name}"`);
+  };
+
   const goToChapter = (i: number) => {
     const target = sortedChapters[i];
     if (target) updateProject((p: any) => ({ ...p, activeChapter: target.id }));
@@ -363,9 +368,21 @@ export default function WritingRoom({
                     </div>
                   </div>
                 )}
-                <BibleSection title="Characters" items={(project.characters || []).map((c: any) => c.name)} />
-                <BibleSection title="Locations" items={(project.locations || []).map((l: any) => l.name)} />
-                <BibleSection title="Threads" items={(project.plotThreads || []).map((t: any) => t.name)} />
+                <BibleGlanceSection
+                  title="Characters"
+                  items={(project.characters || []).map((c: any) => ({ id: c.id, name: c.name, badge: c.role, snippet: c.personality || c.desires }))}
+                  onMention={mentionName}
+                />
+                <BibleGlanceSection
+                  title="Locations"
+                  items={(project.locations || []).map((l: any) => ({ id: l.id, name: l.name, snippet: l.description }))}
+                  onMention={mentionName}
+                />
+                <BibleGlanceSection
+                  title="Threads"
+                  items={(project.plotThreads || []).map((t: any) => ({ id: t.id, name: t.name, badge: t.status, snippet: t.description }))}
+                  onMention={mentionName}
+                />
                 <button style={{ ...sBtnSm, marginTop: "auto" }} onClick={onOpenBible}>Open bible →</button>
               </div>
             )}
@@ -564,14 +581,43 @@ export default function WritingRoom({
   );
 }
 
-function BibleSection({ title, items }: { title: string; items: string[] }) {
+interface BibleGlanceItem {
+  id?: string;
+  name: string;
+  badge?: string;
+  snippet?: string;
+}
+
+function BibleGlanceSection({ title, items, onMention }: { title: string; items: BibleGlanceItem[]; onMention: (name: string) => void }) {
   return (
     <div>
       <div style={{ fontSize: 10, fontWeight: 700, color: co.muted, textTransform: "uppercase", letterSpacing: 1, marginBottom: 4 }}>{title}</div>
       {items.length === 0 ? (
         <div style={{ fontSize: 12, color: co.muted }}>None yet</div>
       ) : (
-        items.map((name, i) => <div key={i} style={{ fontSize: 12, color: co.text, padding: "2px 0" }}>{name}</div>)
+        items.map((item, i) => {
+          const snippet = item.snippet?.trim();
+          return (
+            <div
+              key={item.id ?? i}
+              onClick={() => onMention(item.name)}
+              title={`Mention ${item.name}`}
+              style={{ padding: "4px 6px", margin: "0 -6px", borderRadius: 6, cursor: "pointer" }}
+              onMouseEnter={e => e.currentTarget.style.background = co.surfaceAlt}
+              onMouseLeave={e => e.currentTarget.style.background = "transparent"}
+            >
+              <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
+                <span style={{ fontSize: 12, color: co.text, fontWeight: 600 }}>{item.name}</span>
+                {item.badge && <span style={{ fontSize: 10, color: co.muted, textTransform: "uppercase" }}>{item.badge}</span>}
+              </div>
+              {snippet && (
+                <div style={{ fontSize: 11, color: co.muted, marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  {snippet.length > 60 ? snippet.slice(0, 60) + "…" : snippet}
+                </div>
+              )}
+            </div>
+          );
+        })
       )}
     </div>
   );

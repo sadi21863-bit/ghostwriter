@@ -3,8 +3,8 @@
 // exist in the World Bible (co-occurrence + characterRelationships, plus the
 // linkedLocationIds/linkedPlotThreadIds/linkedCharacterIds link fields) — no new
 // data, just a graph view over it. Kept pure so it's unit-testable without a DB.
-export type StoryGraphNodeType = "character" | "location" | "thread" | "world_entity";
-export type StoryGraphEdgeKind = "relationship" | "appears_at" | "drives" | "involves";
+export type StoryGraphNodeType = "character" | "location" | "thread" | "world_entity" | "chapter";
+export type StoryGraphEdgeKind = "relationship" | "appears_at" | "drives" | "involves" | "features";
 
 export interface StoryGraphNode {
   id: string;
@@ -14,6 +14,9 @@ export interface StoryGraphNode {
   portraitUrl?: string;
   /** For world_entity nodes: the entity kind (object/weapon/organization/…). */
   kind?: string;
+  /** For chapter nodes. */
+  wordCount?: number;
+  status?: string;
 }
 
 export interface StoryGraphEdge {
@@ -30,7 +33,7 @@ export interface StoryGraphInput {
   characters: { id: string; name: string; role?: string | null; portraitUrl?: string | null; linkedLocationIds?: string[] | null; linkedPlotThreadIds?: string[] | null }[];
   locations: { id: string; name: string; linkedCharacterIds?: string[] | null }[];
   plotThreads: { id: string; name: string }[];
-  chapters: { content?: string | null }[];
+  chapters: { id?: string; title?: string; wordCount?: number | null; reviewStatus?: string | null; content?: string | null }[];
   storedRels: { characterAId: string; characterBId: string; trustLevel?: number | null; relationshipType?: string | null }[];
   worldEntities?: { id: string; name: string; kind: string; linkedCharacterIds?: string[] | null; linkedLocationIds?: string[] | null; linkedPlotThreadIds?: string[] | null; linkedEntityIds?: string[] | null }[];
 }
@@ -49,11 +52,18 @@ export function buildStoryGraph(input: StoryGraphInput): StoryGraphResult {
   const threadIds = new Set(plotThreads.map(t => t.id));
   const entityIds = new Set(worldEntities.map(e => e.id));
 
+  // Chapters only become graph nodes when they have a real id (the pure unit
+  // tests exercise chapters as anonymous content-only fixtures for co-occurrence
+  // scoring — those stay node-less, which is also correct: a chapter fixture with
+  // no id has nothing for a "features" edge or a capability run to target).
+  const chaptersWithId = chapters.filter((ch): ch is typeof ch & { id: string } => !!ch.id);
+
   const nodes: StoryGraphNode[] = [
     ...characters.map((c): StoryGraphNode => ({ id: c.id, type: "character", name: c.name, role: c.role ?? undefined, portraitUrl: c.portraitUrl ?? undefined })),
     ...locations.map((l): StoryGraphNode => ({ id: l.id, type: "location", name: l.name })),
     ...plotThreads.map((t): StoryGraphNode => ({ id: t.id, type: "thread", name: t.name })),
     ...worldEntities.map((e): StoryGraphNode => ({ id: e.id, type: "world_entity", name: e.name, kind: e.kind })),
+    ...chaptersWithId.map((ch): StoryGraphNode => ({ id: ch.id, type: "chapter", name: ch.title || "Untitled chapter", wordCount: ch.wordCount ?? 0, status: ch.reviewStatus ?? "draft" })),
   ];
 
   const edges: StoryGraphEdge[] = [];
@@ -69,6 +79,13 @@ export function buildStoryGraph(input: StoryGraphInput): StoryGraphResult {
     const content = (ch.content || "").toLowerCase();
     if (!content.trim()) continue;
     const present = characters.filter(c => content.includes(c.name.toLowerCase()));
+    if (ch.id) {
+      // 1b. features edges (chapter → character it mentions).
+      for (const c of present) {
+        edges.push({ id: `feat:${ch.id}:${c.id}`, source: ch.id, target: c.id, kind: "features" });
+        touched.add(c.id);
+      }
+    }
     for (let i = 0; i < present.length; i++) {
       for (let j = i + 1; j < present.length; j++) {
         const k = pairKey(present[i].id, present[j].id);

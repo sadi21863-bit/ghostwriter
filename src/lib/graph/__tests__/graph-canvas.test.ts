@@ -18,6 +18,9 @@ describe("selectionKinds", () => {
   it("ignores nodes without a recognised type", () => {
     expect(selectionKinds([{ type: "mystery" }, {}])).toEqual([]);
   });
+  it("recognises chapter nodes", () => {
+    expect(selectionKinds([{ type: "chapter" }])).toEqual(["chapter"]);
+  });
 });
 
 describe("confirmMessageFor", () => {

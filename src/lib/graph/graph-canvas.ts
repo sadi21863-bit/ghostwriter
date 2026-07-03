@@ -5,12 +5,13 @@ import type { GraphNodeKind, GraphRunPlan } from "./graph-program";
 import type { GraphHealthIssue } from "./graph-health";
 
 // The canvas node types (from buildStoryGraph) map 1:1 onto the dataflow engine's
-// node kinds for the four World-Bible entity types.
+// node kinds for the World-Bible entity types plus chapters.
 const TYPE_TO_KIND: Record<string, GraphNodeKind> = {
   character: "character",
   location: "location",
   thread: "thread",
   world_entity: "world_entity",
+  chapter: "chapter",
 };
 
 /** Distinct GraphNodeKinds present in a node selection, order-stable. */

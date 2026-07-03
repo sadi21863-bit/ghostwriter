@@ -27,17 +27,19 @@ const RELATIONSHIP_COLORS: Record<string, string> = {
   family:   "#14b8a6", "":       "#6b7280",
 };
 
-// Node styling per entity type — the multi-entity Story Graph (Phase 1 + world entities).
+// Node styling per entity type — the multi-entity Story Graph (Phase 1 + world entities + chapters).
 const NODE_TYPE_STYLE: Record<string, { bg: string; border: string; shape: number }> = {
   character:    { bg: "#1A1A1E", border: "#818cf8", shape: 8 },   // rounded rect
   location:     { bg: "#13201a", border: "#22c55e", shape: 20 },  // pill
   thread:       { bg: "#201a13", border: "#f59e0b", shape: 2 },   // sharp
   world_entity: { bg: "#1d1320", border: "#c084fc", shape: 6 },   // world element
+  chapter:      { bg: "#201317", border: "#fb7185", shape: 12 },  // rose, distinct rounding
 };
 const EDGE_KIND_STYLE: Record<string, { stroke: string; dashed?: boolean; label?: string }> = {
   appears_at: { stroke: "#22c55e", dashed: true, label: "at" },
   drives:     { stroke: "#f59e0b", dashed: true, label: "drives" },
   involves:   { stroke: "#c084fc", dashed: true, label: "involves" },
+  features:   { stroke: "#fb7185", dashed: true, label: "features" },
 };
 
 export function ConstellationView({ projectId, onSelectPair, onRunCapability, height = 500 }: Props) {
@@ -60,13 +62,14 @@ export function ConstellationView({ projectId, onSelectPair, onRunCapability, he
           issuesByNode.set(issue.nodeId, arr);
         }
         // Lay out each type on its own ring so the entity kinds are visually distinct.
-        const byType: Record<string, any[]> = { character: [], location: [], thread: [], world_entity: [] };
+        const byType: Record<string, any[]> = { character: [], location: [], thread: [], world_entity: [], chapter: [] };
         for (const n of all) (byType[n.type] ?? (byType[n.type] = [])).push(n);
         const RING: Record<string, { r: number; cx: number; cy: number }> = {
           location:     { r: 110, cx: 350, cy: 300 },
           character:    { r: 230, cx: 350, cy: 300 },
           thread:       { r: 360, cx: 350, cy: 300 },
           world_entity: { r: 470, cx: 350, cy: 300 },
+          chapter:      { r: 580, cx: 350, cy: 300 },
         };
         const pos: Record<string, { x: number; y: number }> = {};
         for (const [type, list] of Object.entries(byType)) {
@@ -81,6 +84,7 @@ export function ConstellationView({ projectId, onSelectPair, onRunCapability, he
           n.type === "thread" ? `🧵 ${n.name}`
           : n.type === "location" ? `📍 ${n.name}`
           : n.type === "world_entity" ? `✦ ${n.name}`
+          : n.type === "chapter" ? `📖 ${n.name}${n.wordCount ? ` · ${n.wordCount}w` : ""}`
           : n.name;
 
         const rfNodes: Node[] = all.map((n: any) => {
@@ -184,6 +188,7 @@ export function ConstellationView({ projectId, onSelectPair, onRunCapability, he
         <span><span style={{ color: "#22c55e" }}>●</span> Location</span>
         <span><span style={{ color: "#f59e0b" }}>●</span> Thread</span>
         <span><span style={{ color: "#c084fc" }}>●</span> Element</span>
+        <span><span style={{ color: "#fb7185" }}>●</span> Chapter</span>
       </div>
 
       {health && (

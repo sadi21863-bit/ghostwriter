@@ -3,6 +3,7 @@ import { useState, useEffect, useRef } from "react";
 import { ART_STYLES } from "@/lib/ai/panel-prompt-builder";
 import { EmptyState } from "@/components/EmptyState";
 import { co, sBtn, sBtnSm, sInput } from "@/lib/styles";
+import { isValidTipTapJson, tiptapToPlainText } from "@/lib/editor/content-migration";
 
 export default function ComicStudio({ project, segmindKey, onOpenStudio }: { project: any; segmindKey: string; onOpenStudio?: () => void }) {
   const [view, setView] = useState<"generator" | "editor">("generator");
@@ -269,6 +270,21 @@ export default function ComicStudio({ project, segmindKey, onOpenStudio }: { pro
                 {chaptersWithContent.map((c: any) => <option key={c.id} value={c.id}>{c.title}</option>)}
               </select>
             </div>
+
+            {(() => {
+              const selectedChapter = chaptersWithContent.find((c: any) => c.id === selectedChapterId);
+              if (!selectedChapter) return null;
+              const raw = selectedChapter.content ?? "";
+              const text = isValidTipTapJson(raw) ? tiptapToPlainText(JSON.parse(raw)) : raw;
+              return (
+                <div style={{ marginBottom: 16 }}>
+                  <label style={{ fontSize: 11, fontWeight: 700, color: co.accent, textTransform: "uppercase", display: "block", marginBottom: 6 }}>Source Scene</label>
+                  <div style={{ background: co.surfaceAlt, border: "1px solid " + co.border, borderRadius: 10, padding: 14, maxHeight: 220, overflowY: "auto", fontSize: 13, lineHeight: 1.65, color: co.text, whiteSpace: "pre-wrap" }}>
+                    {text.trim() || <span style={{ color: co.muted }}>This chapter has no readable prose yet.</span>}
+                  </div>
+                </div>
+              );
+            })()}
 
             <div style={{ marginBottom: 16 }}>
               <label style={{ fontSize: 11, fontWeight: 700, color: co.accent, textTransform: "uppercase", display: "block", marginBottom: 6 }}>Art Style</label>

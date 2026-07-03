@@ -438,6 +438,29 @@ export default function ProductionStudio({ project, segmindKey }: { project: any
         </div>
       )}
 
+      {shots.length > 0 && (() => {
+        const castNames = Array.from(new Set(shots.map(s => s.primaryCharacter?.name).filter((n): n is string => !!n)));
+        const locationNames = Array.from(new Set(shots.map(s => s.location).filter(Boolean)));
+        if (castNames.length === 0 && locationNames.length === 0) return null;
+        const chip: CSSProperties = { display: "inline-block", padding: "3px 10px", borderRadius: 20, fontSize: 12, background: "#f3f4f6", color: "#374151", marginRight: 6, marginBottom: 4 };
+        return (
+          <div style={{ padding: "10px 16px", borderBottom: "1px solid #e5e7eb", background: "#fafafa", display: "flex", gap: 24, flexWrap: "wrap" }}>
+            {castNames.length > 0 && (
+              <div>
+                <span style={{ fontSize: 11, fontWeight: 700, color: "#6b7280", textTransform: "uppercase", letterSpacing: 0.5, marginRight: 8 }}>Cast</span>
+                {castNames.map(name => <span key={name} style={chip}>{name}</span>)}
+              </div>
+            )}
+            {locationNames.length > 0 && (
+              <div>
+                <span style={{ fontSize: 11, fontWeight: 700, color: "#6b7280", textTransform: "uppercase", letterSpacing: 0.5, marginRight: 8 }}>Locations</span>
+                {locationNames.map(loc => <span key={loc} style={chip}>{loc}</span>)}
+              </div>
+            )}
+          </div>
+        );
+      })()}
+
       {/* Shots */}
       <div style={{ flex: 1, overflow: "auto", padding: "16px" }}>
         {trailerPipeline && (

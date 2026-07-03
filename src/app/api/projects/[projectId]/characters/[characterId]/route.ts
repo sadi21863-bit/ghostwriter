@@ -23,6 +23,10 @@ const CharacterPatch = z.object({
   backstory: z.string().optional(),
   arc: z.string().optional(),
   portraitUrl: z.string().optional(),
+  // TTS voice for Audio Novel generation (src/app/api/audio/generate) — falls
+  // back to the narrator voice when unset. Kept a loose string (not a strict
+  // enum) so adding a provider voice later doesn't require a schema change.
+  voiceId: z.string().optional(),
   linkedLocationIds: z.array(z.string().uuid()).optional(),
   linkedPlotThreadIds: z.array(z.string().uuid()).optional(),
   alwaysInContext: z.boolean().optional(),

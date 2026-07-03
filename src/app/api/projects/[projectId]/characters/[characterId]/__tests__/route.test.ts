@@ -78,4 +78,10 @@ describe("PATCH /api/projects/[projectId]/characters/[characterId] — advanced 
     expect(setArg).not.toHaveProperty("knowledgeMap");
     expect(setArg).not.toHaveProperty("intelligenceProfile");
   });
+
+  it("persists voiceId (Audio Novel TTS voice casting)", async () => {
+    await PATCH(makeRequest({ name: "Mara", voiceId: "onyx" }), makeParams());
+    const setArg = updateSet.mock.calls[0][0];
+    expect(setArg.voiceId).toBe("onyx");
+  });
 });

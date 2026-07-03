@@ -65,6 +65,10 @@ export function analyzeGraphHealth(graph: StoryGraphResult): GraphHealthReport {
       continue;
     }
 
+    // Chapters have no "isolation" concept — an unwritten/early chapter naturally
+    // mentions no one yet, which isn't a story-health problem, just unwritten.
+    if (node.type === "chapter") continue;
+
     if (d === 0) {
       // Fully isolated — flag per type (character isolation is the loudest).
       const kind: GraphHealthKind =

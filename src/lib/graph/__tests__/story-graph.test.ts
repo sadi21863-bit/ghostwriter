@@ -89,3 +89,44 @@ describe("buildStoryGraph — world entities", () => {
     expect(g2.edges.filter(e => e.kind === "involves")).toHaveLength(0);
   });
 });
+
+describe("buildStoryGraph — chapters", () => {
+  it("does not emit a chapter node for id-less chapter fixtures (co-occurrence-only)", () => {
+    // baseInput's chapter has no `id` — confirms existing/anonymous fixtures are unaffected.
+    const g = buildStoryGraph(baseInput);
+    expect(g.nodes.filter(n => n.type === "chapter")).toHaveLength(0);
+  });
+
+  it("emits a chapter node, carrying title/wordCount/status, only when the chapter has an id", () => {
+    const g = buildStoryGraph({
+      ...baseInput,
+      chapters: [{ id: "ch1", title: "Dawn Raid", wordCount: 1200, reviewStatus: "approved", content: "Mara met Kessler at dawn." }],
+    });
+    const chapterNode = g.nodes.find(n => n.type === "chapter");
+    expect(chapterNode).toMatchObject({ id: "ch1", name: "Dawn Raid", wordCount: 1200, status: "approved" });
+  });
+
+  it("creates a features edge from a chapter to every character it mentions", () => {
+    const g = buildStoryGraph({
+      ...baseInput,
+      chapters: [{ id: "ch1", title: "Dawn Raid", content: "Mara met Kessler at dawn." }],
+    });
+    const features = g.edges.filter(e => e.kind === "features").map(e => `${e.source}->${e.target}`).sort();
+    expect(features).toEqual(["ch1->c1", "ch1->c2"]);
+  });
+
+  it("a character only mentioned in a chapter (no other links) is no longer isolated", () => {
+    const g = buildStoryGraph({
+      characters: [{ id: "c1", name: "Mara" }, { id: "c2", name: "Ghost" }],
+      locations: [], plotThreads: [], storedRels: [],
+      chapters: [{ id: "ch1", title: "Dawn Raid", content: "Mara walked alone." }],
+    });
+    expect(g.isolated.map(i => i.id)).toEqual(["c2"]);
+  });
+
+  it("defaults name/wordCount/status for a chapter fixture missing those fields", () => {
+    const g = buildStoryGraph({ ...baseInput, chapters: [{ id: "ch1" }] });
+    const chapterNode = g.nodes.find(n => n.type === "chapter");
+    expect(chapterNode).toMatchObject({ name: "Untitled chapter", wordCount: 0, status: "draft" });
+  });
+});
