@@ -21,6 +21,7 @@ export async function GET() {
       createdAt: true,
       skillLevel: true,
       isHiggsfieldProject: true,
+      universeId: true,
     },
     with: {
       chapters: { columns: { id: true, title: true, wordCount: true, sortOrder: true } },

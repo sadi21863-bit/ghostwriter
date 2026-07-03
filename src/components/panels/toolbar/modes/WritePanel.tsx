@@ -265,7 +265,6 @@ export function WritePanel({
               onChange={handleEditorChange}
               placeholder="Begin writing..."
               autoFocus
-              lightTheme
             />
           ) : (
             <div style={{ flex: 1, overflow: 'auto', padding: '16px 24px' }}>

@@ -58,13 +58,13 @@ export function TensionCurve({ projectId }: TensionCurveProps) {
   }));
 
   return (
-    <div style={{ padding: "24px", background: "#111113", borderRadius: 12 }}>
+    <div style={{ padding: "24px", background: "var(--color-bg-surface)", borderRadius: 12 }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
         <div>
-          <h3 style={{ margin: 0, fontSize: 16, fontWeight: 600, color: "#F2F2F3" }}>
+          <h3 style={{ margin: 0, fontSize: 16, fontWeight: 600, color: "var(--color-text-primary)" }}>
             Story Tension Curve
           </h3>
-          <p style={{ margin: "4px 0 0", fontSize: 12, color: "#9898A6" }}>
+          <p style={{ margin: "4px 0 0", fontSize: 12, color: "var(--color-text-secondary)" }}>
             Brewer & Lichtenstein structural affect scoring across all chapters
           </p>
         </div>
@@ -73,8 +73,8 @@ export function TensionCurve({ projectId }: TensionCurveProps) {
           disabled={loading}
           style={{
             padding: "8px 16px", borderRadius: 8, border: "none", cursor: loading ? "not-allowed" : "pointer",
-            background: loading ? "#333" : "#D97706",
-            color: "#fff", fontSize: 13, fontWeight: 500,
+            background: loading ? "#333" : "var(--color-accent)",
+            color: "var(--color-accent-fg)", fontSize: 13, fontWeight: 500,
           }}
         >
           {loading ? "Scoring…" : data.length ? "Re-score" : "Generate Curve"}
@@ -91,15 +91,15 @@ export function TensionCurve({ projectId }: TensionCurveProps) {
         <>
           <ResponsiveContainer width="100%" height={280}>
             <LineChart data={chartData} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border-subtle)" />
               <XAxis dataKey="name" tick={{ fontSize: 11, fill: "#9898A6" }} />
               <YAxis domain={[0, 10]} tick={{ fontSize: 11, fill: "#9898A6" }} />
               <Tooltip
-                contentStyle={{ background: "#1A1A1E", border: "1px solid rgba(255,255,255,0.09)", borderRadius: 8, fontSize: 12 }}
-                labelStyle={{ color: "#F2F2F3", fontWeight: 600 }}
+                contentStyle={{ background: "var(--color-bg-elevated)", border: "1px solid var(--color-border-default)", borderRadius: 8, fontSize: 12 }}
+                labelStyle={{ color: "var(--color-text-primary)", fontWeight: 600 }}
               />
               <Legend wrapperStyle={{ fontSize: 12 }} />
-              <ReferenceLine y={7} stroke="rgba(255,255,255,0.1)" strokeDasharray="4 4"
+              <ReferenceLine y={7} stroke="var(--color-border-default)" strokeDasharray="4 4"
                 label={{ value: "High", position: "right", fontSize: 10, fill: "#9898A6" }} />
               <Line type="monotone" dataKey="Suspense"
                 stroke="#EF4444" strokeWidth={2}
@@ -117,7 +117,7 @@ export function TensionCurve({ projectId }: TensionCurveProps) {
           </ResponsiveContainer>
 
           {activeNote && (
-            <div style={{ marginTop: 12, padding: "10px 14px", background: "#1A1A1E", borderRadius: 8, fontSize: 13, color: "#D1D5DB", borderLeft: "3px solid #D97706" }}>
+            <div style={{ marginTop: 12, padding: "10px 14px", background: "var(--color-bg-elevated)", borderRadius: 8, fontSize: 13, color: "#D1D5DB", borderLeft: "3px solid var(--color-accent)" }}>
               {activeNote}
             </div>
           )}
@@ -128,9 +128,9 @@ export function TensionCurve({ projectId }: TensionCurveProps) {
               { label: "Avg Curiosity", value: (data.reduce((s, d) => s + d.curiosity, 0) / data.length).toFixed(1), color: "#F59E0B" },
               { label: "Avg Intensity", value: (data.reduce((s, d) => s + d.emotionalIntensity, 0) / data.length).toFixed(1), color: "#8B5CF6" },
             ].map(stat => (
-              <div key={stat.label} style={{ padding: "10px 14px", background: "#1A1A1E", borderRadius: 8, textAlign: "center" }}>
+              <div key={stat.label} style={{ padding: "10px 14px", background: "var(--color-bg-elevated)", borderRadius: 8, textAlign: "center" }}>
                 <div style={{ fontSize: 22, fontWeight: 700, color: stat.color }}>{stat.value}</div>
-                <div style={{ fontSize: 11, color: "#9898A6", marginTop: 2 }}>{stat.label}</div>
+                <div style={{ fontSize: 11, color: "var(--color-text-secondary)", marginTop: 2 }}>{stat.label}</div>
               </div>
             ))}
           </div>
@@ -138,7 +138,7 @@ export function TensionCurve({ projectId }: TensionCurveProps) {
       )}
 
       {data.length === 0 && !loading && !error && (
-        <div style={{ textAlign: "center", padding: "48px 0", color: "#9898A6", fontSize: 14 }}>
+        <div style={{ textAlign: "center", padding: "48px 0", color: "var(--color-text-secondary)", fontSize: 14 }}>
           Generate the curve to see how your story's tension, curiosity, and emotional intensity develop across chapters.
         </div>
       )}

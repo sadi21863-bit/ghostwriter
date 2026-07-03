@@ -74,7 +74,7 @@ export function InterrogationPanel({
                 onChange={e => setGoal(e.target.value)}
                 placeholder="What does the interrogator want to discover?"
               />
-              <div style={{ marginTop: 8, padding: "10px 12px", background: co.accentBg, borderRadius: 8, border: "1px solid " + co.accent + "40", fontSize: 11, color: co.muted, lineHeight: 1.5 }}>
+              <div style={{ marginTop: 8, padding: "10px 12px", background: co.accentBg, borderRadius: 8, border: "1px solid color-mix(in srgb, " + co.accent + " 25%, transparent)", fontSize: 11, color: co.muted, lineHeight: 1.5 }}>
                 Psychological pressure — false concessions, strategic silence, information display. No Q&A.
               </div>
             </div>

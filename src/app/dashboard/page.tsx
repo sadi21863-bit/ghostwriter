@@ -6,11 +6,17 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useFeatureIsOn } from "@growthbook/growthbook-react";
 import Onboarding from "@/components/Onboarding";
 import { EmptyState } from "@/components/EmptyState";
-import { FORMATS, getFormatDisplayLabel, FORMAT_HELPER_TEXT } from "@/lib/formats";
+import { FORMATS, getFormatDisplayLabel, FORMAT_HELPER_TEXT, FORMAT_COLORS } from "@/lib/formats";
 import { FLAGS } from "@/lib/growthbook";
-import { GW_GOLD, GW_DARK, GW_CREAM, GW_BORDER, GW_TEXT, GW_MUTED, GW_MUTED_LIGHT, GW_SURFACE_ALT } from "@/lib/dashboard-theme";
+import { GW_GOLD, GW_DARK, GW_THEME_CSS } from "@/lib/dashboard-theme";
+import { useGwTheme } from "@/lib/theme";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import Home from "@/components/Home";
 import { toast } from "@/lib/toast";
+import { BibleShelf } from "@/components/dashboard/BibleShelf";
+import { UniverseShelf, UniverseConstellation } from "@/components/dashboard/UniverseShelf";
+import { CreateUniverseModal } from "@/components/dashboard/CreateUniverseModal";
+import { DashboardCommandPalette } from "@/components/dashboard/DashboardCommandPalette";
 
 function EmailVerifiedCheck() {
   const router = useRouter();
@@ -31,6 +37,7 @@ type Project = {
   genres: string[];
   updatedAt: string;
   chapters: { id: string }[];
+  universeId?: string | null;
 };
 
 interface BraindumpResult {
@@ -71,14 +78,13 @@ export default function Dashboard() {
   const [seriesUniverseExpanded, setSeriesUniverseExpanded] = useState(false);
   const [seriesFilter, setSeriesFilter] = useState<{ id: string; name: string; projectIds: string[] } | null>(null);
   const [pendingSeriesLink, setPendingSeriesLink] = useState<string | null>(null);
-  const [creatingUniverse, setCreatingUniverse] = useState(false);
   const [showCreateUniverse, setShowCreateUniverse] = useState(false);
-  const [newUniverseName, setNewUniverseName] = useState("");
   const [showCreateBible, setShowCreateBible] = useState(false);
   const [newBibleName, setNewBibleName] = useState("");
   const [newBiblePremise, setNewBiblePremise] = useState("");
   const [newBibleProjectIds, setNewBibleProjectIds] = useState<string[]>([]);
   const [creatingBible, setCreatingBible] = useState(false);
+  useGwTheme();
 
   useEffect(() => {
     if (status === "unauthenticated") router.push("/login");
@@ -128,17 +134,10 @@ export default function Dashboard() {
     setShowCreateBible(false); setCreatingBible(false);
   };
 
-  const createUniverse = async () => {
-    if (!newUniverseName.trim()) return;
-    setCreatingUniverse(true);
-    const res = await fetch("/api/universes", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: newUniverseName.trim() }),
-    });
-    const u = await res.json();
-    if (u?.id) setUniverses(prev => [u, ...prev]);
-    setNewUniverseName(""); setShowCreateUniverse(false); setCreatingUniverse(false);
+  const deleteUniverse = async (id: string) => {
+    await fetch(`/api/universes/${id}`, { method: "DELETE" });
+    setUniverses(prev => prev.filter(u => u.id !== id));
+    setProjects(prev => prev.map(p => p.universeId === id ? { ...p, universeId: null } : p));
   };
 
   const deleteBible = async (id: string) => {
@@ -298,15 +297,9 @@ export default function Dashboard() {
     setDeleting(false);
   };
 
-  const FORMAT_COLORS: Record<string, string> = {
-    "Novel": "#5b4ccc", "Screenplay": "#0ea5e9", "Web Series": "#8b5cf6",
-    "YouTube Long-form": "#ef4444", "YouTube Short": "#f97316", "TikTok Script": "#ec4899",
-    "TikTok Native": "#fe2c55", "Instagram Reel": "#a855f7", "Podcast Episode": "#10b981",
-  };
-
   const inputS: React.CSSProperties = {
-    width: "100%", padding: "10px 14px", background: GW_SURFACE_ALT, border: "1px solid " + GW_BORDER,
-    borderRadius: 10, fontSize: 13, color: GW_TEXT, outline: "none", boxSizing: "border-box",
+    width: "100%", padding: "10px 14px", background: "var(--gw-sunk)", border: "1px solid var(--gw-border)",
+    borderRadius: 10, fontSize: 13, color: "var(--gw-t1)", outline: "none", boxSizing: "border-box",
     fontFamily: "'Figtree', sans-serif",
   };
 
@@ -328,25 +321,28 @@ export default function Dashboard() {
   }
 
   return (
-    <div style={{ minHeight: "100vh", background: GW_CREAM, fontFamily: "'Figtree', sans-serif" }}>
+    <div style={{ minHeight: "100vh", background: "var(--gw-page)", fontFamily: "'Figtree', sans-serif" }}>
       <Suspense fallback={null}><EmailVerifiedCheck /></Suspense>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,600;0,700;1,600&family=Figtree:wght@400;500;600;700&display=swap');
         @keyframes gw-in { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
         .gw-card { animation: gw-in 0.3s ease both; transition: box-shadow 0.2s, transform 0.18s; }
-        .gw-card:hover { box-shadow: 0 8px 32px rgba(0,0,0,0.10) !important; transform: translateY(-2px); }
+        .gw-card:hover { box-shadow: var(--gw-shadow) !important; transform: translateY(-2px); }
         .gw-card .gw-del { opacity: 0; transition: opacity 0.15s; }
         .gw-card:hover .gw-del { opacity: 1; }
-        .gw-input:focus { border-color: ${GW_GOLD} !important; box-shadow: 0 0 0 3px rgba(201,168,76,0.12) !important; }
+        .gw-input:focus { border-color: var(--gw-accent) !important; box-shadow: 0 0 0 3px var(--gw-accent-bg) !important; }
         .gw-gold-btn { transition: background 0.2s, transform 0.15s; }
-        .gw-gold-btn:hover:not(:disabled) { background: #b8963e !important; transform: translateY(-1px); }
+        .gw-gold-btn:hover:not(:disabled) { background: var(--gw-accent-l) !important; transform: translateY(-1px); }
         .gw-hdr-btn { transition: color 0.15s, background 0.15s; }
         .gw-hdr-btn:hover { background: rgba(255,255,255,0.07) !important; color: #fff !important; }
+        ${GW_THEME_CSS}
       `}</style>
+      <ThemeToggle />
 
       {/* Header */}
       <header style={{ background: GW_DARK, borderBottom: "1px solid #1a1a22", padding: "0 32px", height: 60, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-        <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 24, color: GW_GOLD, fontWeight: 600, letterSpacing: 1 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, fontFamily: "'Cormorant Garamond', serif", fontSize: 24, color: GW_GOLD, fontWeight: 600, letterSpacing: 1 }}>
+          <img className="gw-logo" src="/assets/logos/mark-rounded.png" alt="" style={{ width: 32, height: 32, borderRadius: 9, objectFit: "cover", objectPosition: "50% 30%", border: "1px solid #1e1e2a" }} />
           GhostWriter
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -378,18 +374,18 @@ export default function Dashboard() {
         {/* Page title + action */}
         <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", marginBottom: 36 }}>
           <div>
-            <div style={{ fontSize: 11, letterSpacing: 3, color: GW_MUTED_LIGHT, textTransform: "uppercase", marginBottom: 8 }}>Studio</div>
-            <h1 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 38, color: GW_TEXT, fontWeight: 600, lineHeight: 1, margin: 0 }}>
+            <div style={{ fontSize: 11, letterSpacing: 3, color: "var(--gw-t3)", textTransform: "uppercase", marginBottom: 8 }}>Studio</div>
+            <h1 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 38, color: "var(--gw-t1)", fontWeight: 600, lineHeight: 1, margin: 0 }}>
               Your Projects
             </h1>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
             <button className="gw-gold-btn" onClick={() => setShowCreate(true)}
-              style={{ background: GW_GOLD, color: GW_DARK, border: "none", borderRadius: 10, padding: "11px 22px", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "'Figtree', sans-serif", letterSpacing: 0.3 }}>
+              style={{ background: "var(--gw-accent)", color: "var(--gw-accent-ink)", border: "none", borderRadius: 10, padding: "11px 22px", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "'Figtree', sans-serif", letterSpacing: 0.3 }}>
               + New Project
             </button>
             <button onClick={() => { setCreationMode('import'); setShowCreate(true); }}
-              style={{ background: "transparent", color: "#bbb", border: "none", padding: 0, fontSize: 11, cursor: "pointer", fontFamily: "'Figtree', sans-serif", textDecoration: "underline" }}>
+              style={{ background: "transparent", color: "var(--gw-t3)", border: "none", padding: 0, fontSize: 11, cursor: "pointer", fontFamily: "'Figtree', sans-serif", textDecoration: "underline" }}>
               Import existing manuscript
             </button>
           </div>
@@ -400,16 +396,16 @@ export default function Dashboard() {
         )}
 
         {seriesFilter && (
-          <div style={{ display: "flex", alignItems: "center", gap: 12, background: "#fefce8", border: "1px solid " + GW_GOLD, borderRadius: 10, padding: "10px 16px", marginBottom: 20 }}>
-            <span style={{ fontSize: 13, color: "#92400e" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 12, background: "var(--gw-sel)", border: "1px solid var(--gw-accent)", borderRadius: 10, padding: "10px 16px", marginBottom: 20 }}>
+            <span style={{ fontSize: 13, color: "var(--gw-sel-text)" }}>
               Showing books in series: <strong>{seriesFilter.name}</strong> ({filteredProjects.length})
             </span>
             <button onClick={() => { setPendingSeriesLink(seriesFilter.id); setShowCreate(true); }}
-              style={{ marginLeft: "auto", fontSize: 12, fontWeight: 600, background: GW_GOLD, color: GW_DARK, border: "none", borderRadius: 8, padding: "5px 12px", cursor: "pointer" }}>
+              style={{ marginLeft: "auto", fontSize: 12, fontWeight: 600, background: "var(--gw-accent)", color: "var(--gw-accent-ink)", border: "none", borderRadius: 8, padding: "5px 12px", cursor: "pointer" }}>
               + Add a book to this series
             </button>
             <button onClick={() => setSeriesFilter(null)}
-              style={{ fontSize: 12, color: "#92400e", background: "none", border: "1px solid " + GW_GOLD, borderRadius: 8, padding: "5px 12px", cursor: "pointer" }}>
+              style={{ fontSize: 12, color: "var(--gw-sel-text)", background: "none", border: "1px solid var(--gw-accent)", borderRadius: 8, padding: "5px 12px", cursor: "pointer" }}>
               ✕ Clear filter
             </button>
           </div>
@@ -428,7 +424,7 @@ export default function Dashboard() {
         )}
 
         {projects.length === 0 ? (
-          <div style={{ padding: "80px 0" }}>
+          <div style={{ padding: "80px 0", ["--color-text-primary" as string]: "var(--gw-t1)", ["--color-text-secondary" as string]: "var(--gw-t2)", ["--color-accent" as string]: "var(--gw-accent)" } as React.CSSProperties}>
             <EmptyState
               icon="✨"
               title="Your stories live here"
@@ -442,27 +438,27 @@ export default function Dashboard() {
               const accentColor = FORMAT_COLORS[p.format] ?? "#5b4ccc";
               return (
                 <div key={p.id} className="gw-card"
-                  style={{ background: "#fff", borderRadius: 14, border: "1px solid " + GW_BORDER, padding: 0, cursor: "pointer", overflow: "hidden", boxShadow: "0 2px 8px rgba(0,0,0,0.05)", animationDelay: `${idx * 0.04}s`, position: "relative" }}
+                  style={{ background: "var(--gw-card)", borderRadius: 14, border: "1px solid var(--gw-border)", padding: 0, cursor: "pointer", overflow: "hidden", boxShadow: "0 2px 8px rgba(0,0,0,0.05)", animationDelay: `${idx * 0.04}s`, position: "relative" }}
                   onClick={() => router.push("/project/" + p.id)}
                 >
                   <div style={{ height: 3, background: accentColor }} />
                   <div style={{ padding: "18px 20px 16px" }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <h2 style={{ fontSize: 15, fontWeight: 700, color: GW_TEXT, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", margin: 0, marginBottom: 4 }}>{p.name}</h2>
+                        <h2 style={{ fontSize: 15, fontWeight: 700, color: "var(--gw-t1)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", margin: 0, marginBottom: 4 }}>{p.name}</h2>
                         <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                           <span style={{ fontSize: 10, fontWeight: 700, color: accentColor, background: accentColor + "18", padding: "2px 8px", borderRadius: 20, textTransform: "uppercase", letterSpacing: 0.8 }}>{p.format}</span>
-                          <span style={{ fontSize: 11, color: GW_MUTED_LIGHT }}>{p.chapters?.length ?? 0} chapter{(p.chapters?.length ?? 0) !== 1 ? "s" : ""}</span>
+                          <span style={{ fontSize: 11, color: "var(--gw-t3)" }}>{p.chapters?.length ?? 0} chapter{(p.chapters?.length ?? 0) !== 1 ? "s" : ""}</span>
                         </div>
                         {p.genres?.length > 0 && (
-                          <div style={{ fontSize: 11, color: GW_MUTED, marginTop: 6, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.genres.slice(0, 3).join(" · ")}</div>
+                          <div style={{ fontSize: 11, color: "var(--gw-t2)", marginTop: 6, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.genres.slice(0, 3).join(" · ")}</div>
                         )}
                       </div>
                       <button className="gw-del" onClick={e => { e.stopPropagation(); setDeleteTarget(p); }}
-                        style={{ background: "none", border: "none", cursor: "pointer", color: "#ccc", fontSize: 14, padding: "2px 4px", marginLeft: 8, lineHeight: 1 }}
+                        style={{ background: "none", border: "none", cursor: "pointer", color: "var(--gw-t4)", fontSize: 14, padding: "2px 4px", marginLeft: 8, lineHeight: 1 }}
                         title="Delete project">✕</button>
                     </div>
-                    <div style={{ fontSize: 11, color: "#ccc", marginTop: 14 }}>
+                    <div style={{ fontSize: 11, color: "var(--gw-t4)", marginTop: 14 }}>
                       {new Date(p.updatedAt).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" })}
                     </div>
                   </div>
@@ -472,29 +468,29 @@ export default function Dashboard() {
           </div>
         )}
       {/* ── Series & Universes ──────────────────────────────────────── */}
-      <section style={{ marginTop: 40, paddingTop: 32, borderTop: "1px solid " + GW_BORDER }}>
+      <section style={{ marginTop: 40, paddingTop: 32, borderTop: "1px solid var(--gw-border)" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16, cursor: "pointer" }} onClick={() => setSeriesUniverseExpanded(v => !v)}>
-          <span style={{ fontSize: 15, fontWeight: 700, color: GW_TEXT }}>📚 Series & Universes</span>
-          <span style={{ fontSize: 11, color: GW_MUTED_LIGHT, background: GW_SURFACE_ALT, padding: "2px 8px", borderRadius: 10 }}>{seriesBibles.length + universes.length}</span>
-          <span style={{ marginLeft: "auto", fontSize: 12, color: GW_MUTED_LIGHT }}>{seriesUniverseExpanded ? "▲" : "▼"}</span>
+          <span style={{ fontSize: 15, fontWeight: 700, color: "var(--gw-t1)" }}>📚 Series & Universes</span>
+          <span style={{ fontSize: 11, color: "var(--gw-t3)", background: "var(--gw-sunk)", padding: "2px 8px", borderRadius: 10 }}>{seriesBibles.length + universes.length}</span>
+          <span style={{ marginLeft: "auto", fontSize: 12, color: "var(--gw-t3)" }}>{seriesUniverseExpanded ? "▲" : "▼"}</span>
         </div>
 
         {seriesUniverseExpanded && (
           <>
           <div style={{ marginBottom: 28 }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
-              <div style={{ fontSize: 12, fontWeight: 700, color: GW_MUTED, textTransform: "uppercase", letterSpacing: 1 }}>Series Bibles</div>
+              <div style={{ fontSize: 12, fontWeight: 700, color: "var(--gw-t2)", textTransform: "uppercase", letterSpacing: 1 }}>Series Bibles</div>
               <button
                 onClick={() => setShowCreateBible(v => !v)}
-                style={{ padding: "6px 14px", borderRadius: 8, fontSize: 12, fontWeight: 600, background: GW_GOLD, color: GW_DARK, border: "none", cursor: "pointer" }}
+                style={{ padding: "6px 14px", borderRadius: 8, fontSize: 12, fontWeight: 600, background: "var(--gw-accent)", color: "var(--gw-accent-ink)", border: "none", cursor: "pointer" }}
               >
                 + New Series Bible
               </button>
             </div>
 
             {showCreateBible && (
-              <div style={{ padding: 20, borderRadius: 12, background: "#fff", border: "1px solid " + GW_BORDER, marginBottom: 16, boxShadow: "0 2px 8px rgba(0,0,0,0.06)" }}>
-                <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 12, color: GW_TEXT }}>New Series Bible</div>
+              <div style={{ padding: 20, borderRadius: 12, background: "var(--gw-card)", border: "1px solid var(--gw-border)", marginBottom: 16, boxShadow: "0 2px 8px rgba(0,0,0,0.06)" }}>
+                <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 12, color: "var(--gw-t1)" }}>New Series Bible</div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
                   <input
                     value={newBibleName}
@@ -511,7 +507,7 @@ export default function Dashboard() {
                   />
                   {projects.length > 0 && (
                     <div>
-                      <div style={{ fontSize: 11, fontWeight: 700, color: GW_MUTED_LIGHT, textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>Link Projects</div>
+                      <div style={{ fontSize: 11, fontWeight: 700, color: "var(--gw-t3)", textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>Link Projects</div>
                       <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
                         {projects.map(p => (
                           <button
@@ -522,9 +518,9 @@ export default function Dashboard() {
                             )}
                             style={{
                               padding: "4px 12px", borderRadius: 20, fontSize: 12, cursor: "pointer",
-                              background: newBibleProjectIds.includes(p.id) ? GW_GOLD : GW_SURFACE_ALT,
-                              color: newBibleProjectIds.includes(p.id) ? GW_DARK : "#555",
-                              border: "1px solid " + (newBibleProjectIds.includes(p.id) ? GW_GOLD : GW_BORDER),
+                              background: newBibleProjectIds.includes(p.id) ? "var(--gw-accent)" : "var(--gw-sunk)",
+                              color: newBibleProjectIds.includes(p.id) ? "var(--gw-accent-ink)" : "var(--gw-t2)",
+                              border: "1px solid " + (newBibleProjectIds.includes(p.id) ? "var(--gw-accent)" : "var(--gw-border)"),
                               fontWeight: newBibleProjectIds.includes(p.id) ? 600 : 400,
                             }}
                           >
@@ -535,10 +531,10 @@ export default function Dashboard() {
                     </div>
                   )}
                   <div style={{ display: "flex", gap: 10 }}>
-                    <button onClick={createBible} disabled={creatingBible || !newBibleName.trim()} style={{ padding: "8px 20px", borderRadius: 8, fontSize: 13, fontWeight: 700, background: GW_GOLD, color: GW_DARK, border: "none", cursor: (creatingBible || !newBibleName.trim()) ? "not-allowed" : "pointer", opacity: (creatingBible || !newBibleName.trim()) ? 0.6 : 1 }}>
+                    <button onClick={createBible} disabled={creatingBible || !newBibleName.trim()} style={{ padding: "8px 20px", borderRadius: 8, fontSize: 13, fontWeight: 700, background: "var(--gw-accent)", color: "var(--gw-accent-ink)", border: "none", cursor: (creatingBible || !newBibleName.trim()) ? "not-allowed" : "pointer", opacity: (creatingBible || !newBibleName.trim()) ? 0.6 : 1 }}>
                       {creatingBible ? "Creating…" : "Create"}
                     </button>
-                    <button onClick={() => { setShowCreateBible(false); setNewBibleName(""); setNewBiblePremise(""); setNewBibleProjectIds([]); }} style={{ padding: "8px 16px", borderRadius: 8, fontSize: 13, border: "1px solid " + GW_BORDER, background: "#fff", color: GW_MUTED, cursor: "pointer" }}>
+                    <button onClick={() => { setShowCreateBible(false); setNewBibleName(""); setNewBiblePremise(""); setNewBibleProjectIds([]); }} style={{ padding: "8px 16px", borderRadius: 8, fontSize: 13, border: "1px solid var(--gw-border)", background: "var(--gw-card)", color: "var(--gw-t2)", cursor: "pointer" }}>
                       Cancel
                     </button>
                   </div>
@@ -547,98 +543,72 @@ export default function Dashboard() {
             )}
 
             {seriesBibles.length === 0 && !showCreateBible && (
-              <p style={{ fontSize: 13, color: GW_MUTED_LIGHT, padding: "8px 0" }}>No series bibles yet. Create one to track elements that span multiple books.</p>
+              <p style={{ fontSize: 13, color: "var(--gw-t3)", padding: "8px 0" }}>No series bibles yet. Create one to track elements that span multiple books.</p>
             )}
 
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 12 }}>
-              {seriesBibles.map(b => {
-                const active = seriesFilter?.id === b.id;
-                return (
-                <div key={b.id}
-                  onClick={() => setSeriesFilter(active ? null : { id: b.id, name: b.name, projectIds: b.projectIds })}
-                  style={{ background: active ? "#fefce8" : "#fff", borderRadius: 12, border: `1px solid ${active ? GW_GOLD : GW_BORDER}`, padding: "16px 18px", position: "relative", cursor: "pointer" }}
-                >
-                  <div style={{ fontWeight: 700, fontSize: 14, color: GW_TEXT, marginBottom: 6 }}>{b.name}</div>
-                  {b.premise && (
-                    <div style={{ fontSize: 12, color: GW_MUTED, lineHeight: 1.5, marginBottom: 8, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>
-                      {b.premise}
-                    </div>
-                  )}
-                  <div style={{ fontSize: 11, color: active ? "#92400e" : "#bbb", fontWeight: active ? 700 : 400 }}>
-                    {(b.projectIds as string[]).length} linked project{(b.projectIds as string[]).length !== 1 ? "s" : ""} · {new Date(b.updatedAt).toLocaleDateString()}
-                    {active && " · showing in projects above"}
-                  </div>
-                  <button onClick={e => { e.stopPropagation(); deleteBible(b.id); if (active) setSeriesFilter(null); }} style={{ position: "absolute", top: 10, right: 10, background: "none", border: "none", cursor: "pointer", color: "#ccc", fontSize: 13 }}>✕</button>
-                </div>
-                );
-              })}
-            </div>
+            <BibleShelf
+              bibles={seriesBibles}
+              projects={projects}
+              onDelete={id => { deleteBible(id); if (seriesFilter?.id === id) setSeriesFilter(null); }}
+              onNewClick={() => setShowCreateBible(v => !v)}
+              activeId={seriesFilter?.id ?? null}
+              onSelect={b => setSeriesFilter(b ? { id: b.id, name: b.name, projectIds: b.projectIds } : null)}
+            />
           </div>
 
           <div>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <span style={{ fontSize: 12, fontWeight: 700, color: GW_MUTED, textTransform: "uppercase", letterSpacing: 1 }}>🌌 Universes</span>
+                <span style={{ fontSize: 12, fontWeight: 700, color: "var(--gw-t2)", textTransform: "uppercase", letterSpacing: 1 }}>🌌 Universes</span>
                 <span style={{ fontSize: 9, background: "rgba(29,158,117,0.12)", color: "#1d9e75", padding: "1px 6px", borderRadius: 8, fontWeight: 700 }}>NEW</span>
               </div>
-              <button onClick={() => setShowCreateUniverse(true)} style={{ fontSize: 12, fontWeight: 600, background: GW_GOLD, color: GW_DARK, border: "none", borderRadius: 8, padding: "6px 14px", cursor: "pointer" }}>
-                + New Universe
-              </button>
+              {universes.length > 0 && (
+                <button onClick={() => setShowCreateUniverse(true)} style={{ fontSize: 12, fontWeight: 600, background: "var(--gw-accent)", color: "var(--gw-accent-ink)", border: "none", borderRadius: 8, padding: "6px 14px", cursor: "pointer" }}>
+                  + New Universe
+                </button>
+              )}
             </div>
-            {showCreateUniverse && (
-              <div style={{ padding: 20, borderRadius: 12, background: "#fff", border: "1px solid " + GW_BORDER, marginBottom: 16, boxShadow: "0 2px 8px rgba(0,0,0,0.06)" }}>
-                <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 12, color: GW_TEXT }}>New Universe</div>
-                <input
-                  value={newUniverseName}
-                  onChange={e => setNewUniverseName(e.target.value)}
-                  placeholder="Universe name…"
-                  onKeyDown={e => e.key === "Enter" && createUniverse()}
-                  style={{ width: "100%", padding: "8px 12px", borderRadius: 8, border: "1px solid " + GW_BORDER, fontSize: 13, marginBottom: 12, fontFamily: "'Figtree', sans-serif", boxSizing: "border-box" }}
-                />
-                <div style={{ display: "flex", gap: 8 }}>
-                  <button onClick={createUniverse} disabled={creatingUniverse || !newUniverseName.trim()} style={{ padding: "8px 20px", borderRadius: 8, fontSize: 13, fontWeight: 700, background: GW_GOLD, color: GW_DARK, border: "none", cursor: (creatingUniverse || !newUniverseName.trim()) ? "not-allowed" : "pointer", opacity: (creatingUniverse || !newUniverseName.trim()) ? 0.6 : 1 }}>
-                    {creatingUniverse ? "Creating…" : "Create"}
-                  </button>
-                  <button onClick={() => { setShowCreateUniverse(false); setNewUniverseName(""); }} style={{ padding: "8px 16px", borderRadius: 8, fontSize: 13, border: "1px solid " + GW_BORDER, background: "#fff", color: GW_MUTED, cursor: "pointer" }}>
-                    Cancel
-                  </button>
-                </div>
-              </div>
-            )}
-            {universes.length === 0 && !showCreateUniverse && (
-              <p style={{ fontSize: 13, color: GW_MUTED_LIGHT, padding: "16px 0" }}>No universes yet. Create one to build your own Cosmere or MCU — multiple standalone stories in one shared world.</p>
-            )}
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 12 }}>
-              {universes.map(u => (
-                <a key={u.id} href={`/universe/${u.id}`} style={{ textDecoration: "none", display: "block", background: "#fff", borderRadius: 12, border: "1px solid " + GW_BORDER, padding: "16px 18px" }}>
-                  <div style={{ fontWeight: 700, fontSize: 14, color: GW_TEXT, marginBottom: 6 }}>🌌 {u.name}</div>
-                  {u.premise && (
-                    <div style={{ fontSize: 12, color: GW_MUTED, lineHeight: 1.5, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" as const }}>
-                      {u.premise}
-                    </div>
-                  )}
-                </a>
-              ))}
-            </div>
+            {universes.length === 0
+              ? <UniverseConstellation onCreate={() => setShowCreateUniverse(true)} />
+              : <UniverseShelf universes={universes} projects={projects} onDelete={deleteUniverse} onNew={() => setShowCreateUniverse(true)} />
+            }
           </div>
           </>
         )}
       </section>
       </main>
 
+      {showCreateUniverse && (
+        <CreateUniverseModal
+          projects={projects}
+          onClose={() => setShowCreateUniverse(false)}
+          onCreated={(u, linkedIds) => {
+            setUniverses(prev => [u, ...prev]);
+            if (linkedIds.length) setProjects(prev => prev.map(p => linkedIds.includes(p.id) ? { ...p, universeId: u.id } : p));
+          }}
+        />
+      )}
+
+      <DashboardCommandPalette
+        projects={projects}
+        onNewProject={() => setShowCreate(true)}
+        onImportManuscript={() => { setCreationMode('import'); setShowCreate(true); }}
+        onRestartOnboarding={() => setShowOnboarding(true)}
+      />
+
       {showOnboarding && <Onboarding onDismiss={() => setShowOnboarding(false)} />}
 
       {/* Overlay helper */}
       {(showCreate || !!deleteTarget) && (
-        <style>{`.gw-modal-input:focus { border-color: ${GW_GOLD} !important; outline: none !important; box-shadow: 0 0 0 3px rgba(201,168,76,0.12) !important; }`}</style>
+        <style>{`.gw-modal-input:focus { border-color: ${"var(--gw-accent)"} !important; outline: none !important; box-shadow: 0 0 0 3px rgba(201,168,76,0.12) !important; }`}</style>
       )}
 
       {/* Create project modal */}
       {showCreate && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 50, padding: "0 16px" }} onClick={() => { setShowCreate(false); setCreationMode('structured'); setBraindumpText(''); setBraindumpResult(null); setPendingSeriesLink(null); }}>
-          <div style={{ background: "#fff", borderRadius: 18, width: "100%", maxWidth: 400, maxHeight: "85vh", boxShadow: "0 24px 64px rgba(0,0,0,0.18)", display: "flex", flexDirection: "column", overflow: "hidden" }} onClick={e => e.stopPropagation()}>
+          <div style={{ background: "var(--gw-card)", borderRadius: 18, width: "100%", maxWidth: 400, maxHeight: "85vh", boxShadow: "0 24px 64px rgba(0,0,0,0.18)", display: "flex", flexDirection: "column", overflow: "hidden" }} onClick={e => e.stopPropagation()}>
             <div style={{ padding: "28px 28px 0" }}>
-              <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 24, fontWeight: 600, marginBottom: 20, color: GW_TEXT }}>New Project</div>
+              <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 24, fontWeight: 600, marginBottom: 20, color: "var(--gw-t1)" }}>New Project</div>
 
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 16 }}>
                 <button
@@ -646,9 +616,9 @@ export default function Dashboard() {
                   onClick={() => { setCreationMode('structured'); setBraindumpResult(null); }}
                   style={{
                     flex: 1, padding: '8px 12px', borderRadius: 8,
-                    background: creationMode === 'structured' ? GW_GOLD : GW_SURFACE_ALT,
-                    border: `1px solid ${creationMode === 'structured' ? GW_GOLD : GW_BORDER}`,
-                    color: creationMode === 'structured' ? GW_DARK : GW_MUTED,
+                    background: creationMode === 'structured' ? "var(--gw-accent)" : "var(--gw-sunk)",
+                    border: `1px solid ${creationMode === 'structured' ? "var(--gw-accent)" : "var(--gw-border)"}`,
+                    color: creationMode === 'structured' ? "var(--gw-accent-ink)" : "var(--gw-t2)",
                     cursor: 'pointer', fontSize: 13, fontWeight: 600,
                   }}
                 >
@@ -659,9 +629,9 @@ export default function Dashboard() {
                   onClick={() => setCreationMode('braindump')}
                   style={{
                     flex: 1, padding: '8px 12px', borderRadius: 8,
-                    background: creationMode === 'braindump' ? GW_GOLD : GW_SURFACE_ALT,
-                    border: `1px solid ${creationMode === 'braindump' ? GW_GOLD : GW_BORDER}`,
-                    color: creationMode === 'braindump' ? GW_DARK : GW_MUTED,
+                    background: creationMode === 'braindump' ? "var(--gw-accent)" : "var(--gw-sunk)",
+                    border: `1px solid ${creationMode === 'braindump' ? "var(--gw-accent)" : "var(--gw-border)"}`,
+                    color: creationMode === 'braindump' ? "var(--gw-accent-ink)" : "var(--gw-t2)",
                     cursor: 'pointer', fontSize: 13, fontWeight: 600,
                   }}
                 >
@@ -672,9 +642,9 @@ export default function Dashboard() {
                   onClick={() => setCreationMode('import')}
                   style={{
                     flex: 1, padding: '8px 12px', borderRadius: 8,
-                    background: creationMode === 'import' ? GW_GOLD : GW_SURFACE_ALT,
-                    border: `1px solid ${creationMode === 'import' ? GW_GOLD : GW_BORDER}`,
-                    color: creationMode === 'import' ? GW_DARK : GW_MUTED,
+                    background: creationMode === 'import' ? "var(--gw-accent)" : "var(--gw-sunk)",
+                    border: `1px solid ${creationMode === 'import' ? "var(--gw-accent)" : "var(--gw-border)"}`,
+                    color: creationMode === 'import' ? "var(--gw-accent-ink)" : "var(--gw-t2)",
                     cursor: 'pointer', fontSize: 13, fontWeight: 600,
                   }}
                 >
@@ -687,20 +657,20 @@ export default function Dashboard() {
               {creationMode === 'structured' && (
               <form id="create-project-form" onSubmit={createProject} style={{ display: "flex", flexDirection: "column", gap: 14, paddingBottom: 20 }}>
                 <div>
-                  <label style={{ display: "block", fontSize: 10, fontWeight: 700, color: GW_MUTED_LIGHT, textTransform: "uppercase", letterSpacing: 1.2, marginBottom: 6 }}>Title</label>
+                  <label style={{ display: "block", fontSize: 10, fontWeight: 700, color: "var(--gw-t3)", textTransform: "uppercase", letterSpacing: 1.2, marginBottom: 6 }}>Title</label>
                   <input autoFocus type="text" required value={newName} onChange={e => setNewName(e.target.value)} placeholder="My Novel" className="gw-modal-input" style={inputS} />
                 </div>
                 <div>
-                  <label style={{ display: "block", fontSize: 10, fontWeight: 700, color: GW_MUTED_LIGHT, textTransform: "uppercase", letterSpacing: 1.2, marginBottom: 6 }}>Format</label>
+                  <label style={{ display: "block", fontSize: 10, fontWeight: 700, color: "var(--gw-t3)", textTransform: "uppercase", letterSpacing: 1.2, marginBottom: 6 }}>Format</label>
                   <select value={newFormat} onChange={e => setNewFormat(e.target.value)} className="gw-modal-input" style={{ ...inputS, cursor: "pointer" }}>
                     {FORMATS.map(f => <option key={f} value={f}>{getFormatDisplayLabel(f)}</option>)}
                   </select>
                   {FORMAT_HELPER_TEXT[newFormat] && (
-                    <div style={{ fontSize: 11, color: GW_MUTED_LIGHT, marginTop: 6 }}>{FORMAT_HELPER_TEXT[newFormat]}</div>
+                    <div style={{ fontSize: 11, color: "var(--gw-t3)", marginTop: 6 }}>{FORMAT_HELPER_TEXT[newFormat]}</div>
                   )}
                 </div>
                 <div>
-                  <label style={{ display: "block", fontSize: 10, fontWeight: 700, color: GW_MUTED_LIGHT, textTransform: "uppercase", letterSpacing: 1.2, marginBottom: 8 }}>What kind of story?</label>
+                  <label style={{ display: "block", fontSize: 10, fontWeight: 700, color: "var(--gw-t3)", textTransform: "uppercase", letterSpacing: 1.2, marginBottom: 8 }}>What kind of story?</label>
                   <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                     {([
                       { id: "linear", label: "One Story", desc: "A single story, beginning to end.", examples: "Novel · Screenplay · Film", icon: "◆" },
@@ -708,37 +678,37 @@ export default function Dashboard() {
                       { id: "universe-story", label: "Your Universe", desc: "Separate stories in one world — each stands alone but connects.", examples: "MCU · Cosmere · Star Wars", icon: "🌌", badge: "NEW" },
                     ] as { id: "linear" | "series" | "universe-story"; label: string; desc: string; examples: string; icon: string; badge?: string }[]).map(type => (
                       <button key={type.id} type="button" onClick={() => setNewStoryType(type.id)}
-                        style={{ textAlign: "left", padding: "10px 12px", background: newStoryType === type.id ? "#fefce8" : "#f9f9f9", border: `1px solid ${newStoryType === type.id ? GW_GOLD : GW_BORDER}`, borderRadius: 10, cursor: "pointer", transition: "all 0.15s" }}>
+                        style={{ textAlign: "left", padding: "10px 12px", background: newStoryType === type.id ? "var(--gw-sel)" : "var(--gw-sunk)", border: `1px solid ${newStoryType === type.id ? "var(--gw-accent)" : "var(--gw-border)"}`, borderRadius: 10, cursor: "pointer", transition: "all 0.15s" }}>
                         <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 2 }}>
                           <span style={{ fontSize: 14 }}>{type.icon}</span>
-                          <span style={{ fontSize: 12, fontWeight: 700, color: GW_TEXT }}>{type.label}</span>
+                          <span style={{ fontSize: 12, fontWeight: 700, color: "var(--gw-t1)" }}>{type.label}</span>
                           {type.badge && <span style={{ fontSize: 9, background: "rgba(29,158,117,0.12)", color: "#1d9e75", padding: "1px 5px", borderRadius: 8, fontWeight: 700 }}>{type.badge}</span>}
                         </div>
-                        <div style={{ fontSize: 10, color: GW_MUTED }}>{type.desc}</div>
-                        <div style={{ fontSize: 10, color: GW_MUTED_LIGHT }}>e.g. {type.examples}</div>
+                        <div style={{ fontSize: 10, color: "var(--gw-t2)" }}>{type.desc}</div>
+                        <div style={{ fontSize: 10, color: "var(--gw-t3)" }}>e.g. {type.examples}</div>
                       </button>
                     ))}
-                    <button type="button" disabled style={{ textAlign: "left", padding: "10px 12px", background: "#f9f9f9", border: `1px solid ${GW_BORDER}`, borderRadius: 10, cursor: "default", opacity: 0.45 }}>
+                    <button type="button" disabled style={{ textAlign: "left", padding: "10px 12px", background: "var(--gw-sunk)", border: `1px solid ${"var(--gw-border)"}`, borderRadius: 10, cursor: "default", opacity: 0.45 }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 2 }}>
                         <span style={{ fontSize: 14 }}>▶</span>
-                        <span style={{ fontSize: 12, fontWeight: 700, color: GW_TEXT }}>Multiple Storylines</span>
-                        <span style={{ fontSize: 9, color: GW_MUTED_LIGHT, marginLeft: "auto" }}>Coming soon</span>
+                        <span style={{ fontSize: 12, fontWeight: 700, color: "var(--gw-t1)" }}>Multiple Storylines</span>
+                        <span style={{ fontSize: 9, color: "var(--gw-t3)", marginLeft: "auto" }}>Coming soon</span>
                       </div>
-                      <div style={{ fontSize: 10, color: GW_MUTED }}>Different characters in parallel, eventually converging.</div>
+                      <div style={{ fontSize: 10, color: "var(--gw-t2)" }}>Different characters in parallel, eventually converging.</div>
                     </button>
                   </div>
                 </div>
                 <div>
-                  <label style={{ display: "block", fontSize: 10, fontWeight: 700, color: GW_MUTED_LIGHT, textTransform: "uppercase", letterSpacing: 1.2, marginBottom: 8 }}>Experience Level</label>
+                  <label style={{ display: "block", fontSize: 10, fontWeight: 700, color: "var(--gw-t3)", textTransform: "uppercase", letterSpacing: 1.2, marginBottom: 8 }}>Experience Level</label>
                   <div style={{ display: "flex", gap: 10 }}>
                     {(["beginner", "expert"] as const).map(lvl => (
                       <button key={lvl} type="button" onClick={() => setNewSkillLevel(lvl)}
-                        style={{ flex: 1, padding: "10px 0", border: `1px solid ${newSkillLevel === lvl ? GW_GOLD : GW_BORDER}`, borderRadius: 10, fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "'Figtree', sans-serif", background: newSkillLevel === lvl ? "#fefce8" : "#fff", color: newSkillLevel === lvl ? "#92400e" : GW_MUTED, transition: "all 0.15s" }}>
+                        style={{ flex: 1, padding: "10px 0", border: `1px solid ${newSkillLevel === lvl ? "var(--gw-accent)" : "var(--gw-border)"}`, borderRadius: 10, fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "'Figtree', sans-serif", background: newSkillLevel === lvl ? "var(--gw-sel)" : "var(--gw-card)", color: newSkillLevel === lvl ? "var(--gw-sel-text)" : "var(--gw-t2)", transition: "all 0.15s" }}>
                         {lvl === "beginner" ? "🎯 Beginner" : "⭐ Expert"}
                       </button>
                     ))}
                   </div>
-                  <div style={{ fontSize: 11, color: GW_MUTED_LIGHT, marginTop: 8 }}>
+                  <div style={{ fontSize: 11, color: "var(--gw-t3)", marginTop: 8 }}>
                     {newSkillLevel === "beginner" ? "Quick start: AI generates story from minimal input" : "Full control: Build detailed world with AI as assistant"}
                   </div>
                 </div>
@@ -747,7 +717,7 @@ export default function Dashboard() {
 
               {creationMode === 'braindump' && !braindumpResult && (
                 <div style={{ paddingBottom: 20 }}>
-                  <div style={{ fontSize: 12, color: GW_MUTED, marginBottom: 8, lineHeight: 1.5 }}>
+                  <div style={{ fontSize: 12, color: "var(--gw-t2)", marginBottom: 8, lineHeight: 1.5 }}>
                     Write anything you know about your story. Don't organize it — fragments, character
                     names, scenes you imagine, themes, contradictions. The messier the better.
                   </div>
@@ -763,12 +733,12 @@ export default function Dashboard() {
 
               {creationMode === 'import' && (
                 <div style={{ paddingBottom: 20 }}>
-                  <p style={{ fontSize: 12, color: GW_MUTED_LIGHT, marginBottom: 14, lineHeight: 1.6 }}>
+                  <p style={{ fontSize: 12, color: "var(--gw-t3)", marginBottom: 14, lineHeight: 1.6 }}>
                     Currently supports <strong>Scrivener</strong> project exports. In Scrivener: <strong>File → Export → Files</strong> → select <strong>RTF</strong> → OK. Zip the exported folder and upload here. (Word/.docx and plain-text import are planned but not yet available.)
                   </p>
                   <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
                     <div>
-                      <label style={{ display: "block", fontSize: 10, fontWeight: 700, color: GW_MUTED_LIGHT, textTransform: "uppercase", letterSpacing: 1.2, marginBottom: 6 }}>ZIP File (Scrivener export)</label>
+                      <label style={{ display: "block", fontSize: 10, fontWeight: 700, color: "var(--gw-t3)", textTransform: "uppercase", letterSpacing: 1.2, marginBottom: 6 }}>ZIP File (Scrivener export)</label>
                       <input
                         type="file"
                         accept=".zip"
@@ -777,11 +747,11 @@ export default function Dashboard() {
                           setImportFile(f);
                           if (f && !importName) setImportName(f.name.replace(/\.(zip|scriv)$/i, ''));
                         }}
-                        style={{ fontSize: 12, color: GW_MUTED, width: "100%" }}
+                        style={{ fontSize: 12, color: "var(--gw-t2)", width: "100%" }}
                       />
                     </div>
                     <div>
-                      <label style={{ display: "block", fontSize: 10, fontWeight: 700, color: GW_MUTED_LIGHT, textTransform: "uppercase", letterSpacing: 1.2, marginBottom: 6 }}>Project Name</label>
+                      <label style={{ display: "block", fontSize: 10, fontWeight: 700, color: "var(--gw-t3)", textTransform: "uppercase", letterSpacing: 1.2, marginBottom: 6 }}>Project Name</label>
                       <input
                         type="text"
                         value={importName}
@@ -803,7 +773,7 @@ export default function Dashboard() {
                   </div>
 
                   <div>
-                    <label style={{ display: "block", fontSize: 10, fontWeight: 700, color: GW_MUTED_LIGHT, textTransform: "uppercase", letterSpacing: 1.2, marginBottom: 6 }}>Project name</label>
+                    <label style={{ display: "block", fontSize: 10, fontWeight: 700, color: "var(--gw-t3)", textTransform: "uppercase", letterSpacing: 1.2, marginBottom: 6 }}>Project name</label>
                     <input
                       value={braindumpResult.projectName}
                       onChange={e => setBraindumpResult({...braindumpResult, projectName: e.target.value})}
@@ -811,19 +781,19 @@ export default function Dashboard() {
                     />
                   </div>
 
-                  <div style={{ padding: '8px 12px', background: GW_SURFACE_ALT, borderRadius: 8,
-                                fontSize: 12, color: GW_MUTED, lineHeight: 1.5 }}>
+                  <div style={{ padding: '8px 12px', background: "var(--gw-sunk)", borderRadius: 8,
+                                fontSize: 12, color: "var(--gw-t2)", lineHeight: 1.5 }}>
                     {braindumpResult.premise}
                   </div>
 
                   {braindumpResult.characters.length > 0 && (
                     <div>
-                      <div style={{ fontSize: 10, fontWeight: 700, color: GW_MUTED_LIGHT, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6 }}>
+                      <div style={{ fontSize: 10, fontWeight: 700, color: "var(--gw-t3)", textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6 }}>
                         Characters found ({braindumpResult.characters.length})
                       </div>
                       {braindumpResult.characters.map((c, i) => (
-                        <div key={i} style={{ fontSize: 12, padding: '6px 10px', color: '#555',
-                                              background: GW_SURFACE_ALT, borderRadius: 6, marginBottom: 4 }}>
+                        <div key={i} style={{ fontSize: 12, padding: '6px 10px', color: "var(--gw-t2)",
+                                              background: "var(--gw-sunk)", borderRadius: 6, marginBottom: 4 }}>
                           <strong>{c.name}</strong> ({c.role}) — {c.description}
                         </div>
                       ))}
@@ -833,15 +803,15 @@ export default function Dashboard() {
               )}
             </div>
 
-            <div style={{ padding: "16px 28px 24px", borderTop: "1px solid " + GW_BORDER }}>
+            <div style={{ padding: "16px 28px 24px", borderTop: "1px solid " + "var(--gw-border)" }}>
               {creationMode === 'structured' && (
                 <div style={{ display: "flex", gap: 10 }}>
                   <button type="button" onClick={() => { setShowCreate(false); setCreationMode('structured'); setBraindumpText(''); setBraindumpResult(null); setPendingSeriesLink(null); }}
-                    style={{ flex: 1, border: "1px solid " + GW_BORDER, background: "#fff", color: GW_MUTED, fontWeight: 600, padding: "10px 0", borderRadius: 10, fontSize: 13, cursor: "pointer", fontFamily: "'Figtree', sans-serif" }}>
+                    style={{ flex: 1, border: "1px solid " + "var(--gw-border)", background: "var(--gw-card)", color: "var(--gw-t2)", fontWeight: 600, padding: "10px 0", borderRadius: 10, fontSize: 13, cursor: "pointer", fontFamily: "'Figtree', sans-serif" }}>
                     Cancel
                   </button>
                   <button type="submit" form="create-project-form" disabled={creating} className="gw-gold-btn"
-                    style={{ flex: 1, background: GW_GOLD, color: GW_DARK, border: "none", fontWeight: 700, padding: "10px 0", borderRadius: 10, fontSize: 13, cursor: creating ? "not-allowed" : "pointer", opacity: creating ? 0.6 : 1, fontFamily: "'Figtree', sans-serif" }}>
+                    style={{ flex: 1, background: "var(--gw-accent)", color: "var(--gw-accent-ink)", border: "none", fontWeight: 700, padding: "10px 0", borderRadius: 10, fontSize: 13, cursor: creating ? "not-allowed" : "pointer", opacity: creating ? 0.6 : 1, fontFamily: "'Figtree', sans-serif" }}>
                     {creating ? "Creating…" : "Create"}
                   </button>
                 </div>
@@ -855,7 +825,7 @@ export default function Dashboard() {
                     disabled={braindumpText.trim().length < 50 || braindumpProcessing}
                     className="gw-gold-btn"
                     style={{ width: '100%', padding: '10px', borderRadius: 10,
-                             background: GW_GOLD, color: GW_DARK, border: 'none',
+                             background: "var(--gw-accent)", color: "var(--gw-accent-ink)", border: 'none',
                              cursor: braindumpText.trim().length < 50 ? 'default' : 'pointer',
                              opacity: braindumpText.trim().length < 50 ? 0.5 : 1,
                              fontSize: 13, fontWeight: 700, fontFamily: "'Figtree', sans-serif" }}
@@ -863,7 +833,7 @@ export default function Dashboard() {
                     {braindumpProcessing ? 'Organizing your ideas...' : 'Organize into a project →'}
                   </button>
                   <button type="button" onClick={() => { setShowCreate(false); setCreationMode('structured'); setBraindumpText(''); setBraindumpResult(null); setPendingSeriesLink(null); }}
-                    style={{ marginTop: 8, width: '100%', border: '1px solid ' + GW_BORDER, background: '#fff', color: GW_MUTED, fontWeight: 600, padding: '10px 0', borderRadius: 10, fontSize: 13, cursor: 'pointer', fontFamily: "'Figtree', sans-serif" }}>
+                    style={{ marginTop: 8, width: '100%', border: '1px solid ' + "var(--gw-border)", background: 'var(--gw-card)', color: "var(--gw-t2)", fontWeight: 600, padding: '10px 0', borderRadius: 10, fontSize: 13, cursor: 'pointer', fontFamily: "'Figtree', sans-serif" }}>
                     Cancel
                   </button>
                 </>
@@ -872,11 +842,11 @@ export default function Dashboard() {
               {creationMode === 'import' && (
                 <div style={{ display: "flex", gap: 10 }}>
                   <button type="button" onClick={() => { setShowCreate(false); setCreationMode('structured'); setImportFile(null); setImportName(''); setImportMsg(''); }}
-                    style={{ flex: 1, border: "1px solid " + GW_BORDER, background: "#fff", color: GW_MUTED, fontWeight: 600, padding: "10px 0", borderRadius: 10, fontSize: 13, cursor: "pointer", fontFamily: "'Figtree', sans-serif" }}>
+                    style={{ flex: 1, border: "1px solid " + "var(--gw-border)", background: "var(--gw-card)", color: "var(--gw-t2)", fontWeight: 600, padding: "10px 0", borderRadius: 10, fontSize: 13, cursor: "pointer", fontFamily: "'Figtree', sans-serif" }}>
                     Cancel
                   </button>
                   <button onClick={handleScrivenerImport} disabled={!importFile || importing} className="gw-gold-btn"
-                    style={{ flex: 1, background: GW_GOLD, color: GW_DARK, border: "none", fontWeight: 700, padding: "10px 0", borderRadius: 10, fontSize: 13, cursor: (!importFile || importing) ? "not-allowed" : "pointer", opacity: (!importFile || importing) ? 0.6 : 1, fontFamily: "'Figtree', sans-serif" }}>
+                    style={{ flex: 1, background: "var(--gw-accent)", color: "var(--gw-accent-ink)", border: "none", fontWeight: 700, padding: "10px 0", borderRadius: 10, fontSize: 13, cursor: (!importFile || importing) ? "not-allowed" : "pointer", opacity: (!importFile || importing) ? 0.6 : 1, fontFamily: "'Figtree', sans-serif" }}>
                     {importing ? "Importing…" : "Import"}
                   </button>
                 </div>
@@ -887,7 +857,7 @@ export default function Dashboard() {
                   <button
                     type="button"
                     onClick={() => setBraindumpResult(null)}
-                    style={{ flex: 1, border: '1px solid ' + GW_BORDER, background: '#fff', color: GW_MUTED, fontWeight: 600, padding: '10px 0', borderRadius: 10, fontSize: 13, cursor: 'pointer', fontFamily: "'Figtree', sans-serif" }}
+                    style={{ flex: 1, border: '1px solid ' + "var(--gw-border)", background: 'var(--gw-card)', color: "var(--gw-t2)", fontWeight: 600, padding: '10px 0', borderRadius: 10, fontSize: 13, cursor: 'pointer', fontFamily: "'Figtree', sans-serif" }}
                   >
                     ← Edit
                   </button>
@@ -896,7 +866,7 @@ export default function Dashboard() {
                     onClick={handleCreateFromBraindump}
                     disabled={creating}
                     className="gw-gold-btn"
-                    style={{ flex: 2, background: GW_GOLD, color: GW_DARK, border: 'none', fontWeight: 700, padding: '10px 0', borderRadius: 10, fontSize: 13, cursor: creating ? 'not-allowed' : 'pointer', opacity: creating ? 0.6 : 1, fontFamily: "'Figtree', sans-serif" }}
+                    style={{ flex: 2, background: "var(--gw-accent)", color: "var(--gw-accent-ink)", border: 'none', fontWeight: 700, padding: '10px 0', borderRadius: 10, fontSize: 13, cursor: creating ? 'not-allowed' : 'pointer', opacity: creating ? 0.6 : 1, fontFamily: "'Figtree', sans-serif" }}
                   >
                     {creating ? 'Creating…' : 'Create project →'}
                   </button>
@@ -910,12 +880,12 @@ export default function Dashboard() {
       {/* Delete confirm */}
       {deleteTarget && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 50, padding: "0 16px" }}>
-          <div style={{ background: "#fff", borderRadius: 18, padding: "28px", width: "100%", maxWidth: 380, boxShadow: "0 24px 64px rgba(0,0,0,0.18)" }}>
-            <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 22, fontWeight: 600, marginBottom: 10, color: GW_TEXT }}>Delete &ldquo;{deleteTarget.name}&rdquo;?</div>
-            <div style={{ fontSize: 13, color: GW_MUTED, marginBottom: 24, lineHeight: 1.6 }}>This permanently deletes the project and all its chapters. This cannot be undone.</div>
+          <div style={{ background: "var(--gw-card)", borderRadius: 18, padding: "28px", width: "100%", maxWidth: 380, boxShadow: "0 24px 64px rgba(0,0,0,0.18)" }}>
+            <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 22, fontWeight: 600, marginBottom: 10, color: "var(--gw-t1)" }}>Delete &ldquo;{deleteTarget.name}&rdquo;?</div>
+            <div style={{ fontSize: 13, color: "var(--gw-t2)", marginBottom: 24, lineHeight: 1.6 }}>This permanently deletes the project and all its chapters. This cannot be undone.</div>
             <div style={{ display: "flex", gap: 10 }}>
               <button onClick={() => setDeleteTarget(null)}
-                style={{ flex: 1, border: "1px solid " + GW_BORDER, background: "#fff", color: GW_MUTED, fontWeight: 600, padding: "10px 0", borderRadius: 10, fontSize: 13, cursor: "pointer", fontFamily: "'Figtree', sans-serif" }}>
+                style={{ flex: 1, border: "1px solid " + "var(--gw-border)", background: "var(--gw-card)", color: "var(--gw-t2)", fontWeight: 600, padding: "10px 0", borderRadius: 10, fontSize: 13, cursor: "pointer", fontFamily: "'Figtree', sans-serif" }}>
                 Cancel
               </button>
               <button onClick={confirmDelete} disabled={deleting}

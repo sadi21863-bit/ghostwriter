@@ -121,18 +121,18 @@ export function ExportPanel({ projectId, projectFormat = 'Novel', onClose }: Exp
   };
 
   const darkInput: React.CSSProperties = {
-    width: "100%", padding: "9px 12px", borderRadius: 8, border: "1px solid rgba(255,255,255,0.1)",
-    background: "#111113", color: "#F2F2F3", fontSize: 13, boxSizing: "border-box",
+    width: "100%", padding: "9px 12px", borderRadius: 8, border: "1px solid var(--color-border-default)",
+    background: "var(--color-bg-editor)", color: "var(--color-text-primary)", fontSize: 13, boxSizing: "border-box",
   };
 
   const tabStyle = (active: boolean): React.CSSProperties => ({
     padding: "8px 14px", borderRadius: 6, border: "none", cursor: "pointer", fontSize: 13, fontWeight: active ? 600 : 400,
-    background: active ? "#2a2a30" : "transparent", color: active ? "#F2F2F3" : "#9898A6",
+    background: active ? "var(--color-bg-elevated)" : "transparent", color: active ? "var(--color-text-primary)" : "var(--color-text-secondary)",
   });
 
-  const sBtnPrimary = (loading: boolean, color = "#5b4ccc"): React.CSSProperties => ({
+  const sBtnPrimary = (loading: boolean, color = "var(--color-accent)"): React.CSSProperties => ({
     padding: "9px 18px", borderRadius: 8, border: "none", cursor: loading ? "not-allowed" : "pointer",
-    background: loading ? "#333" : color, color: "#fff", fontSize: 13, fontWeight: 500,
+    background: loading ? "#333" : color, color: "var(--color-accent-fg)", fontSize: 13, fontWeight: 500,
   });
 
   const errorBox = (msg: string) => msg ? (
@@ -150,18 +150,18 @@ export function ExportPanel({ projectId, projectFormat = 'Novel', onClose }: Exp
 
   return (
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1200 }}>
-      <div style={{ background: "#18181B", borderRadius: 14, width: 680, maxHeight: "85vh", display: "flex", flexDirection: "column", boxShadow: "0 24px 80px rgba(0,0,0,0.5)", border: "1px solid rgba(255,255,255,0.08)" }}>
+      <div style={{ background: "var(--color-bg-surface)", borderRadius: 14, width: 680, maxHeight: "85vh", display: "flex", flexDirection: "column", boxShadow: "0 24px 80px rgba(0,0,0,0.5)", border: "1px solid var(--color-border-default)" }}>
         {/* Header */}
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "18px 20px 0" }}>
           <div>
-            <div style={{ fontSize: 16, fontWeight: 700, color: "#F2F2F3" }}>Export & Publishing</div>
-            <div style={{ fontSize: 12, color: "#9898A6", marginTop: 2 }}>Generate professional publishing materials from your project</div>
+            <div style={{ fontSize: 16, fontWeight: 700, color: "var(--color-text-primary)" }}>Export & Publishing</div>
+            <div style={{ fontSize: 12, color: "var(--color-text-secondary)", marginTop: 2 }}>Generate professional publishing materials from your project</div>
           </div>
-          <button onClick={onClose} style={{ background: "none", border: "none", color: "#9898A6", cursor: "pointer", fontSize: 20, lineHeight: 1 }}>×</button>
+          <button onClick={onClose} style={{ background: "none", border: "none", color: "var(--color-text-secondary)", cursor: "pointer", fontSize: 20, lineHeight: 1 }}>×</button>
         </div>
 
         {/* Tabs */}
-        <div style={{ display: "flex", gap: 4, padding: "14px 20px 0", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+        <div style={{ display: "flex", gap: 4, padding: "14px 20px 0", borderBottom: "1px solid var(--color-border-subtle)" }}>
           {tabs.map(t => (
             <button key={t.id} onClick={() => setTab(t.id)} style={tabStyle(tab === t.id)}>{t.label}</button>
           ))}
@@ -173,7 +173,7 @@ export function ExportPanel({ projectId, projectFormat = 'Novel', onClose }: Exp
           {/* ── Manuscript ── */}
           {tab === "manuscript" && (
             <div>
-              <p style={{ fontSize: 12, color: '#9898A6', marginBottom: 16 }}>
+              <p style={{ fontSize: 12, color: "var(--color-text-secondary)", marginBottom: 16 }}>
                 Export your full manuscript. Select formats:
               </p>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 16 }}>
@@ -192,8 +192,8 @@ export function ExportPanel({ projectId, projectFormat = 'Novel', onClose }: Exp
                       style={{ marginTop: 3 }}
                     />
                     <div>
-                      <div style={{ fontSize: 13, fontWeight: 500, color: '#F2F2F3' }}>{fmt.label}</div>
-                      <div style={{ fontSize: 11, color: '#9898A6' }}>{fmt.desc}</div>
+                      <div style={{ fontSize: 13, fontWeight: 500, color: "var(--color-text-primary)" }}>{fmt.label}</div>
+                      <div style={{ fontSize: 11, color: "var(--color-text-secondary)" }}>{fmt.desc}</div>
                     </div>
                   </label>
                 ))}
@@ -206,7 +206,7 @@ export function ExportPanel({ projectId, projectFormat = 'Novel', onClose }: Exp
                 {exporting ? 'Generating...' : `Export ${selectedFormats.length > 1 ? 'as ZIP' : selectedFormats[0]?.toUpperCase()}`}
               </button>
               {errorBox(exportError)}
-              <p style={{ fontSize: 11, color: '#9898A6', marginTop: 12 }}>
+              <p style={{ fontSize: 11, color: "var(--color-text-secondary)", marginTop: 12 }}>
                 PDF: use your browser&apos;s Print → Save as PDF for formatted output.
               </p>
             </div>
@@ -215,10 +215,10 @@ export function ExportPanel({ projectId, projectFormat = 'Novel', onClose }: Exp
           {/* ── Web Serial ── */}
           {tab === "web-serial" && (
             <div>
-              <p style={{ fontSize: 12, color: '#9898A6', marginBottom: 16 }}>
+              <p style={{ fontSize: 12, color: "var(--color-text-secondary)", marginBottom: 16 }}>
                 Export an episode pack for web serial publishing.
               </p>
-              <label style={{ fontSize: 13, marginBottom: 8, display: 'block', color: '#F2F2F3' }}>Platform:</label>
+              <label style={{ fontSize: 13, marginBottom: 8, display: 'block', color: "var(--color-text-primary)" }}>Platform:</label>
               <select
                 value={serialPlatform}
                 onChange={e => setSerialPlatform(e.target.value as SerialPlatform)}
@@ -239,7 +239,7 @@ export function ExportPanel({ projectId, projectFormat = 'Novel', onClose }: Exp
           {/* ── Query Letter ── */}
           {tab === "query-letter" && (
             <div>
-              <p style={{ fontSize: 13, color: "#9898A6", margin: "0 0 14px" }}>
+              <p style={{ fontSize: 13, color: "var(--color-text-secondary)", margin: "0 0 14px" }}>
                 Industry-standard query letter generated from your project data. Target a specific agent to personalise the opening.
               </p>
               <input
@@ -255,11 +255,11 @@ export function ExportPanel({ projectId, projectFormat = 'Novel', onClose }: Exp
               {queryLetter && (
                 <div style={{ marginTop: 16 }}>
                   <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 8 }}>
-                    <button onClick={() => copy(queryLetter, setQlCopied)} style={{ padding: "6px 14px", borderRadius: 6, background: qlCopied ? "#22c55e" : "#2a2a30", border: "none", color: "#F2F2F3", fontSize: 12, cursor: "pointer" }}>
+                    <button onClick={() => copy(queryLetter, setQlCopied)} style={{ padding: "6px 14px", borderRadius: 6, background: qlCopied ? "#22c55e" : "var(--color-bg-elevated)", border: "none", color: "var(--color-text-primary)", fontSize: 12, cursor: "pointer" }}>
                       {qlCopied ? "✓ Copied" : "Copy to Clipboard"}
                     </button>
                   </div>
-                  <pre style={{ whiteSpace: "pre-wrap", fontSize: 13, lineHeight: 1.7, color: "#F2F2F3", background: "#111113", padding: "16px", borderRadius: 8, margin: 0 }}>
+                  <pre style={{ whiteSpace: "pre-wrap", fontSize: 13, lineHeight: 1.7, color: "var(--color-text-primary)", background: "var(--color-bg-editor)", padding: "16px", borderRadius: 8, margin: 0 }}>
                     {queryLetter}
                   </pre>
                 </div>
@@ -270,7 +270,7 @@ export function ExportPanel({ projectId, projectFormat = 'Novel', onClose }: Exp
           {/* ── Blurb ── */}
           {tab === "blurb" && (
             <div>
-              <p style={{ fontSize: 13, color: "#9898A6", margin: "0 0 14px" }}>
+              <p style={{ fontSize: 13, color: "var(--color-text-secondary)", margin: "0 0 14px" }}>
                 150-word back-cover blurb + 3 tagline variants using genre-specific blurb conventions.
               </p>
               <button onClick={generateBlurb} disabled={generatingBlurb} style={sBtnPrimary(generatingBlurb)}>
@@ -280,21 +280,21 @@ export function ExportPanel({ projectId, projectFormat = 'Novel', onClose }: Exp
               {blurb && (
                 <div style={{ marginTop: 16 }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-                    <div style={{ fontSize: 11, fontWeight: 600, color: "#9898A6", textTransform: "uppercase", letterSpacing: "0.05em" }}>Back-Cover Blurb</div>
-                    <button onClick={() => copy(blurb, setBlurbCopied)} style={{ padding: "6px 14px", borderRadius: 6, background: blurbCopied ? "#22c55e" : "#2a2a30", border: "none", color: "#F2F2F3", fontSize: 12, cursor: "pointer" }}>
+                    <div style={{ fontSize: 11, fontWeight: 600, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em" }}>Back-Cover Blurb</div>
+                    <button onClick={() => copy(blurb, setBlurbCopied)} style={{ padding: "6px 14px", borderRadius: 6, background: blurbCopied ? "#22c55e" : "var(--color-bg-elevated)", border: "none", color: "var(--color-text-primary)", fontSize: 12, cursor: "pointer" }}>
                       {blurbCopied ? "✓ Copied" : "Copy"}
                     </button>
                   </div>
-                  <div style={{ background: "#111113", padding: "14px 16px", borderRadius: 8, fontSize: 14, lineHeight: 1.7, color: "#F2F2F3", marginBottom: 16 }}>
+                  <div style={{ background: "var(--color-bg-editor)", padding: "14px 16px", borderRadius: 8, fontSize: 14, lineHeight: 1.7, color: "var(--color-text-primary)", marginBottom: 16 }}>
                     {blurb}
                   </div>
                   {taglines.length > 0 && (
                     <div>
-                      <div style={{ fontSize: 11, fontWeight: 600, color: "#9898A6", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 8 }}>Taglines</div>
+                      <div style={{ fontSize: 11, fontWeight: 600, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 8 }}>Taglines</div>
                       {taglines.map((t, i) => (
-                        <div key={i} style={{ padding: "10px 14px", background: "#111113", borderRadius: 8, marginBottom: 6, fontSize: 13, color: "#F2F2F3", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                        <div key={i} style={{ padding: "10px 14px", background: "var(--color-bg-editor)", borderRadius: 8, marginBottom: 6, fontSize: 13, color: "var(--color-text-primary)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                           <span style={{ fontStyle: "italic" }}>{t}</span>
-                          <button onClick={() => navigator.clipboard.writeText(t)} style={{ padding: "4px 10px", borderRadius: 5, background: "#2a2a30", border: "none", color: "#9898A6", fontSize: 11, cursor: "pointer", flexShrink: 0, marginLeft: 12 }}>
+                          <button onClick={() => navigator.clipboard.writeText(t)} style={{ padding: "4px 10px", borderRadius: 5, background: "var(--color-bg-elevated)", border: "none", color: "var(--color-text-secondary)", fontSize: 11, cursor: "pointer", flexShrink: 0, marginLeft: 12 }}>
                             Copy
                           </button>
                         </div>

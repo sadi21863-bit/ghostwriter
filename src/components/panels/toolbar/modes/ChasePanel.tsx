@@ -57,7 +57,7 @@ export function ChasePanel({
             </div>
           </div>
         )}
-        <div style={{ marginTop: 8, padding: "8px 10px", background: co.accentBg, borderRadius: 6, fontSize: 11, color: co.muted, border: "1px solid " + co.accent + "40" }}>
+        <div style={{ marginTop: 8, padding: "8px 10px", background: co.accentBg, borderRadius: 6, fontSize: 11, color: co.muted, border: "1px solid color-mix(in srgb, " + co.accent + " 25%, transparent)" }}>
           Terrain logic • Resource depletion • Decision points • Gap tracking
         </div>
       </div>

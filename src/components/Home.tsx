@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import BraindumpModal from "@/components/BraindumpModal";
 import { EmptyState } from "@/components/EmptyState";
 import { nextAction, getContinueChapterId, type GuideAction, type GuideProject } from "@/lib/guide/next-action";
+import { FORMAT_COLORS } from "@/lib/formats";
 
 type ProjectSummary = {
   id: string;
@@ -20,12 +21,6 @@ const GW_DARK = "#0d0d10";
 const GW_GOLD = "#c9a84c";
 const GW_CREAM = "#faf9f5";
 const GW_BORDER = "#ede9df";
-
-const FORMAT_COLORS: Record<string, string> = {
-  "Novel": "#5b4ccc", "Screenplay": "#0ea5e9", "Web Series": "#8b5cf6",
-  "YouTube Long-form": "#ef4444", "YouTube Short": "#f97316", "TikTok Script": "#ec4899",
-  "TikTok Native": "#fe2c55", "Instagram Reel": "#a855f7", "Podcast Episode": "#10b981",
-};
 
 export default function Home() {
   const { data: session, status } = useSession();

@@ -1,19 +1,26 @@
+// Both token sets resolve to the same theme-aware CSS custom properties
+// (defined in globals.css, toggled via `data-theme` on <html>) so the main
+// editor shell (`co`) and floating overlays (`panel`) flip together instead
+// of drifting out of sync. Status colors (danger/green/orange/success) stay
+// literal — they're semantic, not theme, colors.
 export const co = {
-  bg: "#f8f7f4", surface: "#ffffff", surfaceAlt: "#f0efe9", border: "#e2e0d8",
-  text: "#1a1a1a", muted: "#777", accent: "#5b4ccc", accentBg: "#5b4ccc12",
+  bg: "var(--color-bg-base)", surface: "var(--color-bg-surface)", surfaceAlt: "var(--color-bg-elevated)",
+  border: "var(--color-border-default)",
+  text: "var(--color-text-primary)", muted: "var(--color-text-secondary)",
+  accent: "var(--color-accent)", accentBg: "var(--color-accent-dim)",
   danger: "#d94545", green: "#2d9e5e", orange: "#c9860a",
 };
 
 /** Dark overlay panel tokens — used by floating panels rendered on a dark background (StoryHealthPanel, SprintMode, etc.) */
 export const panel = {
-  bg:      "#18181B",
-  surface: "#2a2a30",
-  deeper:  "#111113",
-  border:  "#3a3a45",
-  text:    "#F2F2F3",
-  muted:   "#9898A6",
-  accent:  "#818cf8",
-  warn:    "#D97706",
+  bg:      "var(--color-bg-surface)",
+  surface: "var(--color-bg-elevated)",
+  deeper:  "var(--color-bg-base)",
+  border:  "var(--color-border-default)",
+  text:    "var(--color-text-primary)",
+  muted:   "var(--color-text-secondary)",
+  accent:  "var(--color-accent)",
+  warn:    "var(--color-accent)",
   danger:  "#f87171",
   success: "#22c55e",
   orange:  "#f59e0b",
@@ -26,7 +33,7 @@ export const sInput: any = {
 export const sTextarea: any = { ...sInput, resize: "vertical", fontFamily: "inherit" };
 export const sBtn: any = {
   padding: "7px 16px", border: "none", borderRadius: 8, cursor: "pointer",
-  fontWeight: 600, fontSize: 12, background: co.accent, color: "#fff", whiteSpace: "nowrap",
+  fontWeight: 600, fontSize: 12, background: co.accent, color: "var(--color-accent-fg)", whiteSpace: "nowrap",
 };
 export const sBtnSm: any = {
   padding: "4px 10px", border: "1px solid " + co.border, borderRadius: 6,

@@ -204,8 +204,8 @@ export function SprintMode({ content, chapterTitle, projectName, onContentChange
           <div style={{
             marginTop: 8,
             padding: '6px 12px',
-            background: `${panel.success}14`,
-            border: `1px solid ${panel.success}33`,
+            background: `color-mix(in srgb, ${panel.success} 8%, transparent)`,
+            border: `1px solid color-mix(in srgb, ${panel.success} 20%, transparent)`,
             borderRadius: 6,
             fontSize: 12,
             color: panel.success,

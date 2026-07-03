@@ -282,8 +282,8 @@ export function StoryHealthPanel({ project, projectId, activeChapContent, onClos
         onClick={() => runFix(instruction, fixId)}
         disabled={isLoading}
         style={{
-          padding: "3px 10px", borderRadius: 6, border: `1px solid ${panel.accent}66`,
-          background: isLoading ? `${panel.accent}0D` : `${panel.accent}1F`,
+          padding: "3px 10px", borderRadius: 6, border: `1px solid color-mix(in srgb, ${panel.accent} 40%, transparent)`,
+          background: isLoading ? `color-mix(in srgb, ${panel.accent} 5%, transparent)` : `color-mix(in srgb, ${panel.accent} 12%, transparent)`,
           color: isLoading ? panel.muted : panel.accent,
           fontSize: 11, fontWeight: 500, cursor: isLoading ? "not-allowed" : "pointer",
           flexShrink: 0, whiteSpace: "nowrap" as const,
@@ -298,7 +298,7 @@ export function StoryHealthPanel({ project, projectId, activeChapContent, onClos
     const result = fixResults[fixId];
     if (!result) return null;
     return (
-      <div style={{ marginTop: 8, padding: "10px 12px", background: `${panel.accent}14`, borderRadius: 8, border: `1px solid ${panel.accent}33` }}>
+      <div style={{ marginTop: 8, padding: "10px 12px", background: `color-mix(in srgb, ${panel.accent} 8%, transparent)`, borderRadius: 8, border: `1px solid color-mix(in srgb, ${panel.accent} 20%, transparent)` }}>
         <div style={{ fontSize: 11, fontWeight: 600, color: panel.accent, marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.04em" }}>Fix Suggestion</div>
         <div style={{ fontSize: 12, color: panel.text, lineHeight: 1.6, whiteSpace: "pre-wrap", maxHeight: 200, overflowY: "auto", marginBottom: 8 }}>{result}</div>
         <div style={{ display: "flex", gap: 6 }}>
@@ -333,7 +333,7 @@ export function StoryHealthPanel({ project, projectId, activeChapContent, onClos
   });
 
   const errorBox = (msg: string) => msg ? (
-    <div style={{ padding: "10px 14px", background: `${panel.danger}1A`, borderRadius: 8, color: panel.danger, fontSize: 13, marginBottom: 12 }}>{msg}</div>
+    <div style={{ padding: "10px 14px", background: `color-mix(in srgb, ${panel.danger} 10%, transparent)`, borderRadius: 8, color: panel.danger, fontSize: 13, marginBottom: 12 }}>{msg}</div>
   ) : null;
 
   return (
@@ -400,7 +400,7 @@ export function StoryHealthPanel({ project, projectId, activeChapContent, onClos
                     padding: "6px 12px", borderRadius: 6, fontSize: 12, cursor: "pointer",
                     border: "1px solid",
                     borderColor: selectedPurposes.includes(p.id) ? panel.warn : `${panel.border}`,
-                    background: selectedPurposes.includes(p.id) ? `${panel.warn}26` : "transparent",
+                    background: selectedPurposes.includes(p.id) ? `color-mix(in srgb, ${panel.warn} 15%, transparent)` : "transparent",
                     color: selectedPurposes.includes(p.id) ? panel.warn : panel.muted,
                   }}>{p.label}</button>
                 ))}
@@ -470,7 +470,7 @@ export function StoryHealthPanel({ project, projectId, activeChapContent, onClos
                   </div>
 
                   {validatorResult.priorityFix && (
-                    <div style={{ padding: "12px 14px", background: `${panel.warn}1A`, borderRadius: 8, borderLeft: `3px solid ${panel.warn}`, fontSize: 13, color: panel.text }}>
+                    <div style={{ padding: "12px 14px", background: `color-mix(in srgb, ${panel.warn} 10%, transparent)`, borderRadius: 8, borderLeft: `3px solid ${panel.warn}`, fontSize: 13, color: panel.text }}>
                       <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
                         <div style={{ flex: 1 }}><strong>Priority fix:</strong> {validatorResult.priorityFix}</div>
                         <FixThisButton instruction={validatorResult.priorityFix} fixId="validator-priority-fix" />
@@ -534,7 +534,7 @@ export function StoryHealthPanel({ project, projectId, activeChapContent, onClos
                             <span style={{ padding: "2px 8px", borderRadius: 12, background: (SCENE_VERDICT_COLORS[r.verdict] || "#888") + "22", color: SCENE_VERDICT_COLORS[r.verdict] || "#888", fontWeight: 600, fontSize: 11 }}>{r.verdict?.toUpperCase()}</span>
                           </div>
                           {expandedScene === r.chapterId && (
-                            <div style={{ gridColumn: "1 / -1", padding: "10px 14px", background: `${panel.warn}0F`, borderTop: `1px solid ${panel.border}`, fontSize: 13 }}>
+                            <div style={{ gridColumn: "1 / -1", padding: "10px 14px", background: `color-mix(in srgb, ${panel.warn} 6%, transparent)`, borderTop: `1px solid ${panel.border}`, fontSize: 13 }}>
                               <div style={{ color: panel.muted, marginBottom: 4 }}>{r.diagnosis}</div>
                               {r.suggestion && (
                                 <>
@@ -583,14 +583,14 @@ export function StoryHealthPanel({ project, projectId, activeChapContent, onClos
                     <span style={{ fontSize: 13, color: panel.muted }}>Thematic Health:</span>
                     <span style={{
                       padding: "3px 10px", borderRadius: 20, fontSize: 12, fontWeight: 700,
-                      background: themeResult.overallThematicHealth === "strong" ? `${panel.success}22` : themeResult.overallThematicHealth === "developing" ? `${panel.orange}22` : `${panel.danger}22`,
+                      background: themeResult.overallThematicHealth === "strong" ? `color-mix(in srgb, ${panel.success} 13%, transparent)` : themeResult.overallThematicHealth === "developing" ? `color-mix(in srgb, ${panel.orange} 13%, transparent)` : `color-mix(in srgb, ${panel.danger} 13%, transparent)`,
                       color: themeResult.overallThematicHealth === "strong" ? panel.success : themeResult.overallThematicHealth === "developing" ? panel.orange : panel.danger,
                     }}>{themeResult.overallThematicHealth?.toUpperCase()}</span>
                   </div>
 
                   {/* Consecutive gaps warning */}
                   {themeResult.consecutiveGaps?.length > 0 && (
-                    <div style={{ padding: "10px 14px", background: `${panel.orange}14`, borderRadius: 8, borderLeft: `3px solid ${panel.orange}`, fontSize: 13, color: panel.text, marginBottom: 12 }}>
+                    <div style={{ padding: "10px 14px", background: `color-mix(in srgb, ${panel.orange} 8%, transparent)`, borderRadius: 8, borderLeft: `3px solid ${panel.orange}`, fontSize: 13, color: panel.text, marginBottom: 12 }}>
                       ⚠ Consecutive chapters with no thematic signal: {themeResult.consecutiveGaps.flat().join(", ")}
                     </div>
                   )}
@@ -652,7 +652,7 @@ export function StoryHealthPanel({ project, projectId, activeChapContent, onClos
                 <span style={{ fontSize: 13, fontWeight: 600, color: panel.text }}>Open Story Promises</span>
                 <button
                   onClick={() => setShowAddPromise(v => !v)}
-                  style={{ fontSize: 11, padding: '4px 10px', background: `${panel.warn}26`, border: `1px solid ${panel.warn}66`, borderRadius: 6, color: panel.warn, cursor: 'pointer' }}
+                  style={{ fontSize: 11, padding: '4px 10px', background: `color-mix(in srgb, ${panel.warn} 15%, transparent)`, border: `1px solid color-mix(in srgb, ${panel.warn} 40%, transparent)`, borderRadius: 6, color: panel.warn, cursor: 'pointer' }}
                 >
                   + Add
                 </button>
@@ -672,7 +672,7 @@ export function StoryHealthPanel({ project, projectId, activeChapContent, onClos
                       <button
                         key={p}
                         onClick={() => setNewPromisePriority(p)}
-                        style={{ fontSize: 10, padding: '2px 8px', borderRadius: 4, cursor: 'pointer', border: `1px solid ${newPromisePriority === p ? panel.warn : panel.border}`, background: newPromisePriority === p ? `${panel.warn}26` : 'transparent', color: newPromisePriority === p ? panel.warn : panel.muted }}
+                        style={{ fontSize: 10, padding: '2px 8px', borderRadius: 4, cursor: 'pointer', border: `1px solid ${newPromisePriority === p ? panel.warn : panel.border}`, background: newPromisePriority === p ? `color-mix(in srgb, ${panel.warn} 15%, transparent)` : 'transparent', color: newPromisePriority === p ? panel.warn : panel.muted }}
                       >
                         {p}
                       </button>
@@ -707,7 +707,7 @@ export function StoryHealthPanel({ project, projectId, activeChapContent, onClos
                       </div>
                       <button
                         onClick={() => markPromisePaid(promise.id)}
-                        style={{ fontSize: 10, padding: '3px 8px', background: `${panel.success}1A`, border: `1px solid ${panel.success}4D`, borderRadius: 6, color: panel.success, cursor: 'pointer', flexShrink: 0 }}
+                        style={{ fontSize: 10, padding: '3px 8px', background: `color-mix(in srgb, ${panel.success} 10%, transparent)`, border: `1px solid color-mix(in srgb, ${panel.success} 30%, transparent)`, borderRadius: 6, color: panel.success, cursor: 'pointer', flexShrink: 0 }}
                       >
                         Paid ✓
                       </button>
@@ -802,7 +802,7 @@ export function StoryHealthPanel({ project, projectId, activeChapContent, onClos
                   )}
 
                   {transportResult.ejections?.length === 0 && (
-                    <div style={{ padding: "14px", background: `${panel.success}14`, borderRadius: 8, fontSize: 13, color: panel.success }}>
+                    <div style={{ padding: "14px", background: `color-mix(in srgb, ${panel.success} 8%, transparent)`, borderRadius: 8, fontSize: 13, color: panel.success }}>
                       ✓ No ejection mechanisms detected. The prose maintains transportation throughout.
                     </div>
                   )}
@@ -823,7 +823,7 @@ export function StoryHealthPanel({ project, projectId, activeChapContent, onClos
                 <span style={{ fontSize: 13, fontWeight: 600, color: panel.text }}>Story Checkpoints</span>
                 <button
                   onClick={() => setShowCreateCheckpoint(v => !v)}
-                  style={{ padding: "5px 12px", borderRadius: 6, fontSize: 12, border: `1px solid ${panel.border}`, background: `${panel.text}0F`, color: panel.text, cursor: "pointer" }}
+                  style={{ padding: "5px 12px", borderRadius: 6, fontSize: 12, border: `1px solid ${panel.border}`, background: `color-mix(in srgb, ${panel.text} 6%, transparent)`, color: panel.text, cursor: "pointer" }}
                 >
                   + Save checkpoint
                 </button>
@@ -916,7 +916,7 @@ export function StoryHealthPanel({ project, projectId, activeChapContent, onClos
                   </div>
 
                   {auditResult.strengths?.map((s: string, i: number) => (
-                    <div key={i} style={{ padding: "8px 12px", background: `${panel.success}14`, borderRadius: 8, fontSize: 12, color: panel.success }}>
+                    <div key={i} style={{ padding: "8px 12px", background: `color-mix(in srgb, ${panel.success} 8%, transparent)`, borderRadius: 8, fontSize: 12, color: panel.success }}>
                       ✓ {s}
                     </div>
                   ))}
@@ -926,8 +926,8 @@ export function StoryHealthPanel({ project, projectId, activeChapContent, onClos
                     return (
                       <div key={i} style={{
                         padding: "10px 12px", borderRadius: 8,
-                        background: issue.severity === "high" ? `${panel.danger}14` : `${panel.orange}14`,
-                        border: `1px solid ${issue.severity === "high" ? `${panel.danger}40` : `${panel.orange}33`}`,
+                        background: issue.severity === "high" ? `color-mix(in srgb, ${panel.danger} 8%, transparent)` : `color-mix(in srgb, ${panel.orange} 8%, transparent)`,
+                        border: `1px solid ${issue.severity === "high" ? `color-mix(in srgb, ${panel.danger} 25%, transparent)` : `color-mix(in srgb, ${panel.orange} 20%, transparent)`}`,
                       }}>
                         <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
                           <div style={{ fontSize: 12, fontWeight: 700, color: panel.text }}>{issue.title}</div>

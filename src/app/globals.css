@@ -4,8 +4,20 @@
 @import "tailwindcss";
 @config "../../tailwind.config.ts";
 
+/* Suspends transitions during a theme flip so colors don't visibly
+   crossfade/jank; toggled on to set data-theme, then removed a frame later. */
+html.gw-no-transition * { transition: none !important; animation-duration: 0s !important; }
+
+/* Shared floating theme toggle (src/components/ThemeToggle.tsx) */
+.theme-toggle{position:fixed;bottom:22px;right:22px;z-index:60;width:46px;height:46px;border-radius:50%;border:1px solid var(--color-border-default);background:var(--color-bg-surface);color:var(--color-text-primary);cursor:pointer;font-size:19px;display:flex;align-items:center;justify-content:center;box-shadow:0 6px 24px rgba(0,0,0,.18);transition:transform .2s,background .3s,border-color .3s}
+.theme-toggle:hover{transform:scale(1.08) rotate(12deg)}
+
 /* ── Design tokens ───────────────────────────────────────── */
-:root {
+/* Dark/light split driven by a `data-theme` attribute on <html>, bootstrapped
+   in layout.tsx before paint. `:root` is the dark fallback for any code path
+   that runs before the attribute is set. */
+:root,
+:root[data-theme="dark"] {
   --color-bg-base:       #0A0A0B;
   --color-bg-surface:    #111113;
   --color-bg-elevated:   #1A1A1E;
@@ -15,11 +27,31 @@
   --color-text-muted:    #5C5C6B;
   --color-border-subtle: rgba(255,255,255,0.05);
   --color-border-default:rgba(255,255,255,0.09);
-  --color-accent:        #D97706;
-  --color-accent-dim:    rgba(217,119,6,0.15);
+  --color-accent:        #c9a84c;
+  --color-accent-dim:    rgba(201,168,76,0.15);
+  --color-accent-fg:     #0d0d10;
 
-  --library-tint:        rgba(217,119,6,0.08);
+  --library-tint:        rgba(201,168,76,0.08);
+}
 
+:root[data-theme="light"] {
+  --color-bg-base:       #faf9f5;
+  --color-bg-surface:    #ffffff;
+  --color-bg-elevated:   #f5f4f0;
+  --color-bg-editor:     #ffffff;
+  --color-text-primary:  #1a1a1a;
+  --color-text-secondary:#6b6b78;
+  --color-text-muted:    #9a9aa5;
+  --color-border-subtle: rgba(0,0,0,0.05);
+  --color-border-default:#e2e0d8;
+  --color-accent:        #c9a84c;
+  --color-accent-dim:    rgba(201,168,76,0.12);
+  --color-accent-fg:     #0d0d10;
+
+  --library-tint:        rgba(201,168,76,0.06);
+}
+
+:root {
   --tint-horror:         rgba(220,38,38,0.10);
   --tint-romance:        rgba(236,72,153,0.10);
   --tint-thriller:       rgba(99,102,241,0.10);
@@ -95,14 +127,6 @@ body {
   line-height: 1.85;
   font-family: Georgia, "Times New Roman", serif;
   color: var(--color-text-primary);
-}
-/* Light-themed call sites (WritingRoom, WritePanel) sit on a light app shell —
-   override the dark-theme default text color so it isn't white-on-white. */
-.chapter-editor.chapter-editor--light .ProseMirror {
-  color: #1a1a1a;
-}
-.chapter-editor.chapter-editor--light .ProseMirror p.is-editor-empty:first-child::before {
-  color: #9ca3af;
 }
 .chapter-editor .ProseMirror p { margin: 0 0 1.2em 0; }
 .chapter-editor .ProseMirror h1,

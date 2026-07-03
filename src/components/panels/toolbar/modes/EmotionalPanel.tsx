@@ -43,7 +43,7 @@ export function EmotionalPanel({
             <select style={{ ...sInput, marginBottom: 8 }} value={emotionalEmotion} onChange={e => setEmotionalEmotion(e.target.value)}>
               {getEmotionNames().map(e => <option key={e} value={e}>{e}</option>)}
             </select>
-            <div style={{ padding: "10px 12px", background: co.accentBg, borderRadius: 8, border: "1px solid " + co.accent + "40", fontSize: 12, color: co.muted, lineHeight: 1.5 }}>
+            <div style={{ padding: "10px 12px", background: co.accentBg, borderRadius: 8, border: "1px solid color-mix(in srgb, " + co.accent + " 25%, transparent)", fontSize: 12, color: co.muted, lineHeight: 1.5 }}>
               {EMOTION_DESCRIPTIONS[emotionalEmotion] ?? ""}
             </div>
           </div>

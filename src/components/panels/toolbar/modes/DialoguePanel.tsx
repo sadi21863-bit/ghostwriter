@@ -94,7 +94,7 @@ export function DialoguePanel({
                 {getDialogueArchetypeNames().map(a => <option key={a} value={a}>{a}</option>)}
               </select>
               {dialogueArchetype && (
-                <div style={{ padding: "10px 12px", background: co.accentBg, borderRadius: 8, border: "1px solid " + co.accent + "40", fontSize: 12, color: co.muted, lineHeight: 1.5 }}>
+                <div style={{ padding: "10px 12px", background: co.accentBg, borderRadius: 8, border: "1px solid color-mix(in srgb, " + co.accent + " 25%, transparent)", fontSize: 12, color: co.muted, lineHeight: 1.5 }}>
                   {DESCRIPTIONS[dialogueArchetype] ?? ""}
                 </div>
               )}

@@ -2,6 +2,7 @@
 import { useState, useEffect, useRef } from "react";
 import { ART_STYLES } from "@/lib/ai/panel-prompt-builder";
 import { EmptyState } from "@/components/EmptyState";
+import { co, sBtn, sBtnSm, sInput } from "@/lib/styles";
 
 export default function ComicStudio({ project, segmindKey, onOpenStudio }: { project: any; segmindKey: string; onOpenStudio?: () => void }) {
   const [view, setView] = useState<"generator" | "editor">("generator");
@@ -174,15 +175,6 @@ export default function ComicStudio({ project, segmindKey, onOpenStudio }: { pro
     a.download = `${project.name.replace(/\s+/g, "-")}-comic-page-${activePageIndex + 1}.png`;
     a.click();
   };
-
-  const co = {
-    bg: "#0f0f11", surface: "#1a1a1f", surfaceAlt: "#222228", accent: "#7c6af7",
-    accentBg: "#1e1b3a", border: "#2a2a35", text: "#e8e8f0", muted: "#6b6b80",
-    green: "#22c55e", danger: "#ef4444",
-  };
-  const sBtn: any = { padding: "8px 16px", border: "none", borderRadius: 8, cursor: "pointer", fontWeight: 600, fontSize: 13, background: co.accent, color: "#fff" };
-  const sBtnSm: any = { padding: "5px 10px", border: "1px solid " + co.border, borderRadius: 6, cursor: "pointer", fontSize: 11, background: co.surfaceAlt, color: co.text };
-  const sInput: any = { background: co.surfaceAlt, border: "1px solid " + co.border, borderRadius: 6, padding: "6px 10px", color: co.text, fontSize: 12, width: "100%", boxSizing: "border-box" };
 
   if (view === "editor" && activePage) {
     const panels = [...activePage.panels].sort((a: any, b: any) => a.panelIndex - b.panelIndex);

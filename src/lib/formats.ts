@@ -24,6 +24,11 @@ export const getFormatDisplayLabel = (format: string): string =>
 export const FORMAT_HELPER_TEXT: Partial<Record<string, string>> = {
   Screenplay: "A movie/film script in scene format.",
 };
+export const FORMAT_COLORS: Record<string, string> = {
+  "Novel": "#5b4ccc", "Screenplay": "#0ea5e9", "Web Series": "#8b5cf6",
+  "YouTube Long-form": "#ef4444", "YouTube Short": "#f97316", "TikTok Script": "#ec4899",
+  "TikTok Native": "#fe2c55", "Instagram Reel": "#a855f7", "Podcast Episode": "#10b981",
+};
 
 export const GENRES = ["Fantasy", "Sci-Fi", "Horror", "Thriller", "Romance", "Drama", "Comedy", "Mystery", "Literary Fiction", "Action", "Historical", "Dystopian", "Noir", "Satire"];
 // Order = MODE_REGISTRY's key order = mode tab display order in ToolbarPanel.tsx's visibleModes.

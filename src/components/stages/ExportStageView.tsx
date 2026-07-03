@@ -54,7 +54,7 @@ export default function ExportStageView({ project, onGuideRun, onOpenProductionS
 
         {isStoryFormat(project.format) && <ReaderInsightsPanel project={project} />}
         {showApprovalNudge && (
-          <div style={{ display: "flex", alignItems: "flex-start", gap: 8, padding: "10px 12px", borderRadius: 8, background: `${co.orange}14`, border: `1px solid ${co.orange}40`, marginBottom: 12, fontSize: 12, color: co.text }}>
+          <div style={{ display: "flex", alignItems: "flex-start", gap: 8, padding: "10px 12px", borderRadius: 8, background: `color-mix(in srgb, ${co.orange} 8%, transparent)`, border: `1px solid color-mix(in srgb, ${co.orange} 25%, transparent)`, marginBottom: 12, fontSize: 12, color: co.text }}>
             <span>⚠️</span>
             <span>
               {approval.unapproved.length} of {approval.total} chapter{approval.total === 1 ? "" : "s"} not yet Editor-approved

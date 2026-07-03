@@ -160,7 +160,7 @@ export default function EditorNotesPanel({ project, updateProject }: EditorNotes
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                 <span style={{ fontSize: 13, fontWeight: 600, color: co.text, flex: 1 }}>{ch.title}</span>
                 {chNotes.length > 0 && <span style={{ fontSize: 10, color: co.orange }}>{chNotes.length} open</span>}
-                <span style={{ fontSize: 10, padding: "1px 8px", borderRadius: 20, background: approved ? `${co.green}1a` : co.surfaceAlt, color: approved ? co.green : co.muted }}>
+                <span style={{ fontSize: 10, padding: "1px 8px", borderRadius: 20, background: approved ? `color-mix(in srgb, ${co.green} 10%, transparent)` : co.surfaceAlt, color: approved ? co.green : co.muted }}>
                   {approved ? "approved" : ch.reviewStatus || "draft"}
                 </span>
                 <button style={{ ...sBtnSm, padding: "2px 8px", opacity: scanning[ch.id] ? 0.6 : 1 }} disabled={scanning[ch.id]} onClick={() => scanChapter(ch)} title="AI scan: rule, continuity, POV & prose issues">

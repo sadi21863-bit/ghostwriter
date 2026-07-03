@@ -343,7 +343,6 @@ export default function WritingRoom({
             onChange={handleEditorChange}
             placeholder="Begin writing..."
             autoFocus
-            lightTheme
           />
 
           <div style={{ width: bibleOpen ? 190 : 36, minWidth: bibleOpen ? 190 : 36, borderLeft: `1px solid ${co.border}`, background: co.surface, transition: "width 0.2s", overflow: "hidden", display: "flex", flexDirection: "column" }}>
