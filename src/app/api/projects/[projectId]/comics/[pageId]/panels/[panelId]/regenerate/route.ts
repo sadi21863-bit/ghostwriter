@@ -8,6 +8,8 @@ import { eq, and } from "drizzle-orm";
 import { getImageProvider } from "@/lib/media/registry";
 import { decrypt } from "@/lib/crypto";
 import { put } from "@vercel/blob";
+import { critiqueShot } from "@/lib/production/vision-critic";
+import { scoreShot, retryHint } from "@/lib/production/self-eval";
 
 async function verifyOwnership(projectId: string, userId: string) {
   return db.query.projects.findFirst({
@@ -64,6 +66,24 @@ export async function POST(_: Request, { params }: { params: Promise<{ projectId
     .set({ imageUrl })
     .where(eq(comicPanels.id, (await params).panelId))
     .returning();
+
+  // Phase B vision-critic — see comics/route.ts for the same pattern.
+  (async () => {
+    const prevPanel = await db.query.comicPanels.findFirst({
+      where: and(eq(comicPanels.pageId, panel.pageId), eq(comicPanels.panelIndex, panel.panelIndex - 1)),
+    });
+    const raw = await critiqueShot({
+      imageUrl,
+      prompt: panel.panelPrompt,
+      referenceImageUrl: panel.referenceImageUrl || undefined,
+      previousShotImageUrl: prevPanel?.imageUrl,
+    });
+    if (Object.keys(raw).length === 0) return;
+    const result = scoreShot(raw);
+    await db.update(comicPanels)
+      .set({ qualityScore: result.overall, qualityWeakest: result.weakest, qualityNote: retryHint(result) })
+      .where(eq(comicPanels.id, (await params).panelId));
+  })().catch(err => console.error('[critiqueShot] panel regenerate failed:', err));
 
   return NextResponse.json({ panel: updated });
 }

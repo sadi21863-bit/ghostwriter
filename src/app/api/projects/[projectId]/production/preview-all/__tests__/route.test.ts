@@ -84,7 +84,7 @@ describe("POST /api/projects/[projectId]/production/preview-all", () => {
     expect(body.total).toBe(17);
     expect(body.remaining).toBe(8);
     expect(generateSoulImage).toHaveBeenCalledTimes(17);
-  });
+  }, 20_000); // 17 batched async iterations — routinely takes 7-8s, over the 5s default
 
   it("rejects the whole batch with no spend when even one item would exceed the cap", async () => {
     vi.doMock("@/lib/capabilities/cost", () => ({

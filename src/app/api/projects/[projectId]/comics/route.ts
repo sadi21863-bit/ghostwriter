@@ -11,6 +11,8 @@ import Anthropic from "@anthropic-ai/sdk";
 import { MODELS } from "@/lib/ai/engine";
 import { put } from "@vercel/blob";
 import { generateSoulImage } from "@/lib/higgsfield/client";
+import { critiqueShot } from "@/lib/production/vision-critic";
+import { scoreShot, retryHint } from "@/lib/production/self-eval";
 import { ART_STYLES, PanelSpec, buildBreakdownPrompt, buildPanelPrompt } from "@/lib/ai/panel-prompt-builder";
 import { decrypt } from "@/lib/crypto";
 
@@ -167,6 +169,27 @@ export async function POST(req: Request, { params }: { params: Promise<{ project
       panels.push(panel);
     }
   }
+
+  // Phase B vision-critic (docs/2026-06-25-ai-director-editor-production-studio-gap-analysis.md):
+  // score each panel in the background against its prompt, reference image and
+  // the previous panel on the page. Never blocks the response, never gates
+  // anything — pure data collection for the future review UI.
+  const sortedPanels = [...panels].sort((a, b) => a.panelIndex - b.panelIndex);
+  sortedPanels.forEach((panel, i) => {
+    (async () => {
+      const raw = await critiqueShot({
+        imageUrl: panel.imageUrl,
+        prompt: panel.panelPrompt,
+        referenceImageUrl: panel.referenceImageUrl || undefined,
+        previousShotImageUrl: sortedPanels[i - 1]?.imageUrl,
+      });
+      if (Object.keys(raw).length === 0) return;
+      const result = scoreShot(raw);
+      await db.update(comicPanels)
+        .set({ qualityScore: result.overall, qualityWeakest: result.weakest, qualityNote: retryHint(result) })
+        .where(eq(comicPanels.id, panel.id));
+    })().catch(err => console.error('[critiqueShot] comic panel failed:', err));
+  });
 
   const failedCount = panelResults.filter(r => r.status === "rejected").length;
   return NextResponse.json({

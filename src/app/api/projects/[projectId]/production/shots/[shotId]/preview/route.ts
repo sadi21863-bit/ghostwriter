@@ -9,6 +9,8 @@ import { eq, and } from "drizzle-orm";
 import { generateSoulImage } from "@/lib/higgsfield/client";
 import { put } from "@vercel/blob";
 import { decrypt } from "@/lib/crypto";
+import { critiqueShot } from "@/lib/production/vision-critic";
+import { scoreShot, retryHint } from "@/lib/production/self-eval";
 
 async function verifyOwnership(projectId: string, userId: string) {
   return db.query.projects.findFirst({
@@ -62,6 +64,30 @@ export async function POST(_: Request, { params }: { params: Promise<{ projectId
       .set({ previewImageUrl, generationStatus: "preview_ready", updatedAt: new Date() })
       .where(eq(productionShots.id, (await params).shotId))
       .returning();
+
+    // Phase B vision-critic (docs/2026-06-25-ai-director-editor-production-studio-gap-analysis.md):
+    // score the shot in the background. Never blocks the response and never
+    // gates anything — pure data collection for the future review UI.
+    (async () => {
+      const prevShot = await db.query.productionShots.findFirst({
+        where: and(
+          eq(productionShots.projectId, (await params).projectId),
+          eq(productionShots.sceneNumber, shot.sceneNumber),
+          eq(productionShots.shotNumber, shot.shotNumber - 1),
+        ),
+      });
+      const raw = await critiqueShot({
+        imageUrl: previewImageUrl,
+        prompt: shot.soulPrompt || `${shot.subject}. ${shot.action}. ${shot.location}.`,
+        referenceImageUrl: referenceImageUrl || undefined,
+        previousShotImageUrl: prevShot?.previewImageUrl || undefined,
+      });
+      if (Object.keys(raw).length === 0) return;
+      const result = scoreShot(raw);
+      await db.update(productionShots)
+        .set({ qualityScore: result.overall, qualityWeakest: result.weakest, qualityNote: retryHint(result) })
+        .where(eq(productionShots.id, (await params).shotId));
+    })().catch(err => console.error('[critiqueShot] shot preview failed:', err));
 
     return NextResponse.json({ shot: updated });
   } catch (err: any) {

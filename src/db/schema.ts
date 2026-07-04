@@ -231,6 +231,12 @@ export const comicPanels = pgTable("comic_panels", {
   // after a text edit never requires regenerating art.
   letteredImageUrl: text("lettered_image_url").default(""),
   bubbleType: varchar("bubble_type", { length: 20 }).default("speech"),
+  // Phase B vision-critic score (docs/2026-06-25-ai-director-editor-production-studio-gap-analysis.md).
+  // Written after generation, never blocks it — silent data collection for the
+  // future Phase C review UI, not a gate.
+  qualityScore: real("quality_score"),
+  qualityWeakest: varchar("quality_weakest", { length: 30 }),
+  qualityNote: text("quality_note").default(""),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -268,6 +274,10 @@ export const productionShots = pgTable("production_shots", {
   aspectRatio:        text("aspect_ratio").default("16:9"),
   generatedVideoUrl:  text("generated_video_url").default(""),
   sortOrder:          integer("sort_order").default(0),
+  // Phase B vision-critic score, same as comicPanels above.
+  qualityScore:       real("quality_score"),
+  qualityWeakest:     varchar("quality_weakest", { length: 30 }),
+  qualityNote:        text("quality_note").default(""),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
