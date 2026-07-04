@@ -15,3 +15,6 @@ blob-report
 
 # superpowers SDD scratch (progress ledger, briefs, reports, review packages)
 .superpowers/
+
+# graphify knowledge-graph output (dev tooling, regenerate with `graphify update .`)
+graphify-out/
