@@ -1,11 +1,10 @@
-import Anthropic from "@anthropic-ai/sdk";
+import { anthropic as client } from "@/lib/ai/client";
 
 // A fast "planner" pre-pass (Haiku). Turns the writer's next-scene request +
 // story context into a tight, concrete scene blueprint that is injected into the
 // Write prompt. Research (eqbench longform, SNAP) shows explicit scene-level
 // planning is the single biggest lever against generic, filler-y prose.
 // Fail-open: this must NEVER block or slow generation on error.
-const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! });
 
 export async function buildSceneBlueprint(params: {
   prompt: string;

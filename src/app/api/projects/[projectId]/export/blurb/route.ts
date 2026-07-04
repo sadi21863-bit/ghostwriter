@@ -7,11 +7,10 @@ import { getUserTier, canAccessFeature } from "@/lib/subscription";
 import { db } from "@/db";
 import { projects, chapters, characters } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
-import Anthropic from "@anthropic-ai/sdk";
+import { anthropic } from "@/lib/ai/client";
 import { MODELS } from "@/lib/ai/engine";
 import { getFormatNoun } from "@/lib/formats";
 
-const anthropic = new Anthropic();
 
 const GENRE_BLURB_CONVENTIONS: Record<string, string> = {
   Thriller:   "Thriller blurb convention: hook with a threat + escalation showing it worsens + stakes (who dies/suffers if it fails). Punchy sentences. Present tense.",

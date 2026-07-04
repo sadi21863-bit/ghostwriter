@@ -4,11 +4,10 @@ import { NextResponse } from "next/server";
 import { getRequiredSession } from "@/lib/auth-helpers";
 import { checkAiRateLimit } from "@/lib/ratelimit";
 import { getUserTier, canAccessFeature } from "@/lib/subscription";
-import Anthropic from "@anthropic-ai/sdk";
+import { anthropic as client } from "@/lib/ai/client";
 import { MODELS } from "@/lib/ai/engine";
 import { titleHookSystemPrompt } from "@/lib/ai/prompts";
 import { meterAndGate, refundCredits } from "@/lib/metering/meter";
-const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! });
 
 export async function POST(req: Request) {
   const session = await getRequiredSession();

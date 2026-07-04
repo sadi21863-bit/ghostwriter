@@ -5,9 +5,8 @@ import { getRequiredSession } from "@/lib/auth-helpers";
 import { checkAiRateLimit } from "@/lib/ratelimit";
 import { meterAndGate, refundCredits } from "@/lib/metering/meter";
 import { generateEntity, MODELS } from "@/lib/ai/engine";
-import Anthropic from "@anthropic-ai/sdk";
+import { anthropic } from "@/lib/ai/client";
 
-const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! });
 
 export async function POST(req: Request) {
   const session = await getRequiredSession();

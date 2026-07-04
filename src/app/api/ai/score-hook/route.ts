@@ -4,12 +4,11 @@ import { NextResponse } from "next/server";
 import { getRequiredSession } from "@/lib/auth-helpers";
 import { checkAiRateLimit } from "@/lib/ratelimit";
 import { getUserTier, canAccessFeature } from "@/lib/subscription";
-import Anthropic from "@anthropic-ai/sdk";
+import { anthropic as client } from "@/lib/ai/client";
 import { MODELS } from "@/lib/ai/engine";
 import { scoreHookSystemPrompt } from "@/lib/ai/prompts";
 import { meterAndGate, refundCredits } from "@/lib/metering/meter";
 
-const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! });
 
 function safeParseJson(raw: string) {
   const clean = raw.replace(/```json\n?|```/g, "").trim();

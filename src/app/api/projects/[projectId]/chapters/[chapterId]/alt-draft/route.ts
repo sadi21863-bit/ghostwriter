@@ -7,7 +7,7 @@ import { chapters, projects } from '@/db/schema';
 import { eq, and } from 'drizzle-orm';
 import { buildContext } from '@/lib/ai/context-builder';
 import { ALT_DRAFT_GOALS } from '@/lib/alt-draft/goals';
-import Anthropic from '@anthropic-ai/sdk';
+import { anthropic as client } from "@/lib/ai/client";
 import type { AltDraftGoal, AlternateDraft } from '@/types';
 import { altDraftSystemPrompt } from '@/lib/ai/prompts';
 
@@ -35,7 +35,6 @@ export async function POST(
   if (!goalConfig) return NextResponse.json({ error: 'Invalid goal' }, { status: 400 });
 
   const baseContext = buildContext(project as any);
-  const client = new Anthropic();
 
   const { MODELS } = await import('@/lib/ai/engine');
   const response = await client.messages.create({

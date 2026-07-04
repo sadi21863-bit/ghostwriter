@@ -7,13 +7,12 @@ import { getUserTier, canAccessFeature } from "@/lib/subscription";
 import { db } from "@/db";
 import { projects, characters } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
-import Anthropic from "@anthropic-ai/sdk";
+import { anthropic } from "@/lib/ai/client";
 import { MODELS } from "@/lib/ai/engine";
 import { villainPovSystemPrompt } from "@/lib/ai/prompts";
 import { buildPromiseLedger } from "@/lib/ai/promise-ledger";
 import { buildVoiceExemplars } from "@/lib/ai/exemplars";
 
-const anthropic = new Anthropic();
 
 export async function POST(req: Request, { params }: { params: Promise<{ projectId: string }> }) {
   const session = await getRequiredSession();

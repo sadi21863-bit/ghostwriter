@@ -13,10 +13,9 @@ import { getUserTier } from "@/lib/subscription";
 import { db } from "@/db";
 import { projects, characters, storyMemories, characterEvolutionLog } from "@/db/schema";
 import { eq, and, inArray } from "drizzle-orm";
-import Anthropic from "@anthropic-ai/sdk";
+import { anthropic } from "@/lib/ai/client";
 import { MODELS } from "@/lib/ai/engine";
 
-const anthropic = new Anthropic();
 
 export async function POST(req: Request) {
   const session = await getRequiredSession();

@@ -4,7 +4,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getRequiredSession } from '@/lib/auth-helpers';
 import { checkAiRateLimit } from '@/lib/ratelimit';
 import { meterAndGate, refundCredits } from '@/lib/metering/meter';
-import Anthropic from '@anthropic-ai/sdk';
+import { anthropic as client } from "@/lib/ai/client";
 import { MODELS } from '@/lib/ai/engine';
 
 interface BraindumpResult {
@@ -37,7 +37,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Not enough text to work with' }, { status: 400 });
   }
 
-  const client = new Anthropic();
   let raw: string;
   try {
     const msg = await client.messages.create({

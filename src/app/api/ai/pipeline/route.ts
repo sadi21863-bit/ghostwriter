@@ -5,7 +5,7 @@ import { getRequiredSession } from "@/lib/auth-helpers";
 import { checkAiRateLimit } from "@/lib/ratelimit";
 import { meterAndGate, refundCredits } from "@/lib/metering/meter";
 import { getUserTier, canAccessFeature } from "@/lib/subscription";
-import Anthropic from "@anthropic-ai/sdk";
+import { anthropic as client } from "@/lib/ai/client";
 import { MODELS } from "@/lib/ai/engine";
 import {
   pipelineStoryArchitectSystemPrompt,
@@ -16,7 +16,6 @@ import {
   pipelineSeoOptimizerSystemPrompt,
 } from "@/lib/ai/prompts";
 
-const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! });
 
 const AGENT_MODELS: Record<string, string> = {
   story_architect:   MODELS.fast,

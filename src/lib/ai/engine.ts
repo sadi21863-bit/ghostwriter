@@ -1,4 +1,4 @@
-import Anthropic from "@anthropic-ai/sdk";
+import { anthropic as client } from "@/lib/ai/client";
 import { HORROR_SYSTEM_PROMPT } from "@/lib/horror";
 import { COMEDY_SYSTEM_PROMPT } from "@/lib/comedy";
 import { MYSTERY_SYSTEM_PROMPT } from "@/lib/mystery";
@@ -19,8 +19,6 @@ import { CHASE_SYSTEM_PROMPT } from "@/lib/modes/chase";
 import { checkSemanticCache, writeSemanticCache } from "@/lib/semantic-cache";
 import { MODE_REGISTRY, type GenerationMode } from "@/lib/modes/registry";
 export type { GenerationMode } from "@/lib/modes/registry";
-
-const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! });
 
 export const MODELS = {
   fast:    'claude-haiku-4-5-20251001',

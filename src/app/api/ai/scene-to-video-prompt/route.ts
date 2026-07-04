@@ -10,10 +10,9 @@ import { meterAndGate, refundCredits } from "@/lib/metering/meter";
 import { getUserTier, canAccessFeature } from "@/lib/subscription";
 import { CAMERA_PRESETS, VIRAL_PRESETS, getRecommendedViralPreset } from "@/lib/higgsfield/presets";
 import { ACTIVE_VIDEO_MODELS, VIDEO_MODELS, MODE_TO_MODEL } from "@/lib/higgsfield/models";
-import Anthropic from "@anthropic-ai/sdk";
+import { anthropic } from "@/lib/ai/client";
 import { MODELS } from "@/lib/ai/engine";
 
-const anthropic = new Anthropic();
 
 export async function POST(req: Request) {
   const session = await getRequiredSession();

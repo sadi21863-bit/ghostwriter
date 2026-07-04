@@ -4,12 +4,11 @@ import { NextResponse } from "next/server";
 import { getRequiredSession } from "@/lib/auth-helpers";
 import { checkAiRateLimit } from "@/lib/ratelimit";
 import { getUserTier, canAccessFeature } from "@/lib/subscription";
-import Anthropic from "@anthropic-ai/sdk";
+import { anthropic } from "@/lib/ai/client";
 import { MODELS } from "@/lib/ai/engine";
 import { TIKTOK_SCRIPT_SYSTEM_PROMPT } from "@/lib/ai/prompts";
 import { meterAndGate, refundCredits } from "@/lib/metering/meter";
 
-const anthropic = new Anthropic();
 
 const TIKTOK_HOOK_PATTERNS = [
   "POV: [situation the viewer is in right now]",

@@ -7,12 +7,11 @@ import { getUserTier, canAccessFeature } from "@/lib/subscription";
 import { db } from "@/db";
 import { creatorBibles } from "@/db/schema";
 import { eq } from "drizzle-orm";
-import Anthropic from "@anthropic-ai/sdk";
+import { anthropic as client } from "@/lib/ai/client";
 import { MODELS } from "@/lib/ai/engine";
 import { trendAnglesSystemPrompt } from "@/lib/ai/prompts";
 import { meterAndGate, refundCredits } from "@/lib/metering/meter";
 
-const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! });
 
 export async function POST(req: Request) {
   const session = await getRequiredSession();

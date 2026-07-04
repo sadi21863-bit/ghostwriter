@@ -7,12 +7,11 @@ import { getUserTier, canAccessFeature } from "@/lib/subscription";
 import { db } from "@/db";
 import { videoAnalysisJobs } from "@/db/schema";
 import { eq, and, inArray } from "drizzle-orm";
-import Anthropic from "@anthropic-ai/sdk";
+import { anthropic } from "@/lib/ai/client";
 import { MODELS } from "@/lib/ai/engine";
 import { CHANNEL_AUTOPSY_SYSTEM_PROMPT } from "@/lib/ai/prompts";
 import { meterAndGate, refundCredits } from "@/lib/metering/meter";
 
-const anthropic = new Anthropic();
 
 export async function POST(req: Request) {
   const session = await getRequiredSession();

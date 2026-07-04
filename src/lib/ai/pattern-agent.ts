@@ -1,4 +1,4 @@
-import Anthropic from '@anthropic-ai/sdk';
+import { anthropic as client } from "@/lib/ai/client";
 
 interface PacketForPattern {
   title: string;
@@ -17,7 +17,6 @@ export async function generatePatterns(packets: PacketForPattern[]): Promise<{
   generationDirective: string;
   applicableTo: string[];
 }[]> {
-  const client = new Anthropic();
 
   const packetSummary = packets.map(p =>
     `WORK: ${p.title} (${p.medium}) — ${p.thematicCore}\nPRINCIPLES: ${p.craftPrinciples.map(c => c.principle).join('; ')}`

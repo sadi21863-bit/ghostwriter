@@ -6,12 +6,11 @@ import { checkAiRateLimit } from "@/lib/ratelimit";
 import { db } from "@/db";
 import { projects, productionShots, characters, locations } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
-import Anthropic from "@anthropic-ai/sdk";
+import { anthropic as client } from "@/lib/ai/client";
 import { MODELS } from "@/lib/ai/engine";
 import { PRODUCTION_PACKAGE_SYSTEM_PROMPT } from "@/lib/ai/prompts";
 import { buildPromiseLedger } from "@/lib/ai/promise-ledger";
 
-const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! });
 
 function safeParseJson(raw: string) {
   const clean = raw.replace(/```json\n?|```/g, "").trim();

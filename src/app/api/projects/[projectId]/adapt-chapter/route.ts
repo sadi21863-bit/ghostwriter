@@ -6,12 +6,11 @@ import { checkAiRateLimit } from '@/lib/ratelimit';
 import { db } from '@/db';
 import { projects, chapters } from '@/db/schema';
 import { and, eq } from 'drizzle-orm';
-import Anthropic from '@anthropic-ai/sdk';
+import { anthropic } from "@/lib/ai/client";
 import { MODELS, getFormatRules } from '@/lib/ai/engine';
 import { meterAndGate, refundCredits } from '@/lib/metering/meter';
 import { tiptapToPlainText, isValidTipTapJson, plainTextToTipTap, getWordCount } from '@/lib/editor/content-migration';
 
-const anthropic = new Anthropic();
 
 export async function POST(req: Request, { params }: { params: Promise<{ projectId: string }> }) {
   const session = await getRequiredSession();

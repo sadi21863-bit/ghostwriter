@@ -5,7 +5,7 @@ import { getRequiredSession } from '@/lib/auth-helpers';
 import { db } from '@/db';
 import { projects } from '@/db/schema';
 import { and, eq } from 'drizzle-orm';
-import Anthropic from '@anthropic-ai/sdk';
+import { anthropic as client } from "@/lib/ai/client";
 import { MODELS } from '@/lib/ai/engine';
 import { getUserTier, canAccessFeature } from '@/lib/subscription';
 import { knowledgeAuditSystemPrompt } from '@/lib/ai/prompts';
@@ -51,7 +51,6 @@ export async function POST(
     return parts.join('\n');
   }).join('\n\n');
 
-  const client = new Anthropic();
   const msg = await client.messages.create({
     model: MODELS.default,
     max_tokens: 1500,

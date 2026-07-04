@@ -6,7 +6,7 @@ import { getUserTier, canAccessFeature } from '@/lib/subscription';
 import { db } from '@/db';
 import { projects } from '@/db/schema';
 import { and, eq } from 'drizzle-orm';
-import Anthropic from '@anthropic-ai/sdk';
+import { anthropic as client } from "@/lib/ai/client";
 import { MODELS } from '@/lib/ai/engine';
 
 interface QualityCheckRequest {
@@ -36,7 +36,6 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ pro
   if (!owned) return NextResponse.json({ error: 'Not found' }, { status: 404 });
 
   const body: QualityCheckRequest = await req.json();
-  const client = new Anthropic();
 
   const knowledgeLines = body.involvedCharacters.flatMap(c =>
     Object.values(c.knowledgeMap ?? {})

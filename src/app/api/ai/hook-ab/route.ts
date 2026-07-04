@@ -7,12 +7,11 @@ import { getUserTier, canAccessFeature } from "@/lib/subscription";
 import { db } from "@/db";
 import { creatorBibles } from "@/db/schema";
 import { eq } from "drizzle-orm";
-import Anthropic from "@anthropic-ai/sdk";
+import { anthropic } from "@/lib/ai/client";
 import { MODELS } from "@/lib/ai/engine";
 import { HOOK_STRATEGIST_SYSTEM_PROMPT } from "@/lib/ai/prompts";
 import { meterAndGate, refundCredits } from "@/lib/metering/meter";
 
-const anthropic = new Anthropic();
 
 const HOOK_ARCHETYPES = [
   { name: "Curiosity Gap",      principle: "Loewenstein information gap — partial knowledge peaks curiosity more than zero knowledge",        example: "The one thing every [niche expert] gets wrong about [topic]" },

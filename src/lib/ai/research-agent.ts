@@ -1,4 +1,4 @@
-import Anthropic from '@anthropic-ai/sdk';
+import { anthropic as client } from "@/lib/ai/client";
 
 export interface ResearchResult {
   title: string;
@@ -14,7 +14,6 @@ export interface ResearchResult {
 }
 
 export async function researchWorkPacket(title: string, medium?: string): Promise<ResearchResult> {
-  const client = new Anthropic();
 
   // Step 1 — Identify and verify the work (with web search for obscure/recent works)
   const { MODELS } = await import('@/lib/ai/engine');

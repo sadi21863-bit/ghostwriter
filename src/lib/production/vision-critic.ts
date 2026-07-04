@@ -9,10 +9,10 @@
 // (that's self-eval.ts) and never spends on regeneration itself.
 
 import Anthropic from "@anthropic-ai/sdk";
+import { anthropic as client } from "@/lib/ai/client";
 import { MODELS } from "@/lib/ai/engine";
 import type { EvalDimensions } from "./self-eval";
 
-const client = new Anthropic();
 
 const CRITIC_SYSTEM_PROMPT = `You are a film/comic-panel quality critic. You are shown a generated image and told what it was supposed to depict. Score it honestly on each dimension below, 0.0 (fails completely) to 1.0 (perfect).
 
