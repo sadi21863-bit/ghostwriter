@@ -10,6 +10,7 @@ import { toast } from "@/lib/toast";
 import ProductionPipelineBar from "@/components/ProductionPipelineBar";
 import { getProductionPipelines } from "@/lib/production/pipelines";
 import { chapterApprovalSummary } from "@/lib/editor/approval";
+import { qualityScoreColor, formatWeakestDimension, REVIEW_STATUS_LABEL, type ReviewStatus } from "@/lib/production/review";
 
 type Shot = {
   id: string;
@@ -40,6 +41,10 @@ type Shot = {
   duration: number;
   aspectRatio: string;
   primaryCharacter?: { name: string; portraitUrl?: string } | null;
+  qualityScore?: number | null;
+  qualityWeakest?: string | null;
+  qualityNote?: string | null;
+  reviewStatus?: ReviewStatus;
 };
 
 type Brief = {
@@ -633,10 +638,45 @@ function ShotCard({
         </div>
 
         <div style={{ fontSize: 10, color: "#9ca3af", textAlign: "center" }}>Shot {shot.shotNumber}</div>
+
+        {/* Phase B quality score — silent since the vision-critic shipped, now surfaced. */}
+        {qualityScoreColor(shot.qualityScore) && (
+          <div
+            title={[formatWeakestDimension(shot.qualityWeakest), shot.qualityNote].filter(Boolean).join(" — ") || undefined}
+            style={{
+              fontSize: 10, fontWeight: 700, color: "white", textAlign: "center",
+              background: qualityScoreColor(shot.qualityScore)!, borderRadius: 999,
+              padding: "2px 8px", cursor: shot.qualityNote ? "help" : "default",
+            }}
+          >
+            {Math.round((shot.qualityScore ?? 0) * 100)}
+          </div>
+        )}
       </div>
 
       {/* Details column */}
       <div style={{ flex: 1, padding: "10px 14px", display: "flex", flexDirection: "column", gap: 8 }}>
+        {/* Review gate (Phase C) */}
+        <div style={{ display: "flex", gap: 4 }}>
+          {(["draft", "approved", "needs_rework"] as ReviewStatus[]).map(st => {
+            const active = (shot.reviewStatus ?? "draft") === st;
+            const color = st === "approved" ? "#22c55e" : st === "needs_rework" ? "#ef4444" : "#9ca3af";
+            return (
+              <button
+                key={st}
+                onClick={() => onUpdate(shot.id, { reviewStatus: st })}
+                style={{
+                  fontSize: 10, fontWeight: 700, padding: "3px 8px", borderRadius: 6, cursor: "pointer",
+                  border: `1px solid ${color}`, background: active ? color : "transparent",
+                  color: active ? "white" : color,
+                }}
+              >
+                {REVIEW_STATUS_LABEL[st]}
+              </button>
+            );
+          })}
+        </div>
+
         {/* Parameter row */}
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
           <div>

@@ -60,4 +60,9 @@ describe("PATCH /api/projects/[projectId]/comics/[pageId]/panels/[panelId]", () 
     await PATCH(makeRequest({ bubbleType: "shout", letteredImageUrl: "https://evil.example.com/x.png" }), makeParams());
     expect(updateSet).toHaveBeenCalledWith({ bubbleType: "shout" });
   });
+
+  it("now also accepts reviewStatus (Phase C review gate)", async () => {
+    await PATCH(makeRequest({ reviewStatus: "approved" }), makeParams());
+    expect(updateSet).toHaveBeenCalledWith({ reviewStatus: "approved" });
+  });
 });

@@ -18,7 +18,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ projec
     return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const body = await req.json();
-  const allowed = ["dialogue", "caption", "speakerName", "bubbleType"];
+  const allowed = ["dialogue", "caption", "speakerName", "bubbleType", "reviewStatus"];
   const update: Record<string, string> = {};
   for (const key of allowed) {
     if (key in body) update[key] = body[key];

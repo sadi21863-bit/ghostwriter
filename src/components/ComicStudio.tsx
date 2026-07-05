@@ -4,6 +4,7 @@ import { ART_STYLES } from "@/lib/ai/panel-prompt-builder";
 import { EmptyState } from "@/components/EmptyState";
 import { co, sBtn, sBtnSm, sInput } from "@/lib/styles";
 import { isValidTipTapJson, tiptapToPlainText } from "@/lib/editor/content-migration";
+import { qualityScoreColor, formatWeakestDimension, REVIEW_STATUS_LABEL, type ReviewStatus } from "@/lib/production/review";
 
 export default function ComicStudio({ project, segmindKey, onOpenStudio }: { project: any; segmindKey: string; onOpenStudio?: () => void }) {
   const [view, setView] = useState<"generator" | "editor">("generator");
@@ -82,6 +83,18 @@ export default function ComicStudio({ project, segmindKey, onOpenStudio }: { pro
         body: JSON.stringify({ [field]: value }),
       });
     }, 1500);
+  };
+
+  const setPanelReviewStatus = (panelId: string, reviewStatus: ReviewStatus) => {
+    setActivePage((prev: any) => ({
+      ...prev,
+      panels: prev.panels.map((p: any) => p.id === panelId ? { ...p, reviewStatus } : p),
+    }));
+    fetch(`/api/projects/${project.id}/comics/${activePage.id}/panels/${panelId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ reviewStatus }),
+    });
   };
 
   const regeneratePanel = async (panelId: string) => {
@@ -205,6 +218,18 @@ export default function ComicStudio({ project, segmindKey, onOpenStudio }: { pro
                   {/* Image area */}
                   <div style={{ position: "relative", aspectRatio: "1/1", background: co.surfaceAlt }}>
                     <span style={{ position: "absolute", top: 8, left: 8, background: "rgba(0,0,0,0.6)", color: "#fff", fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 20, zIndex: 2 }}>{i + 1}</span>
+                    {qualityScoreColor(panel.qualityScore) && (
+                      <span
+                        title={[formatWeakestDimension(panel.qualityWeakest), panel.qualityNote].filter(Boolean).join(" — ") || undefined}
+                        style={{
+                          position: "absolute", top: 8, left: 36, zIndex: 2, background: qualityScoreColor(panel.qualityScore)!,
+                          color: "#fff", fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 20,
+                          cursor: panel.qualityNote ? "help" : "default",
+                        }}
+                      >
+                        {Math.round((panel.qualityScore ?? 0) * 100)}
+                      </span>
+                    )}
                     <button style={{ position: "absolute", top: 8, right: 8, zIndex: 2, ...sBtnSm, padding: "3px 8px" }} onClick={() => regeneratePanel(panel.id)} disabled={regenerating[panel.id]}>
                       {regenerating[panel.id] ? "..." : "🔄"}
                     </button>
@@ -214,6 +239,25 @@ export default function ComicStudio({ project, segmindKey, onOpenStudio }: { pro
                   </div>
                   {/* Edit area */}
                   <div style={{ padding: 10, display: "flex", flexDirection: "column", gap: 6 }}>
+                    <div style={{ display: "flex", gap: 4 }}>
+                      {(["draft", "approved", "needs_rework"] as ReviewStatus[]).map(st => {
+                        const active = (panel.reviewStatus ?? "draft") === st;
+                        const color = st === "approved" ? "#22c55e" : st === "needs_rework" ? "#ef4444" : co.muted;
+                        return (
+                          <button
+                            key={st}
+                            onClick={() => setPanelReviewStatus(panel.id, st)}
+                            style={{
+                              fontSize: 10, fontWeight: 700, padding: "3px 8px", borderRadius: 6, cursor: "pointer", flex: 1,
+                              border: `1px solid ${color}`, background: active ? color : "transparent",
+                              color: active ? "#fff" : color,
+                            }}
+                          >
+                            {REVIEW_STATUS_LABEL[st]}
+                          </button>
+                        );
+                      })}
+                    </div>
                     <input style={sInput} placeholder="Speaker name..." value={edit.speakerName ?? ""} onChange={e => updatePanel(panel.id, "speakerName", e.target.value)} />
                     <textarea style={{ ...sInput, resize: "none", minHeight: 44 }} placeholder="Dialogue..." rows={2} value={edit.dialogue ?? ""} onChange={e => updatePanel(panel.id, "dialogue", e.target.value)} />
                     <input style={sInput} placeholder="Caption (narrator box)..." value={edit.caption ?? ""} onChange={e => updatePanel(panel.id, "caption", e.target.value)} />

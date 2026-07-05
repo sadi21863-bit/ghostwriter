@@ -237,6 +237,10 @@ export const comicPanels = pgTable("comic_panels", {
   qualityScore: real("quality_score"),
   qualityWeakest: varchar("quality_weakest", { length: 30 }),
   qualityNote: text("quality_note").default(""),
+  // Phase C review gate (docs/2026-06-25-ai-director-editor-production-studio-gap-analysis.md).
+  // Mirrors chapters.reviewStatus's draft/approved pattern; "needs_rework" reframes
+  // the doc's "reject" — a flagged panel isn't deleted, it needs another pass.
+  reviewStatus: varchar("review_status", { length: 12 }).notNull().default("draft"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -278,6 +282,8 @@ export const productionShots = pgTable("production_shots", {
   qualityScore:       real("quality_score"),
   qualityWeakest:     varchar("quality_weakest", { length: 30 }),
   qualityNote:        text("quality_note").default(""),
+  // Phase C review gate, same as comicPanels above.
+  reviewStatus:       varchar("review_status", { length: 12 }).notNull().default("draft"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
