@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { selectionKinds, confirmMessageFor, isOptionActionable, blockedReasonText, nodeHealthAccent } from "../graph-canvas";
+import { selectionKinds, confirmMessageFor, isOptionActionable, blockedReasonText, nodeHealthAccent, linkKindForPair } from "../graph-canvas";
 import type { GraphRunPlan } from "../graph-program";
 import type { GraphHealthIssue } from "../graph-health";
 
@@ -70,5 +70,31 @@ describe("nodeHealthAccent", () => {
   });
   it("returns the info color when all issues are info", () => {
     expect(nodeHealthAccent([issue({ severity: "info" })])).toBe("#f59e0b");
+  });
+});
+
+describe("linkKindForPair", () => {
+  it("resolves character+character to relationship", () => {
+    expect(linkKindForPair("character", "character")).toBe("relationship");
+  });
+  it("resolves character+location to appears_at, order-independent", () => {
+    expect(linkKindForPair("character", "location")).toBe("appears_at");
+    expect(linkKindForPair("location", "character")).toBe("appears_at");
+  });
+  it("resolves character+thread to drives, order-independent", () => {
+    expect(linkKindForPair("character", "thread")).toBe("drives");
+    expect(linkKindForPair("thread", "character")).toBe("drives");
+  });
+  it("rejects location+thread", () => {
+    expect(linkKindForPair("location", "thread")).toBeNull();
+  });
+  it("rejects location+location and thread+thread", () => {
+    expect(linkKindForPair("location", "location")).toBeNull();
+    expect(linkKindForPair("thread", "thread")).toBeNull();
+  });
+  it("rejects any pairing involving world_entity or chapter", () => {
+    expect(linkKindForPair("character", "world_entity")).toBeNull();
+    expect(linkKindForPair("character", "chapter")).toBeNull();
+    expect(linkKindForPair("world_entity", "chapter")).toBeNull();
   });
 });

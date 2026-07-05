@@ -1,14 +1,29 @@
 "use client";
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import {
-  ReactFlow, Background, Controls, MiniMap,
-  useNodesState, useEdgesState,
+  ReactFlow, ReactFlowProvider, Background, Controls, MiniMap,
+  useNodesState, useEdgesState, useReactFlow,
 } from "@xyflow/react";
-import type { Node, Edge } from "@xyflow/react";
+import type { Node, Edge, Connection } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
-import { selectionKinds, confirmMessageFor, isOptionActionable, blockedReasonText, nodeHealthAccent } from "@/lib/graph/graph-canvas";
-import type { GraphRunPlan } from "@/lib/graph/graph-program";
+import { selectionKinds, confirmMessageFor, isOptionActionable, blockedReasonText, nodeHealthAccent, linkKindForPair } from "@/lib/graph/graph-canvas";
+import type { GraphNodeKind, GraphRunPlan } from "@/lib/graph/graph-program";
 import type { GraphHealthIssue, GraphHealthReport } from "@/lib/graph/graph-health";
+
+// Palette entry per creatable node kind (Phase 2 graph editing — drag onto the
+// canvas to create, draw a wire between two existing nodes to link them).
+// world_entity/chapter are deliberately excluded: neither has a "create via drag"
+// persistence path today (world entities have their own CRUD UI; chapters come
+// from writing, not manual creation).
+const CREATABLE: { kind: GraphNodeKind; label: string; endpoint: string }[] = [
+  { kind: "character", label: "+ Character", endpoint: "characters" },
+  { kind: "location",  label: "+ Location",  endpoint: "locations" },
+  { kind: "thread",    label: "+ Thread",    endpoint: "plot-threads" },
+];
+const DEFAULT_NAME: Record<string, string> = {
+  character: "New Character", location: "New Location", thread: "New Thread",
+};
+const DRAG_MIME = "application/x-ghostwriter-node-kind";
 
 type Props = {
   projectId: string;
@@ -42,16 +57,18 @@ const EDGE_KIND_STYLE: Record<string, { stroke: string; dashed?: boolean; label?
   features:   { stroke: "#fb7185", dashed: true, label: "features" },
 };
 
-export function ConstellationView({ projectId, onSelectPair, onRunCapability, height = 500 }: Props) {
+function Flow({ projectId, onSelectPair, onRunCapability, height = 500 }: Props) {
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
   const [selected, setSelected] = useState<{ id: string; type?: string }[]>([]);
   const [options, setOptions] = useState<GraphRunPlan[] | null>(null);
   const [loadingOpts, setLoadingOpts] = useState(false);
   const [health, setHealth] = useState<GraphHealthReport | null>(null);
+  const { screenToFlowPosition } = useReactFlow();
+  const wrapperRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    fetch(`/api/projects/${projectId}/story-graph`)
+  const loadGraph = useCallback(() => {
+    return fetch(`/api/projects/${projectId}/story-graph`)
       .then(r => r.json())
       .then(data => {
         const all = data.nodes || [];
@@ -135,6 +152,78 @@ export function ConstellationView({ projectId, onSelectPair, onRunCapability, he
       .catch(() => {});
   }, [projectId, setNodes, setEdges]);
 
+  useEffect(() => { loadGraph(); }, [loadGraph]);
+
+  // Drag a palette chip onto the canvas → create a new entity at the drop point.
+  const onDragOver = useCallback((e: React.DragEvent) => {
+    if (e.dataTransfer.types.includes(DRAG_MIME)) { e.preventDefault(); e.dataTransfer.dropEffect = "move"; }
+  }, []);
+
+  const onDrop = useCallback((e: React.DragEvent) => {
+    const kind = e.dataTransfer.getData(DRAG_MIME);
+    const entry = CREATABLE.find(c => c.kind === kind);
+    if (!entry) return;
+    e.preventDefault();
+    const position = screenToFlowPosition({ x: e.clientX, y: e.clientY });
+
+    fetch(`/api/projects/${projectId}/${entry.endpoint}`, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: DEFAULT_NAME[kind] }),
+    })
+      .then(r => r.json())
+      .then((created) => {
+        if (!created?.id) return;
+        const st = NODE_TYPE_STYLE[kind] ?? NODE_TYPE_STYLE.character;
+        const newNode: Node = {
+          id: created.id,
+          data: { label: created.name ?? DEFAULT_NAME[kind], nodeType: kind },
+          position,
+          style: {
+            background: st.bg, border: `1px solid ${st.border}`, borderRadius: st.shape,
+            padding: "8px 12px", fontSize: 12, color: "#F2F2F3", minWidth: 70, textAlign: "center" as const,
+          },
+        };
+        setNodes(nds => [...nds, newNode]);
+      })
+      .catch(() => {});
+  }, [projectId, screenToFlowPosition, setNodes]);
+
+  // Draw a wire between two existing nodes → persist a real link (or reject if
+  // the pairing has no link semantics — see linkKindForPair).
+  const onConnect = useCallback((connection: Connection) => {
+    const sourceKind = nodes.find(n => n.id === connection.source)?.data?.nodeType as GraphNodeKind | undefined;
+    const targetKind = nodes.find(n => n.id === connection.target)?.data?.nodeType as GraphNodeKind | undefined;
+    if (!sourceKind || !targetKind) return;
+    const linkKind = linkKindForPair(sourceKind, targetKind);
+    if (!linkKind) return; // unsupported pairing — reject silently, no API call
+
+    const charId = sourceKind === "character" ? connection.source : connection.target;
+    const otherId = sourceKind === "character" ? connection.target : connection.source;
+
+    const request = (async () => {
+      if (linkKind === "relationship") {
+        return fetch(`/api/projects/${projectId}/relationship-map`, {
+          method: "PATCH", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ characterAId: connection.source, characterBId: connection.target }),
+        });
+      }
+      const field = linkKind === "appears_at" ? "linkedLocationIds" : "linkedPlotThreadIds";
+      // Read the character's CURRENT link array first — the canvas node only
+      // carries {label, nodeType}, not the full DB row — so appending here
+      // instead of assuming empty doesn't clobber existing links.
+      const project = await fetch(`/api/projects/${projectId}`).then(r => r.json());
+      const char = (project?.characters ?? []).find((c: any) => c.id === charId);
+      const existing: string[] = char?.[field] ?? [];
+      if (existing.includes(otherId)) return { ok: true } as Response;
+      return fetch(`/api/projects/${projectId}/characters/${charId}`, {
+        method: "PATCH", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ [field]: [...existing, otherId] }),
+      });
+    })();
+
+    request.then(r => { if (r.ok) loadGraph(); }).catch(() => {});
+  }, [nodes, projectId, loadGraph]);
+
   // Phase 2 dataflow: when nodes are selected, ask the server which capabilities can
   // run on that selection (preflight + cost + confirm). The server never executes.
   const onSelectionChange = useCallback(({ nodes: selNodes }: { nodes: Node[] }) => {
@@ -165,10 +254,16 @@ export function ConstellationView({ projectId, onSelectPair, onRunCapability, he
   };
 
   return (
-    <div style={{ position: "relative", width: "100%", height, borderRadius: 12, overflow: "hidden", border: "1px solid var(--color-border-subtle, rgba(255,255,255,0.05))" }}>
+    <div
+      ref={wrapperRef}
+      onDragOver={onDragOver}
+      onDrop={onDrop}
+      style={{ position: "relative", width: "100%", height, borderRadius: 12, overflow: "hidden", border: "1px solid var(--color-border-subtle, rgba(255,255,255,0.05))" }}
+    >
       <ReactFlow
         nodes={nodes} edges={edges}
         onNodesChange={onNodesChange} onEdgesChange={onEdgesChange}
+        onConnect={onConnect}
         onSelectionChange={onSelectionChange}
         onEdgeClick={(_, edge) => {
           if ((edge.data as any)?.kind === "relationship") onSelectPair?.(edge.source, edge.target);
@@ -183,7 +278,30 @@ export function ConstellationView({ projectId, onSelectPair, onRunCapability, he
         />
       </ReactFlow>
 
-      <div style={{ position: "absolute", top: 8, left: 8, display: "flex", gap: 10, fontSize: 11, background: "rgba(17,17,19,0.8)", padding: "4px 8px", borderRadius: 6, color: "#9898A6", zIndex: 5 }}>
+      {/* Drag one of these onto the canvas to create a new entity; draw a wire
+          between two existing nodes (character↔location, character↔thread,
+          character↔character) to link them — see onDrop / onConnect above. */}
+      <div style={{ position: "absolute", top: 8, left: 8, display: "flex", gap: 6, zIndex: 5 }}>
+        {CREATABLE.map(c => {
+          const st = NODE_TYPE_STYLE[c.kind];
+          return (
+            <div
+              key={c.kind}
+              draggable
+              onDragStart={(e) => { e.dataTransfer.setData(DRAG_MIME, c.kind); e.dataTransfer.effectAllowed = "move"; }}
+              title={`Drag onto the canvas to create a ${c.kind}`}
+              style={{
+                fontSize: 11, padding: "4px 8px", borderRadius: 6, cursor: "grab",
+                background: "rgba(17,17,19,0.8)", border: `1px solid ${st.border}`, color: "#E8E8F0",
+              }}
+            >
+              {c.label}
+            </div>
+          );
+        })}
+      </div>
+
+      <div style={{ position: "absolute", top: 40, left: 8, display: "flex", gap: 10, fontSize: 11, background: "rgba(17,17,19,0.8)", padding: "4px 8px", borderRadius: 6, color: "#9898A6", zIndex: 5 }}>
         <span><span style={{ color: "#818cf8" }}>●</span> Character</span>
         <span><span style={{ color: "#22c55e" }}>●</span> Location</span>
         <span><span style={{ color: "#f59e0b" }}>●</span> Thread</span>
@@ -234,5 +352,15 @@ export function ConstellationView({ projectId, onSelectPair, onRunCapability, he
         </div>
       )}
     </div>
+  );
+}
+
+// screenToFlowPosition (useReactFlow) requires an ancestor ReactFlowProvider —
+// Flow renders <ReactFlow> itself, so the provider has to wrap Flow from outside.
+export function ConstellationView(props: Props) {
+  return (
+    <ReactFlowProvider>
+      <Flow {...props} />
+    </ReactFlowProvider>
   );
 }

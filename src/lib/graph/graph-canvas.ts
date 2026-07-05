@@ -57,3 +57,24 @@ export function nodeHealthAccent(issues: GraphHealthIssue[]): string | null {
   if (issues.length === 0) return null;
   return issues.some(i => i.severity === "warning") ? "#f87171" : "#f59e0b";
 }
+
+/**
+ * What kind of link (if any) drawing a wire between two node kinds should create.
+ * Order-independent — character+location and location+character both resolve the
+ * same way. Only the three pairings with a real persistence path today are
+ * supported; everything else (including any pairing involving world_entity or
+ * chapter, which have no user-drawable link today) returns null so the canvas
+ * rejects the connection instead of calling a nonexistent write.
+ */
+export function linkKindForPair(
+  aKind: GraphNodeKind,
+  bKind: GraphNodeKind
+): "relationship" | "appears_at" | "drives" | null {
+  const pair = [aKind, bKind].sort().join(":");
+  switch (pair) {
+    case "character:character": return "relationship";
+    case "character:location":  return "appears_at";
+    case "character:thread":    return "drives";
+    default:                    return null;
+  }
+}

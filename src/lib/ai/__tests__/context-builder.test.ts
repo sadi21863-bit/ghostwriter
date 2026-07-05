@@ -386,6 +386,62 @@ describe("buildStaticContext — character embodiment", () => {
   });
 });
 
+describe("buildStaticContext — story graph wiring", () => {
+  it("flags a character with no location, thread, or relationship as unconnected", () => {
+    const project = baseProject({
+      characters: [
+        makeCharacter({ id: "c1", name: "Alice", linkedLocationIds: ["l1"] }),
+        makeCharacter({ id: "c2", name: "Ghost", linkedLocationIds: [], linkedPlotThreadIds: [] }),
+      ],
+      locations: [makeLocation({ id: "l1", name: "The Old Mill" })],
+    });
+    const ctx = buildStaticContext(project);
+    expect(ctx).toContain("UNCONNECTED CHARACTERS");
+    expect(ctx).toContain("Ghost");
+    expect(ctx).not.toMatch(/UNCONNECTED CHARACTERS[^\n]*Alice/);
+  });
+
+  it("does not flag any character as unconnected once every character has a location, thread, or relationship", () => {
+    const project = baseProject({
+      characters: [
+        makeCharacter({ id: "c1", name: "Alice", linkedLocationIds: ["l1"] }),
+        makeCharacter({ id: "c2", name: "Bob", linkedPlotThreadIds: ["t1"] }),
+      ],
+      locations: [makeLocation({ id: "l1", name: "The Old Mill" })],
+      plotThreads: [makePlotThread({ id: "t1", name: "The Conspiracy" })],
+    });
+    expect(buildStaticContext(project)).not.toContain("UNCONNECTED CHARACTERS");
+  });
+
+  it("lists which characters appear at a location, derived from linkedLocationIds", () => {
+    const project = baseProject({
+      characters: [makeCharacter({ id: "c1", name: "Alice", linkedLocationIds: ["l1"] })],
+      locations: [makeLocation({ id: "l1", name: "The Old Mill" })],
+    });
+    const ctx = buildStaticContext(project);
+    expect(ctx).toContain("Characters seen here: Alice");
+  });
+
+  it("lists which characters drive a plot thread, derived from linkedPlotThreadIds", () => {
+    const project = baseProject({
+      characters: [makeCharacter({ id: "c1", name: "Alice", linkedPlotThreadIds: ["t1"] })],
+      plotThreads: [makePlotThread({ id: "t1", name: "The Conspiracy" })],
+    });
+    const ctx = buildStaticContext(project);
+    expect(ctx).toContain("Driven by: Alice");
+  });
+
+  it("skips graph computation (no UNCONNECTED / derived lines) for brief-depth modes", () => {
+    const project = baseProject({
+      characters: [makeCharacter({ id: "c1", name: "Ghost" })],
+      locations: [makeLocation({ id: "l1", name: "The Old Mill" })],
+    });
+    const ctx = buildStaticContext(project, "setting"); // charDepth: "brief"
+    expect(ctx).not.toContain("UNCONNECTED CHARACTERS");
+    expect(ctx).not.toContain("Characters seen here");
+  });
+});
+
 describe("world entities (World Bible expansion)", () => {
   const entity = { kind: "weapon", name: "The Ember Blade", summary: "a sword that burns cold", alwaysInContext: true };
 

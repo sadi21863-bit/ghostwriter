@@ -8,6 +8,7 @@ import { MODE_REGISTRY, type ContextPolicy } from "@/lib/modes/registry";
 import { CONTEXT_CHAR_CAPS } from "@/lib/ai/context-caps";
 import { decodeAIRules, decodeMemoryStructuredData } from "@/lib/types/story";
 import { packToBudget } from "@/lib/ai/headroom";
+import { buildStoryGraph, type StoryGraphResult } from "@/lib/graph/story-graph";
 
 export interface CharacterRelationship {
   characterAId: string;
@@ -157,6 +158,31 @@ export function buildStaticContext(p: ContextProject, mode?: string, tier?: stri
 
   let r: string[] = [];
   const sections: string[][] = [r];
+
+  // ── STORY GRAPH ─────────────────────────────────────────────────────────────
+  // Same depth gate as the character-relationships block below: only computed
+  // when the mode wants full character depth. Derives appears_at/drives edges
+  // (from link fields, not user-authored) and flags fully-disconnected
+  // characters — signal the raw project object doesn't expose on its own.
+  // World entities are intentionally excluded: ContextProject.worldEntities
+  // (WorldEntityContext) carries no id/link fields to build involves edges from.
+  const wantsStoryGraph = policy.needsCharacters && policy.charDepth === "full"
+    && ((p.characters?.length ?? 0) > 0);
+  const graph: StoryGraphResult | null = wantsStoryGraph
+    ? buildStoryGraph({
+        characters: (p.characters ?? []).map(c => ({
+          id: c.id, name: c.name, role: c.role,
+          linkedLocationIds: c.linkedLocationIds, linkedPlotThreadIds: c.linkedPlotThreadIds,
+        })),
+        locations: (p.locations ?? []).map(l => ({ id: l.id, name: l.name, linkedCharacterIds: l.linkedCharacterIds })),
+        plotThreads: (p.plotThreads ?? []).map(t => ({ id: t.id, name: t.name })),
+        chapters: (p.chapters ?? []).map(ch => ({ id: ch.id, title: ch.title, wordCount: ch.wordCount, content: ch.content })),
+        storedRels: (p.characterRelationships ?? []).map(rel => ({
+          characterAId: rel.characterAId, characterBId: rel.characterBId,
+          trustLevel: rel.trustLevel, relationshipType: rel.relationshipType,
+        })),
+      })
+    : null;
 
   // ── ACTIVE INFLUENCE ───────────────────────────────────────────────────────
   if (p.activeInfluence) {
@@ -660,12 +686,24 @@ export function buildStaticContext(p: ContextProject, mode?: string, tier?: stri
     }
   }
 
+  if (graph && graph.isolated.length > 0) {
+    r.push(
+      "UNCONNECTED CHARACTERS (no established location, plot thread, or relationship yet): "
+      + graph.isolated.map(c => c.name).join(", ")
+      + " — give them a clear place in the story or cut them."
+    );
+  }
+
   r = [];
   sections.push(r);
 
   if (policy.needsLocations && p.locations?.length) {
     r.push("LOCATIONS:");
     p.locations.forEach((l: Location) => {
+      const charsHere = graph
+        ? graph.edges.filter(e => e.kind === "appears_at" && e.target === l.id)
+            .map(e => graph.nodes.find(n => n.id === e.source)?.name).filter(Boolean)
+        : [];
       if (l.alwaysInContext === false) {
         r.push("- " + l.name + " (minor location)");
         return;
@@ -674,6 +712,7 @@ export function buildStaticContext(p: ContextProject, mode?: string, tier?: stri
       if (l.atmosphere)     parts.push("  Atmosphere: " + l.atmosphere);
       if (l.history)        parts.push("  History: " + l.history);
       if (l.sensoryDetails) parts.push("  Sensory: " + l.sensoryDetails);
+      if (charsHere.length) parts.push("  Characters seen here: " + charsHere.join(", "));
       r.push(parts.join("\n"));
     });
   }
@@ -684,6 +723,10 @@ export function buildStaticContext(p: ContextProject, mode?: string, tier?: stri
   if (policy.needsPlotThreads && p.plotThreads?.length) {
     r.push("PLOTS:");
     p.plotThreads.forEach((t: PlotThread) => {
+      const driversOf = graph
+        ? graph.edges.filter(e => e.kind === "drives" && e.target === t.id)
+            .map(e => graph.nodes.find(n => n.id === e.source)?.name).filter(Boolean)
+        : [];
       if (t.alwaysInContext === false) {
         r.push("- [" + (t.status || "Active") + "] " + t.name + " (minor thread)");
         return;
@@ -691,6 +734,7 @@ export function buildStaticContext(p: ContextProject, mode?: string, tier?: stri
       const parts = ["- [" + t.status + "] " + t.name + (t.description ? ": " + t.description : "")];
       if (t.stakes)      parts.push("  Stakes: " + t.stakes);
       if (t.connections) parts.push("  Connections: " + t.connections);
+      if (driversOf.length) parts.push("  Driven by: " + driversOf.join(", "));
       r.push(parts.join("\n"));
     });
   }
