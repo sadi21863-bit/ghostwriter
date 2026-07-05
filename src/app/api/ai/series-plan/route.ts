@@ -9,7 +9,7 @@ import { db } from "@/db";
 import { projects } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { MODELS } from "@/lib/ai/engine";
-import { seriesPlanSystemPrompt } from "@/lib/ai/prompts";
+import { seriesPlanSystemPrompt } from "@/lib/roles/director";
 import { meterAndGate, refundCredits } from "@/lib/metering/meter";
 
 export async function POST(req: Request) {

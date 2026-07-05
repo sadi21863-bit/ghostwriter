@@ -6,7 +6,7 @@ import { checkAiRateLimit } from "@/lib/ratelimit";
 import { getUserTier, canAccessFeature } from "@/lib/subscription";
 import { anthropic as client } from "@/lib/ai/client";
 import { MODELS } from "@/lib/ai/engine";
-import { titleHookSystemPrompt } from "@/lib/ai/prompts";
+import { titleHookSystemPrompt } from "@/lib/roles/director";
 import { meterAndGate, refundCredits } from "@/lib/metering/meter";
 
 export async function POST(req: Request) {

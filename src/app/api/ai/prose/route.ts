@@ -13,7 +13,7 @@ import {
   PROSE_SUBTEXT_SYSTEM_PROMPT,
   PROSE_TIGHTEN_SYSTEM_PROMPT,
   proseRewriteSystemPrompt,
-} from "@/lib/ai/prompts";
+} from "@/lib/roles/editor";
 
 
 function safeParseJson(raw: string) {

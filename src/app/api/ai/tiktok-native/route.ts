@@ -6,7 +6,7 @@ import { checkAiRateLimit } from "@/lib/ratelimit";
 import { getUserTier, canAccessFeature } from "@/lib/subscription";
 import { anthropic } from "@/lib/ai/client";
 import { MODELS } from "@/lib/ai/engine";
-import { TIKTOK_SCRIPT_SYSTEM_PROMPT } from "@/lib/ai/prompts";
+import { TIKTOK_SCRIPT_SYSTEM_PROMPT } from "@/lib/roles/writer";
 import { meterAndGate, refundCredits } from "@/lib/metering/meter";
 
 

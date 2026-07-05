@@ -12,6 +12,12 @@ export const OPERATION_CREDITS: Record<string, number> = {
   "entity":            0.1, "suggest": 0.1, "summarize": 0.2,
   "adapt-chapter":     1.0,
   "refine":            0.5,
+  // Previously unmetered (2026-07-05 route-consolidation audit) — director/editor/writer
+  // tools that called the model with no meterAndGate/refundCredits at all.
+  "tension-curve":       0.4, "arc-heatmap": 0.4, "villain-pov": 0.5,
+  "generate-package":    0.6, "beat-sheet": 0.5,
+  "knowledge-audit":     0.5, "transportation-check": 0.4,
+  "alt-draft":           1.0,
 };
 
 export const DEFAULT_OPERATION_CREDIT = 0.3;

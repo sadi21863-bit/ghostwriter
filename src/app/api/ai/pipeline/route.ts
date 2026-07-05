@@ -7,14 +7,9 @@ import { meterAndGate, refundCredits } from "@/lib/metering/meter";
 import { getUserTier, canAccessFeature } from "@/lib/subscription";
 import { anthropic as client } from "@/lib/ai/client";
 import { MODELS } from "@/lib/ai/engine";
-import {
-  pipelineStoryArchitectSystemPrompt,
-  pipelineSceneWriterSystemPrompt,
-  pipelineCharacterVoiceSystemPrompt,
-  pipelineContinuityEditorSystemPrompt,
-  pipelineHookWriterSystemPrompt,
-  pipelineSeoOptimizerSystemPrompt,
-} from "@/lib/ai/prompts";
+import { pipelineStoryArchitectSystemPrompt, pipelineSeoOptimizerSystemPrompt } from "@/lib/roles/director";
+import { pipelineSceneWriterSystemPrompt, pipelineHookWriterSystemPrompt } from "@/lib/roles/writer";
+import { pipelineCharacterVoiceSystemPrompt, pipelineContinuityEditorSystemPrompt } from "@/lib/roles/editor";
 
 
 const AGENT_MODELS: Record<string, string> = {

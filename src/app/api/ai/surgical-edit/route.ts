@@ -7,7 +7,7 @@ import { meterAndGate, refundCredits } from "@/lib/metering/meter";
 import { getUserTier, canAccessFeature } from "@/lib/subscription";
 import { anthropic as client } from "@/lib/ai/client";
 import { MODELS } from "@/lib/ai/engine";
-import { surgicalEditSystemPrompt } from "@/lib/ai/prompts";
+import { surgicalEditSystemPrompt } from "@/lib/roles/editor";
 import { isValidTipTapJson, tiptapToPlainText, plainTextToTipTap } from "@/lib/editor/content-migration";
 import { extractVoiceFingerprint, fingerprintToConstraints } from "@/lib/ai/voice-fingerprint";
 import { buildPromiseLedger } from "@/lib/ai/promise-ledger";

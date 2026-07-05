@@ -6,9 +6,8 @@ import { checkAiRateLimit } from "@/lib/ratelimit";
 import { db } from "@/db";
 import { projects, productionShots, characters, locations } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
-import { anthropic as client } from "@/lib/ai/client";
 import { MODELS } from "@/lib/ai/engine";
-import { PRODUCTION_PACKAGE_SYSTEM_PROMPT } from "@/lib/ai/prompts";
+import { PRODUCTION_PACKAGE_SYSTEM_PROMPT, runDirectorCall } from "@/lib/roles/director";
 import { buildPromiseLedger } from "@/lib/ai/promise-ledger";
 
 
@@ -132,15 +131,17 @@ Generate a production package as JSON:
 
 Generate 3-6 shots per chapter and one multiShotScript per scene. Focus on visually interesting moments. Make prompts Higgsfield-ready.`;
 
-  const msg = await client.messages.create({
+  const result = await runDirectorCall({
+    userId: s.user.id,
+    operation: "generate-package",
     model: MODELS.default,
-    max_tokens: 8000,
+    maxTokens: 8000,
     system: systemPrompt,
     messages: [{ role: "user", content: userPrompt }],
   });
+  if (!result.ok) return result.response;
 
-  const raw = msg.content.filter((b: any) => b.type === "text").map((b: any) => b.text).join("");
-  const pkg = safeParseJson(raw);
+  const pkg = safeParseJson(result.text);
   if (!pkg?.shots) return NextResponse.json({ error: "Failed to analyze story. Try adding chapter content first." }, { status: 500 });
 
   // Resolve character names to IDs — create World Bible rows for any character the

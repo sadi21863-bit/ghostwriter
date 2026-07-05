@@ -7,9 +7,8 @@ import { chapters, projects } from '@/db/schema';
 import { eq, and } from 'drizzle-orm';
 import { buildContext } from '@/lib/ai/context-builder';
 import { ALT_DRAFT_GOALS } from '@/lib/alt-draft/goals';
-import { anthropic as client } from "@/lib/ai/client";
 import type { AltDraftGoal, AlternateDraft } from '@/types';
-import { altDraftSystemPrompt } from '@/lib/ai/prompts';
+import { altDraftSystemPrompt, runWriterCall } from '@/lib/roles/writer';
 
 export async function POST(
   req: NextRequest,
@@ -37,17 +36,20 @@ export async function POST(
   const baseContext = buildContext(project as any);
 
   const { MODELS } = await import('@/lib/ai/engine');
-  const response = await client.messages.create({
+  const result = await runWriterCall({
+    userId: session.user.id,
+    operation: "alt-draft",
     model: MODELS.quality,
-    max_tokens: 4000,
+    maxTokens: 4000,
     system: altDraftSystemPrompt(baseContext, goalConfig.label, goalConfig.directive),
     messages: [{
       role: 'user',
       content: `Original:\n\n${chapter.content}\n\nGenerate the alternate draft now.`,
     }],
   });
+  if (!result.ok) return result.response;
 
-  const fullText = response.content[0].type === 'text' ? response.content[0].text : '';
+  const fullText = result.text;
   const splitIdx = fullText.indexOf('---INTENT---');
   const draftContent = splitIdx > -1 ? fullText.slice(0, splitIdx).trim() : fullText.trim();
   const intent = splitIdx > -1 ? fullText.slice(splitIdx + 12).trim() : '';

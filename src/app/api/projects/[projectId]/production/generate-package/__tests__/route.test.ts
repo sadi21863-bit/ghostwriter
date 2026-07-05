@@ -6,6 +6,12 @@ vi.mock("@/lib/auth-helpers", () => ({
 vi.mock("@/lib/ratelimit", () => ({
   checkAiRateLimit: vi.fn(async () => null),
 }));
+const meterAndGate = vi.fn();
+const refundCredits = vi.fn();
+vi.mock("@/lib/metering/meter", () => ({
+  meterAndGate: (...args: any[]) => meterAndGate(...args),
+  refundCredits: (...args: any[]) => refundCredits(...args),
+}));
 
 const findFirstProject = vi.fn();
 vi.mock("@/db", () => ({
@@ -68,6 +74,8 @@ describe("POST /api/projects/[projectId]/production/generate-package", () => {
       content: [{ type: "text", text: MOCK_PACKAGE }],
     });
     buildPromiseLedger.mockResolvedValue("");
+    meterAndGate.mockResolvedValue(null);
+    refundCredits.mockResolvedValue(undefined);
   });
 
   it("calls buildPromiseLedger with generate mode", async () => {

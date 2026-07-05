@@ -7,9 +7,8 @@ import { getUserTier, canAccessFeature } from "@/lib/subscription";
 import { db } from "@/db";
 import { projects } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
-import { anthropic } from "@/lib/ai/client";
 import { MODELS } from "@/lib/ai/engine";
-import { TRANSPORTATION_CHECK_SYSTEM_PROMPT } from "@/lib/ai/prompts";
+import { TRANSPORTATION_CHECK_SYSTEM_PROMPT, runEditorCall } from "@/lib/roles/editor";
 
 
 export async function POST(req: Request, { params }: { params: Promise<{ projectId: string }> }) {
@@ -32,9 +31,11 @@ export async function POST(req: Request, { params }: { params: Promise<{ project
     return NextResponse.json({ error: "chapter content required" }, { status: 400 });
   }
 
-  const response = await anthropic.messages.create({
+  const result = await runEditorCall({
+    userId: session.user.id,
+    operation: "transportation-check",
     model: MODELS.fast,
-    max_tokens: 2000,
+    maxTokens: 2000,
     system: [{
       type: "text",
       text: TRANSPORTATION_CHECK_SYSTEM_PROMPT,
@@ -76,10 +77,10 @@ Return JSON:
 }`,
     }],
   });
+  if (!result.ok) return result.response;
 
-  const raw = response.content[0].type === "text" ? response.content[0].text : "{}";
   try {
-    return NextResponse.json(JSON.parse(raw.replace(/```json\n?|```/g, "").trim()));
+    return NextResponse.json(JSON.parse(result.text.replace(/```json\n?|```/g, "").trim()));
   } catch {
     return NextResponse.json({ error: "Parse failed" }, { status: 500 });
   }

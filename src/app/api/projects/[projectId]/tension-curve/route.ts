@@ -7,9 +7,8 @@ import { getUserTier, canAccessFeature } from "@/lib/subscription";
 import { db } from "@/db";
 import { projects, chapters } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
-import { anthropic } from "@/lib/ai/client";
 import { MODELS } from "@/lib/ai/engine";
-import { TENSION_CURVE_SYSTEM_PROMPT } from "@/lib/ai/prompts";
+import { TENSION_CURVE_SYSTEM_PROMPT, runDirectorCall } from "@/lib/roles/director";
 
 
 export async function POST(req: Request, { params }: { params: Promise<{ projectId: string }> }) {
@@ -51,9 +50,11 @@ export async function POST(req: Request, { params }: { params: Promise<{ project
     return NextResponse.json({ error: "Write at least 2 chapters to generate the tension curve." }, { status: 400 });
   }
 
-  const response = await anthropic.messages.create({
+  const result = await runDirectorCall({
+    userId: session.user.id,
+    operation: "tension-curve",
     model: MODELS.default,
-    max_tokens: 2000,
+    maxTokens: 2000,
     system: [{ type: "text", text: TENSION_CURVE_SYSTEM_PROMPT, cache_control: { type: "ephemeral" } }],
     messages: [{
       role: "user",
@@ -86,10 +87,10 @@ Return ONLY valid JSON:
 }`,
     }],
   });
+  if (!result.ok) return result.response;
 
-  const raw = response.content[0].type === "text" ? response.content[0].text : "{}";
   try {
-    return NextResponse.json(JSON.parse(raw.replace(/```json\n?|```/g, "").trim()));
+    return NextResponse.json(JSON.parse(result.text.replace(/```json\n?|```/g, "").trim()));
   } catch {
     return NextResponse.json({ error: "Parse failed" }, { status: 500 });
   }

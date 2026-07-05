@@ -9,7 +9,7 @@ import { videoAnalysisJobs } from "@/db/schema";
 import { eq, and, inArray } from "drizzle-orm";
 import { anthropic } from "@/lib/ai/client";
 import { MODELS } from "@/lib/ai/engine";
-import { CHANNEL_AUTOPSY_SYSTEM_PROMPT } from "@/lib/ai/prompts";
+import { CHANNEL_AUTOPSY_SYSTEM_PROMPT } from "@/lib/roles/director";
 import { meterAndGate, refundCredits } from "@/lib/metering/meter";
 
 

@@ -5,10 +5,9 @@ import { getRequiredSession } from '@/lib/auth-helpers';
 import { db } from '@/db';
 import { projects } from '@/db/schema';
 import { and, eq } from 'drizzle-orm';
-import { anthropic as client } from "@/lib/ai/client";
 import { MODELS } from '@/lib/ai/engine';
 import { getUserTier, canAccessFeature } from '@/lib/subscription';
-import { knowledgeAuditSystemPrompt } from '@/lib/ai/prompts';
+import { knowledgeAuditSystemPrompt, runEditorCall } from '@/lib/roles/editor';
 
 export async function POST(
   req: NextRequest,
@@ -51,9 +50,11 @@ export async function POST(
     return parts.join('\n');
   }).join('\n\n');
 
-  const msg = await client.messages.create({
+  const result = await runEditorCall({
+    userId: session.user.id,
+    operation: "knowledge-audit",
     model: MODELS.default,
-    max_tokens: 1500,
+    maxTokens: 1500,
     system: knowledgeAuditSystemPrompt(chapters.length),
     messages: [{
       role: 'user',
@@ -64,9 +65,9 @@ MANUSCRIPT:
 ${manuscript.slice(0, 180000)}`,
     }],
   });
+  if (!result.ok) return result.response;
 
-  const raw = msg.content.filter(b => b.type === 'text').map(b => (b as any).text).join('');
-  const clean = raw.replace(/```json\n?|```/g, '').trim();
+  const clean = result.text.replace(/```json\n?|```/g, '').trim();
 
   try {
     const result = JSON.parse(clean);

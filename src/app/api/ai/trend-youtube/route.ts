@@ -9,7 +9,7 @@ import { creatorBibles } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { anthropic as client } from "@/lib/ai/client";
 import { MODELS } from "@/lib/ai/engine";
-import { TREND_YOUTUBE_SYSTEM_PROMPT } from "@/lib/ai/prompts";
+import { TREND_YOUTUBE_SYSTEM_PROMPT } from "@/lib/roles/director";
 import { meterAndGate, refundCredits } from "@/lib/metering/meter";
 
 

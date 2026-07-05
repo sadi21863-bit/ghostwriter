@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { PRODUCTION_PACKAGE_SYSTEM_PROMPT } from "../prompts";
+import { PRODUCTION_PACKAGE_SYSTEM_PROMPT } from "../../roles/director";
 
 describe("PRODUCTION_PACKAGE_SYSTEM_PROMPT", () => {
   it("instructs cross-shot continuity checking", () => {

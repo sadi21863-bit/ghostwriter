@@ -7,7 +7,7 @@ import { storyMemories, chapters, projects } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { anthropic as client } from "@/lib/ai/client";
 import { MODELS } from "@/lib/ai/engine";
-import { EXTRACT_MEMORY_SYSTEM_PROMPT } from "@/lib/ai/prompts";
+import { EXTRACT_MEMORY_SYSTEM_PROMPT } from "@/lib/roles/editor";
 
 
 function safeParseJson(raw: string) {

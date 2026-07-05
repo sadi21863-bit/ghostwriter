@@ -10,7 +10,7 @@ import { eq } from "drizzle-orm";
 import { anthropic as client } from "@/lib/ai/client";
 import { MODELS } from "@/lib/ai/engine";
 import { decrypt } from "@/lib/crypto";
-import { TREND_INSTAGRAM_SYSTEM_PROMPT } from "@/lib/ai/prompts";
+import { TREND_INSTAGRAM_SYSTEM_PROMPT } from "@/lib/roles/director";
 import { meterAndGate, refundCredits } from "@/lib/metering/meter";
 
 

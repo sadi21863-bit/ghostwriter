@@ -9,7 +9,7 @@ import { creatorBibles } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { anthropic } from "@/lib/ai/client";
 import { MODELS } from "@/lib/ai/engine";
-import { HOOK_STRATEGIST_SYSTEM_PROMPT } from "@/lib/ai/prompts";
+import { HOOK_STRATEGIST_SYSTEM_PROMPT } from "@/lib/roles/editor";
 import { meterAndGate, refundCredits } from "@/lib/metering/meter";
 
 

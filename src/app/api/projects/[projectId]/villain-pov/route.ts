@@ -7,9 +7,8 @@ import { getUserTier, canAccessFeature } from "@/lib/subscription";
 import { db } from "@/db";
 import { projects, characters } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
-import { anthropic } from "@/lib/ai/client";
 import { MODELS } from "@/lib/ai/engine";
-import { villainPovSystemPrompt } from "@/lib/ai/prompts";
+import { villainPovSystemPrompt, runDirectorCall } from "@/lib/roles/director";
 import { buildPromiseLedger } from "@/lib/ai/promise-ledger";
 import { buildVoiceExemplars } from "@/lib/ai/exemplars";
 
@@ -61,13 +60,15 @@ export async function POST(req: Request, { params }: { params: Promise<{ project
   const system = villainPovSystemPrompt(character.name, character.role, profileNote, character.personality, character.desires)
     + (extra ? `\n\n${extra}` : "");
 
-  const response = await anthropic.messages.create({
+  const result = await runDirectorCall({
+    userId: session.user.id,
+    operation: "villain-pov",
     model: MODELS.default,
-    max_tokens: 2000,
+    maxTokens: 2000,
     system,
     messages: [{ role: "user", content: sceneDescription }],
   });
+  if (!result.ok) return result.response;
 
-  const text = response.content[0].type === "text" ? response.content[0].text : "";
-  return NextResponse.json({ text });
+  return NextResponse.json({ text: result.text });
 }

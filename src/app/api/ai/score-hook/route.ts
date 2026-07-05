@@ -6,7 +6,7 @@ import { checkAiRateLimit } from "@/lib/ratelimit";
 import { getUserTier, canAccessFeature } from "@/lib/subscription";
 import { anthropic as client } from "@/lib/ai/client";
 import { MODELS } from "@/lib/ai/engine";
-import { scoreHookSystemPrompt } from "@/lib/ai/prompts";
+import { scoreHookSystemPrompt } from "@/lib/roles/editor";
 import { meterAndGate, refundCredits } from "@/lib/metering/meter";
 
 

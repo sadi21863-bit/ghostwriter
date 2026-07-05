@@ -10,6 +10,12 @@ vi.mock("@/lib/subscription", () => ({
   getUserTier: vi.fn(async () => "pro"),
   canAccessFeature: vi.fn(() => true),
 }));
+const meterAndGate = vi.fn();
+const refundCredits = vi.fn();
+vi.mock("@/lib/metering/meter", () => ({
+  meterAndGate: (...args: any[]) => meterAndGate(...args),
+  refundCredits: (...args: any[]) => refundCredits(...args),
+}));
 
 const findFirstProject = vi.fn();
 const findFirstCharacter = vi.fn();
@@ -66,6 +72,8 @@ describe("POST /api/projects/[projectId]/villain-pov", () => {
     createMessage.mockResolvedValue({ content: [{ type: "text", text: "villain scene" }] });
     buildPromiseLedger.mockResolvedValue("");
     buildVoiceExemplars.mockResolvedValue("");
+    meterAndGate.mockResolvedValue(null);
+    refundCredits.mockResolvedValue(undefined);
   });
 
   it("fetches promiseLedger and voiceExemplars in parallel", async () => {

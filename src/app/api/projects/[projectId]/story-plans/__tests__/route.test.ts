@@ -4,6 +4,12 @@ vi.mock("@/lib/auth-helpers", () => ({
   getRequiredSession: vi.fn(async () => ({ user: { id: "user-1" } })),
 }));
 vi.mock("@/lib/ratelimit", () => ({ checkAiRateLimit: vi.fn(async () => null) }));
+const meterAndGate = vi.fn();
+const refundCredits = vi.fn();
+vi.mock("@/lib/metering/meter", () => ({
+  meterAndGate: (...args: any[]) => meterAndGate(...args),
+  refundCredits: (...args: any[]) => refundCredits(...args),
+}));
 
 const messagesCreate = vi.fn();
 vi.mock("@anthropic-ai/sdk", () => ({
@@ -55,6 +61,8 @@ describe("story-plans route", () => {
     insertReturning.mockResolvedValue([{ id: "plan-1", beats: [] }]);
     findFirstChapter.mockResolvedValue({ id: "chap-1", projectId: "proj-1", title: "The Descent" });
     messagesCreate.mockResolvedValue({ content: [{ type: "text", text: "GOAL: escape\nOBSTACLE: locked door\nTURN: finds a key\nCHANGE: reaches the surface\nSENSORY: damp stone, distant drip, cold air\nEXIT: a decision" }] });
+    meterAndGate.mockResolvedValue(null);
+    refundCredits.mockResolvedValue(undefined);
   });
 
   it("POST generates beats, maps character/thread NAMES to ids, assigns order+ids, persists via encode", async () => {

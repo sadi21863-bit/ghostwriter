@@ -6,9 +6,8 @@ import { checkAiRateLimit } from "@/lib/ratelimit";
 import { db } from "@/db";
 import { projects, storyPlans, chapters } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
-import { anthropic as client } from "@/lib/ai/client";
 import { MODELS } from "@/lib/ai/engine";
-import { beatSheetSystemPrompt } from "@/lib/ai/prompts";
+import { beatSheetSystemPrompt, runDirectorCall } from "@/lib/roles/director";
 import { encodeStoryBeats, type StoryBeat } from "@/lib/types/story";
 import { expandArcPreset, getArcPreset } from "@/lib/graph/arc-presets";
 import { buildSceneBlueprint } from "@/lib/ai/scene-blueprint";
@@ -99,14 +98,17 @@ export async function POST(req: Request, { params }: { params: Promise<{ project
     return NextResponse.json({ plan });
   }
 
-  const msg = await client.messages.create({
+  const result = await runDirectorCall({
+    userId: s.user.id,
+    operation: "beat-sheet",
     model: MODELS.default,
-    max_tokens: 2000,
+    maxTokens: 2000,
     system: beatSheetSystemPrompt(project.format, cast, threads),
     messages: [{ role: "user", content: prompt || "Build the beat sheet for this story." }],
   });
-  const raw = (msg.content as any[]).filter(b => b.type === "text").map(b => b.text).join("");
-  const parsed = safeParseJson(raw);
+  if (!result.ok) return result.response;
+
+  const parsed = safeParseJson(result.text);
   if (!parsed || !Array.isArray(parsed.beats))
     return NextResponse.json({ error: "Couldn't structure a beat sheet. Try a longer prompt." }, { status: 500 });
 
