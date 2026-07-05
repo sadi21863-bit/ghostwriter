@@ -504,7 +504,16 @@ HARD RULES:
   const system = extraContext ? `${baseSystem}\n\n${extraContext}` : baseSystem;
   const msg = await client.messages.create({
     model,
-    max_tokens: 4000,
+    max_tokens: 6000,
+    // Extended thinking is on by default for this model and its tokens count
+    // against max_tokens — confirmed (2026-07-05 real-call diagnostic) that with
+    // extraContext present, thinking could consume the entire budget and return
+    // an EMPTY text block. This is a constrained, deterministic rewrite task
+    // (preserve everything, fix a fixed list of defects), not one that benefits
+    // from open-ended reasoning, so thinking is disabled outright rather than
+    // just budgeted — that's the only way to guarantee the visible text always
+    // gets the full token budget.
+    thinking: { type: 'disabled' },
     system,
     messages: [{ role: 'user', content: text.slice(0, 16000) }],
   });

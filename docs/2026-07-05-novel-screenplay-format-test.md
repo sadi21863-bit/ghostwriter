@@ -10,18 +10,22 @@ Both formats correctly followed their structural rules across all 3 chapters, wi
 - **Novel**: proper prose paragraphs, close third-person, no screenplay markup anywhere. Genuinely well-written — specific sensory detail, show-don't-tell, no AI-slop clichés.
 - **Screenplay**: `FADE IN:`, `INT./EXT. — DAY/NIGHT` scene headings, centered ALL-CAPS character cues, parentheticals, `CUT TO:`/`INTERCUT WITH:` transitions — all correctly and consistently produced. This directly validates the DOCX-export format-awareness work from an earlier session (`engine.ts`'s `STORY_FORMAT_RULES`).
 
-## 2. Confirmed, reproducible bug: `refine` (Editor critic pass) truncates to a near-verbatim fragment
+## 2. `refine` (Editor critic pass) truncated to a near-verbatim fragment — root cause found and fixed same day
 
-**This is the most concrete finding, confirmed 2/2 (both formats).** `refinePassage()`'s system prompt requires "Keep length within ~10% of the original" and "Return ONLY the revised prose." Actual behavior:
+**Confirmed 2/2 (both formats) at the time this was written.** `refinePassage()`'s system prompt requires "Keep length within ~10% of the original" and "Return ONLY the revised prose." Actual behavior at the time:
 
 | | Original | Refine output | Ratio |
 |---|---|---|---|
 | Novel ch.1 | 6,952 chars | 3,083 chars | 44% |
 | Screenplay ch.1 | 4,854 chars | 810 chars | **17%** |
 
-Both outputs are near-verbatim copies of the *opening* of the original (trivial word-level edits like "rise like fortifications on" → "wall in"), then **stop mid-sentence** partway through — the Screenplay one cuts off mid-dialogue at `ARJUN\nRounding`. Neither is a coherent "revised, tightened passage"; both read as an aborted copy.
+Both outputs were near-verbatim copies of the *opening* of the original, then stopped mid-sentence — the Screenplay one cut off mid-dialogue at `ARJUN\nRounding`.
 
-**A specific numeric anomaly worth flagging for engineering, not just prompt-tuning**: `tokensUsed` (input+output combined, per `refinePassage`'s own return value) was 7,037 for the Novel call and 6,746 for the Screenplay call. Given the ~1,000–1,200 input tokens for a 5–7k character passage plus a few hundred tokens of system prompt, that implies **~5,000+ output tokens were actually generated** — yet only 810–3,083 *characters* (~150–600 tokens) came back as text. That's roughly a 10x gap between tokens billed and text received. This doesn't look like ordinary prompt-non-adherence; it looks like either (a) the model generated substantially more than what `refinePassage` returned and something is being dropped in extraction, or (b) a genuine stop/truncation happening earlier than the visible text suggests. **Recommend an engineer check the raw Anthropic API response (`stop_reason`, full `content` array) on a fresh `refine` call before assuming this is purely a prompt problem** — the token/character mismatch suggests there may be more going on than the model just "not following the length instruction."
+**Root cause, confirmed via a raw-response diagnostic (`msg.stop_reason`, full `content` array) rather than guessing**: Claude Sonnet 5 runs extended thinking by default, and thinking tokens count against the same `max_tokens` budget as the visible text (confirmed directly in the Anthropic SDK's own type definitions: *"counts towards your `max_tokens` limit"*). `refinePassage()` set `max_tokens: 4000` with no thinking configuration. With the real route's extra context (`extraContext`: a "BINDING VOICE CONSTRAINTS" numerical style block + a promise ledger) appended to the system prompt, the harder-to-reason-about task pushed thinking to consume the entire 4000-token budget on some calls, leaving **zero tokens for the actual text** — one live call returned `{"text":"","tokensUsed":6746}` outright. Bare system prompt with no extra context reliably produced full-length output in 3/3 direct SDK tests, isolating the trigger precisely to the extra-context path.
+
+(One debugging wrinkle along the way, noted for the record: identical `tokensUsed` values kept appearing across supposedly-independent test runs, including after the fix was deployed — turned out to be a stale `next start` process from hours earlier still listening on port 3000, silently serving every request, because `pkill -f "next start"` doesn't reliably match on this Windows/git-bash setup. `taskkill //PID <pid> //F` was needed to actually kill it. Worth remembering for any future live-server verification on this machine.)
+
+**Fix** (`src/lib/ai/engine.ts`, `refinePassage()`): set `thinking: { type: 'disabled' }` explicitly — this is a constrained, deterministic rewrite task (preserve everything, fix a fixed list of defects), not one that benefits from open-ended reasoning — and raised `max_tokens` from 4000 to 6000 as a safety margin. **Verified fixed**: 4/4 fresh live calls (2 Novel, 2 Screenplay) through the real `/api/ai/refine` route returned 100% of original length, with genuinely varying token counts per call (no more suspicious identical values). Full test suite (634/634) and `tsc` stayed green.
 
 ## 3. Character-identity drift on continuation (Novel only, likely a test-harness artifact, not a confirmed product bug)
 
@@ -44,9 +48,5 @@ Given the identical (weak) harness produced good continuity in one format and a 
 | Screenplay format correctness | Strong, fully consistent |
 | villain-pov | Strong |
 | tension-curve | Correct |
-| refine (Editor) | **Confirmed bug** — truncates to ~17–44% of original, near-verbatim, cuts off mid-sentence; token/character mismatch needs an engineer to check the raw API response |
+| refine (Editor) | **Bug found and fixed same day** — extended-thinking token budget exhaustion, root-caused via raw API response inspection; `thinking: disabled` + higher `max_tokens` fixed it, verified 4/4 |
 | Character continuity across chapters | Fragile without full context (expected, given the deliberately minimal test harness) — not a confirmed product bug, but illustrates why context-builder.ts's character data matters |
-
-## Suggested follow-up
-
-The `refine` truncation bug is the one item here worth a dedicated fix pass: inspect the raw Anthropic response on a fresh call (`stop_reason`, full `content` array) before changing anything in `refinePassage()` or its system prompt, since the token/character mismatch suggests the root cause may not be prompt-adherence at all.
