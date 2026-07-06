@@ -27,7 +27,7 @@ vi.mock("@vercel/blob", () => ({ put: (...args: any[]) => putBlob(...args) }));
 // test isn't exercising sharp itself (compose-page.test.ts covers the real
 // grid-layout math), just that the export pipeline calls it once per PAGE
 // with that page's fetched panel buffers, not once per panel.
-const compositePage = vi.fn(async () => Buffer.from("fake-composed-page"));
+const compositePage = vi.fn(async (..._args: any[]) => Buffer.from("fake-composed-page"));
 vi.mock("@/lib/comic-gen/compose-page", () => ({ compositePage: (...args: any[]) => compositePage(...args) }));
 
 import { GET } from "../route";

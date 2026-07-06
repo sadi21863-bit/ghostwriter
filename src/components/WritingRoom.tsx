@@ -34,6 +34,7 @@ import { TikTokNativePanel } from "@/components/panels/toolbar/tools/TikTokNativ
 import { RepurposePanel } from "@/components/panels/toolbar/tools/RepurposePanel";
 import { ResearchScaffoldPanel } from "@/components/panels/toolbar/tools/ResearchScaffoldPanel";
 import type { QualityReview } from "@/components/panels/QualityReviewPanel";
+import { ShowcasePanel } from "@/components/ShowcasePanel";
 
 interface WritingRoomProps {
   project: any;
@@ -95,6 +96,7 @@ export default function WritingRoom({
   const [surgicalError, setSurgicalError] = useState<string | null>(null);
   const [shareCount, setShareCount] = useState(0);
   const [shareUrl, setShareUrl] = useState<string | null>(null);
+  const [showcaseOpen, setShowcaseOpen] = useState(false);
 
   useEffect(() => {
     if (window.innerWidth < 900) setBibleOpen(false);
@@ -334,10 +336,20 @@ export default function WritingRoom({
                 <button onClick={() => navigator.clipboard.writeText(shareUrl)} style={{ ...sBtnSm, fontSize: 10, marginLeft: 6 }}>Copy</button>
               </div>
             )}
+            <button
+              style={{ padding: "2px 10px", borderRadius: 6, fontSize: 11, background: "transparent", color: co.accent, border: `1px solid ${co.accent}`, cursor: "pointer", marginLeft: 8 }}
+              onClick={() => setShowcaseOpen(true)}
+            >
+              🖼 Publish to Showcase
+            </button>
             </div>
           </div>
         </div>
       </div>
+
+      {showcaseOpen && (
+        <ShowcasePanel project={project} onClose={() => setShowcaseOpen(false)} />
+      )}
 
       {/* Body: stage view, or editor + bible glance rail */}
       {forceEditor || stage === "draft" ? (

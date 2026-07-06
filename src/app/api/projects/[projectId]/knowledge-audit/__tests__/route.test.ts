@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { NextRequest } from "next/server";
 
 vi.mock("@/lib/auth-helpers", () => ({
   getRequiredSession: vi.fn(async () => ({ user: { id: "user-1" } })),
@@ -48,7 +49,7 @@ describe("POST /api/projects/[projectId]/knowledge-audit", () => {
         promises: [{ id: "p1", setup: "Mara hides the ring", payoffIntent: "Ring is found by Kessler", status: "open", priority: "A" }],
       }],
     });
-    await POST(new Request("http://localhost", { method: "POST" }), makeParams());
+    await POST(new NextRequest("http://localhost", { method: "POST" }), makeParams());
     const [callArgs] = runEditorCall.mock.calls[0];
     const content = callArgs.messages[0].content;
     expect(content).toContain("STRUCTURED PROMISE TRACKER");
@@ -59,7 +60,7 @@ describe("POST /api/projects/[projectId]/knowledge-audit", () => {
 
   it("falls back to the inference-only note when no threads/promises are tracked", async () => {
     findFirstProjects.mockResolvedValue({ chapters: twoChapters, characters: [], locations: [], storyThreads: [] });
-    await POST(new Request("http://localhost", { method: "POST" }), makeParams());
+    await POST(new NextRequest("http://localhost", { method: "POST" }), makeParams());
     const [callArgs] = runEditorCall.mock.calls[0];
     const content = callArgs.messages[0].content;
     expect(content).toContain("infer promise/payoff purely from the manuscript");
@@ -67,14 +68,14 @@ describe("POST /api/projects/[projectId]/knowledge-audit", () => {
 
   it("still 400s when there are fewer than 2 chapters with real content", async () => {
     findFirstProjects.mockResolvedValue({ chapters: [twoChapters[0]], characters: [], locations: [], storyThreads: [] });
-    const res = await POST(new Request("http://localhost", { method: "POST" }), makeParams());
+    const res = await POST(new NextRequest("http://localhost", { method: "POST" }), makeParams());
     expect(res.status).toBe(400);
     expect(runEditorCall).not.toHaveBeenCalled();
   });
 
   it("still 404s when the project isn't found", async () => {
     findFirstProjects.mockResolvedValue(undefined);
-    const res = await POST(new Request("http://localhost", { method: "POST" }), makeParams());
+    const res = await POST(new NextRequest("http://localhost", { method: "POST" }), makeParams());
     expect(res.status).toBe(404);
   });
 });

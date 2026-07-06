@@ -353,6 +353,27 @@ export const readerReactions = pgTable("reader_reactions", {
   createdAt:    timestamp("created_at").defaultNow().notNull(),
 });
 
+// Showcase area: personal shareable link + cross-user discovery feed.
+// visibility follows itch.io's model (researched live 2026-07-06): private
+// (owner-only, default) / unlisted (works via slug link, not indexed) /
+// public (indexed in the discovery feed). One showcase per project (unique
+// projectId) — keeps the v1 data model simple. flagged/flagReason implement
+// the researched "publish-then-flag" moderation approach — content goes
+// live immediately, a report sets flagged, an admin acts after the fact.
+export const showcases = pgTable("showcases", {
+  id:         uuid("id").defaultRandom().primaryKey(),
+  projectId:  uuid("project_id").notNull().unique().references(() => projects.id, { onDelete: "cascade" }),
+  userId:     uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  slug:       text("slug").notNull().unique(),
+  title:      text("title").notNull().default(""),
+  blurb:      text("blurb").default(""),
+  visibility: varchar("visibility", { length: 10 }).notNull().default("private"),
+  flagged:      boolean("flagged").notNull().default(false),
+  flagReason:   text("flag_reason").default(""),
+  createdAt:  timestamp("created_at").defaultNow().notNull(),
+  updatedAt:  timestamp("updated_at").defaultNow().notNull(),
+});
+
 export const characterRelationships = pgTable("character_relationships", {
   id:               uuid("id").defaultRandom().primaryKey(),
   projectId:        uuid("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
@@ -623,6 +644,7 @@ export const productionShotsRelations = relations(productionShots, ({ one }) => 
 export const characterRelationshipsRelations = relations(characterRelationships, ({ one }) => ({ project: one(projects, { fields: [characterRelationships.projectId], references: [projects.id] }), characterA: one(characters, { fields: [characterRelationships.characterAId], references: [characters.id] }), characterB: one(characters, { fields: [characterRelationships.characterBId], references: [characters.id] }) }));
 export const readerSessionsRelations = relations(readerSessions, ({ one, many }) => ({ project: one(projects, { fields: [readerSessions.projectId], references: [projects.id] }), reactions: many(readerReactions) }));
 export const readerReactionsRelations = relations(readerReactions, ({ one }) => ({ session: one(readerSessions, { fields: [readerReactions.sessionId], references: [readerSessions.id] }), chapter: one(chapters, { fields: [readerReactions.chapterId], references: [chapters.id] }) }));
+export const showcasesRelations = relations(showcases, ({ one }) => ({ project: one(projects, { fields: [showcases.projectId], references: [projects.id] }), user: one(users, { fields: [showcases.userId], references: [users.id] }) }));
 
 // Indexes omitted — drizzle-orm 0.45.2 bug causes JSON.parse(undefined) during .on() at module eval time.
 // All indexes were pushed to the production DB earlier and still exist there.

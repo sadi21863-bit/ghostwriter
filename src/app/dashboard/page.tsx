@@ -17,6 +17,8 @@ import { BibleShelf } from "@/components/dashboard/BibleShelf";
 import { UniverseShelf, UniverseConstellation } from "@/components/dashboard/UniverseShelf";
 import { CreateUniverseModal } from "@/components/dashboard/CreateUniverseModal";
 import { DashboardCommandPalette } from "@/components/dashboard/DashboardCommandPalette";
+import { ShowcaseShelf } from "@/components/dashboard/ShowcaseShelf";
+import { ShowcasePanel } from "@/components/ShowcasePanel";
 
 function EmailVerifiedCheck() {
   const router = useRouter();
@@ -84,6 +86,8 @@ export default function Dashboard() {
   const [newBiblePremise, setNewBiblePremise] = useState("");
   const [newBibleProjectIds, setNewBibleProjectIds] = useState<string[]>([]);
   const [creatingBible, setCreatingBible] = useState(false);
+  const [showcases, setShowcases] = useState<{ projectId: string; slug: string; title: string; visibility: string }[]>([]);
+  const [showcaseProjectId, setShowcaseProjectId] = useState<string | null>(null);
   useGwTheme();
 
   useEffect(() => {
@@ -117,6 +121,10 @@ export default function Dashboard() {
     fetch("/api/subscription")
       .then(r => r.json())
       .then(d => setSubscription(d))
+      .catch(() => {});
+    fetch("/api/showcases/mine")
+      .then(r => r.json())
+      .then(d => setShowcases(d.showcases ?? []))
       .catch(() => {});
   }, [status]);
 
@@ -573,6 +581,16 @@ export default function Dashboard() {
               : <UniverseShelf universes={universes} projects={projects} onDelete={deleteUniverse} onNew={() => setShowCreateUniverse(true)} />
             }
           </div>
+
+          {showcases.length > 0 && (
+            <div>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
+                <span style={{ fontSize: 12, fontWeight: 700, color: "var(--gw-t2)", textTransform: "uppercase", letterSpacing: 1 }}>🖼 Showcase</span>
+                <a href="/showcase" style={{ fontSize: 11, color: "var(--gw-t3)" }}>Browse discovery feed →</a>
+              </div>
+              <ShowcaseShelf showcases={showcases} projects={projects} onOpen={setShowcaseProjectId} />
+            </div>
+          )}
           </>
         )}
       </section>
@@ -585,6 +603,16 @@ export default function Dashboard() {
           onCreated={(u, linkedIds) => {
             setUniverses(prev => [u, ...prev]);
             if (linkedIds.length) setProjects(prev => prev.map(p => linkedIds.includes(p.id) ? { ...p, universeId: u.id } : p));
+          }}
+        />
+      )}
+
+      {showcaseProjectId && (
+        <ShowcasePanel
+          project={projects.find(p => p.id === showcaseProjectId)}
+          onClose={() => {
+            setShowcaseProjectId(null);
+            fetch("/api/showcases/mine").then(r => r.json()).then(d => setShowcases(d.showcases ?? [])).catch(() => {});
           }}
         />
       )}

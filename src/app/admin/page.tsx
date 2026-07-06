@@ -20,6 +20,12 @@ interface CacheStats {
   byType: Record<string, number>;
   topEntries: { cacheType: string; inputKey: string; hitCount: number; lastHitAt: string | null }[];
 }
+interface FlaggedShowcase {
+  slug: string;
+  title: string;
+  flagReason: string;
+  visibility: string;
+}
 
 const card: React.CSSProperties = {
   background: co.surface, border: `1px solid ${co.border}`, borderRadius: 10,
@@ -36,29 +42,47 @@ export default function AdminOpsDashboard() {
   const [cost, setCost] = useState<CostReport | null>(null);
   const [analytics, setAnalytics] = useState<Analytics | null>(null);
   const [cache, setCache] = useState<CacheStats | null>(null);
+  const [flagged, setFlagged] = useState<FlaggedShowcase[]>([]);
+  const [moderating, setModerating] = useState<Record<string, boolean>>({});
 
   async function load() {
     setLoading(true);
     setError(null);
     try {
       const headers = { Authorization: `Bearer ${secret}` };
-      const [costRes, analyticsRes, cacheRes] = await Promise.all([
+      const [costRes, analyticsRes, cacheRes, flaggedRes] = await Promise.all([
         fetch("/api/admin/cost-report", { headers }),
         fetch("/api/admin/analytics", { headers }),
         fetch("/api/admin/cache-stats", { headers }),
+        fetch("/api/admin/flagged-showcases", { headers }),
       ]);
-      if (!costRes.ok || !analyticsRes.ok || !cacheRes.ok) {
+      if (!costRes.ok || !analyticsRes.ok || !cacheRes.ok || !flaggedRes.ok) {
         throw new Error("Unauthorized or server error — check the admin secret.");
       }
       setCost(await costRes.json());
       setAnalytics(await analyticsRes.json());
       setCache(await cacheRes.json());
+      setFlagged((await flaggedRes.json()).showcases ?? []);
       setConnected(true);
     } catch (e: any) {
       setError(e.message || "Failed to load.");
       setConnected(false);
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function moderate(slug: string, action: "unpublish" | "dismiss") {
+    setModerating(prev => ({ ...prev, [slug]: true }));
+    try {
+      await fetch("/api/admin/flagged-showcases", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${secret}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ slug, action }),
+      });
+      setFlagged(prev => prev.filter(f => f.slug !== slug));
+    } finally {
+      setModerating(prev => ({ ...prev, [slug]: false }));
     }
   }
 
@@ -146,6 +170,23 @@ export default function AdminOpsDashboard() {
             {eventRanks.length === 0 && <p style={{ fontSize: 12, color: co.muted }}>No events recorded.</p>}
           </div>
         )}
+
+        <div style={card}>
+          <div style={h2}>Flagged Showcases ({flagged.length})</div>
+          {flagged.length === 0 && <p style={{ fontSize: 12, color: co.muted }}>No flagged showcases.</p>}
+          {flagged.map(f => (
+            <div key={f.slug} style={{ ...row, alignItems: "center" }}>
+              <span>
+                <strong>{f.title}</strong> <span style={{ color: co.muted }}>({f.visibility})</span>
+                <div style={{ fontSize: 11, color: co.muted }}>{f.flagReason}</div>
+              </span>
+              <span style={{ display: "flex", gap: 6 }}>
+                <button style={sBtnSm} disabled={moderating[f.slug]} onClick={() => moderate(f.slug, "unpublish")}>Unpublish</button>
+                <button style={sBtnSm} disabled={moderating[f.slug]} onClick={() => moderate(f.slug, "dismiss")}>Dismiss</button>
+              </span>
+            </div>
+          ))}
+        </div>
 
         {cache && (
           <div style={card}>
