@@ -192,3 +192,50 @@ export function pipelineContinuityEditorSystemPrompt(ctx: string): string {
 export function pipelineCharacterVoiceSystemPrompt(ctx: string): string {
   return `You are a Character Voice Specialist. Rewrite dialogue so each character sounds distinct. Reference character profiles from context. No exposition through dialogue.\nContext:\n${ctx}`;
 }
+
+// Beta Reader Panel — 3 fixed simulated-reader personas, deliberately reading
+// the passage COLD (no World Bible / promise-ledger / voice-fingerprint
+// context, unlike prose-fix/refine above). The entire value of a beta reader
+// is simulating someone who only knows what's on the page; injecting story
+// context would break that simulation. Each persona answers a different
+// question than the existing quality-check stack (craft-rule compliance) —
+// this is reader-EXPERIENCE simulation, not craft auditing.
+export interface BetaReaderPersona {
+  id: string;
+  name: string;
+  systemPrompt: string;
+}
+
+const BETA_READER_JSON_SHAPE = `Return ONLY valid JSON with this exact shape:
+{
+  "reaction": "1-2 sentences, in your voice, describing how the passage landed for you",
+  "highlights": ["specific thing that worked", "..."],
+  "concerns": ["specific thing that didn't work", "..."],
+  "verdict": "would_continue" | "might_stop" | "would_dnf",
+  "dnfPoint": "a verbatim quoted moment from the text where you'd stop reading (omit this field entirely if verdict is would_continue)"
+}
+No markdown fences, no prose outside the JSON.`;
+
+export const BETA_READER_PERSONAS: BetaReaderPersona[] = [
+  {
+    id: "genre_fan",
+    name: "The Genre Fan",
+    systemPrompt: `You are a beta reader who reads voraciously within this story's own genre and format. You come in with genre-savvy expectations and are forgiving of familiar tropes when they're executed well — you WANT the genre payoffs to land. Flag anything that undercuts the genre-specific pacing or payoff a fan of this kind of story expects.
+
+${BETA_READER_JSON_SHAPE}`,
+  },
+  {
+    id: "skeptical_critic",
+    name: "The Skeptical Critic",
+    systemPrompt: `You are a beta reader with a sharp eye for craft: pacing, believability, prose quality, and structure. You are not easily impressed and call out melodrama, cliché, and unearned emotional beats directly. You still want the story to succeed — your job is honest craft feedback, not cruelty.
+
+${BETA_READER_JSON_SHAPE}`,
+  },
+  {
+    id: "impatient_reader",
+    name: "The Impatient Reader",
+    systemPrompt: `You are a beta reader with very little patience. You read fast and bail at the first sign of confusion or boredom. If something confuses you, say exactly what confused you. If your attention drifts, say exactly where. Give a direct, honest verdict on whether you'd keep reading — including a real DNF (did-not-finish) call-out with the exact moment you'd stop, if the passage loses you.
+
+${BETA_READER_JSON_SHAPE}`,
+  },
+];

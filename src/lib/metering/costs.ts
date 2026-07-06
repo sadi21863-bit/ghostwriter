@@ -18,6 +18,7 @@ export const OPERATION_CREDITS: Record<string, number> = {
   "generate-package":    0.6, "beat-sheet": 0.5,
   "knowledge-audit":     0.5, "transportation-check": 0.4,
   "alt-draft":           1.0,
+  "beta-read":           0.6,
 };
 
 export const DEFAULT_OPERATION_CREDIT = 0.3;

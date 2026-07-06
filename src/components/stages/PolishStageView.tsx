@@ -13,6 +13,7 @@ import { analyzeHumanize } from "@/lib/analysis/humanize";
 import { voiceLockStatus } from "@/lib/ai/voice-lock";
 import EditorNotesPanel from "@/components/EditorNotesPanel";
 import PromiseTrackerPanel from "@/components/PromiseTrackerPanel";
+import BetaReaderPanel from "@/components/BetaReaderPanel";
 import { isStoryFormat } from "@/lib/formats";
 
 interface PolishStageViewProps {
@@ -70,6 +71,14 @@ export default function PolishStageView({ project, qualityReview, onGuideRun, on
     const plain = isValidTipTapJson(content) ? tiptapToPlainText(JSON.parse(content)) : content;
     if (!plain.trim()) return null;
     return analyzeHumanize(plain);
+  }, [content]);
+
+  // Plain-text conversion shared with the Beta Reader Panel below (deliberate,
+  // user-triggered — unlike rhythm/humanize, it costs real credits, so it's
+  // not computed automatically on every render, just passed down as text).
+  const plainContent = useMemo(() => {
+    if (!content) return "";
+    return isValidTipTapJson(content) ? tiptapToPlainText(JSON.parse(content)) : content;
   }, [content]);
 
   // "Lock Voice" lever — surfaces the (already-automatic) voice fingerprint as a
@@ -152,6 +161,12 @@ export default function PolishStageView({ project, qualityReview, onGuideRun, on
                 <span style={{ color: co.text, fontWeight: 600 }}>{f.label}:</span> {f.detail}
               </p>
             ))}
+          </div>
+        )}
+
+        {isStoryFormat(project.format) && plainContent.trim() && (
+          <div style={{ marginTop: 16 }}>
+            <BetaReaderPanel text={plainContent} format={project.format} />
           </div>
         )}
 
