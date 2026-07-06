@@ -108,6 +108,33 @@ describe("POST /api/projects/[projectId]/adapt-chapter", () => {
     expect(refundCredits).not.toHaveBeenCalled();
   });
 
+  it("uses the Screenplay->Novel instruction when the target project's format is Novel (reverse adaptation)", async () => {
+    findFirstProjects.mockResolvedValue({ ...targetProject, format: "Novel" });
+    findFirstChapters.mockResolvedValue({ ...sourceChapter, content: "INT. HOUSE - NIGHT\n\nMARA\nIt was a dark night." });
+    messagesCreate.mockResolvedValue({ content: [{ type: "text", text: "It was a dark night, Mara said." }] });
+    insertReturning.mockResolvedValue([{ id: "new-chap-1", title: "Chapter 1", wordCount: 6 }]);
+
+    await POST(makeRequest({ sourceProjectId: "source-1", sourceChapterId: "chap-1" }), { params: Promise.resolve({ projectId: "target-1" }) });
+
+    const [callArgs] = messagesCreate.mock.calls[0];
+    const systemText = callArgs.system[0].text;
+    expect(systemText).toContain("Convert the following screenplay scene into novel prose");
+    expect(systemText).not.toContain("Convert the following novel chapter into a screenplay scene");
+  });
+
+  it("still uses the Novel->Screenplay instruction when the target project's format is Screenplay", async () => {
+    findFirstProjects.mockResolvedValue(targetProject); // format: "Screenplay"
+    findFirstChapters.mockResolvedValue(sourceChapter);
+    messagesCreate.mockResolvedValue({ content: [{ type: "text", text: "INT. HOUSE - NIGHT\n\nIt was a dark night." }] });
+    insertReturning.mockResolvedValue([{ id: "new-chap-1", title: "Chapter 1", wordCount: 6 }]);
+
+    await POST(makeRequest({ sourceProjectId: "source-1", sourceChapterId: "chap-1" }), { params: Promise.resolve({ projectId: "target-1" }) });
+
+    const [callArgs] = messagesCreate.mock.calls[0];
+    const systemText = callArgs.system[0].text;
+    expect(systemText).toContain("Convert the following novel chapter into a screenplay scene");
+  });
+
   it("refunds credits and returns 500 when the Claude call fails", async () => {
     findFirstProjects.mockResolvedValue(targetProject);
     findFirstChapters.mockResolvedValue(sourceChapter);

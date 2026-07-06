@@ -9,10 +9,11 @@ import { getUserTier, canAccessFeature } from '@/lib/subscription';
 import { track } from '@/lib/analytics';
 
 // Source format -> allowed target formats. Mirrors AdaptPanel's ADAPT_TARGETS;
-// only "Screenplay" is actually wired (others would 400 here even if a client
-// somehow submitted them, since their conversion routes don't exist yet).
+// only Novel<->Screenplay is actually wired (others would 400 here even if a
+// client somehow submitted them, since their conversion routes don't exist yet).
 const ADAPT_CAPABILITY_MAP: Record<string, string[]> = {
   Novel: ['Screenplay'],
+  Screenplay: ['Novel'],
 };
 
 export async function POST(req: Request, { params }: { params: Promise<{ projectId: string }> }) {

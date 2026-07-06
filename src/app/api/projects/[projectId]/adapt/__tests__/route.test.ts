@@ -114,4 +114,20 @@ describe("POST /api/projects/[projectId]/adapt", () => {
     const threadInsertCall = insertCalls.mock.calls.find(([table]) => table === plotThreads);
     expect(threadInsertCall?.[1][0]).toMatchObject({ name: "The heist", lastMentionedChapterId: null });
   });
+
+  it("accepts Screenplay -> Novel (reverse adaptation)", async () => {
+    findFirstProjects.mockResolvedValue({ ...baseSource, format: "Screenplay", name: "My Screenplay" });
+
+    const res = await POST(makeRequest({ targetFormat: "Novel" }), { params: Promise.resolve({ projectId: "source-1" }) });
+    expect(res.status).toBe(201);
+
+    const projectInsertCall = insertCalls.mock.calls.find(([table]) => table === projects);
+    expect(projectInsertCall?.[1]).toMatchObject({ format: "Novel", adaptedFromProjectId: "source-1" });
+  });
+
+  it("still rejects an unsupported target for a Screenplay source (e.g. Comic)", async () => {
+    findFirstProjects.mockResolvedValue({ ...baseSource, format: "Screenplay" });
+    const res = await POST(makeRequest({ targetFormat: "Comic" }), { params: Promise.resolve({ projectId: "source-1" }) });
+    expect(res.status).toBe(400);
+  });
 });

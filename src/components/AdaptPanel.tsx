@@ -28,7 +28,7 @@ const ADAPT_TARGETS: Record<string, AdaptTarget[]> = {
   Screenplay: [
     { format: "Comic", label: "Comic (use Comic Studio)", enabled: false },
     { format: "Higgsfield Series", label: "Higgsfield Film/Series", enabled: false },
-    { format: "Novel", label: "Novelization", enabled: false },
+    { format: "Novel", label: "Novelization", enabled: true },
   ],
   "Web Series": [
     { format: "Higgsfield Series", label: "Higgsfield Series", enabled: false },

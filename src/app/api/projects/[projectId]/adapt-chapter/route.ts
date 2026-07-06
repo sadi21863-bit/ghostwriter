@@ -11,6 +11,14 @@ import { MODELS, getFormatRules } from '@/lib/ai/engine';
 import { meterAndGate, refundCredits } from '@/lib/metering/meter';
 import { tiptapToPlainText, isValidTipTapJson, plainTextToTipTap, getWordCount } from '@/lib/editor/content-migration';
 
+// Keyed by target.format — ADAPT_CAPABILITY_MAP (adapt/route.ts) only allows
+// two directions today (Novel->Screenplay, Screenplay->Novel), so the target
+// format alone unambiguously identifies which conversion instruction to use,
+// with no extra source-project lookup needed.
+const ADAPT_INSTRUCTIONS: Record<string, string> = {
+  Screenplay: 'Convert the following novel chapter into a screenplay scene. Preserve all narrative content, dialogue, and character actions — adapt the FORM, not the substance. Multiple INT./EXT. scene headings are expected if the source chapter spans more than one location or time. Output only the converted screenplay text, no preamble or explanation.',
+  Novel: 'Convert the following screenplay scene into novel prose. Expand action lines into descriptive narration, and render dialogue with natural attribution and interiority where the scene\'s parentheticals or action imply a character\'s inner state — preserve every story beat and all dialogue content, adapt the FORM, not the substance. Output only the converted prose, with no scene headings, sluglines, or other screenplay-formatting artifacts left over.',
+};
 
 export async function POST(req: Request, { params }: { params: Promise<{ projectId: string }> }) {
   const session = await getRequiredSession();
@@ -45,7 +53,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ project
       max_tokens: 6000,
       system: [{
         type: 'text',
-        text: getFormatRules(target.format).trim() + '\n\nConvert the following novel chapter into a screenplay scene. Preserve all narrative content, dialogue, and character actions — adapt the FORM, not the substance. Multiple INT./EXT. scene headings are expected if the source chapter spans more than one location or time. Output only the converted screenplay text, no preamble or explanation.',
+        text: getFormatRules(target.format).trim() + '\n\n' + (ADAPT_INSTRUCTIONS[target.format] ?? ADAPT_INSTRUCTIONS.Screenplay),
         cache_control: { type: 'ephemeral' },
       }],
       messages: [{ role: 'user', content: sourceText }],
