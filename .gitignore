@@ -18,3 +18,7 @@ blob-report
 
 # graphify knowledge-graph output (dev tooling, regenerate with `graphify update .`)
 graphify-out/
+
+# typecheck-after-edit hook's runtime state (ephemeral, regenerated per session)
+.claude/hooks/.typecheck-last.json
+.claude/hooks/.typecheck.lock

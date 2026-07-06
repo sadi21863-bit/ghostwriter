@@ -5,8 +5,7 @@ import { getRequiredSession } from "@/lib/auth-helpers";
 import { db } from "@/db";
 import { projects, productionShots, users } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
-import { pollJob } from "@/lib/higgsfield/client";
-import { put } from "@vercel/blob";
+import { pollAndUpdateShotVideo } from "@/lib/production/poll-shot-video";
 import { decrypt } from "@/lib/crypto";
 
 async function verifyOwnership(projectId: string, userId: string) {
@@ -37,33 +36,11 @@ export async function GET(_: Request, { params }: { params: Promise<{ projectId:
   if (!segmindKey)
     return NextResponse.json({ error: "Add your Segmind API key in Settings." }, { status: 400 });
 
-  const [, pollingUrl] = shot.higgsfieldJobId.split("|");
-  const { status, mediaUrl } = await pollJob({ apiKey: segmindKey, pollingUrl });
+  const { projectId, shotId } = await params;
+  const result = await pollAndUpdateShotVideo({ shotId, projectId, segmindApiKey: segmindKey });
 
-  if (status === "COMPLETED" && mediaUrl) {
-    let finalVideoUrl = mediaUrl;
-    if (process.env.BLOB_READ_WRITE_TOKEN) {
-      const vidRes = await fetch(mediaUrl);
-      const vidBuf = await vidRes.arrayBuffer();
-      const blob = await put(
-        `production/${(await params).projectId}/${(await params).shotId}/final-${Date.now()}.mp4`,
-        vidBuf,
-        { access: "public", contentType: "video/mp4" }
-      );
-      finalVideoUrl = blob.url;
-    }
-    await db.update(productionShots)
-      .set({ finalVideoUrl, generationStatus: "final_ready", updatedAt: new Date() })
-      .where(eq(productionShots.id, (await params).shotId));
-    return NextResponse.json({ status: "final_ready", videoUrl: finalVideoUrl });
-  }
-
-  if (status === "FAILED" || status === "ERROR") {
-    await db.update(productionShots)
-      .set({ generationStatus: "error", updatedAt: new Date() })
-      .where(eq(productionShots.id, (await params).shotId));
-    return NextResponse.json({ status: "error" });
-  }
-
+  if (result.outcome === "final_ready") return NextResponse.json({ status: "final_ready", videoUrl: result.videoUrl });
+  if (result.outcome === "error") return NextResponse.json({ status: "error" });
+  if (result.outcome === "no_job") return NextResponse.json({ status: shot.generationStatus });
   return NextResponse.json({ status: "generating_final" });
 }

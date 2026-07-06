@@ -9,6 +9,7 @@ import { eq, and } from "drizzle-orm";
 import { generateTextVideo } from "@/lib/higgsfield/client";
 import { ACTIVE_VIDEO_MODELS, type VideoModelId } from "@/lib/higgsfield/models";
 import { decrypt } from "@/lib/crypto";
+import { scheduleCallback } from "@/lib/queue/qstash";
 
 async function verifyOwnership(projectId: string, userId: string) {
   return db.query.projects.findFirst({
@@ -64,6 +65,17 @@ export async function POST(req: Request, { params }: { params: Promise<{ project
     .set({ generationStatus: "generating_final", higgsfieldJobId: `${requestId}|${pollingUrl}`, updatedAt: new Date() })
     .where(and(eq(productionShots.id, shotId), eq(productionShots.projectId, pid)))
     .returning();
+
+  // Server-scheduled poll (see src/lib/queue/qstash.ts) — keeps the job progressing
+  // even if the user closes the tab, instead of relying only on the client's own
+  // status-route polling. A no-op when QSTASH_TOKEN isn't set: the existing
+  // client-driven polling is completely unaffected either way.
+  const origin = new URL(req.url).origin;
+  await scheduleCallback({
+    url: `${origin}/api/queue/segmind-video-poll`,
+    body: { userId: s.user.id, projectId: pid, shotId, attempt: 0 },
+    delaySeconds: 15,
+  });
 
   return NextResponse.json({ shot: updated, jobId: requestId, status: "generating_final" });
 }

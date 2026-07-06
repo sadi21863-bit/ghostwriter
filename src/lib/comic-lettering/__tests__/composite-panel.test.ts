@@ -16,12 +16,17 @@ async function pixelAt(buf: Buffer, x: number, y: number): Promise<number[]> {
   return Array.from(data.slice(0, info.channels));
 }
 
+// Explicit 20s per-test timeouts (default 5s) — sharp's native binary cold-start
+// has repeatedly measured 5-8s+ on this machine, the same class of flakiness
+// already fixed the same way elsewhere in this repo (see preview-all's budget-
+// cap test note in CLAUDE.md item 34). Not a regression from any change here —
+// confirmed by re-running this file in isolation with a longer timeout.
 describe("compositeLettering", () => {
   it("returns the original buffer unchanged when there is no dialogue or caption", async () => {
     const base = await makeRedBaseImage();
     const result = await compositeLettering({ imageBuffer: base });
     expect(result.equals(base)).toBe(true);
-  });
+  }, 20000);
 
   it("draws a white speech bubble fill in the bottom zone when dialogue is present", async () => {
     const base = await makeRedBaseImage(800, 800);
@@ -38,7 +43,7 @@ describe("compositeLettering", () => {
     const cx = 620; // right of the centred text, still well inside the ellipse
     const pixel = await pixelAt(result, cx, cy);
     expect(pixel[1]).toBeGreaterThan(200); // green channel now bright (white fill)
-  });
+  }, 20000);
 
   it("draws a dark caption box across the top when caption is present", async () => {
     const base = await makeRedBaseImage(800, 800);
@@ -46,5 +51,5 @@ describe("compositeLettering", () => {
 
     const pixel = await pixelAt(result, 400, 10);
     expect(pixel[0]).toBeLessThan(100); // red channel now dark (caption box fill)
-  });
+  }, 20000);
 });

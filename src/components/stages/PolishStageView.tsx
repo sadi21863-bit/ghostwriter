@@ -9,6 +9,7 @@ import { RetentionEditPanel } from "@/components/panels/toolbar/tools/RetentionE
 import { CreatorSEOPanel } from "@/components/panels/toolbar/tools/CreatorSEOPanel";
 import { isValidTipTapJson, tiptapToPlainText } from "@/lib/editor/content-migration";
 import { analyzeProseRhythm } from "@/lib/analysis/rhythm";
+import { analyzeHumanize } from "@/lib/analysis/humanize";
 import { voiceLockStatus } from "@/lib/ai/voice-lock";
 import EditorNotesPanel from "@/components/EditorNotesPanel";
 import { isStoryFormat } from "@/lib/formats";
@@ -56,6 +57,18 @@ export default function PolishStageView({ project, qualityReview, onGuideRun, on
     const plain = isValidTipTapJson(content) ? tiptapToPlainText(JSON.parse(content)) : content;
     if (!plain.trim()) return null;
     return analyzeProseRhythm(plain);
+  }, [content]);
+
+  // Second-opinion deterministic "humanize" signal — same zero-cost, no-LLM,
+  // read-only convention as the rhythm signal above, but a different pattern set
+  // (assistant-voice breaks, named-emotion-without-body, formal AI constructions,
+  // generic wrap-ups) extracted from conorbronsdon/avoid-ai-writing's approach.
+  // See src/lib/analysis/humanize.ts for the full provenance note.
+  const humanize = useMemo(() => {
+    if (!content) return null;
+    const plain = isValidTipTapJson(content) ? tiptapToPlainText(JSON.parse(content)) : content;
+    if (!plain.trim()) return null;
+    return analyzeHumanize(plain);
   }, [content]);
 
   // "Lock Voice" lever — surfaces the (already-automatic) voice fingerprint as a
@@ -120,6 +133,19 @@ export default function PolishStageView({ project, qualityReview, onGuideRun, on
               Rhythm signal (read-only)
             </div>
             {rhythm.flags.map((f) => (
+              <p key={f.label} style={{ fontSize: 12, color: co.muted, lineHeight: 1.5, margin: "0 0 4px" }}>
+                <span style={{ color: co.text, fontWeight: 600 }}>{f.label}:</span> {f.detail}
+              </p>
+            ))}
+          </div>
+        )}
+
+        {humanize && humanize.flags.length > 0 && (
+          <div style={{ padding: "12px 14px", borderRadius: 10, border: `1px solid ${co.border}`, background: co.surface, margin: "12px 0 0" }}>
+            <div style={{ fontSize: 10, fontWeight: 700, color: co.muted, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6 }}>
+              Humanize signal (read-only) — {humanize.label} ({humanize.score}/100)
+            </div>
+            {humanize.flags.map((f) => (
               <p key={f.label} style={{ fontSize: 12, color: co.muted, lineHeight: 1.5, margin: "0 0 4px" }}>
                 <span style={{ color: co.text, fontWeight: 600 }}>{f.label}:</span> {f.detail}
               </p>
