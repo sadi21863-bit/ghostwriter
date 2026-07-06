@@ -17,7 +17,7 @@ Focus on:
 1. CHARACTER CONSISTENCY — physical description, knowledge state, voice, behavioral patterns
 2. CONTINUITY — timeline violations, objects that appear/disappear, locations described differently
 3. KNOWLEDGE VIOLATIONS — characters acting on information they shouldn't have yet
-4. PROMISE/PAYOFF — story promises planted but not paid off (or paid off but not planted)
+4. PROMISE/PAYOFF — story promises planted but not paid off (or paid off but not planted). When a STRUCTURED PROMISE TRACKER section is provided in the user message, treat it as ground truth (user-authored, not inferred) and specifically flag: (a) an open, high-priority (A or B) promise with no visible payoff anywhere in the audited chapters; (b) a promise the tracker marks paid off but whose payoff moment does not actually appear in the manuscript — a real contradiction between the author's own tracking and the prose; (c) lower priority — a genuine narrative promise you find in the prose that isn't in the tracker at all, noted as a candidate to add. When no tracker section is present, fall back to inferring promise/payoff purely from the manuscript, as before.
 
 Return JSON with this structure:
 {

@@ -24,9 +24,13 @@ export async function POST(
   const project = await db.query.projects.findFirst({
     where: and(eq(projects.id, projectId), eq(projects.userId, session.user.id)),
     with: {
-      chapters:   { orderBy: (c, { asc }) => [asc(c.sortOrder)] },
-      characters: true,
-      locations:  true,
+      chapters:     { orderBy: (c, { asc }) => [asc(c.sortOrder)] },
+      characters:   true,
+      locations:    true,
+      // Structured, user-authored promise ledger (Promise Tracker panel) —
+      // ground truth for the PROMISE/PAYOFF check below, so it doesn't rely
+      // purely on the LLM inferring promises from raw manuscript text.
+      storyThreads: { with: { promises: true } },
     },
   });
 
@@ -50,6 +54,14 @@ export async function POST(
     return parts.join('\n');
   }).join('\n\n');
 
+  const promiseRef = ((project as any).storyThreads ?? []).map((t: any) => {
+    const parts = [`Thread: ${t.name} (${t.threadType}, ${t.status})`];
+    for (const p of t.promises ?? []) {
+      parts.push(`  - Promise [priority ${p.priority}, ${p.status}]: ${p.setup}${p.payoffIntent ? ` → intended payoff: ${p.payoffIntent}` : ''}`);
+    }
+    return parts.join('\n');
+  }).join('\n\n');
+
   const result = await runEditorCall({
     userId: session.user.id,
     operation: "knowledge-audit",
@@ -60,6 +72,9 @@ export async function POST(
       role: 'user',
       content: `WORLD BIBLE (character reference):
 ${characterRef || 'No character profiles defined.'}
+
+STRUCTURED PROMISE TRACKER (user-authored, ground truth):
+${promiseRef || 'No promises/threads tracked yet — infer promise/payoff purely from the manuscript.'}
 
 MANUSCRIPT:
 ${manuscript.slice(0, 180000)}`,
