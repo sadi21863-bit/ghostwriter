@@ -9,7 +9,7 @@ import { eq, and } from "drizzle-orm";
 import { pollJob } from "@/lib/higgsfield/client";
 import { put } from "@vercel/blob";
 import { decrypt } from "@/lib/crypto";
-import { concatVideos } from "@/lib/video/concat";
+import { concatVideos, concatVideosWithCrossfade } from "@/lib/video/concat";
 import { writeFile, readFile, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -20,9 +20,14 @@ async function verifyOwnership(projectId: string, userId: string) {
   });
 }
 
-export async function GET(_: Request, { params }: { params: Promise<{ projectId: string; sceneNumber: string }> }) {
+export async function GET(req: Request, { params }: { params: Promise<{ projectId: string; sceneNumber: string }> }) {
   const s = await getRequiredSession();
   const { projectId, sceneNumber: sceneNumberRaw } = await params;
+  // The client re-sends this on every poll (this route has no body to carry a
+  // one-time preference through) until the stitch actually happens once, when
+  // every shot is final_ready — see src/lib/video/concat.ts's
+  // concatVideosWithCrossfade for why this needs re-encoding, not stream-copy.
+  const crossfade = new URL(req.url).searchParams.get('crossfade') === '1';
   if (!await verifyOwnership(projectId, s.user.id))
     return NextResponse.json({ error: "Not found" }, { status: 404 });
 
@@ -92,7 +97,8 @@ export async function GET(_: Request, { params }: { params: Promise<{ projectId:
     }
 
     const outputPath = join(workDir, "stitched.mp4");
-    await concatVideos(localPaths, outputPath);
+    if (crossfade) await concatVideosWithCrossfade(localPaths, outputPath);
+    else await concatVideos(localPaths, outputPath);
     const stitchedBuf = await readFile(outputPath);
 
     const blob = await put(

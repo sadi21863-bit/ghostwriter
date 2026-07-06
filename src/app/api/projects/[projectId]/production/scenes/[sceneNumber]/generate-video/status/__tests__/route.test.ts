@@ -15,8 +15,10 @@ vi.mock("@/lib/higgsfield/client", () => ({
 }));
 
 const concatVideos = vi.fn();
+const concatVideosWithCrossfade = vi.fn();
 vi.mock("@/lib/video/concat", () => ({
   concatVideos: (...args: any[]) => concatVideos(...args),
+  concatVideosWithCrossfade: (...args: any[]) => concatVideosWithCrossfade(...args),
 }));
 
 const rmMock = vi.fn();
@@ -178,6 +180,20 @@ describe("GET .../scenes/[sceneNumber]/generate-video/status (per-shot + stitch)
     const res = await GET(new Request("http://localhost"), makeParams());
 
     expect(res.status).toBe(404);
+  });
+
+  it("uses concatVideosWithCrossfade instead of concatVideos when ?crossfade=1 is set", async () => {
+    findManyShots.mockResolvedValue([
+      { id: "shot-1", shotNumber: 1, sceneNumber: 1, generationStatus: "final_ready", finalVideoUrl: "https://example.com/1.mp4", higgsfieldJobId: "", sceneFinalVideoUrl: "" },
+      { id: "shot-2", shotNumber: 2, sceneNumber: 1, generationStatus: "final_ready", finalVideoUrl: "https://example.com/2.mp4", higgsfieldJobId: "", sceneFinalVideoUrl: "" },
+    ]);
+
+    const res = await GET(new Request("http://localhost?crossfade=1"), makeParams());
+    const body = await res.json();
+
+    expect(concatVideosWithCrossfade).toHaveBeenCalledTimes(1);
+    expect(concatVideos).not.toHaveBeenCalled();
+    expect(body).toEqual({ status: "final_ready", videoUrl: "https://blob.example.com/scene-final.mp4" });
   });
 
   it("queries shots ordered by sortOrder (falling back to shotNumber), so Phase C's drag-reorder affects the stitch", async () => {

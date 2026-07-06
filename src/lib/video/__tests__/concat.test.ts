@@ -15,7 +15,7 @@ vi.mock("node:fs/promises", () => ({
 vi.mock("ffmpeg-static", () => ({ default: "/path/to/ffmpeg" }));
 
 import { EventEmitter } from "node:events";
-import { concatVideos } from "../concat";
+import { concatVideos, probeDuration, concatVideosWithCrossfade } from "../concat";
 
 function makeFakeProcess(exitCode: number, stderr = "") {
   const proc: any = new EventEmitter();
@@ -72,5 +72,69 @@ describe("concatVideos", () => {
     await expect(concatVideos(["/tmp/a.mp4"], "/tmp/out.mp4")).rejects.toThrow();
 
     expect(unlinkMock).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("probeDuration", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("parses HH:MM:SS.ss from ffmpeg's stderr output", async () => {
+    // ffmpeg -i with no output exits non-zero — that's expected here, not an error.
+    spawnMock.mockReturnValue(makeFakeProcess(1, "Input #0...\n  Duration: 00:00:05.03, start: 0.000000, bitrate: 512 kb/s\n"));
+
+    const seconds = await probeDuration("/tmp/a.mp4");
+
+    expect(seconds).toBeCloseTo(5.03, 2);
+    const [bin, args] = spawnMock.mock.calls[0];
+    expect(bin).toBe("/path/to/ffmpeg");
+    expect(args).toEqual(["-i", "/tmp/a.mp4"]);
+  });
+
+  it("computes minutes/hours correctly", async () => {
+    spawnMock.mockReturnValue(makeFakeProcess(1, "Duration: 01:02:03.50, start: 0.000000"));
+    const seconds = await probeDuration("/tmp/a.mp4");
+    expect(seconds).toBeCloseTo(3600 + 120 + 3.5, 2);
+  });
+
+  it("throws clearly when no Duration line is present", async () => {
+    spawnMock.mockReturnValue(makeFakeProcess(1, "some unrelated ffmpeg output"));
+    await expect(probeDuration("/tmp/a.mp4")).rejects.toThrow(/Could not determine duration/);
+  });
+});
+
+describe("concatVideosWithCrossfade", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("probes each input's duration, builds the xfade filter graph, and spawns ffmpeg re-encoded (no -c copy, audio dropped)", async () => {
+    // 3 probeDuration calls (one per input), each getting its own fake process,
+    // then one final spawn for the actual crossfade concat.
+    spawnMock
+      .mockReturnValueOnce(makeFakeProcess(1, "Duration: 00:00:05.00, start: 0"))
+      .mockReturnValueOnce(makeFakeProcess(1, "Duration: 00:00:05.00, start: 0"))
+      .mockReturnValueOnce(makeFakeProcess(0));
+
+    await concatVideosWithCrossfade(["/tmp/a.mp4", "/tmp/b.mp4"], "/tmp/out.mp4", 0.5);
+
+    expect(spawnMock).toHaveBeenCalledTimes(3);
+    const [, finalArgs] = spawnMock.mock.calls[2];
+    expect(finalArgs).toEqual(expect.arrayContaining(["-i", "/tmp/a.mp4", "-i", "/tmp/b.mp4", "-an", "/tmp/out.mp4"]));
+    expect(finalArgs).not.toContain("copy");
+    const filterIdx = finalArgs.indexOf("-filter_complex");
+    expect(finalArgs[filterIdx + 1]).toContain("xfade=transition=fade");
+    const mapIdx = finalArgs.indexOf("-map");
+    expect(finalArgs[mapIdx + 1]).toBe("[vout]");
+  });
+
+  it("rejects with stderr when the final crossfade ffmpeg call fails", async () => {
+    spawnMock
+      .mockReturnValueOnce(makeFakeProcess(1, "Duration: 00:00:05.00, start: 0"))
+      .mockReturnValueOnce(makeFakeProcess(1, "Duration: 00:00:05.00, start: 0"))
+      .mockReturnValueOnce(makeFakeProcess(1, "Invalid filter graph"));
+
+    await expect(concatVideosWithCrossfade(["/tmp/a.mp4", "/tmp/b.mp4"], "/tmp/out.mp4")).rejects.toThrow(/Invalid filter graph/);
   });
 });

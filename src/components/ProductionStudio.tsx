@@ -86,6 +86,7 @@ export default function ProductionStudio({ project, segmindKey }: { project: any
   // pre-existing all-shots-expanded layout; "filmstrip" is the new horizontal
   // sequence view with a detail panel for the selected shot.
   const [shotsViewMode, setShotsViewMode] = useState<"filmstrip" | "list">("filmstrip");
+  const [crossfade, setCrossfade] = useState(false);
   const [selectedShotId, setSelectedShotId] = useState<string | null>(null);
   const [draggedShotId, setDraggedShotId] = useState<string | null>(null);
 
@@ -237,8 +238,12 @@ export default function ProductionStudio({ project, segmindKey }: { project: any
   function startScenePolling(sceneNumber: number, shotIds: string[]) {
     const key = `scene-${sceneNumber}`;
     if (pollTimers.current[key]) return;
+    // Re-sent on every poll (not just the initial POST) since this route has
+    // no body to carry a one-time preference through — the stitch only
+    // actually happens once, when every shot is final_ready.
+    const crossfadeParam = crossfade ? "?crossfade=1" : "";
     const timer = setInterval(async () => {
-      const res = await fetch(`/api/projects/${project.id}/production/scenes/${sceneNumber}/generate-video/status`);
+      const res = await fetch(`/api/projects/${project.id}/production/scenes/${sceneNumber}/generate-video/status${crossfadeParam}`);
       const data = await res.json();
       if (data.status === "final_ready" || data.status === "error") {
         clearInterval(pollTimers.current[key]);
@@ -544,14 +549,20 @@ export default function ProductionStudio({ project, segmindKey }: { project: any
                   ━━ Scene {scene}{chapterTitle ? ` — ${chapterTitle}` : ""} ━━
                 </div>
                 {segmindKey && sceneShots.length > 1 && (
-                  <button
-                    onClick={() => generateSceneVideo(scene)}
-                    disabled={sceneShots.some(sh => sh.generationStatus === "generating_final")}
-                    style={{ ...btn("#d97706"), marginLeft: "auto" }}
-                    title="Generates each shot in this scene as its own Seedance 2.0 video, sharing character reference images for consistency, then stitches them into one continuous scene video."
-                  >
-                    🎬 Generate Scene Video (stitched)
-                  </button>
+                  <>
+                    <label style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 4, fontSize: 11, color: "#6b7280", cursor: "pointer" }} title="Blend consecutive shots into each other instead of a hard cut. Drops audio on the stitched output (these clips carry none today).">
+                      <input type="checkbox" checked={crossfade} onChange={e => setCrossfade(e.target.checked)} />
+                      ✨ Crossfade transitions
+                    </label>
+                    <button
+                      onClick={() => generateSceneVideo(scene)}
+                      disabled={sceneShots.some(sh => sh.generationStatus === "generating_final")}
+                      style={btn("#d97706")}
+                      title="Generates each shot in this scene as its own Seedance 2.0 video, sharing character reference images for consistency, then stitches them into one continuous scene video."
+                    >
+                      🎬 Generate Scene Video (stitched)
+                    </button>
+                  </>
                 )}
               </div>
               {shotsViewMode === "filmstrip" ? (
