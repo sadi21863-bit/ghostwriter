@@ -241,6 +241,11 @@ export const comicPanels = pgTable("comic_panels", {
   // Mirrors chapters.reviewStatus's draft/approved pattern; "needs_rework" reframes
   // the doc's "reject" — a flagged panel isn't deleted, it needs another pass.
   reviewStatus: varchar("review_status", { length: 12 }).notNull().default("draft"),
+  // Phase C "keep N candidates" mode, 2026-07-06. Additive per the gap-analysis
+  // doc's own note: the generation route still produces one URL per call, this
+  // is just an array alongside imageUrl instead of a rewrite. imageUrl is always
+  // the current primary/selected candidate; this array holds the others.
+  candidateImageUrls: jsonb("candidate_image_urls").$type<string[]>().default([]),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -284,6 +289,9 @@ export const productionShots = pgTable("production_shots", {
   qualityNote:        text("quality_note").default(""),
   // Phase C review gate, same as comicPanels above.
   reviewStatus:       varchar("review_status", { length: 12 }).notNull().default("draft"),
+  // Phase C "keep N candidates" mode, same as comicPanels above — previewImageUrl
+  // stays the primary/selected candidate, this array holds the others.
+  candidatePreviewUrls: jsonb("candidate_preview_urls").$type<string[]>().default([]),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });

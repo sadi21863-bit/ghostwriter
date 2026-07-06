@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { buildAiismsInstruction, FICTION_AIISMS, STRUCTURAL_AIISMS } from "@/lib/ai/aiisms";
+import { buildAiismsInstruction, FICTION_AIISMS, STRUCTURAL_AIISMS, HIGH_FREQUENCY_WORDS } from "@/lib/ai/aiisms";
 
 describe("buildAiismsInstruction", () => {
   it("surfaces every entry in FICTION_AIISMS, not just a truncated slice", () => {
@@ -21,6 +21,14 @@ describe("buildAiismsInstruction", () => {
     expect(instruction).toContain("DOUBLE-STATEMENT");
     for (const rule of STRUCTURAL_AIISMS) {
       expect(instruction).toContain(rule.detail);
+    }
+  });
+
+  it("surfaces HIGH_FREQUENCY_WORDS (previously dead code, never wired into the instruction)", () => {
+    const instruction = buildAiismsInstruction();
+    expect(instruction).toContain("CRUTCH WORDS");
+    for (const word of HIGH_FREQUENCY_WORDS) {
+      expect(instruction).toContain(word);
     }
   });
 });

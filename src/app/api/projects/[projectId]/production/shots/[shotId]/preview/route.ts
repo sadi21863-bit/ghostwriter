@@ -18,7 +18,7 @@ async function verifyOwnership(projectId: string, userId: string) {
   });
 }
 
-export async function POST(_: Request, { params }: { params: Promise<{ projectId: string; shotId: string }> }) {
+export async function POST(req: Request, { params }: { params: Promise<{ projectId: string; shotId: string }> }) {
   const s = await getRequiredSession();
   if (!await verifyOwnership((await params).projectId, s.user.id))
     return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -34,6 +34,13 @@ export async function POST(_: Request, { params }: { params: Promise<{ projectId
     with: { primaryCharacter: true },
   });
   if (!shot) return NextResponse.json({ error: "Shot not found" }, { status: 404 });
+
+  // Phase C "keep N candidates" mode: when there's already a primary preview,
+  // generating "another" adds to candidatePreviewUrls instead of overwriting it.
+  // Only meaningful once a primary exists — the very first generation always
+  // sets the primary, same as before this option existed.
+  const body = await req.json().catch(() => ({}));
+  const keepAsCandidate = body?.keepAsCandidate === true && !!shot.previewImageUrl;
 
   await db.update(productionShots)
     .set({ generationStatus: "generating_preview", updatedAt: new Date() })
@@ -57,6 +64,22 @@ export async function POST(_: Request, { params }: { params: Promise<{ projectId
         { access: "public", contentType: "image/jpeg" }
       );
       previewImageUrl = blob.url;
+    }
+
+    if (keepAsCandidate) {
+      const existing: string[] = (shot as any).candidatePreviewUrls ?? [];
+      const [updated] = await db
+        .update(productionShots)
+        .set({ candidatePreviewUrls: [...existing, previewImageUrl], generationStatus: "preview_ready", updatedAt: new Date() })
+        .where(eq(productionShots.id, (await params).shotId))
+        .returning();
+      // Candidates aren't auto-scored by the vision-critic — qualityScore/Weakest/Note
+      // are singular per-shot fields tracking the PRIMARY, and scoring a candidate
+      // would need per-candidate score storage this pass doesn't add. The user
+      // compares candidates visually and promotes one; scoring the winner can
+      // happen naturally the next time it becomes primary and gets regenerated,
+      // or in a later pass if per-candidate scores turn out to matter.
+      return NextResponse.json({ shot: updated });
     }
 
     const [updated] = await db

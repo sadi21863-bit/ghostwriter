@@ -18,7 +18,7 @@ const ALLOWED_FIELDS = new Set([
   "subject", "action", "location", "mood", "soulPrompt", "videoPrompt",
   "dialogue", "speaker", "cameraPreset", "viralPreset",
   "characterEmotion", "focalLength", "duration", "aspectRatio", "generatedVideoUrl",
-  "reviewStatus",
+  "reviewStatus", "sortOrder", "candidatePreviewUrls",
 ]);
 
 export async function PATCH(req: Request, { params }: { params: Promise<{ projectId: string; shotId: string }> }) {
@@ -27,7 +27,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ projec
     return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const body = await req.json();
-  const updates: Record<string, string> = {};
+  const updates: Record<string, any> = {};
   for (const key of Array.from(ALLOWED_FIELDS)) {
     if (key in body) updates[key] = body[key];
   }
@@ -38,6 +38,21 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ projec
     where: and(eq(productionShots.id, shotId), eq(productionShots.projectId, pid)),
   });
   if (!current) return NextResponse.json({ error: "Shot not found" }, { status: 404 });
+
+  // Phase C "keep N candidates" — promote a candidate to primary. The old
+  // primary (if any) goes back into the candidates array so nothing is lost;
+  // the promoted URL is removed from candidates since it's now the primary.
+  if (typeof body?.promoteCandidateUrl === "string") {
+    const promoted: string = body.promoteCandidateUrl;
+    const existingCandidates: string[] = (current as any).candidatePreviewUrls ?? [];
+    if (!existingCandidates.includes(promoted)) {
+      return NextResponse.json({ error: "Not a known candidate for this shot." }, { status: 400 });
+    }
+    const nextCandidates = existingCandidates.filter(u => u !== promoted);
+    if (current.previewImageUrl) nextCandidates.push(current.previewImageUrl);
+    updates.previewImageUrl = promoted;
+    updates.candidatePreviewUrls = nextCandidates;
+  }
 
   const merged = { ...current, ...updates };
 

@@ -78,6 +78,16 @@ describe("POST /api/ai/refine", () => {
     expect(body.text).toBe("polished prose");
   });
 
+  it("passes through refinePassage's contradictionFlags in the response", async () => {
+    refinePassage.mockResolvedValue({
+      text: "polished prose", tokensUsed: 50, model: "claude",
+      contradictionFlags: ["Character has blue eyes — established as green in chapter 1"],
+    });
+    const res = await POST(makeRequest({ text: "a passage long enough to pass the minimum length check", format: "Novel" }));
+    const body = await res.json();
+    expect(body.contradictionFlags).toEqual(["Character has blue eyes — established as green in chapter 1"]);
+  });
+
   it("passes voice constraints to refinePassage when fingerprint succeeds", async () => {
     refinePassage.mockResolvedValue({ text: "polished", tokensUsed: 10, model: "claude" });
     extractVoiceFingerprint.mockReturnValue({ avgSentenceLength: 12 });

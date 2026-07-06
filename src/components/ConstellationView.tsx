@@ -1,12 +1,16 @@
 "use client";
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import {
   ReactFlow, ReactFlowProvider, Background, Controls, MiniMap,
   useNodesState, useEdgesState, useReactFlow,
 } from "@xyflow/react";
 import type { Node, Edge, Connection } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
-import { selectionKinds, confirmMessageFor, isOptionActionable, blockedReasonText, nodeHealthAccent, linkKindForPair } from "@/lib/graph/graph-canvas";
+import {
+  selectionKinds, confirmMessageFor, isOptionActionable, blockedReasonText, nodeHealthAccent, linkKindForPair,
+  layoutCapabilityNodes, planForConnectionTarget, isCapabilityNodeId,
+  collapseSelection, nodesHiddenBySubgraphs, expandSubgraph, isSubgraphNodeId, type SubgraphNode,
+} from "@/lib/graph/graph-canvas";
 import type { GraphNodeKind, GraphRunPlan } from "@/lib/graph/graph-program";
 import type { GraphHealthIssue, GraphHealthReport } from "@/lib/graph/graph-health";
 
@@ -64,6 +68,9 @@ function Flow({ projectId, onSelectPair, onRunCapability, height = 500 }: Props)
   const [options, setOptions] = useState<GraphRunPlan[] | null>(null);
   const [loadingOpts, setLoadingOpts] = useState(false);
   const [health, setHealth] = useState<GraphHealthReport | null>(null);
+  // Phase 4 — collapsed subgraphs (Blueprint-style "Collapse Nodes"). Client-side,
+  // ephemeral canvas state, not persisted — see graph-canvas.ts's header comment.
+  const [subgraphs, setSubgraphs] = useState<SubgraphNode[]>([]);
   const [contextTrimmed, setContextTrimmed] = useState(false);
   const { screenToFlowPosition } = useReactFlow();
   const wrapperRef = useRef<HTMLDivElement>(null);
@@ -191,8 +198,21 @@ function Flow({ projectId, onSelectPair, onRunCapability, height = 500 }: Props)
   }, [projectId, screenToFlowPosition, setNodes]);
 
   // Draw a wire between two existing nodes → persist a real link (or reject if
-  // the pairing has no link semantics — see linkKindForPair).
+  // the pairing has no link semantics — see linkKindForPair). Drawing a wire
+  // FROM a selected entity TO a capability icon node instead runs that
+  // capability (the literal drag-a-wire-to-a-capability-icon interaction) —
+  // checked first, since a capability node has no linkKindForPair pairing at all.
   const onConnect = useCallback((connection: Connection) => {
+    const capabilityPlan = planForConnectionTarget(connection.target, options);
+    if (capabilityPlan) {
+      if (!isOptionActionable(capabilityPlan)) return;
+      const confirmMsg = confirmMessageFor(capabilityPlan);
+      if (confirmMsg && !window.confirm(confirmMsg)) return; // QA-before-spend gate
+      onRunCapability?.(capabilityPlan);
+      return;
+    }
+    if (isCapabilityNodeId(connection.source ?? "")) return; // dragging FROM a capability icon is not a valid gesture
+
     const sourceKind = nodes.find(n => n.id === connection.source)?.data?.nodeType as GraphNodeKind | undefined;
     const targetKind = nodes.find(n => n.id === connection.target)?.data?.nodeType as GraphNodeKind | undefined;
     if (!sourceKind || !targetKind) return;
@@ -224,7 +244,7 @@ function Flow({ projectId, onSelectPair, onRunCapability, height = 500 }: Props)
     })();
 
     request.then(r => { if (r.ok) loadGraph(); }).catch(() => {});
-  }, [nodes, projectId, loadGraph]);
+  }, [nodes, projectId, loadGraph, options, onRunCapability]);
 
   // Phase 2 dataflow: when nodes are selected, ask the server which capabilities can
   // run on that selection (preflight + cost + confirm). The server never executes.
@@ -255,6 +275,82 @@ function Flow({ projectId, onSelectPair, onRunCapability, height = 500 }: Props)
     onRunCapability?.(plan);
   };
 
+  // Collapse the current selection (2+ real entity nodes) into one named
+  // subgraph node — Blueprint-style "Collapse Nodes." Double-click the result to
+  // expand it back (see onNodeDoubleClick on <ReactFlow> below).
+  const collapseSelected = () => {
+    const realSelected = selected.filter(s => !isCapabilityNodeId(s.id) && !isSubgraphNodeId(s.id));
+    const members = nodes.filter(n => realSelected.some(s => s.id === n.id)).map(n => ({ id: n.id, position: n.position }));
+    if (members.length < 2) return;
+    const label = window.prompt("Name this arc/subgraph:", "");
+    if (label === null) return; // cancelled
+    const sg = collapseSelection(members, label, crypto.randomUUID());
+    if (sg) setSubgraphs(prev => [...prev, sg]);
+  };
+
+  const expandSubgraphNode = useCallback((subgraphId: string) => {
+    setSubgraphs(prev => expandSubgraph(prev, subgraphId));
+  }, []);
+
+  // Capability icon nodes — one per runnable option, stacked to the right of the
+  // selection's centroid. Computed separately from the persisted `nodes` state
+  // (never passed to setNodes) so they're purely a render-time overlay: they
+  // never get written back to the graph, never survive a loadGraph() refresh
+  // unintentionally, and can't confuse onConnect's entity-lookup logic.
+  const capabilityDisplayNodes = useMemo<Node[]>(() => {
+    if (!options || options.length === 0) return [];
+    const selectedIds = new Set(selected.map(s => s.id));
+    const selectedPositions = nodes.filter(n => selectedIds.has(n.id)).map(n => n.position);
+    if (selectedPositions.length === 0) return [];
+    const anchor = {
+      x: selectedPositions.reduce((s, p) => s + p.x, 0) / selectedPositions.length,
+      y: selectedPositions.reduce((s, p) => s + p.y, 0) / selectedPositions.length,
+    };
+    return layoutCapabilityNodes(options, anchor).map((slot): Node => {
+      const plan = options.find(o => o.capabilityId === slot.capabilityId)!;
+      const blocked = blockedReasonText(plan);
+      // Cost/blocked info goes directly in the label — a top-level `title` prop
+      // on a default (non-custom) React Flow node isn't forwarded to the DOM,
+      // so it wouldn't render as a hover tooltip the way a plain HTML attribute would.
+      const suffix = blocked ? ` (${blocked})` : plan.requiresConfirm ? ` ($${plan.costUsd.toFixed(2)})` : "";
+      return {
+        id: slot.id,
+        data: { label: `⚡ ${plan.label}${suffix}` },
+        position: { x: slot.x, y: slot.y },
+        connectable: !blocked, // a valid wire TARGET when actionable; never a source
+        draggable: false,
+        selectable: false,
+        style: {
+          background: blocked ? "rgba(60,60,68,0.9)" : "rgba(129,140,248,0.16)",
+          border: `1.5px dashed ${blocked ? "#6b6b80" : "#818cf8"}`,
+          borderRadius: 20, padding: "6px 12px", fontSize: 11,
+          color: blocked ? "#8a8a9a" : "#E8E8F0",
+          minWidth: 90, textAlign: "center" as const,
+          cursor: blocked ? "not-allowed" : "default",
+        },
+      };
+    });
+  }, [options, selected, nodes]);
+
+  // Nodes hidden inside an active subgraph don't render individually — the
+  // collapsed subgraph node stands in for them until expanded.
+  const hiddenBySubgraph = useMemo(() => nodesHiddenBySubgraphs(subgraphs), [subgraphs]);
+  const visibleNodes = useMemo(() => nodes.filter(n => !hiddenBySubgraph.has(n.id)), [nodes, hiddenBySubgraph]);
+
+  const subgraphDisplayNodes = useMemo<Node[]>(() => subgraphs.map((sg): Node => ({
+    id: sg.id,
+    data: { label: `📦 ${sg.label} (${sg.memberIds.length})` },
+    position: sg.centroid,
+    draggable: true,
+    selectable: true,
+    connectable: false,
+    style: {
+      background: "rgba(20,20,26,0.95)", border: "2px solid #E8E8F0", borderRadius: 10,
+      padding: "10px 16px", fontSize: 12, fontWeight: 700, color: "#F2F2F3",
+      minWidth: 110, textAlign: "center" as const,
+    },
+  })), [subgraphs]);
+
   return (
     <div
       ref={wrapperRef}
@@ -263,10 +359,11 @@ function Flow({ projectId, onSelectPair, onRunCapability, height = 500 }: Props)
       style={{ position: "relative", width: "100%", height, borderRadius: 12, overflow: "hidden", border: "1px solid var(--color-border-subtle, rgba(255,255,255,0.05))" }}
     >
       <ReactFlow
-        nodes={nodes} edges={edges}
+        nodes={[...visibleNodes, ...capabilityDisplayNodes, ...subgraphDisplayNodes]} edges={edges}
         onNodesChange={onNodesChange} onEdgesChange={onEdgesChange}
         onConnect={onConnect}
         onSelectionChange={onSelectionChange}
+        onNodeDoubleClick={(_, node) => { if (isSubgraphNodeId(node.id)) expandSubgraphNode(node.id); }}
         onEdgeClick={(_, edge) => {
           if ((edge.data as any)?.kind === "relationship") onSelectPair?.(edge.source, edge.target);
         }}
@@ -339,6 +436,11 @@ function Flow({ projectId, onSelectPair, onRunCapability, height = 500 }: Props)
           <div style={{ fontWeight: 700, marginBottom: 8 }}>Run on {selected.length} selected</div>
           {loadingOpts && <div style={{ color: "#9898A6" }}>Checking…</div>}
           {!loadingOpts && options?.length === 0 && <div style={{ color: "#9898A6" }}>No capabilities apply to this selection.</div>}
+          {!loadingOpts && options && options.length > 0 && (
+            <div style={{ color: "#6b6b80", fontSize: 10, marginBottom: 6 }}>
+              Click below, or drag a wire from a selected node to a ⚡ icon on the canvas.
+            </div>
+          )}
           {!loadingOpts && options?.map(plan => {
             const blocked = blockedReasonText(plan);
             return (
@@ -362,6 +464,19 @@ function Flow({ projectId, onSelectPair, onRunCapability, height = 500 }: Props)
               </button>
             );
           })}
+          {selected.filter(s => !isCapabilityNodeId(s.id) && !isSubgraphNodeId(s.id)).length >= 2 && (
+            <button
+              onClick={collapseSelected}
+              title="Collapse this selection into one named node — double-click it later to expand back (Phase 4, Blueprint-style)"
+              style={{
+                display: "block", width: "100%", marginTop: 4, padding: "7px 9px", borderRadius: 7,
+                border: "1px dashed rgba(255,255,255,0.2)", background: "transparent", color: "#9898A6",
+                cursor: "pointer", textAlign: "left", fontSize: 12,
+              }}
+            >
+              📦 Collapse into subgraph…
+            </button>
+          )}
         </div>
       )}
     </div>

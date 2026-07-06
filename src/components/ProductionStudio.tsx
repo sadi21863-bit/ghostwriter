@@ -11,6 +11,7 @@ import ProductionPipelineBar from "@/components/ProductionPipelineBar";
 import { getProductionPipelines } from "@/lib/production/pipelines";
 import { chapterApprovalSummary } from "@/lib/editor/approval";
 import { qualityScoreColor, formatWeakestDimension, REVIEW_STATUS_LABEL, type ReviewStatus } from "@/lib/production/review";
+import { reorderIds, changedOrders } from "@/lib/production/reorder";
 
 type Shot = {
   id: string;
@@ -45,6 +46,8 @@ type Shot = {
   qualityWeakest?: string | null;
   qualityNote?: string | null;
   reviewStatus?: ReviewStatus;
+  sortOrder?: number;
+  candidatePreviewUrls?: string[];
 };
 
 type Brief = {
@@ -78,6 +81,13 @@ export default function ProductionStudio({ project, segmindKey }: { project: any
   const [previewingAll, setPreviewingAll] = useState(false);
   const [videoModelMap, setVideoModelMap] = useState<Record<string, string>>({});
   const pollTimers = useRef<Record<string, ReturnType<typeof setInterval>>>({});
+  // Phase C — filmstrip/timeline view (docs/2026-06-25-ai-director-editor-
+  // production-studio-gap-analysis.md). Additive: "list" preserves the exact
+  // pre-existing all-shots-expanded layout; "filmstrip" is the new horizontal
+  // sequence view with a detail panel for the selected shot.
+  const [shotsViewMode, setShotsViewMode] = useState<"filmstrip" | "list">("filmstrip");
+  const [selectedShotId, setSelectedShotId] = useState<string | null>(null);
+  const [draggedShotId, setDraggedShotId] = useState<string | null>(null);
 
   useEffect(() => {
     loadShots();
@@ -137,9 +147,13 @@ export default function ProductionStudio({ project, segmindKey }: { project: any
     pollTimers.current[shotId] = timer;
   }
 
-  async function previewShot(shotId: string) {
+  async function previewShot(shotId: string, keepAsCandidate = false) {
     setShots(prev => prev.map(s => s.id === shotId ? { ...s, generationStatus: "generating_preview" } : s));
-    const res = await fetch(`/api/projects/${project.id}/production/shots/${shotId}/preview`, { method: "POST" });
+    const res = await fetch(`/api/projects/${project.id}/production/shots/${shotId}/preview`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ keepAsCandidate }),
+    });
     const data = await res.json();
     if (res.ok) {
       setShots(prev => prev.map(s => s.id === shotId ? { ...s, ...data.shot } : s));
@@ -147,6 +161,40 @@ export default function ProductionStudio({ project, segmindKey }: { project: any
       setShots(prev => prev.map(s => s.id === shotId ? { ...s, generationStatus: "error" } : s));
       setError(data.error || "Preview failed");
     }
+  }
+
+  // Phase C "keep N candidates" — promote a candidate to primary. Immediate
+  // (not debounced like updateShot's field edits) since this is one discrete,
+  // deliberate action, not continuous typing.
+  async function promoteCandidate(shotId: string, url: string) {
+    const res = await fetch(`/api/projects/${project.id}/production/shots/${shotId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ promoteCandidateUrl: url }),
+    });
+    const data = await res.json();
+    if (res.ok) setShots(prev => prev.map(s => s.id === shotId ? { ...s, ...data.shot } : s));
+    else setError(data.error || "Couldn't promote that candidate");
+  }
+
+  // Phase C drag-reorder — immediate PATCH per moved shot (scoped to the
+  // dragged shot's own scene, since sceneNumber groups the filmstrip rows).
+  async function reorderShots(sceneNumber: number, draggedId: string, targetId: string) {
+    const sceneShotIds = shots.filter(s => s.sceneNumber === sceneNumber).sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0)).map(s => s.id);
+    const originalOrder: Record<string, number> = {};
+    sceneShotIds.forEach((id, i) => { originalOrder[id] = i; });
+    const reordered = reorderIds(sceneShotIds, draggedId, targetId);
+    const changes = changedOrders(reordered, originalOrder);
+    if (changes.length === 0) return;
+    setShots(prev => prev.map(s => {
+      const change = changes.find(c => c.id === s.id);
+      return change ? { ...s, sortOrder: change.order } : s;
+    }));
+    await Promise.all(changes.map(({ id, order }) =>
+      fetch(`/api/projects/${project.id}/production/shots/${id}`, {
+        method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ sortOrder: order }),
+      })
+    ));
   }
 
   async function animateShot(shotId: string) {
@@ -475,11 +523,20 @@ export default function ProductionStudio({ project, segmindKey }: { project: any
           <EmptyState icon="🎬" title="No shots yet"
             description="Generate a production package from your chapters to start directing." />
         )}
+        {shots.length > 0 && (
+          <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 12 }}>
+            <div style={{ display: "inline-flex", border: "1px solid #e5e7eb", borderRadius: 8, overflow: "hidden" }}>
+              <button onClick={() => setShotsViewMode("filmstrip")} style={{ padding: "5px 12px", fontSize: 12, border: "none", cursor: "pointer", background: shotsViewMode === "filmstrip" ? "#6c47ff" : "#fff", color: shotsViewMode === "filmstrip" ? "#fff" : "#374151" }}>🎞 Filmstrip</button>
+              <button onClick={() => setShotsViewMode("list")} style={{ padding: "5px 12px", fontSize: 12, border: "none", cursor: "pointer", background: shotsViewMode === "list" ? "#6c47ff" : "#fff", color: shotsViewMode === "list" ? "#fff" : "#374151" }}>📋 List</button>
+            </div>
+          </div>
+        )}
         {scenes.map(scene => {
-          const sceneShots = shots.filter(s => s.sceneNumber === scene);
+          const sceneShots = shots.filter(s => s.sceneNumber === scene).sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
           const chapterTitle = sceneShots[0]?.chapterId
             ? (project.chapters?.find((c: any) => c.id === sceneShots[0].chapterId)?.title ?? "")
             : "";
+          const selectedInScene = sceneShots.find(s => s.id === selectedShotId) ?? sceneShots[0];
           return (
             <div key={scene} style={{ marginBottom: 24 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10, borderBottom: "2px solid #ede9fe", paddingBottom: 4 }}>
@@ -497,7 +554,23 @@ export default function ProductionStudio({ project, segmindKey }: { project: any
                   </button>
                 )}
               </div>
-              {sceneShots.map(shot => <ShotCard key={shot.id} shot={shot} projectId={project.id} segmindKey={segmindKey} onUpdate={updateShot} onPreview={previewShot} onAnimate={animateShot} onGenerateVideo={generateVideo} videoModel={videoModelMap[shot.id] || "kling"} onModelChange={m => setVideoModelMap(prev => ({ ...prev, [shot.id]: m }))} />)}
+              {shotsViewMode === "filmstrip" ? (
+                <>
+                  <ShotFilmstrip
+                    shots={sceneShots}
+                    selectedId={selectedInScene?.id ?? null}
+                    onSelect={setSelectedShotId}
+                    draggedId={draggedShotId}
+                    onDragStart={setDraggedShotId}
+                    onDrop={(targetId) => { if (draggedShotId) reorderShots(scene, draggedShotId, targetId); setDraggedShotId(null); }}
+                  />
+                  {selectedInScene && (
+                    <ShotCard key={selectedInScene.id} shot={selectedInScene} projectId={project.id} segmindKey={segmindKey} onUpdate={updateShot} onPreview={previewShot} onAnimate={animateShot} onGenerateVideo={generateVideo} onPromoteCandidate={promoteCandidate} videoModel={videoModelMap[selectedInScene.id] || "kling"} onModelChange={m => setVideoModelMap(prev => ({ ...prev, [selectedInScene.id]: m }))} />
+                  )}
+                </>
+              ) : (
+                sceneShots.map(shot => <ShotCard key={shot.id} shot={shot} projectId={project.id} segmindKey={segmindKey} onUpdate={updateShot} onPreview={previewShot} onAnimate={animateShot} onGenerateVideo={generateVideo} onPromoteCandidate={promoteCandidate} videoModel={videoModelMap[shot.id] || "kling"} onModelChange={m => setVideoModelMap(prev => ({ ...prev, [shot.id]: m }))} />)
+              )}
             </div>
           );
         })}
@@ -547,14 +620,80 @@ function WhatsNextButton({
   );
 }
 
+// Phase C horizontal filmstrip — a compact sequence overview replacing the
+// vertical scrolling list of full ShotCards as the primary navigation surface
+// (docs/2026-06-25-ai-director-editor-production-studio-gap-analysis.md, Phase
+// C). Click a thumbnail to select it (shown in full below via ShotCard);
+// drag one thumbnail onto another to reorder (native HTML5 drag, same
+// convention as ConstellationView's palette — no new drag-library dependency).
+function ShotFilmstrip({
+  shots, selectedId, onSelect, draggedId, onDragStart, onDrop,
+}: {
+  shots: Shot[];
+  selectedId: string | null;
+  onSelect: (id: string) => void;
+  draggedId: string | null;
+  onDragStart: (id: string) => void;
+  onDrop: (targetId: string) => void;
+}) {
+  return (
+    <div style={{ display: "flex", gap: 8, overflowX: "auto", paddingBottom: 8, marginBottom: 4 }}>
+      {shots.map((shot) => {
+        const isSelected = shot.id === selectedId;
+        const isDragging = shot.id === draggedId;
+        const qColor = qualityScoreColor(shot.qualityScore);
+        const reviewColor = shot.reviewStatus === "approved" ? "#22c55e" : shot.reviewStatus === "needs_rework" ? "#ef4444" : "#9ca3af";
+        return (
+          <div
+            key={shot.id}
+            draggable
+            onDragStart={() => onDragStart(shot.id)}
+            onDragOver={(e) => e.preventDefault()}
+            onDrop={(e) => { e.preventDefault(); onDrop(shot.id); }}
+            onClick={() => onSelect(shot.id)}
+            title={`Shot ${shot.shotNumber}${shot.subject ? ` — ${shot.subject}` : ""}`}
+            style={{
+              flex: "0 0 auto", width: 96, cursor: "grab", opacity: isDragging ? 0.4 : 1,
+              border: `2px solid ${isSelected ? "#6c47ff" : "transparent"}`, borderRadius: 8, padding: 3,
+              background: isSelected ? "#f5f3ff" : "transparent",
+            }}
+          >
+            <div style={{ position: "relative", width: "100%", aspectRatio: "16/9", borderRadius: 6, overflow: "hidden", background: "#e5e7eb" }}>
+              {shot.previewImageUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={shot.previewImageUrl} alt="" crossOrigin="anonymous" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+              ) : (
+                <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", color: "#9ca3af", fontSize: 18 }}>🎬</div>
+              )}
+              {qColor && (
+                <div style={{ position: "absolute", top: 2, right: 2, width: 8, height: 8, borderRadius: "50%", background: qColor, border: "1px solid rgba(255,255,255,0.8)" }} />
+              )}
+              {shot.candidatePreviewUrls && shot.candidatePreviewUrls.length > 0 && (
+                <div style={{ position: "absolute", bottom: 2, right: 2, fontSize: 9, fontWeight: 700, color: "white", background: "rgba(0,0,0,0.6)", borderRadius: 4, padding: "0 4px" }}>
+                  +{shot.candidatePreviewUrls.length}
+                </div>
+              )}
+            </div>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 3 }}>
+              <span style={{ fontSize: 9, color: "#6b7280" }}>#{shot.shotNumber}</span>
+              <span style={{ width: 6, height: 6, borderRadius: "50%", background: reviewColor }} title={REVIEW_STATUS_LABEL[shot.reviewStatus ?? "draft"]} />
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 function ShotCard({
-  shot, projectId, segmindKey, onUpdate, onPreview, onAnimate, onGenerateVideo, videoModel, onModelChange,
+  shot, projectId, segmindKey, onUpdate, onPreview, onAnimate, onGenerateVideo, onPromoteCandidate, videoModel, onModelChange,
 }: {
   shot: Shot; projectId: string; segmindKey: string;
   onUpdate: (id: string, updates: Partial<Shot>) => void;
-  onPreview: (id: string) => void;
+  onPreview: (id: string, keepAsCandidate?: boolean) => void;
   onAnimate: (id: string) => void;
   onGenerateVideo: (id: string) => void;
+  onPromoteCandidate?: (id: string, url: string) => void;
   videoModel: string;
   onModelChange: (m: string) => void;
 }) {
@@ -616,7 +755,10 @@ function ShotCard({
             <button onClick={() => onPreview(shot.id)} style={btn()}>🖼 Preview</button>
           )}
           {status === "preview_ready" && segmindKey && (
-            <button onClick={() => onAnimate(shot.id)} style={btn("#059669")}>🎬 Animate</button>
+            <>
+              <button onClick={() => onAnimate(shot.id)} style={btn("#059669")}>🎬 Animate</button>
+              <button onClick={() => onPreview(shot.id, true)} style={outBtn} title="Generate another version without losing the current one — pick your favorite below.">🎲 Generate Another</button>
+            </>
           )}
           {status === "animated" && (
             <>
@@ -650,6 +792,25 @@ function ShotCard({
             }}
           >
             {Math.round((shot.qualityScore ?? 0) * 100)}
+          </div>
+        )}
+
+        {/* Phase C "keep N candidates" — thumbnails from "Generate Another" above.
+            Click one to promote it to primary (swaps with the current preview). */}
+        {shot.candidatePreviewUrls && shot.candidatePreviewUrls.length > 0 && (
+          <div style={{ display: "flex", gap: 4, flexWrap: "wrap", justifyContent: "center" }}>
+            {shot.candidatePreviewUrls.map((url) => (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                key={url}
+                src={url}
+                alt="candidate"
+                onClick={() => onPromoteCandidate?.(shot.id, url)}
+                title="Click to make this the primary preview"
+                crossOrigin="anonymous"
+                style={{ width: 36, height: 36, objectFit: "cover", borderRadius: 4, cursor: "pointer", border: "1px solid #e5e7eb" }}
+              />
+            ))}
           </div>
         )}
       </div>

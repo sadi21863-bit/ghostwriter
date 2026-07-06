@@ -340,6 +340,14 @@ CHARACTER EMBODIMENT RULES (apply to all characters with backstory, want/need, c
 - Contradiction must never resolve cleanly. Write behavior that expresses both sides.
 `;
 
+// Artifact-vs-persona separation, pattern extracted from leaked commercial system
+// prompts (see docs/2026-07-06-repo-research-findings.md) — the output of this
+// call is a story/script artifact the user will read, not a chat message from an
+// assistant. Applied universally (all modes/formats), not just story formats,
+// since assistant-voice breaks ("Here's the scene!", "I hope this helps!") can
+// happen in creator-tool generation too.
+export const ARTIFACT_VS_PERSONA_RULE = `Everything you output here is the story/script artifact itself — the reader sees only this text, never you. Do not speak as an assistant: no greetings, no "Here's the scene...", no "I hope this helps", no summary of what you wrote, no offer to revise. Stay entirely inside the fiction/format from the first word to the last.`;
+
 export function getCraftDirectives(format: string): string {
   return STORY_FORMAT_RULES[format] ? "\n" + WRITE_CRAFT_DIRECTIVES : "";
 }
@@ -361,7 +369,7 @@ export async function generate({ mode, prompt, context, staticContext, dynamicCo
   const model = overrideModel ?? MODELS[MODE_REGISTRY[mode as GenerationMode]?.modelTier ?? 'default'];
   const formatRules = getFormatRules(format);
   const craftDirectives = getCraftDirectives(format);
-  const modeInstruction = MI[mode as GenerationMode](format);
+  const modeInstruction = ARTIFACT_VS_PERSONA_RULE + '\n\n' + MI[mode as GenerationMode](format);
   const narrativeNote = getNarrativeStructureInstruction(narrativeStructure);
 
   let systemBlocks: any[];
@@ -407,7 +415,7 @@ export async function generateStream(
   const model = overrideModel ?? MODELS[MODE_REGISTRY[mode as GenerationMode]?.modelTier ?? 'default'];
   const formatRules = getFormatRules(format);
   const craftDirectives = getCraftDirectives(format);
-  const modeInstruction = MI[mode as GenerationMode](format);
+  const modeInstruction = ARTIFACT_VS_PERSONA_RULE + '\n\n' + MI[mode as GenerationMode](format);
   const narrativeNote = getNarrativeStructureInstruction(narrativeStructure);
 
   let systemBlocks: any[];
@@ -488,11 +496,21 @@ ${content.slice(0, 8000)}`;
   };
 }
 
+// Delimiter for the hallucination-admission flag block (pattern extracted from
+// Sesame's Maya leaked system prompt — see docs/2026-07-06-repo-research-findings.md):
+// an editor that silently "fixes" or ignores a contradiction against established
+// facts is worse than one that admits it noticed something is off. Since
+// refinePassage()'s hard rules require the visible prose to be ONLY the revised
+// text (no commentary), the admission has to live after a machine-parseable
+// delimiter, not inline — otherwise it would either pollute the prose or get
+// silently dropped by the "no preamble/commentary" instruction.
+const CONTRADICTION_FLAG_DELIMITER = "<<<CONTRADICTION_FLAGS>>>";
+
 export async function refinePassage(
   text: string,
   format: string,
   extraContext = "",
-): Promise<{ text: string; tokensUsed: number; model: string }> {
+): Promise<{ text: string; tokensUsed: number; model: string; contradictionFlags: string[] }> {
   const model = MODELS.default;
   const baseSystem = `You are a precise line editor for ${format} fiction. Revise the passage to remove AI-slop while preserving the author's plot, meaning, characters, facts, and VOICE exactly. Fix ONLY these defects:
 - cliché openings and stock phrases ("little did they know", "the air was thick with", "a chill ran down")
@@ -507,7 +525,9 @@ HARD RULES:
 - Do NOT change plot events, character decisions, or established facts.
 - Do NOT add new scenes, characters, or content. Do NOT summarize.
 - Keep length within ~10% of the original. Preserve paragraph breaks.
-- Return ONLY the revised prose — no preamble, no commentary, no labels.`;
+- Return ONLY the revised prose — no preamble, no commentary, no labels.
+
+CONTRADICTION CHECK: if the passage contradicts an established fact given to you above (a character detail, a prior event, a promise already made), do NOT silently rewrite around it or ignore it. After the revised prose, on its own line, write exactly "${CONTRADICTION_FLAG_DELIMITER}" followed by one line per contradiction you noticed, in the form "<what contradicts> — <the established fact it conflicts with>". If you found none, still write the delimiter with nothing after it.`;
   const system = extraContext ? `${baseSystem}\n\n${extraContext}` : baseSystem;
   const msg = await client.messages.create({
     model,
@@ -524,8 +544,13 @@ HARD RULES:
     system,
     messages: [{ role: 'user', content: text.slice(0, 16000) }],
   });
-  const out = msg.content.filter(b => b.type === 'text').map(b => (b as any).text).join('');
-  return { text: out, tokensUsed: msg.usage.input_tokens + msg.usage.output_tokens, model };
+  const raw = msg.content.filter(b => b.type === 'text').map(b => (b as any).text).join('');
+  const delimiterIdx = raw.indexOf(CONTRADICTION_FLAG_DELIMITER);
+  const out = delimiterIdx === -1 ? raw : raw.slice(0, delimiterIdx).trimEnd();
+  const contradictionFlags = delimiterIdx === -1
+    ? []
+    : raw.slice(delimiterIdx + CONTRADICTION_FLAG_DELIMITER.length).split('\n').map(l => l.trim()).filter(Boolean);
+  return { text: out, tokensUsed: msg.usage.input_tokens + msg.usage.output_tokens, model, contradictionFlags };
 }
 
 export async function generateQuickStory(title: string, format: string, genres: string[]) { const genreStr = (genres || []).join(", ") || "Drama"; const prompt = `Create a complete story skeleton for a ${format} titled "${title}" in ${genreStr}. Return ONLY valid JSON with: {characters:[{name,role,age,appearance,personality},...], locations:[{name,description,atmosphere},...], plotThreads:[{name,description,stakes},...], outline:"Brief 3-act outline"}. Generate 3-4 characters, 2-3 locations, 2-3 plot threads.`; const msg = await client.messages.create({ model: MODELS.default, max_tokens: 4000, messages: [{ role: "user", content: prompt }] }); const text = msg.content.filter(b => b.type === "text").map(b => (b as any).text).join("").trim(); return safeParseJson(text) ?? { characters: [], locations: [], plotThreads: [], outline: "" }; }

@@ -17,7 +17,7 @@ async function verifyOwnership(projectId: string, userId: string) {
   });
 }
 
-export async function POST(_: Request, { params }: { params: Promise<{ projectId: string; pageId: string; panelId: string }> }) {
+export async function POST(req: Request, { params }: { params: Promise<{ projectId: string; pageId: string; panelId: string }> }) {
   const s = await getRequiredSession();
   if (!await verifyOwnership((await params).projectId, s.user.id))
     return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -42,6 +42,9 @@ export async function POST(_: Request, { params }: { params: Promise<{ projectId
     return NextResponse.json({ error: `Add your ${provider.name} API key in Settings to generate panels.` }, { status: 400 });
   }
 
+  const body = await req.json().catch(() => ({}));
+  const keepAsCandidate = body?.keepAsCandidate === true && !!panel.imageUrl;
+
   const result = await provider.generate({
     prompt: panel.panelPrompt,
     stylePreset: panel.artStylePreset || undefined,
@@ -59,6 +62,19 @@ export async function POST(_: Request, { params }: { params: Promise<{ projectId
       { access: "public", contentType: "image/png" }
     );
     imageUrl = blob.url;
+  }
+
+  if (keepAsCandidate) {
+    const existing: string[] = (panel as any).candidateImageUrls ?? [];
+    const [updated] = await db
+      .update(comicPanels)
+      .set({ candidateImageUrls: [...existing, imageUrl] })
+      .where(eq(comicPanels.id, (await params).panelId))
+      .returning();
+    // Candidates aren't auto-scored by the vision-critic, same reasoning as the
+    // shots preview route: qualityScore/Weakest/Note are singular per-panel
+    // fields tracking the PRIMARY image.
+    return NextResponse.json({ panel: updated });
   }
 
   const [updated] = await db

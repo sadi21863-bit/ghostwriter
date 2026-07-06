@@ -96,6 +96,12 @@ export function fingerprintToConstraints(fp: VoiceFingerprint): string {
     '- "couldn\'t believe", "nodded slowly", "eyes widened", "swallowed hard"',
     '- Starting consecutive sentences with the same word',
     '- Em dash overuse (maximum one per paragraph)',
+    '',
+    'CALIBRATION EXAMPLE — how to judge when a constraint should yield to the scene:',
+    'PREFERENCE: average sentence length short and punchy (per the target above).',
+    "QUERY: this beat is the character's single unbroken dying thought — one long sentence carries the moment better than three short ones.",
+    'APPLY?: no — deviate for this one passage.',
+    "WHY: the binding constraints protect the author's default voice across the whole manuscript; a scene with a genuine structural reason is a legitimate, rare exception, not a habit. Default to the constraint. Deviate only when the scene itself demands it, and only for as long as it demands it.",
   ];
 
   return lines.join('\n');

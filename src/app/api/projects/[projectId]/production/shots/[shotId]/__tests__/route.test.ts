@@ -74,4 +74,29 @@ describe("PATCH /api/projects/[projectId]/production/shots/[shotId]", () => {
     const res = await PATCH(makeRequest({ reviewStatus: "approved" }), makeParams());
     expect(res.status).toBe(404);
   });
+
+  describe("promoteCandidateUrl (Phase C keep-N-candidates)", () => {
+    beforeEach(() => {
+      findFirstShots.mockResolvedValue({
+        id: "shot-1", projectId: "proj-1",
+        shotType: "Medium shot", cameraMovement: "Static", lightingMood: "Golden hour", timeOfDay: "Afternoon",
+        subject: "Mara", action: "walks", location: "The alley",
+        previewImageUrl: "https://example.com/primary.jpg",
+        candidatePreviewUrls: ["https://example.com/candidate-a.jpg", "https://example.com/candidate-b.jpg"],
+      });
+    });
+
+    it("promotes a known candidate to primary and returns the old primary to candidates", async () => {
+      await PATCH(makeRequest({ promoteCandidateUrl: "https://example.com/candidate-a.jpg" }), makeParams());
+      const [setArg] = updateSet.mock.calls[0];
+      expect(setArg.previewImageUrl).toBe("https://example.com/candidate-a.jpg");
+      expect(setArg.candidatePreviewUrls).toEqual(["https://example.com/candidate-b.jpg", "https://example.com/primary.jpg"]);
+    });
+
+    it("rejects a URL that isn't a known candidate", async () => {
+      const res = await PATCH(makeRequest({ promoteCandidateUrl: "https://example.com/not-a-candidate.jpg" }), makeParams());
+      expect(res.status).toBe(400);
+      expect(updateSet).not.toHaveBeenCalled();
+    });
+  });
 });

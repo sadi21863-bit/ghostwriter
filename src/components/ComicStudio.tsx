@@ -5,6 +5,7 @@ import { EmptyState } from "@/components/EmptyState";
 import { co, sBtn, sBtnSm, sInput } from "@/lib/styles";
 import { isValidTipTapJson, tiptapToPlainText } from "@/lib/editor/content-migration";
 import { qualityScoreColor, formatWeakestDimension, REVIEW_STATUS_LABEL, type ReviewStatus } from "@/lib/production/review";
+import { reorderIds, changedOrders } from "@/lib/production/reorder";
 
 export default function ComicStudio({ project, segmindKey, onOpenStudio }: { project: any; segmindKey: string; onOpenStudio?: () => void }) {
   const [view, setView] = useState<"generator" | "editor">("generator");
@@ -20,6 +21,7 @@ export default function ComicStudio({ project, segmindKey, onOpenStudio }: { pro
   const [panelEdits, setPanelEdits] = useState<Record<string, { dialogue: string; caption: string; speakerName: string; bubbleType: string }>>({});
   const [regenerating, setRegenerating] = useState<Record<string, boolean>>({});
   const [lettering, setLettering] = useState<Record<string, boolean>>({});
+  const [draggedPanelId, setDraggedPanelId] = useState<string | null>(null);
   const saveTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
 
   const chaptersWithContent = (project.chapters || []).filter((c: any) => c.content?.trim());
@@ -97,21 +99,68 @@ export default function ComicStudio({ project, segmindKey, onOpenStudio }: { pro
     });
   };
 
-  const regeneratePanel = async (panelId: string) => {
+  const regeneratePanel = async (panelId: string, keepAsCandidate = false) => {
     if (regenerating[panelId]) return;
     setRegenerating(prev => ({ ...prev, [panelId]: true }));
     try {
-      const res = await fetch(`/api/projects/${project.id}/comics/${activePage.id}/panels/${panelId}/regenerate`, { method: "POST" });
+      const res = await fetch(`/api/projects/${project.id}/comics/${activePage.id}/panels/${panelId}/regenerate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ keepAsCandidate }),
+      });
       const data = await res.json();
       if (data.panel) {
         setActivePage((prev: any) => ({
           ...prev,
-          panels: prev.panels.map((p: any) => p.id === panelId ? { ...p, imageUrl: data.panel.imageUrl } : p),
+          panels: prev.panels.map((p: any) => p.id === panelId
+            ? { ...p, imageUrl: data.panel.imageUrl, candidateImageUrls: data.panel.candidateImageUrls ?? p.candidateImageUrls }
+            : p),
         }));
       }
     } finally {
       setRegenerating(prev => ({ ...prev, [panelId]: false }));
     }
+  };
+
+  // Phase C "keep N candidates" — promote a candidate thumbnail to the primary panel image.
+  const promoteCandidate = async (panelId: string, url: string) => {
+    setActivePage((prev: any) => ({
+      ...prev,
+      panels: prev.panels.map((p: any) => p.id === panelId
+        ? { ...p, imageUrl: url, candidateImageUrls: (p.candidateImageUrls ?? []).filter((u: string) => u !== url).concat(p.imageUrl ? [p.imageUrl] : []) }
+        : p),
+    }));
+    await fetch(`/api/projects/${project.id}/comics/${activePage.id}/panels/${panelId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ promoteCandidateUrl: url }),
+    });
+  };
+
+  // Phase C drag-reorder — panelIndex already existed for layout order, this
+  // is the missing "compute + persist the new order" step (see reorder.ts).
+  const reorderPanels = async (draggedId: string, targetId: string) => {
+    const panels = [...activePage.panels].sort((a: any, b: any) => a.panelIndex - b.panelIndex);
+    const ids = panels.map((p: any) => p.id);
+    const originalOrderById: Record<string, number> = {};
+    panels.forEach((p: any) => { originalOrderById[p.id] = p.panelIndex; });
+    const reordered = reorderIds(ids, draggedId, targetId);
+    if (reordered === ids) return;
+    const changes = changedOrders(reordered, originalOrderById);
+    if (changes.length === 0) return;
+    const orderById: Record<string, number> = {};
+    changes.forEach(c => { orderById[c.id] = c.order; });
+    setActivePage((prev: any) => ({
+      ...prev,
+      panels: prev.panels.map((p: any) => p.id in orderById ? { ...p, panelIndex: orderById[p.id] } : p),
+    }));
+    await Promise.all(changes.map(c =>
+      fetch(`/api/projects/${project.id}/comics/${activePage.id}/panels/${c.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ panelIndex: c.order }),
+      })
+    ));
   };
 
   // Zero-spend: composites the panel's dialogue/caption bubbles onto its existing
@@ -214,7 +263,15 @@ export default function ComicStudio({ project, segmindKey, onOpenStudio }: { pro
             {panels.map((panel: any, i: number) => {
               const edit = panelEdits[panel.id] ?? { dialogue: panel.dialogue, caption: panel.caption, speakerName: panel.speakerName, bubbleType: panel.bubbleType || "speech" };
               return (
-                <div key={panel.id} style={{ background: co.surface, borderRadius: 10, overflow: "hidden", border: "1px solid " + co.border }}>
+                <div
+                  key={panel.id}
+                  draggable
+                  onDragStart={() => setDraggedPanelId(panel.id)}
+                  onDragOver={e => e.preventDefault()}
+                  onDrop={e => { e.preventDefault(); if (draggedPanelId && draggedPanelId !== panel.id) reorderPanels(draggedPanelId, panel.id); setDraggedPanelId(null); }}
+                  onDragEnd={() => setDraggedPanelId(null)}
+                  style={{ background: co.surface, borderRadius: 10, overflow: "hidden", border: "1px solid " + co.border, opacity: draggedPanelId === panel.id ? 0.5 : 1, cursor: "grab" }}
+                >
                   {/* Image area */}
                   <div style={{ position: "relative", aspectRatio: "1/1", background: co.surfaceAlt }}>
                     <span style={{ position: "absolute", top: 8, left: 8, background: "rgba(0,0,0,0.6)", color: "#fff", fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 20, zIndex: 2 }}>{i + 1}</span>
@@ -230,15 +287,40 @@ export default function ComicStudio({ project, segmindKey, onOpenStudio }: { pro
                         {Math.round((panel.qualityScore ?? 0) * 100)}
                       </span>
                     )}
-                    <button style={{ position: "absolute", top: 8, right: 8, zIndex: 2, ...sBtnSm, padding: "3px 8px" }} onClick={() => regeneratePanel(panel.id)} disabled={regenerating[panel.id]}>
+                    <button style={{ position: "absolute", top: 8, right: 8, zIndex: 2, ...sBtnSm, padding: "3px 8px" }} onClick={() => regeneratePanel(panel.id)} disabled={regenerating[panel.id]} title="Regenerate (overwrite)">
                       {regenerating[panel.id] ? "..." : "🔄"}
                     </button>
+                    {panel.imageUrl && (
+                      <button
+                        style={{ position: "absolute", bottom: 8, right: 8, zIndex: 2, ...sBtnSm, padding: "3px 8px" }}
+                        onClick={() => regeneratePanel(panel.id, true)}
+                        disabled={regenerating[panel.id]}
+                        title="Generate another candidate without overwriting this one"
+                      >
+                        {regenerating[panel.id] ? "..." : "🎲 Another"}
+                      </button>
+                    )}
                     {(panel.letteredImageUrl || panel.imageUrl)
                       ? <img src={panel.letteredImageUrl || panel.imageUrl} alt={`Panel ${i + 1}`} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
                       : <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", color: co.muted, fontSize: 12 }}>No image</div>}
                   </div>
                   {/* Edit area */}
                   <div style={{ padding: 10, display: "flex", flexDirection: "column", gap: 6 }}>
+                    {panel.candidateImageUrls?.length > 0 && (
+                      <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+                        {panel.candidateImageUrls.map((url: string) => (
+                          <img
+                            key={url}
+                            src={url}
+                            alt="candidate"
+                            onClick={() => promoteCandidate(panel.id, url)}
+                            title="Click to make this the primary panel image"
+                            crossOrigin="anonymous"
+                            style={{ width: 36, height: 36, objectFit: "cover", borderRadius: 4, cursor: "pointer", border: "1px solid " + co.border }}
+                          />
+                        ))}
+                      </div>
+                    )}
                     <div style={{ display: "flex", gap: 4 }}>
                       {(["draft", "approved", "needs_rework"] as ReviewStatus[]).map(st => {
                         const active = (panel.reviewStatus ?? "draft") === st;

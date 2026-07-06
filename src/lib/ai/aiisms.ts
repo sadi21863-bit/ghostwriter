@@ -42,12 +42,19 @@ export const FICTION_AIISMS = [
   // Claude-specific artifacts
   "I've rewritten", "I've adjusted",
   'to be sure', 'needless to say',
+  // Crutch-word tells (extracted from a 22-pass manuscript-editorial prompt shared
+  // 2026-07-06 — see docs/2026-07-06-repo-research-findings.md; only the two
+  // multi-word phrases live here, single-word crutch words go in
+  // HIGH_FREQUENCY_WORDS below since that array is scanned separately).
+  'started to', 'began to', 'appeared to',
 ];
 
 export const HIGH_FREQUENCY_WORDS = [
   'suddenly', 'immediately', 'slowly', 'quietly',
   'gently', 'softly', 'quickly', 'carefully',
   'slightly', 'briefly', 'deeply',
+  // Crutch/filler words (same source as the phrase additions above).
+  'just', 'really', 'very', 'quite', 'actually', 'basically', 'literally',
 ];
 
 // Structural tells that can't live in FICTION_AIISMS's literal-phrase array —
@@ -75,5 +82,7 @@ If any appear, replace with specific physical action or concrete detail.
 "Wave of fear" → what does fear feel like in this character's specific body?
 
 Also scan for these structural tells, which are not fixed phrases:
-${structuralLines}`.trim();
+${structuralLines}
+
+CRUTCH WORDS — these are real words with legitimate uses, so don't ban them outright, but they're overused in AI prose. If more than one appears in a single paragraph, cut or replace all but one: ${HIGH_FREQUENCY_WORDS.join(', ')}.`.trim();
 }
