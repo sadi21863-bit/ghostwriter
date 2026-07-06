@@ -86,7 +86,7 @@ No other text.`;
 
   const [tier1Response, tier2Response] = await Promise.all([
     client.messages.create({ model: MODELS.fast, max_tokens: 800, messages: [{ role: 'user', content: tier1Prompt }] }),
-    client.messages.create({ model: MODELS.default, max_tokens: 800, messages: [{ role: 'user', content: tier2Prompt }] }),
+    client.messages.create({ model: MODELS.default, max_tokens: 2000, messages: [{ role: 'user', content: tier2Prompt }] }),
   ]);
 
   function parseJson(text: string) {

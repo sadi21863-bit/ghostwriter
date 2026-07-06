@@ -7,6 +7,7 @@ import { projects, characterRelationships } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { buildStoryGraph } from "@/lib/graph/story-graph";
 import { analyzeGraphHealth } from "@/lib/graph/graph-health";
+import { contextIsTrimmed } from "@/lib/ai/context-builder";
 
 async function verifyOwnership(projectId: string, userId: string) {
   return db.query.projects.findFirst({
@@ -43,5 +44,11 @@ export async function GET(_: Request, { params }: { params: Promise<{ projectId:
     worldEntities: (project as any).worldEntities ?? [],
   });
 
-  return NextResponse.json({ ...graph, health: analyzeGraphHealth(graph) });
+  // Headroom trims context silently (by design, for prompt-cache stability) — this
+  // is the one place that surfaces it as a yes/no signal, in the same response as
+  // the structural graph health, since Studio's graph view is where a user would
+  // naturally look to understand whether their project's full story reaches the AI.
+  const contextTrimmed = contextIsTrimmed({ ...(project as any), characterRelationships: storedRels });
+
+  return NextResponse.json({ ...graph, health: analyzeGraphHealth(graph), contextTrimmed });
 }

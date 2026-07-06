@@ -91,7 +91,7 @@ Return ONLY valid JSON:
       messages: [{ role: "user", content: prompt }],
     });
 
-    const text = response.content[0].type === "text" ? response.content[0].text : "{}";
+    const text = response.content.filter(b => b.type === "text").map(b => (b as any).text).join("") || "{}";
     const clean = text.replace(/```json\n?|```/g, "").trim();
 
     let result: any;

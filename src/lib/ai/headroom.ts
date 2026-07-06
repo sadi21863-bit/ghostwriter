@@ -84,3 +84,39 @@ export function packToBudget(sections: string[][], budgetTokens: number, marker:
   const out = trimmed ? [...included, marker] : included;
   return compactContext(out.join("\n"));
 }
+
+export interface LabeledSection { label: string; lines: string[]; }
+
+export interface PackResult {
+  text: string;
+  trimmed: boolean;
+  /** The sections packToBudget would have dropped, in original order, with their
+   *  raw (untrimmed) content — the input the opt-in LLM summarization layer needs. */
+  skipped: { label: string; content: string }[];
+}
+
+/**
+ * Same algorithm as packToBudget, but over labeled sections and returning which
+ * ones were skipped (with their raw content) instead of only the packed string.
+ * Kept as a separate function rather than changing packToBudget's signature —
+ * packToBudget has its own callers/tests on the plain string[][] shape.
+ */
+export function packToBudgetLabeled(sections: LabeledSection[], budgetTokens: number, marker: string = TRIM_MARKER): PackResult {
+  const included: string[] = [];
+  const skipped: { label: string; content: string }[] = [];
+  let trimmed = false;
+  for (let i = 0; i < sections.length; i++) {
+    const { label, lines } = sections[i];
+    if (!lines || lines.length === 0) continue;
+    if (i === 0) { included.push(...lines); continue; } // header: always kept
+    const candidate = compactContext([...included, ...lines].join("\n"));
+    if (estimateTokens(candidate) > budgetTokens) {
+      trimmed = true;
+      skipped.push({ label, content: compactContext(lines.join("\n")) });
+      continue;
+    }
+    included.push(...lines);
+  }
+  const out = trimmed ? [...included, marker] : included;
+  return { text: compactContext(out.join("\n")), trimmed, skipped };
+}

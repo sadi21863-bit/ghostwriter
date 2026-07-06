@@ -28,7 +28,7 @@ export async function POST(req: NextRequest) {
   try {
     const msg = await client.messages.create({
       model: MODELS.default,
-      max_tokens: 1000,
+      max_tokens: 2500,
       messages: [{
         role: "user",
         content: `Research this topic for a ${format ?? "YouTube"} creator: "${topic}"

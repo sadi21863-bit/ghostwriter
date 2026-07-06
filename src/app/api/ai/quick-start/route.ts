@@ -122,7 +122,12 @@ export async function POST(req: NextRequest) {
                 staticContext: buildStaticContext(contextProject as any),
                 dynamicContext: buildDynamicContext(contextProject as any),
                 prompt: `Write the opening paragraph of this story. One paragraph. This is the reader's first moment in this world — make it specific, grounded, and purposeful. Show us where we are and give us a reason to keep reading.`,
-                maxTokens: 400,
+                // mode: 'write' runs on Sonnet 5, which has adaptive thinking on by
+                // default and no explicit thinking config here — thinking tokens
+                // count against maxTokens, so this needs real headroom above what
+                // one paragraph alone would need (400 was tight enough to risk the
+                // same empty-output failure refinePassage() hit).
+                maxTokens: 1200,
             });
             sampleGeneration = result.text ?? '';
         } catch {

@@ -102,7 +102,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ project
     userId: s.user.id,
     operation: "beat-sheet",
     model: MODELS.default,
-    maxTokens: 2000,
+    maxTokens: 4000,
     system: beatSheetSystemPrompt(project.format, cast, threads),
     messages: [{ role: "user", content: prompt || "Build the beat sheet for this story." }],
   });

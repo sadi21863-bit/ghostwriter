@@ -31,7 +31,7 @@ export async function POST(req: Request) {
   try {
     const response = await anthropic.messages.create({
       model: MODELS.default,
-      max_tokens: 4000,
+      max_tokens: 6000,
       system: [{
         type: "text",
         text: REPURPOSE_SYSTEM_PROMPT,
@@ -86,7 +86,7 @@ Include only the platforms that were requested.`,
       }],
     });
 
-    const raw = response.content[0].type === "text" ? response.content[0].text : "{}";
+    const raw = response.content.filter(b => b.type === "text").map(b => (b as any).text).join("") || "{}";
     try {
       return NextResponse.json(JSON.parse(raw.replace(/```json\n?|```/g, "").trim()));
     } catch {

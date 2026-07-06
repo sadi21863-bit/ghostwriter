@@ -31,7 +31,7 @@ Output ONLY this format (under 80 words):
         max_tokens: 150,
         messages: [{ role: "user", content: userPrompt }],
       });
-      const text = response.content[0].type === "text" ? response.content[0].text.trim() : "";
+      const text = response.content.filter(b => b.type === "text").map(b => (b as any).text).join("").trim();
       return NextResponse.json({ visualProfile: text });
     }
 

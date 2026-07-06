@@ -86,7 +86,7 @@ Return JSON:
       }],
     });
 
-    const raw = response.content[0].type === "text" ? response.content[0].text : "{}";
+    const raw = response.content.filter(b => b.type === "text").map(b => (b as any).text).join("") || "{}";
     try {
       return NextResponse.json({ edit: JSON.parse(raw.replace(/```json\n?|```/g, "").trim()) });
     } catch {

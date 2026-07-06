@@ -50,7 +50,7 @@ export async function POST(
 
   const response = await anthropic.messages.create({
     model: MODELS.default,
-    max_tokens: 3000,
+    max_tokens: 6000,
     messages: [{
       role: "user",
       content: `Extract World Bible information explicitly present in these ${project.format} chapters.
@@ -69,7 +69,7 @@ Return ONLY valid JSON, no markdown:
     }],
   });
 
-  const raw = response.content[0].type === "text" ? response.content[0].text : "{}";
+  const raw = response.content.filter(b => b.type === "text").map(b => (b as any).text).join("") || "{}";
   try {
     return NextResponse.json(JSON.parse(raw.replace(/```json\n?|```/g, "").trim()));
   } catch {

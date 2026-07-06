@@ -106,12 +106,12 @@ Return ONLY valid JSON:
   try {
     const response = await anthropic.messages.create({
       model: MODELS.default,
-      max_tokens: 1500,
+      max_tokens: 3000,
       system: [{ type: "text", text: HOOK_STRATEGIST_SYSTEM_PROMPT, cache_control: { type: "ephemeral" } }],
       messages: [{ role: "user", content: prompt }],
     });
 
-    const raw = response.content[0].type === "text" ? response.content[0].text : "{}";
+    const raw = response.content.filter(b => b.type === "text").map(b => (b as any).text).join("") || "{}";
     let parsed: any;
     try {
       parsed = JSON.parse(raw.replace(/```json\n?|```/g, "").trim());

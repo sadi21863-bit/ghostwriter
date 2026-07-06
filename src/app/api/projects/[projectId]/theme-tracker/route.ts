@@ -54,7 +54,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ project
 
   const response = await anthropic.messages.create({
     model: MODELS.default,
-    max_tokens: 2500,
+    max_tokens: 5000,
     messages: [{
       role: "user",
       content: `Analyse these chapters for thematic development. The story's Controlling Idea is:
@@ -95,7 +95,7 @@ Return ONLY valid JSON:
     }],
   });
 
-  const raw = response.content[0].type === "text" ? response.content[0].text : "{}";
+  const raw = response.content.filter(b => b.type === "text").map(b => (b as any).text).join("") || "{}";
   try {
     return NextResponse.json(JSON.parse(raw.replace(/```json\n?|```/g, "").trim()));
   } catch {

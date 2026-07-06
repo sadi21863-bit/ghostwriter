@@ -51,7 +51,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ project
 
   const response = await anthropic.messages.create({
     model: MODELS.default,
-    max_tokens: 1500,
+    max_tokens: 3000,
     messages: [{
       role: "user",
       content: `Write an industry-format query letter for this ${formatNoun}. Follow the standard query letter format precisely.
@@ -78,6 +78,6 @@ Write the complete query letter. Make it professional and compelling. Do not inc
     }],
   });
 
-  const text = response.content[0].type === "text" ? response.content[0].text : "";
+  const text = response.content.filter(b => b.type === "text").map(b => (b as any).text).join("");
   return NextResponse.json({ queryLetter: text });
 }

@@ -48,7 +48,7 @@ export async function POST(req: Request) {
   try {
     const msg = await client.messages.create({
       model: MODELS.default,
-      max_tokens: 2000,
+      max_tokens: 4000,
       system,
       messages: [{ role: "user", content: `Chapter:\n\n${cappedText}\n\nInstruction: ${instruction}` }],
     });

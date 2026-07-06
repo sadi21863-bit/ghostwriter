@@ -26,6 +26,13 @@ export const MODELS = {
   quality: 'claude-opus-4-8',
 } as const;
 
+// MODELS.default (Sonnet 5) runs adaptive thinking ON by default when no `thinking`
+// param is set (confirmed against Anthropic's docs 2026-07-05) — unlike MODELS.quality
+// (Opus 4.8, thinking off by default) and MODELS.fast (Haiku, thinking requires explicit
+// budget_tokens). Thinking tokens count against max_tokens, so every MODELS.default call
+// site in this file and its callers carries generous max_tokens headroom rather than a
+// tight budget — the same mechanism that caused refinePassage() to return empty text.
+
 function getNarrativeStructureInstruction(structure?: string): string {
   if (!structure || structure === 'linear') return '';
   const instructions: Record<string, string> = {
@@ -343,7 +350,7 @@ export function getFormatRules(format: string): string {
   return "";
 }
 
-export async function generate({ mode, prompt, context, staticContext, dynamicContext, format, maxTokens = 4000, narrativeStructure, overrideModel }: {
+export async function generate({ mode, prompt, context, staticContext, dynamicContext, format, maxTokens = 8000, narrativeStructure, overrideModel }: {
   mode: string; prompt: string;
   context?: string;
   staticContext?: string; dynamicContext?: string;
@@ -396,7 +403,7 @@ export async function generateStream(
   },
   onDelta: (text: string) => void,
 ): Promise<{ text: string; tokensUsed: number; model: string }> {
-  const { mode, prompt, context, staticContext, dynamicContext, format, maxTokens = 4000, narrativeStructure, overrideModel } = params;
+  const { mode, prompt, context, staticContext, dynamicContext, format, maxTokens = 8000, narrativeStructure, overrideModel } = params;
   const model = overrideModel ?? MODELS[MODE_REGISTRY[mode as GenerationMode]?.modelTier ?? 'default'];
   const formatRules = getFormatRules(format);
   const craftDirectives = getCraftDirectives(format);
@@ -438,7 +445,7 @@ export async function analyzeWork(title: string) {
   if (Object.keys(result).length > 0) { writeSemanticCache('style_dna', semanticKey, result as Record<string, unknown>); }
   return result;
 }
-export async function generateEntity(type: string, prompt: string, ctx: string, existing: any) { const schemas: Record<string, string> = { character: "name,role,age,appearance,personality,thinkingStyle,behavior,habits,fears,desires,speechPattern,backstory,arc", location: "name,description,atmosphere,history,sensoryDetails", plotThread: "name,description,status,stakes,connections", worldEntity: "name,summary,description", creatorBible: "channelName,niche,audienceAge,audienceInterests,audiencePainPoints,channelVoice,contentPillars,defaultCta,competitorNotes" }; const userMsg = existing ? "Improve:\n" + JSON.stringify(existing) + "\nReturn JSON: {" + schemas[type] + "}" : prompt + "\nReturn JSON: {" + schemas[type] + "}"; const characterNudge = type === "character" ? " For age: pick an age that genuinely fits this story's premise and the character's role — do NOT default to middle-aged (40s–50s). Most protagonists in fiction are younger; consider the full range (children, teens, twenties, thirties) and choose realistically. Put a concrete age (e.g. \"26\") in the `age` field and make `appearance` consistent with it (a 24-year-old should not be described as weathered or grizzled unless the premise demands it)." : ""; const msg = await client.messages.create({ model: MODELS.default, max_tokens: 1500, system: "Create " + type + "s. ONLY JSON. Every field value must be a plain string (no nested objects or arrays) — write multi-part details like appearance as a single descriptive paragraph." + characterNudge + " Context: " + ctx, messages: [{ role: "user", content: userMsg }] }); const result = safeParseJson(msg.content.filter(b => b.type === "text").map(b => (b as any).text).join("").trim()); if (!result) { console.error('[generateEntity] Invalid JSON from model for type:', type); return {}; } return result; }
+export async function generateEntity(type: string, prompt: string, ctx: string, existing: any) { const schemas: Record<string, string> = { character: "name,role,age,appearance,personality,thinkingStyle,behavior,habits,fears,desires,speechPattern,backstory,arc", location: "name,description,atmosphere,history,sensoryDetails", plotThread: "name,description,status,stakes,connections", worldEntity: "name,summary,description", creatorBible: "channelName,niche,audienceAge,audienceInterests,audiencePainPoints,channelVoice,contentPillars,defaultCta,competitorNotes" }; const userMsg = existing ? "Improve:\n" + JSON.stringify(existing) + "\nReturn JSON: {" + schemas[type] + "}" : prompt + "\nReturn JSON: {" + schemas[type] + "}"; const characterNudge = type === "character" ? " For age: pick an age that genuinely fits this story's premise and the character's role — do NOT default to middle-aged (40s–50s). Most protagonists in fiction are younger; consider the full range (children, teens, twenties, thirties) and choose realistically. Put a concrete age (e.g. \"26\") in the `age` field and make `appearance` consistent with it (a 24-year-old should not be described as weathered or grizzled unless the premise demands it)." : ""; const msg = await client.messages.create({ model: MODELS.default, max_tokens: 3000, system: "Create " + type + "s. ONLY JSON. Every field value must be a plain string (no nested objects or arrays) — write multi-part details like appearance as a single descriptive paragraph." + characterNudge + " Context: " + ctx, messages: [{ role: "user", content: userMsg }] }); const result = safeParseJson(msg.content.filter(b => b.type === "text").map(b => (b as any).text).join("").trim()); if (!result) { console.error('[generateEntity] Invalid JSON from model for type:', type); return {}; } return result; }
 export async function summarizeChapter(
   content: string,
   chapterTitle?: string,
@@ -521,7 +528,7 @@ HARD RULES:
   return { text: out, tokensUsed: msg.usage.input_tokens + msg.usage.output_tokens, model };
 }
 
-export async function generateQuickStory(title: string, format: string, genres: string[]) { const genreStr = (genres || []).join(", ") || "Drama"; const prompt = `Create a complete story skeleton for a ${format} titled "${title}" in ${genreStr}. Return ONLY valid JSON with: {characters:[{name,role,age,appearance,personality},...], locations:[{name,description,atmosphere},...], plotThreads:[{name,description,stakes},...], outline:"Brief 3-act outline"}. Generate 3-4 characters, 2-3 locations, 2-3 plot threads.`; const msg = await client.messages.create({ model: MODELS.default, max_tokens: 2000, messages: [{ role: "user", content: prompt }] }); const text = msg.content.filter(b => b.type === "text").map(b => (b as any).text).join("").trim(); return safeParseJson(text) ?? { characters: [], locations: [], plotThreads: [], outline: "" }; }
+export async function generateQuickStory(title: string, format: string, genres: string[]) { const genreStr = (genres || []).join(", ") || "Drama"; const prompt = `Create a complete story skeleton for a ${format} titled "${title}" in ${genreStr}. Return ONLY valid JSON with: {characters:[{name,role,age,appearance,personality},...], locations:[{name,description,atmosphere},...], plotThreads:[{name,description,stakes},...], outline:"Brief 3-act outline"}. Generate 3-4 characters, 2-3 locations, 2-3 plot threads.`; const msg = await client.messages.create({ model: MODELS.default, max_tokens: 4000, messages: [{ role: "user", content: prompt }] }); const text = msg.content.filter(b => b.type === "text").map(b => (b as any).text).join("").trim(); return safeParseJson(text) ?? { characters: [], locations: [], plotThreads: [], outline: "" }; }
 export async function generateBeginnerCharacters(projectName: string, genres: string[], count = 3) { const genreStr = (genres || []).join(", ") || "General"; const prompt = `Create ${count} diverse characters for "${projectName}" (${genreStr}). For each, provide only: name, role (main/supporting/antagonist), age, appearance (1 sentence), and personality (1 sentence). Return JSON: [{name,role,age,appearance,personality},...]`; const msg = await client.messages.create({ model: MODELS.fast, max_tokens: 1000, messages: [{ role: "user", content: prompt }] }); const text = msg.content.filter(b => b.type === "text").map(b => (b as any).text).join("").trim(); return safeParseJson(text) ?? []; }
 
 export async function bootstrapCharacterIntelligence(
@@ -561,7 +568,7 @@ Generate intelligence for this character. Return ONLY valid JSON with these exac
 
   const msg = await client.messages.create({
     model: MODELS.default,
-    max_tokens: 1500,
+    max_tokens: 3000,
     messages: [{ role: 'user', content: prompt }],
   });
 

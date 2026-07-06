@@ -54,7 +54,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ project
     userId: session.user.id,
     operation: "tension-curve",
     model: MODELS.default,
-    maxTokens: 2000,
+    maxTokens: 4000,
     system: [{ type: "text", text: TENSION_CURVE_SYSTEM_PROMPT, cache_control: { type: "ephemeral" } }],
     messages: [{
       role: "user",

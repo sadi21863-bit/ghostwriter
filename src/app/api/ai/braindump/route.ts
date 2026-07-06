@@ -41,7 +41,7 @@ export async function POST(req: NextRequest) {
   try {
     const msg = await client.messages.create({
       model: MODELS.default,
-      max_tokens: 800,
+      max_tokens: 2000,
       messages: [{
         role: 'user',
         content: `A writer has dumped their raw story ideas below. Extract the structure.

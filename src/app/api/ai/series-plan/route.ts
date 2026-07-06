@@ -44,7 +44,7 @@ export async function POST(req: Request) {
 
   try {
     const msg = await client.messages.create({
-      model: MODELS.default, max_tokens: 2000,
+      model: MODELS.default, max_tokens: 4000,
       system: seriesPlanSystemPrompt(format),
       messages: [{ role: "user", content: `Channel: ${creatorBible?.channelName || ""}\nNiche: ${creatorBible?.niche || ""}\nAudience: ${creatorBible?.audienceAge || ""}, interests: ${creatorBible?.audienceInterests || ""}\nPillars: ${(creatorBible?.contentPillars || []).join(", ")}\nVoice: ${creatorBible?.channelVoice || ""}\n\nPast content (already covered):\n${pastTitles.map((t: string) => "- " + t).join("\n") || "None yet"}\n\nGenerate a 4-week content plan. Avoid repeating past angles.\nReturn JSON: { "gaps": ["string"], "weeks": [{ "week": 1, "videos": [{ "title": "string", "hook": "string", "pillar": "string", "angle": "string", "seriesConnection": null }] }] }` }],
     });

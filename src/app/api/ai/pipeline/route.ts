@@ -63,7 +63,7 @@ export async function POST(req: Request) {
 
       const msg = await client.messages.create({
         model: AGENT_MODELS[agentKey] || MODELS.default,
-        max_tokens: 2000,
+        max_tokens: 4000,
         system: systemFn(accumulatedContext, format || ""),
         messages: [{ role: "user", content: currentInput }],
       });

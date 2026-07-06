@@ -64,6 +64,7 @@ function Flow({ projectId, onSelectPair, onRunCapability, height = 500 }: Props)
   const [options, setOptions] = useState<GraphRunPlan[] | null>(null);
   const [loadingOpts, setLoadingOpts] = useState(false);
   const [health, setHealth] = useState<GraphHealthReport | null>(null);
+  const [contextTrimmed, setContextTrimmed] = useState(false);
   const { screenToFlowPosition } = useReactFlow();
   const wrapperRef = useRef<HTMLDivElement>(null);
 
@@ -146,6 +147,7 @@ function Flow({ projectId, onSelectPair, onRunCapability, height = 500 }: Props)
         });
 
         setHealth((data.health as GraphHealthReport) ?? null);
+        setContextTrimmed(Boolean(data.contextTrimmed));
         setNodes(rfNodes);
         setEdges(rfEdges);
       })
@@ -309,14 +311,25 @@ function Flow({ projectId, onSelectPair, onRunCapability, height = 500 }: Props)
         <span><span style={{ color: "#fb7185" }}>●</span> Chapter</span>
       </div>
 
-      {health && (
+      {(health || contextTrimmed) && (
         <div style={{
           position: "absolute", bottom: 8, left: 8, fontSize: 11,
           background: "rgba(17,17,19,0.8)", padding: "4px 8px", borderRadius: 6,
-          color: health.score < 70 ? "#f87171" : health.score < 90 ? "#f59e0b" : "#9898A6",
-          zIndex: 5,
+          zIndex: 5, display: "flex", flexDirection: "column", gap: 2,
         }}>
-          Health: {health.score}/100{health.counts.warning > 0 ? ` · ${health.counts.warning} warning${health.counts.warning === 1 ? "" : "s"}` : ""}
+          {health && (
+            <span style={{ color: health.score < 70 ? "#f87171" : health.score < 90 ? "#f59e0b" : "#9898A6" }}>
+              Health: {health.score}/100{health.counts.warning > 0 ? ` · ${health.counts.warning} warning${health.counts.warning === 1 ? "" : "s"}` : ""}
+            </span>
+          )}
+          {contextTrimmed && (
+            <span
+              style={{ color: "#f59e0b" }}
+              title="This project is large enough that lower-priority sections (e.g. World Elements, Plot Threads) are being dropped from what the AI actually sees on each generation, to stay within the per-request context budget. Mark rarely-used entries 'minor' or trim the Story Bible to restore full context."
+            >
+              ⚠ Context trimmed — some content isn't reaching the AI
+            </span>
+          )}
         </div>
       )}
 

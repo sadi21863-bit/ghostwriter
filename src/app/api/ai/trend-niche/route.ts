@@ -109,9 +109,7 @@ Return ONLY valid JSON:
       messages: [{ role: "user", content: trendPrompt }],
     });
 
-    const trendText = trendResponse.content[0].type === "text"
-      ? trendResponse.content[0].text
-      : "{}";
+    const trendText = trendResponse.content.filter(b => b.type === "text").map(b => (b as any).text).join("") || "{}";
     const trendClean = trendText.replace(/```json\n?|```/g, "").trim();
 
     let trendResult: { trends: NicheTrend[]; nicheInsight: string };
@@ -144,13 +142,11 @@ Return ONLY valid JSON:
 
       const perfResponse = await anthropic.messages.create({
         model: MODELS.default,
-        max_tokens: 800,
+        max_tokens: 2000,
         messages: [{ role: "user", content: perfPrompt }],
       });
 
-      const perfText = perfResponse.content[0].type === "text"
-        ? perfResponse.content[0].text
-        : "{}";
+      const perfText = perfResponse.content.filter(b => b.type === "text").map(b => (b as any).text).join("") || "{}";
       const perfClean = perfText.replace(/```json\n?|```/g, "").trim();
 
       try {

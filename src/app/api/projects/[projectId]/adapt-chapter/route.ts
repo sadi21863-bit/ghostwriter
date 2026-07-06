@@ -42,7 +42,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ project
 
     const response = await anthropic.messages.create({
       model: MODELS.default,
-      max_tokens: 4000,
+      max_tokens: 6000,
       system: [{
         type: 'text',
         text: getFormatRules(target.format).trim() + '\n\nConvert the following novel chapter into a screenplay scene. Preserve all narrative content, dialogue, and character actions — adapt the FORM, not the substance. Multiple INT./EXT. scene headings are expected if the source chapter spans more than one location or time. Output only the converted screenplay text, no preamble or explanation.',

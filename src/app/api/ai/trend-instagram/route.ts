@@ -86,7 +86,7 @@ export async function POST(req: Request) {
 
     const msg = await client.messages.create({
       model: MODELS.default,
-      max_tokens: 1200,
+      max_tokens: 2500,
       system: TREND_INSTAGRAM_SYSTEM_PROMPT,
       messages: [{
         role: "user",

@@ -54,7 +54,7 @@ export async function POST(
     userId: session.user.id,
     operation: "knowledge-audit",
     model: MODELS.default,
-    maxTokens: 1500,
+    maxTokens: 3000,
     system: knowledgeAuditSystemPrompt(chapters.length),
     messages: [{
       role: 'user',

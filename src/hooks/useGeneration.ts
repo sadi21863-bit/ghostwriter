@@ -1,12 +1,35 @@
 "use client";
 import { useState, useRef } from "react";
 import { toast } from "@/lib/toast";
-import { buildStaticContext, buildDynamicContext, buildCreatorContext } from "@/lib/ai/context-builder";
+import { buildStaticContext, buildStaticContextDetailed, buildDynamicContext, buildCreatorContext } from "@/lib/ai/context-builder";
 import { isCreatorFormat } from "@/lib/formats";
 import { MODE_REGISTRY, type GenerationMode } from "@/lib/modes/registry";
 import type { CompositionLayer } from "@/lib/ai/composer";
 import { parseBeatList } from "@/lib/modes/beats";
 import { appendToTipTap, buildNeighbourContext, callAI, callAIStream } from "./ai-shared";
+
+// Headroom v3: buildStaticContext() (via buildStaticContextDetailed) runs here,
+// client-side, so this is the only place with the raw content of sections
+// Headroom v1/v2 decided to drop. The actual compression call has to happen
+// server-side (Anthropic key custody), so this hook calls the dedicated rescue
+// route with what got dropped and splices the result back in. Fixed, modest
+// rescue budget rather than reconstructing the exact original budget math —
+// STATIC_CONTEXT_BUDGET is itself a soft target, not an API-enforced limit.
+const HEADROOM_RESCUE_BUDGET_TOKENS = 1200;
+
+async function rescueHeadroom(skipped: { label: string; content: string }[]): Promise<string> {
+  if (skipped.length === 0) return "";
+  try {
+    const res = await fetch("/api/ai/headroom-rescue", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ skipped, remainingBudgetTokens: HEADROOM_RESCUE_BUDGET_TOKENS }),
+    });
+    const data = await res.json();
+    return typeof data.rescued === "string" ? data.rescued : "";
+  } catch {
+    return ""; // fail-open: generation proceeds with the already-trimmed context
+  }
+}
 
 export function useGeneration({
   project, mode, prompt, activeChap,
@@ -60,8 +83,13 @@ export function useGeneration({
         staticCtx = buildCreatorContext({ ...extended, creatorBible });
         dynamicCtx = '';
       } else {
-        staticCtx = buildStaticContext(extended);
+        const detailed = buildStaticContextDetailed(extended);
+        staticCtx = detailed.text;
         dynamicCtx = buildDynamicContext(extended);
+        if (detailed.skipped.length > 0) {
+          const rescued = await rescueHeadroom(detailed.skipped);
+          if (rescued) staticCtx += '\n\n' + rescued;
+        }
       }
       const neighbourCtx = buildNeighbourContext(project);
       if (neighbourCtx) dynamicCtx += '\n\n' + neighbourCtx;

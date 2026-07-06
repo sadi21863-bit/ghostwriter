@@ -45,7 +45,7 @@ export async function POST(req: Request) {
     if (mode === "hooks") {
       const response = await anthropic.messages.create({
         model: MODELS.default,
-        max_tokens: 1000,
+        max_tokens: 2000,
         messages: [{
           role: "user",
           content: `Generate 5 TikTok hooks for this topic using different hook patterns.
@@ -59,7 +59,7 @@ Rules: First 3 words must stop the scroll. Under 15 words total. Speaks to ONE p
 Return ONLY valid JSON: { "hooks": [{ "hook": "string", "pattern": "pattern used", "openLoop": "what question does this create?" }] }`,
         }],
       });
-      const raw = response.content[0].type === "text" ? response.content[0].text : "{}";
+      const raw = response.content.filter(b => b.type === "text").map(b => (b as any).text).join("") || "{}";
       try {
         return NextResponse.json(JSON.parse(raw.replace(/```json\n?|```/g, "").trim()));
       } catch {
@@ -70,7 +70,7 @@ Return ONLY valid JSON: { "hooks": [{ "hook": "string", "pattern": "pattern used
 
     const response = await anthropic.messages.create({
       model: MODELS.default,
-      max_tokens: 1500,
+      max_tokens: 3000,
       system: [{ type: "text", text: TIKTOK_SCRIPT_SYSTEM_PROMPT, cache_control: { type: "ephemeral" } }],
       messages: [{
         role: "user",
@@ -100,7 +100,7 @@ Return ONLY valid JSON:
       }],
     });
 
-    const raw = response.content[0].type === "text" ? response.content[0].text : "{}";
+    const raw = response.content.filter(b => b.type === "text").map(b => (b as any).text).join("") || "{}";
     try {
       return NextResponse.json(JSON.parse(raw.replace(/```json\n?|```/g, "").trim()));
     } catch {

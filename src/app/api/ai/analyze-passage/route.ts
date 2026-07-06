@@ -25,7 +25,7 @@ export async function POST(req: NextRequest) {
   try {
     const msg = await client.messages.create({
       model: MODELS.default,
-      max_tokens: 400,
+      max_tokens: 1500,
       messages: [{
         role: "user",
         content: `Analyze this passage and extract its specific craft techniques as a set of generation directives. Be concrete and technical, not generic.

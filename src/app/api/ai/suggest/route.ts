@@ -92,11 +92,11 @@ Rules for suggestions:
   try {
     const response = await anthropic.messages.create({
       model: MODELS.default,
-      max_tokens: 1000,
+      max_tokens: 2500,
       messages: [{ role: "user", content: prompt }],
     });
 
-    const text = response.content[0].type === "text" ? response.content[0].text : "{}";
+    const text = response.content.filter(b => b.type === "text").map(b => (b as any).text).join("") || "{}";
     const clean = text.replace(/```json\n?|```/g, "").trim();
 
     try {

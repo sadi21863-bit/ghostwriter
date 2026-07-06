@@ -56,11 +56,11 @@ Return ONLY valid JSON:
   try {
     const response = await anthropic.messages.create({
       model: MODELS.default,
-      max_tokens: 1400,
+      max_tokens: 3000,
       messages: [{ role: "user", content: prompt }],
     });
 
-    const text = response.content[0].type === "text" ? response.content[0].text : "{}";
+    const text = response.content.filter(b => b.type === "text").map(b => (b as any).text).join("") || "{}";
     const clean = text.replace(/```json\n?|```/g, "").trim();
 
     try {

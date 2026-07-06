@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { buildContext, buildStaticContext, buildDynamicContext, type ContextProject, type StoryMemory } from "@/lib/ai/context-builder";
+import { buildContext, buildStaticContext, buildDynamicContext, contextIsTrimmed, type ContextProject, type StoryMemory } from "@/lib/ai/context-builder";
 import type { Character, Chapter, Location, PlotThread } from "@/types";
 
 // ---------------------------------------------------------------------------
@@ -271,6 +271,31 @@ describe("buildStaticContext — token budget", () => {
     );
     const project = baseProject({ characters });
     expect(buildStaticContext(project)).toBe(buildStaticContext(project));
+  });
+});
+
+describe("contextIsTrimmed — surfaces Headroom's trim marker as a boolean", () => {
+  it("is false for small projects", () => {
+    expect(contextIsTrimmed(baseProject({ characters: [makeCharacter({ name: "Alice" })] }))).toBe(false);
+  });
+
+  it("is true for projects large enough that buildStaticContext trims a section", () => {
+    const longText = "x".repeat(1000);
+    const characters = Array.from({ length: 10 }, (_, i) =>
+      makeCharacter({
+        id: `c${i}`,
+        name: `Character${i}`,
+        appearance: longText,
+        personality: longText,
+        thinkingStyle: longText,
+        behavior: longText,
+        habits: longText,
+        speechPattern: longText,
+        arc: longText,
+        backstory: longText,
+      })
+    );
+    expect(contextIsTrimmed(baseProject({ characters }))).toBe(true);
   });
 });
 

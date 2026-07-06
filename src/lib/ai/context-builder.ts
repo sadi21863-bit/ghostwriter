@@ -7,7 +7,7 @@ import { extractVoiceFingerprint, fingerprintToConstraints } from "@/lib/ai/voic
 import { MODE_REGISTRY, type ContextPolicy } from "@/lib/modes/registry";
 import { CONTEXT_CHAR_CAPS } from "@/lib/ai/context-caps";
 import { decodeAIRules, decodeMemoryStructuredData } from "@/lib/types/story";
-import { packToBudget } from "@/lib/ai/headroom";
+import { packToBudget, packToBudgetLabeled, TRIM_MARKER, type LabeledSection } from "@/lib/ai/headroom";
 import { buildStoryGraph, type StoryGraphResult } from "@/lib/graph/story-graph";
 
 export interface CharacterRelationship {
@@ -151,13 +151,20 @@ function buildBriefCharacterLine(c: Character): string {
   return parts.join("\n");
 }
 
-export function buildStaticContext(p: ContextProject, mode?: string, tier?: string): string {
+export interface StaticContextResult {
+  text: string;
+  /** Sections Headroom dropped to stay in budget, with their raw (untrimmed)
+   *  content — the input the opt-in LLM-summarization layer needs to recover them. */
+  skipped: { label: string; content: string }[];
+}
+
+export function buildStaticContextDetailed(p: ContextProject, mode?: string, tier?: string): StaticContextResult {
   const policy = resolveContextPolicy(mode);
   const tierCap = tier ? CONTEXT_CHAR_CAPS[tier] : undefined;
   const budget = tierCap !== undefined ? Math.min(STATIC_CONTEXT_BUDGET, Math.floor(tierCap / 4)) : STATIC_CONTEXT_BUDGET;
 
   let r: string[] = [];
-  const sections: string[][] = [r];
+  const sections: LabeledSection[] = [{ label: "header", lines: r }];
 
   // ── STORY GRAPH ─────────────────────────────────────────────────────────────
   // Same depth gate as the character-relationships block below: only computed
@@ -257,7 +264,7 @@ export function buildStaticContext(p: ContextProject, mode?: string, tier?: stri
   }
 
   r = [];
-  sections.push(r);
+  sections.push({ label: "voice-fingerprint", lines: r });
 
   // ── VOICE FINGERPRINT ─────────────────────────────────────────────────────
   // Constraint-based voice preservation (Berkeley 2026): prompt instructions drift,
@@ -275,7 +282,7 @@ export function buildStaticContext(p: ContextProject, mode?: string, tier?: stri
   }
 
   r = [];
-  sections.push(r);
+  sections.push({ label: "characters", lines: r });
 
   if (policy.needsCharacters && p.characters?.length) {
     r.push("CHARACTERS:");
@@ -695,7 +702,7 @@ export function buildStaticContext(p: ContextProject, mode?: string, tier?: stri
   }
 
   r = [];
-  sections.push(r);
+  sections.push({ label: "locations", lines: r });
 
   if (policy.needsLocations && p.locations?.length) {
     r.push("LOCATIONS:");
@@ -718,7 +725,7 @@ export function buildStaticContext(p: ContextProject, mode?: string, tier?: stri
   }
 
   r = [];
-  sections.push(r);
+  sections.push({ label: "plots", lines: r });
 
   if (policy.needsPlotThreads && p.plotThreads?.length) {
     r.push("PLOTS:");
@@ -740,7 +747,7 @@ export function buildStaticContext(p: ContextProject, mode?: string, tier?: stri
   }
 
   r = [];
-  sections.push(r);
+  sections.push({ label: "world-elements", lines: r });
 
   // WORLD ELEMENTS: objects/weapons/organizations/factions/phenomena/entities/
   // concepts, grouped by kind. Only assembled for modes that opt in via
@@ -771,7 +778,24 @@ export function buildStaticContext(p: ContextProject, mode?: string, tier?: stri
   // (header) is always kept; an over-budget section is skipped (not a hard stop)
   // so a smaller lower-priority section can still fit. Compaction + packing are
   // deterministic for identical project data, keeping the prompt-cache stable.
-  return packToBudget(sections, budget);
+  return packToBudgetLabeled(sections, budget);
+}
+
+/** buildStaticContext is the stable, most-used entry point — same signature and
+ *  behavior as before the labeled-sections/skipped-content change above. */
+export function buildStaticContext(p: ContextProject, mode?: string, tier?: string): string {
+  return buildStaticContextDetailed(p, mode, tier).text;
+}
+
+/**
+ * Whether buildStaticContext() would drop at least one section for this
+ * project/mode/tier — i.e. Headroom's TRIM_MARKER shows up in its output.
+ * Headroom trims silently (by design, for prompt-cache stability), so this is
+ * the one place that turns it into a yes/no signal callers can surface to a
+ * user instead of it only ever being visible inside the raw prompt text.
+ */
+export function contextIsTrimmed(p: ContextProject, mode?: string, tier?: string): boolean {
+  return buildStaticContext(p, mode, tier).includes(TRIM_MARKER);
 }
 
 export function buildDynamicContext(p: ContextProject, mode?: string): string {

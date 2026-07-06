@@ -44,7 +44,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ project
 
   const response = await anthropic.messages.create({
     model: MODELS.default,
-    max_tokens: 2000,
+    max_tokens: 4000,
     messages: [{
       role: "user",
       content: `Analyse each chapter for McKee's scene value shift test. A scene is alive when at least one of these three changes: (1) power balance between characters, (2) emotional state of a character, (3) information available to the reader. A scene where none of these change is narratively dead regardless of how well it is written.
@@ -78,7 +78,7 @@ Return ONLY valid JSON:
     }],
   });
 
-  const raw = response.content[0].type === "text" ? response.content[0].text : "{}";
+  const raw = response.content.filter(b => b.type === "text").map(b => (b as any).text).join("") || "{}";
   try {
     return NextResponse.json(JSON.parse(raw.replace(/```json\n?|```/g, "").trim()));
   } catch {

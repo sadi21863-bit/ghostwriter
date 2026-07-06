@@ -64,7 +64,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ project
     userId: session.user.id,
     operation: "villain-pov",
     model: MODELS.default,
-    maxTokens: 2000,
+    maxTokens: 4000,
     system,
     messages: [{ role: "user", content: sceneDescription }],
   });
