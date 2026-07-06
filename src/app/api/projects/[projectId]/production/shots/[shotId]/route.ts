@@ -18,7 +18,7 @@ const ALLOWED_FIELDS = new Set([
   "subject", "action", "location", "mood", "soulPrompt", "videoPrompt",
   "dialogue", "speaker", "cameraPreset", "viralPreset",
   "characterEmotion", "focalLength", "duration", "aspectRatio", "generatedVideoUrl",
-  "reviewStatus", "sortOrder", "candidatePreviewUrls",
+  "reviewStatus", "sortOrder", "candidatePreviewUrls", "trimStartSec", "trimEndSec",
 ]);
 
 export async function PATCH(req: Request, { params }: { params: Promise<{ projectId: string; shotId: string }> }) {

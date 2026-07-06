@@ -48,6 +48,8 @@ type Shot = {
   reviewStatus?: ReviewStatus;
   sortOrder?: number;
   candidatePreviewUrls?: string[];
+  trimStartSec?: number | null;
+  trimEndSec?: number | null;
 };
 
 type Brief = {
@@ -751,7 +753,25 @@ function ShotCard({
             <div style={{ fontSize: 11, color: "#d97706" }}>Generating video…</div>
           </div>
         ) : shot.finalVideoUrl ? (
-          <video src={shot.finalVideoUrl} controls style={{ width: "100%", borderRadius: 6 }} />
+          <>
+            <video src={shot.finalVideoUrl} controls style={{ width: "100%", borderRadius: 6 }} />
+            <div style={{ display: "flex", gap: 4, alignItems: "center", marginTop: 4 }} title="Trim before scene stitching — leave blank for no trim. Preview/scrub using the player above.">
+              <span style={{ fontSize: 9, color: "#9ca3af" }}>Trim (s):</span>
+              <input
+                type="number" min={0} step={0.1} placeholder="start"
+                value={shot.trimStartSec ?? ""}
+                onChange={e => onUpdate(shot.id, { trimStartSec: e.target.value === "" ? null : Number(e.target.value) })}
+                style={{ width: 48, fontSize: 10, padding: "2px 4px", border: "1px solid #d1d5db", borderRadius: 4 }}
+              />
+              <span style={{ fontSize: 9, color: "#9ca3af" }}>–</span>
+              <input
+                type="number" min={0} step={0.1} placeholder="end"
+                value={shot.trimEndSec ?? ""}
+                onChange={e => onUpdate(shot.id, { trimEndSec: e.target.value === "" ? null : Number(e.target.value) })}
+                style={{ width: 48, fontSize: 10, padding: "2px 4px", border: "1px solid #d1d5db", borderRadius: 4 }}
+              />
+            </div>
+          </>
         ) : shot.animatedVideoUrl ? (
           <video src={shot.animatedVideoUrl} controls style={{ width: "100%", borderRadius: 6 }} />
         ) : shot.previewImageUrl ? (

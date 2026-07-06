@@ -15,7 +15,7 @@ vi.mock("node:fs/promises", () => ({
 vi.mock("ffmpeg-static", () => ({ default: "/path/to/ffmpeg" }));
 
 import { EventEmitter } from "node:events";
-import { concatVideos, probeDuration, concatVideosWithCrossfade } from "../concat";
+import { concatVideos, probeDuration, concatVideosWithCrossfade, trimClip } from "../concat";
 
 function makeFakeProcess(exitCode: number, stderr = "") {
   const proc: any = new EventEmitter();
@@ -136,5 +136,42 @@ describe("concatVideosWithCrossfade", () => {
       .mockReturnValueOnce(makeFakeProcess(1, "Invalid filter graph"));
 
     await expect(concatVideosWithCrossfade(["/tmp/a.mp4", "/tmp/b.mp4"], "/tmp/out.mp4")).rejects.toThrow(/Invalid filter graph/);
+  });
+});
+
+describe("trimClip", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("uses -ss (after -i) and -t (duration, not -to) when both start and end are given", async () => {
+    spawnMock.mockReturnValue(makeFakeProcess(0));
+
+    await trimClip("/tmp/a.mp4", "/tmp/trimmed.mp4", 2, 7);
+
+    const [, args] = spawnMock.mock.calls[0];
+    const iIndex = args.indexOf("-i");
+    expect(args[iIndex + 1]).toBe("/tmp/a.mp4"); // -ss comes AFTER -i
+    expect(args[iIndex + 2]).toBe("-ss");
+    expect(args[iIndex + 3]).toBe("2");
+    expect(args).toContain("-t");
+    expect(args[args.indexOf("-t") + 1]).toBe("5"); // duration = 7 - 2
+    expect(args).not.toContain("-to");
+    expect(args[args.length - 1]).toBe("/tmp/trimmed.mp4");
+  });
+
+  it("omits -t entirely when endSec is null (trim start only, keep to natural end)", async () => {
+    spawnMock.mockReturnValue(makeFakeProcess(0));
+
+    await trimClip("/tmp/a.mp4", "/tmp/trimmed.mp4", 2, null);
+
+    const [, args] = spawnMock.mock.calls[0];
+    expect(args).toContain("-ss");
+    expect(args).not.toContain("-t");
+  });
+
+  it("rejects with stderr when ffmpeg fails", async () => {
+    spawnMock.mockReturnValue(makeFakeProcess(1, "Invalid argument"));
+    await expect(trimClip("/tmp/a.mp4", "/tmp/trimmed.mp4", 2, 7)).rejects.toThrow(/Invalid argument/);
   });
 });

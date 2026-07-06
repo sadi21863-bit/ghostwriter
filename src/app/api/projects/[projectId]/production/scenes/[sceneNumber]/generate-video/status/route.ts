@@ -9,7 +9,7 @@ import { eq, and } from "drizzle-orm";
 import { pollJob } from "@/lib/higgsfield/client";
 import { put } from "@vercel/blob";
 import { decrypt } from "@/lib/crypto";
-import { concatVideos, concatVideosWithCrossfade } from "@/lib/video/concat";
+import { concatVideos, concatVideosWithCrossfade, trimClip } from "@/lib/video/concat";
 import { writeFile, readFile, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -93,7 +93,20 @@ export async function GET(req: Request, { params }: { params: Promise<{ projectI
       const buf = Buffer.from(await res.arrayBuffer());
       const localPath = join(workDir, `${shot.shotNumber}.mp4`);
       await writeFile(localPath, buf);
-      localPaths.push(localPath);
+
+      // Post-production slice 2b: trim before stitching, orthogonal to
+      // hard-cut vs. crossfade — both concat functions just receive an
+      // already-trimmed path. Untrimmed shots (the common case) skip this
+      // entirely and use the raw download unchanged.
+      const trimStart = (shot as any).trimStartSec;
+      const trimEnd = (shot as any).trimEndSec;
+      if (trimStart != null || trimEnd != null) {
+        const trimmedPath = join(workDir, `${shot.shotNumber}-trimmed.mp4`);
+        await trimClip(localPath, trimmedPath, trimStart ?? 0, trimEnd ?? null);
+        localPaths.push(trimmedPath);
+      } else {
+        localPaths.push(localPath);
+      }
     }
 
     const outputPath = join(workDir, "stitched.mp4");

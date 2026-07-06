@@ -297,6 +297,11 @@ export const productionShots = pgTable("production_shots", {
   // Phase C "keep N candidates" mode, same as comicPanels above — previewImageUrl
   // stays the primary/selected candidate, this array holds the others.
   candidatePreviewUrls: jsonb("candidate_preview_urls").$type<string[]>().default([]),
+  // Post-production slice 2b: per-shot trim before scene stitching. Null =
+  // no trim (use the clip as generated). trimEndSec null = trim start only,
+  // keep to the clip's natural end.
+  trimStartSec: real("trim_start_sec"),
+  trimEndSec:   real("trim_end_sec"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });

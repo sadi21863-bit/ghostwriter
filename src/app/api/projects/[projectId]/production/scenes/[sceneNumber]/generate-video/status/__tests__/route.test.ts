@@ -16,9 +16,11 @@ vi.mock("@/lib/higgsfield/client", () => ({
 
 const concatVideos = vi.fn();
 const concatVideosWithCrossfade = vi.fn();
+const trimClip = vi.fn();
 vi.mock("@/lib/video/concat", () => ({
   concatVideos: (...args: any[]) => concatVideos(...args),
   concatVideosWithCrossfade: (...args: any[]) => concatVideosWithCrossfade(...args),
+  trimClip: (...args: any[]) => trimClip(...args),
 }));
 
 const rmMock = vi.fn();
@@ -180,6 +182,30 @@ describe("GET .../scenes/[sceneNumber]/generate-video/status (per-shot + stitch)
     const res = await GET(new Request("http://localhost"), makeParams());
 
     expect(res.status).toBe(404);
+  });
+
+  it("trims a shot's clip before stitching when trimStartSec/trimEndSec are set", async () => {
+    findManyShots.mockResolvedValue([
+      { id: "shot-1", shotNumber: 1, sceneNumber: 1, generationStatus: "final_ready", finalVideoUrl: "https://example.com/1.mp4", higgsfieldJobId: "", sceneFinalVideoUrl: "", trimStartSec: 2, trimEndSec: 7 },
+      { id: "shot-2", shotNumber: 2, sceneNumber: 1, generationStatus: "final_ready", finalVideoUrl: "https://example.com/2.mp4", higgsfieldJobId: "", sceneFinalVideoUrl: "", trimStartSec: null, trimEndSec: null },
+    ]);
+
+    const res = await GET(new Request("http://localhost"), makeParams());
+    const body = await res.json();
+
+    expect(trimClip).toHaveBeenCalledTimes(1);
+    expect(trimClip).toHaveBeenCalledWith(expect.stringContaining("1.mp4"), expect.stringContaining("1-trimmed.mp4"), 2, 7);
+    expect(body).toEqual({ status: "final_ready", videoUrl: "https://blob.example.com/scene-final.mp4" });
+  });
+
+  it("skips trimClip entirely when no shot has trim values set", async () => {
+    findManyShots.mockResolvedValue([
+      { id: "shot-1", shotNumber: 1, sceneNumber: 1, generationStatus: "final_ready", finalVideoUrl: "https://example.com/1.mp4", higgsfieldJobId: "", sceneFinalVideoUrl: "", trimStartSec: null, trimEndSec: null },
+    ]);
+
+    await GET(new Request("http://localhost"), makeParams());
+
+    expect(trimClip).not.toHaveBeenCalled();
   });
 
   it("uses concatVideosWithCrossfade instead of concatVideos when ?crossfade=1 is set", async () => {

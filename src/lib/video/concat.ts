@@ -97,3 +97,30 @@ export async function concatVideosWithCrossfade(inputPaths: string[], outputPath
     });
   });
 }
+
+/**
+ * Trims a clip to [startSec, endSec] (endSec null = keep to the clip's
+ * natural end), re-encoding rather than stream-copying. -ss is placed AFTER
+ * -i (decode-based, frame-accurate) rather than before it (fast but only
+ * keyframe-accurate) — worth the extra decode cost given these clips are
+ * only 5-15s long. Uses -t (output duration) rather than -to for the end
+ * point — -to's meaning shifts depending on whether -ss was an input or
+ * output option; -t is unambiguously "write this many seconds of output"
+ * either way.
+ */
+export async function trimClip(inputPath: string, outputPath: string, startSec: number, endSec: number | null): Promise<void> {
+  const args = ["-y", "-i", inputPath, "-ss", String(startSec)];
+  if (endSec != null) args.push("-t", String(endSec - startSec));
+  args.push(outputPath);
+
+  await new Promise<void>((resolve, reject) => {
+    const proc = spawn(ffmpegPath as unknown as string, args);
+    let stderr = "";
+    proc.stderr.on("data", (chunk: Buffer) => { stderr += chunk.toString(); });
+    proc.on("error", reject);
+    proc.on("close", (code: number) => {
+      if (code === 0) resolve();
+      else reject(new Error(`ffmpeg trim failed (exit ${code}): ${stderr}`));
+    });
+  });
+}
