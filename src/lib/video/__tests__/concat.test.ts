@@ -15,7 +15,7 @@ vi.mock("node:fs/promises", () => ({
 vi.mock("ffmpeg-static", () => ({ default: "/path/to/ffmpeg" }));
 
 import { EventEmitter } from "node:events";
-import { concatVideos, probeDuration, concatVideosWithCrossfade, trimClip } from "../concat";
+import { concatVideos, probeDuration, concatVideosWithCrossfade, trimClip, mixAudioIntoVideo } from "../concat";
 
 function makeFakeProcess(exitCode: number, stderr = "") {
   const proc: any = new EventEmitter();
@@ -173,5 +173,29 @@ describe("trimClip", () => {
   it("rejects with stderr when ffmpeg fails", async () => {
     spawnMock.mockReturnValue(makeFakeProcess(1, "Invalid argument"));
     await expect(trimClip("/tmp/a.mp4", "/tmp/trimmed.mp4", 2, 7)).rejects.toThrow(/Invalid argument/);
+  });
+});
+
+describe("mixAudioIntoVideo", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("pads audio with apad, copies the video stream, and applies -shortest so only trailing audio can be trimmed", async () => {
+    spawnMock.mockReturnValue(makeFakeProcess(0));
+
+    await mixAudioIntoVideo("/tmp/video.mp4", "/tmp/audio.mp3", "/tmp/mixed.mp4");
+
+    const [bin, args] = spawnMock.mock.calls[0];
+    expect(bin).toBe("/path/to/ffmpeg");
+    expect(args).toEqual(expect.arrayContaining(["-i", "/tmp/video.mp4", "-i", "/tmp/audio.mp3"]));
+    expect(args[args.indexOf("-filter_complex") + 1]).toBe("[1:a]apad[a]");
+    expect(args).toEqual(expect.arrayContaining(["-map", "0:v", "-map", "[a]", "-c:v", "copy", "-shortest"]));
+    expect(args[args.length - 1]).toBe("/tmp/mixed.mp4");
+  });
+
+  it("rejects with stderr when ffmpeg fails", async () => {
+    spawnMock.mockReturnValue(makeFakeProcess(1, "Invalid data found"));
+    await expect(mixAudioIntoVideo("/tmp/video.mp4", "/tmp/audio.mp3", "/tmp/mixed.mp4")).rejects.toThrow(/Invalid data found/);
   });
 });

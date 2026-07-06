@@ -274,6 +274,35 @@ export default function ProductionStudio({ project, segmindKey }: { project: any
     }
   }
 
+  const [uploadingAudio, setUploadingAudio] = useState<Record<number, boolean>>({});
+
+  // Post-production slice 2c: a separate, explicit step from stitching itself
+  // — a music file can't be known at "Generate Scene Video" time. Uploads via
+  // multipart/form-data (this app's first client-upload flow), then mixes it
+  // into the already-stitched sceneFinalVideoUrl.
+  async function uploadAndAddMusic(sceneNumber: number, file: File) {
+    setUploadingAudio(prev => ({ ...prev, [sceneNumber]: true }));
+    setError("");
+    try {
+      const formData = new FormData();
+      formData.set("audio", file);
+      const uploadRes = await fetch(`/api/projects/${project.id}/production/scenes/${sceneNumber}/upload-audio`, {
+        method: "POST", body: formData,
+      });
+      const uploadData = await uploadRes.json();
+      if (!uploadRes.ok) { setError(uploadData.error || "Music upload failed"); return; }
+
+      const mixRes = await fetch(`/api/projects/${project.id}/production/scenes/${sceneNumber}/add-music`, { method: "POST" });
+      const mixData = await mixRes.json();
+      if (!mixRes.ok) { setError(mixData.error || "Mixing music into the scene failed"); return; }
+
+      setShots(prev => prev.map(s => s.sceneNumber === sceneNumber ? { ...s, sceneFinalVideoUrl: mixData.videoUrl } as any : s));
+      toast.success("Background music added to the scene.");
+    } finally {
+      setUploadingAudio(prev => ({ ...prev, [sceneNumber]: false }));
+    }
+  }
+
   const debounceTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
 
   function updateShot(shotId: string, updates: Partial<Shot>) {
@@ -567,6 +596,21 @@ export default function ProductionStudio({ project, segmindKey }: { project: any
                   </>
                 )}
               </div>
+              {sceneShots.some(sh => (sh as any).sceneFinalVideoUrl) && (
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10, fontSize: 11, color: "#6b7280" }}>
+                  🎵
+                  <input
+                    type="file" accept="audio/*"
+                    disabled={uploadingAudio[scene]}
+                    onChange={e => { const file = e.target.files?.[0]; if (file) uploadAndAddMusic(scene, file); e.target.value = ""; }}
+                    style={{ fontSize: 11 }}
+                  />
+                  {uploadingAudio[scene] && <span>Adding music…</span>}
+                  {(sceneShots.find(sh => (sh as any).sceneAudioTrackUrl) as any)?.sceneAudioTrackUrl && !uploadingAudio[scene] && (
+                    <span title="Selecting a new file replaces the current track.">Background track added — pick a new file to replace it.</span>
+                  )}
+                </div>
+              )}
               {shotsViewMode === "filmstrip" ? (
                 <>
                   <ShotFilmstrip

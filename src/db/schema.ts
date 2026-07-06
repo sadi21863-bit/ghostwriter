@@ -302,6 +302,10 @@ export const productionShots = pgTable("production_shots", {
   // keep to the clip's natural end.
   trimStartSec: real("trim_start_sec"),
   trimEndSec:   real("trim_end_sec"),
+  // Post-production slice 2c: an uploaded background-music track for this
+  // scene, mixed into sceneFinalVideoUrl by the add-music route. Redundant
+  // per-shot-row, mirroring sceneFinalVideoUrl's own existing convention.
+  sceneAudioTrackUrl: text("scene_audio_track_url").default(""),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });

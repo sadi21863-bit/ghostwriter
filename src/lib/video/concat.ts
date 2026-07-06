@@ -124,3 +124,34 @@ export async function trimClip(inputPath: string, outputPath: string, startSec: 
     });
   });
 }
+
+/**
+ * Mixes a background-audio track under a video, replacing/attaching its
+ * audio stream. Pads the audio with silence (apad) before applying -shortest
+ * so a too-short track can never truncate the VIDEO — -shortest then only
+ * ever trims trailing music/silence to the video's own length. The video
+ * stream itself is untouched (-c:v copy) — only the audio needs encoding.
+ */
+export async function mixAudioIntoVideo(videoPath: string, audioPath: string, outputPath: string): Promise<void> {
+  await new Promise<void>((resolve, reject) => {
+    const proc = spawn(ffmpegPath as unknown as string, [
+      "-y",
+      "-i", videoPath,
+      "-i", audioPath,
+      "-filter_complex", "[1:a]apad[a]",
+      "-map", "0:v",
+      "-map", "[a]",
+      "-c:v", "copy",
+      "-shortest",
+      outputPath,
+    ]);
+
+    let stderr = "";
+    proc.stderr.on("data", (chunk: Buffer) => { stderr += chunk.toString(); });
+    proc.on("error", reject);
+    proc.on("close", (code: number) => {
+      if (code === 0) resolve();
+      else reject(new Error(`ffmpeg audio mix failed (exit ${code}): ${stderr}`));
+    });
+  });
+}
