@@ -154,6 +154,20 @@ describe("POST /api/projects/[projectId]/production/scenes/[sceneNumber]/generat
     expect(generateTextVideo).not.toHaveBeenCalled();
   });
 
+  it("queries shots ordered by sortOrder (falling back to shotNumber), so Phase C's drag-reorder affects the stitch", async () => {
+    findManyShots.mockResolvedValue([
+      { id: "shot-1", shotNumber: 1, sceneNumber: 1, videoPrompt: "v1", soulPrompt: "p1", duration: 5, primaryCharacter: null },
+    ]);
+    generateTextVideo.mockResolvedValue({ requestId: "req-x", pollingUrl: "https://api.segmind.com/v2/requests/req-x/status" });
+
+    await POST(makeRequest(), makeParams());
+
+    const [callArgs] = findManyShots.mock.calls[0];
+    const ascOrder: string[] = [];
+    callArgs.orderBy({ sortOrder: "sortOrder", shotNumber: "shotNumber" }, { asc: (col: string) => { ascOrder.push(col); return col; } });
+    expect(ascOrder).toEqual(["sortOrder", "shotNumber"]);
+  });
+
   it("returns 400 with no Segmind key configured", async () => {
     findManyShots.mockResolvedValue([
       { id: "shot-1", shotNumber: 1, sceneNumber: 1, videoPrompt: "v1", soulPrompt: "p1", duration: 5, primaryCharacter: null },

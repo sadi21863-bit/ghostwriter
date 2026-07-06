@@ -27,9 +27,12 @@ export async function GET(_: Request, { params }: { params: Promise<{ projectId:
     return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const sceneNumber = Number(sceneNumberRaw);
+  // Ordered by sortOrder (falling back to shotNumber) — see generate-video/route.ts
+  // for why: the final stitch must respect Phase C's drag-reorder, not the
+  // original generation order.
   let sceneShots = await db.query.productionShots.findMany({
     where: and(eq(productionShots.projectId, projectId), eq(productionShots.sceneNumber, sceneNumber)),
-    orderBy: (sh, { asc }) => [asc(sh.shotNumber)],
+    orderBy: (sh, { asc }) => [asc(sh.sortOrder), asc(sh.shotNumber)],
   });
   if (sceneShots.length === 0) return NextResponse.json({ error: "Scene not found" }, { status: 404 });
 
@@ -62,7 +65,7 @@ export async function GET(_: Request, { params }: { params: Promise<{ projectId:
     // Re-read after this round of polling — some shots may have just completed.
     sceneShots = await db.query.productionShots.findMany({
       where: and(eq(productionShots.projectId, projectId), eq(productionShots.sceneNumber, sceneNumber)),
-      orderBy: (sh, { asc }) => [asc(sh.shotNumber)],
+      orderBy: (sh, { asc }) => [asc(sh.sortOrder), asc(sh.shotNumber)],
     });
   }
 

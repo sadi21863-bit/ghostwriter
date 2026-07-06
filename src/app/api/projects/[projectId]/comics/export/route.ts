@@ -8,6 +8,7 @@ import { projects, comicPages, comicPanels } from "@/db/schema";
 import { eq, and, asc } from "drizzle-orm";
 import { put } from "@vercel/blob";
 import JSZip from "jszip";
+import { compositePage } from "@/lib/comic-gen/compose-page";
 
 export async function GET(
   _req: Request,
@@ -34,34 +35,37 @@ export async function GET(
     return NextResponse.json({ error: "No comic pages generated yet." }, { status: 400 });
   }
 
-  const allPanels: { page: number; panel: number; url: string }[] = [];
-  for (const page of pages) {
-    for (const panel of (page as any).panels || []) {
-      // Prefer the lettered composite (bubbles/captions baked in) over raw art.
-      const url = panel.letteredImageUrl || panel.imageUrl;
-      if (url) {
-        allPanels.push({ page: page.pageNumber, panel: panel.panelIndex, url });
-      }
-    }
-  }
-
-  if (!allPanels.length) {
-    return NextResponse.json({ error: "No panel images generated yet." }, { status: 400 });
-  }
-
   const zip = new JSZip();
   const folder = zip.folder("comic")!;
+  let composedPages = 0;
 
-  for (const p of allPanels) {
-    try {
-      const res = await fetch(p.url);
-      if (!res.ok) continue;
-      const buffer = await res.arrayBuffer();
-      const filename = `page-${String(p.page).padStart(3, "0")}-panel-${String(p.panel).padStart(2, "0")}.jpg`;
-      folder.file(filename, buffer);
-    } catch {
-      // skip failed fetches
+  for (const page of pages) {
+    const panels = [...((page as any).panels || [])].sort((a: any, b: any) => a.panelIndex - b.panelIndex);
+    const panelBuffers: Buffer[] = [];
+    for (const panel of panels) {
+      // Prefer the lettered composite (bubbles/captions baked in) over raw art.
+      const url = panel.letteredImageUrl || panel.imageUrl;
+      if (!url) continue;
+      try {
+        const res = await fetch(url);
+        if (!res.ok) continue;
+        panelBuffers.push(Buffer.from(await res.arrayBuffer()));
+      } catch {
+        // skip failed fetches — a page still exports with whichever panels succeeded
+      }
     }
+    if (!panelBuffers.length) continue;
+
+    // One composed PAGE image (panels laid out 2×3, matching ComicStudio.tsx's
+    // exportPng()) — not one file per panel, so the CBZ is actually readable
+    // as a comic in a real reader.
+    const pageBuffer = await compositePage(panelBuffers);
+    folder.file(`page-${String(page.pageNumber).padStart(3, "0")}.jpg`, pageBuffer);
+    composedPages++;
+  }
+
+  if (!composedPages) {
+    return NextResponse.json({ error: "No panel images generated yet." }, { status: 400 });
   }
 
   const zipBuffer = await zip.generateAsync({ type: "nodebuffer", compression: "DEFLATE" });

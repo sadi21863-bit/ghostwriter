@@ -179,4 +179,17 @@ describe("GET .../scenes/[sceneNumber]/generate-video/status (per-shot + stitch)
 
     expect(res.status).toBe(404);
   });
+
+  it("queries shots ordered by sortOrder (falling back to shotNumber), so Phase C's drag-reorder affects the stitch", async () => {
+    findManyShots.mockResolvedValue([
+      { id: "shot-1", shotNumber: 1, sceneNumber: 1, generationStatus: "final_ready", finalVideoUrl: "https://example.com/1.mp4", higgsfieldJobId: "", sceneFinalVideoUrl: "" },
+    ]);
+
+    await GET(new Request("http://localhost"), makeParams());
+
+    const [callArgs] = findManyShots.mock.calls[0];
+    const ascOrder: string[] = [];
+    callArgs.orderBy({ sortOrder: "sortOrder", shotNumber: "shotNumber" }, { asc: (col: string) => { ascOrder.push(col); return col; } });
+    expect(ascOrder).toEqual(["sortOrder", "shotNumber"]);
+  });
 });

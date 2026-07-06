@@ -30,10 +30,14 @@ export async function POST(_: Request, { params }: { params: Promise<{ projectId
 
   const sceneNumber = Number(sceneNumberRaw);
 
+  // Ordered by sortOrder (falling back to shotNumber as a tiebreaker) to match
+  // ProductionStudio.tsx's filmstrip/list — Phase C's drag-reorder updates
+  // sortOrder, and the final stitch must respect it, not the original
+  // generation order.
   const sceneShots = await db.query.productionShots.findMany({
     where: and(eq(productionShots.projectId, projectId), eq(productionShots.sceneNumber, sceneNumber)),
     with: { primaryCharacter: true },
-    orderBy: (sh, { asc }) => [asc(sh.shotNumber)],
+    orderBy: (sh, { asc }) => [asc(sh.sortOrder), asc(sh.shotNumber)],
   });
   if (sceneShots.length === 0) return NextResponse.json({ error: "Scene not found" }, { status: 404 });
 
