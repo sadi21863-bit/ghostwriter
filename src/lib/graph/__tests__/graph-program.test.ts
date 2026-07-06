@@ -9,11 +9,12 @@ const paidTierNoKey: CapabilityContext = { tier: "all_access", hasSegmindKey: fa
 
 describe("applicableCapabilityIds", () => {
   it("unions a selection's node kinds, order-stable and deduped", () => {
-    // thread → tension_curve, arc_heatmap, villain_pov ; character → villain_pov (dup dropped)
-    expect(applicableCapabilityIds(["thread", "character"])).toEqual(["tension_curve", "arc_heatmap", "villain_pov"]);
+    // thread → tension_curve, arc_heatmap, villain_pov, knowledge_audit ;
+    // character → villain_pov, knowledge_audit (both dups dropped)
+    expect(applicableCapabilityIds(["thread", "character"])).toEqual(["tension_curve", "arc_heatmap", "villain_pov", "knowledge_audit"]);
   });
-  it("returns [] for node kinds with no wired capabilities", () => {
-    expect(applicableCapabilityIds(["location", "world_entity"])).toEqual([]);
+  it("wires the manuscript-wide knowledge_audit to location/world_entity even though they have no other capabilities", () => {
+    expect(applicableCapabilityIds(["location", "world_entity"])).toEqual(["knowledge_audit"]);
   });
 });
 
@@ -63,9 +64,17 @@ describe("runnableCapabilities", () => {
     expect(byId.get("comic_generate")!.costUsd).toBeCloseTo(0.58, 5);
     // free editor tools present and confirm-free
     expect(byId.get("refine")!.requiresConfirm).toBe(false);
+    // beta_read/transportation_check/knowledge_audit wired to chapter — all
+    // anthropic-provider, so free-to-run + confirm-free like the others.
+    expect(byId.has("beta_read")).toBe(true);
+    expect(byId.has("transportation_check")).toBe(true);
+    expect(byId.has("knowledge_audit")).toBe(true);
   });
 
-  it("returns an empty list when the selection's kinds have no capabilities", () => {
-    expect(runnableCapabilities({ kinds: ["location"], nodeIds: ["l1"] }, allAccess)).toEqual([]);
+  it("a location selection can still run the manuscript-wide knowledge_audit", () => {
+    const opts = runnableCapabilities({ kinds: ["location"], nodeIds: ["l1"] }, allAccess);
+    expect(opts).toHaveLength(1);
+    expect(opts[0].capabilityId).toBe("knowledge_audit");
+    expect(opts[0].costUsd).toBe(0); // anthropic-provider tool, not real-money external
   });
 });

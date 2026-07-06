@@ -26,12 +26,19 @@ export type GraphNodeKind = "character" | "location" | "thread" | "world_entity"
 
 // Which capabilities make sense wired to which node kind. Declarative so a new
 // node kind or capability is a one-line map edit, not engine surgery.
+// knowledge_audit/beta_read/transportation_check are manuscript- or chapter-
+// wide Editor tools (see src/lib/roles/editor.ts) — the specific node clicked
+// doesn't scope what they check, it's just an entry point into the same
+// project-wide call. knowledge_audit fits every entity kind (it audits
+// character consistency, continuity, and — since item 44 — the structured
+// promise/thread data directly); beta_read/transportation_check need actual
+// chapter prose text, so they're chapter-only, not location/world_entity.
 export const NODE_CAPABILITIES: Record<GraphNodeKind, string[]> = {
-  character:    ["villain_pov"],
-  thread:       ["tension_curve", "arc_heatmap", "villain_pov"],
-  location:     [],
-  world_entity: [],
-  chapter:      ["comic_generate", "refine", "prose_fix", "editor_review"],
+  character:    ["villain_pov", "knowledge_audit"],
+  thread:       ["tension_curve", "arc_heatmap", "villain_pov", "knowledge_audit"],
+  location:     ["knowledge_audit"],
+  world_entity: ["knowledge_audit"],
+  chapter:      ["comic_generate", "refine", "prose_fix", "editor_review", "beta_read", "transportation_check", "knowledge_audit"],
   scene:        ["production_video", "scene_to_video_prompt", "generate_package"],
 };
 
