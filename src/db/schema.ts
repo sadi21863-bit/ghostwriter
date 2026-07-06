@@ -223,6 +223,11 @@ export const comicPanels = pgTable("comic_panels", {
   imageUrl: text("image_url").notNull(),
   panelPrompt: text("panel_prompt").notNull(),
   referenceImageUrl: text("reference_image_url").default(""),
+  // Which World Bible character this panel depicts (by name, matching the
+  // scene-breakdown's `spec.characters[0]`) — lets regenerate re-resolve a
+  // LIVE soulId/portraitUrl instead of relying on the (possibly stale, and
+  // previously conflated-with-soulId) referenceImageUrl column above.
+  characterName: text("character_name").default(""),
   artStylePreset: text("art_style_preset").default(""),
   dialogue: text("dialogue").default(""),
   caption: text("caption").default(""),

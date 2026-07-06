@@ -108,4 +108,22 @@ describe("POST /api/projects/[projectId]/production/preview-all", () => {
     expect(body.error).toMatch(/exceeds your \$5\.00 run cap/);
     expect(generateSoulImage).not.toHaveBeenCalled();
   });
+
+  it("passes a character's trained soulId instead of its portrait URL when one exists", async () => {
+    // The previous test's vi.doMock("@/lib/capabilities/cost", ...) otherwise
+    // lingers into this dynamic import too (doMock persists until unmocked),
+    // clamping this 1-item batch to zero before generateSoulImage is ever called.
+    vi.doUnmock("@/lib/capabilities/cost");
+    vi.resetModules();
+    findManyShots.mockResolvedValue([{
+      id: "shot-0", soulPrompt: "a shot", subject: "hero", action: "walks", location: "park",
+      previewImageUrl: null,
+      primaryCharacter: { name: "Mara", soulId: "soul-uuid-123", portraitUrl: "https://example.com/mara.jpg" },
+    }]);
+    const { POST } = await import("../route");
+    await POST(makeReq(), makeParams());
+    const [callArgs] = generateSoulImage.mock.calls[0];
+    expect(callArgs.soulId).toBe("soul-uuid-123");
+    expect(callArgs.referenceImageUrl).toBeUndefined();
+  });
 });

@@ -100,4 +100,28 @@ describe("POST /api/projects/[projectId]/production/shots/[shotId]/preview", () 
     const [setArg] = updateSet.mock.calls[updateSet.mock.calls.length - 1];
     expect(setArg.previewImageUrl).toBe("https://segmind.example/generated.jpg");
   });
+
+  describe("character consistency (Soul ID vs portrait URL)", () => {
+    it("passes the character's trained soulId instead of a portrait URL when one exists", async () => {
+      findFirstShots.mockResolvedValue({
+        id: "shot-1", projectId: "proj-1", previewImageUrl: null, candidatePreviewUrls: [],
+        primaryCharacter: { name: "Mara", soulId: "soul-uuid-123", portraitUrl: "https://example.com/mara.jpg" },
+      });
+      await POST(makeRequest(), makeParams());
+      const [callArgs] = generateSoulImage.mock.calls[0];
+      expect(callArgs.soulId).toBe("soul-uuid-123");
+      expect(callArgs.referenceImageUrl).toBeUndefined();
+    });
+
+    it("falls back to the portrait URL when the character has no trained soulId", async () => {
+      findFirstShots.mockResolvedValue({
+        id: "shot-1", projectId: "proj-1", previewImageUrl: null, candidatePreviewUrls: [],
+        primaryCharacter: { name: "Kessler", soulId: null, portraitUrl: "https://example.com/kessler.jpg" },
+      });
+      await POST(makeRequest(), makeParams());
+      const [callArgs] = generateSoulImage.mock.calls[0];
+      expect(callArgs.soulId).toBeUndefined();
+      expect(callArgs.referenceImageUrl).toBe("https://example.com/kessler.jpg");
+    });
+  });
 });

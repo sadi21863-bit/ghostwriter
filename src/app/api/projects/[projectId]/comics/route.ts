@@ -15,6 +15,7 @@ import { critiqueShot } from "@/lib/production/vision-critic";
 import { scoreShot, retryHint } from "@/lib/production/self-eval";
 import { ART_STYLES, PanelSpec, buildBreakdownPrompt, buildPanelPrompt } from "@/lib/ai/panel-prompt-builder";
 import { decrypt } from "@/lib/crypto";
+import { getCharacterSoulReference } from "@/lib/production/character-reference";
 
 
 function safeParseJson(raw: string) {
@@ -99,18 +100,6 @@ export async function POST(req: Request, { params }: { params: Promise<{ project
     artStyle: artStyleId ?? "manga",
   }).returning();
 
-  function getCharacterSoulReference(characterName: string, chars: any[]): {
-    referenceImageUrl?: string;
-    soulId?: string;
-    referenceStrength: number;
-  } {
-    const char = chars.find((c: any) => c.name === characterName);
-    if (!char) return { referenceStrength: 0.85 };
-    if (char.soulId) return { soulId: char.soulId, referenceStrength: 0.95 };
-    if (char.portraitUrl) return { referenceImageUrl: char.portraitUrl, referenceStrength: 0.85 };
-    return { referenceStrength: 0.85 };
-  }
-
   // A single page-level seed base keeps every panel on the page visually
   // coherent (style/character feel) while `+ i` keeps each panel distinct and
   // the whole page reproducible. Costs nothing extra — same number of calls.
@@ -147,7 +136,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ project
         imageUrl = blob.url;
       }
 
-      return { prompt, imageUrl, referenceImageUrl: soulId ?? referenceImageUrl ?? "", index: i };
+      return { prompt, imageUrl, referenceImageUrl: soulId ?? referenceImageUrl ?? "", characterName: refName ?? "", index: i };
     })
   );
 
@@ -155,7 +144,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ project
   const panels: any[] = [];
   for (const result of panelResults) {
     if (result.status === "fulfilled") {
-      const { prompt, imageUrl, referenceImageUrl, index } = result.value;
+      const { prompt, imageUrl, referenceImageUrl, characterName, index } = result.value;
       const [panel] = await db.insert(comicPanels).values({
         pageId: page.id,
         projectId: (await params).projectId,
@@ -163,6 +152,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ project
         imageUrl,
         panelPrompt: prompt,
         referenceImageUrl,
+        characterName,
         artStylePreset: artStyleObj.higgsfieldPreset,
       }).returning();
       panels.push(panel);

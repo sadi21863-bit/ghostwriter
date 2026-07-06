@@ -11,6 +11,7 @@ import { generateSoulImage } from "@/lib/higgsfield/client";
 import { put } from "@vercel/blob";
 import { decrypt } from "@/lib/crypto";
 import { enforceBudgetCap, CAPABILITY_UNIT_USD, MAX_BATCH_SPEND_USD } from "@/lib/capabilities/cost";
+import { getCharacterSoulReference } from "@/lib/production/character-reference";
 
 async function verifyOwnership(projectId: string, userId: string) {
   return db.query.projects.findFirst({
@@ -68,11 +69,13 @@ export async function POST(_: Request, { params }: { params: Promise<{ projectId
           .set({ generationStatus: "generating_preview", updatedAt: new Date() })
           .where(eq(productionShots.id, shot.id));
 
-        const referenceImageUrl = (shot.primaryCharacter as any)?.portraitUrl || undefined;
+        const primaryCharacter = shot.primaryCharacter as any;
+        const { referenceImageUrl, soulId } = getCharacterSoulReference(primaryCharacter?.name, primaryCharacter ? [primaryCharacter] : []);
         const soulUrl = await generateSoulImage({
           apiKey: segmindKey,
           prompt: shot.soulPrompt || `${shot.subject}. ${shot.action}. ${shot.location}. Cinematic, photorealistic.`,
-          referenceImageUrl: referenceImageUrl || undefined,
+          referenceImageUrl,
+          soulId,
         });
 
         let previewImageUrl = soulUrl;

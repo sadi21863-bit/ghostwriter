@@ -11,6 +11,7 @@ import { put } from "@vercel/blob";
 import { decrypt } from "@/lib/crypto";
 import { critiqueShot } from "@/lib/production/vision-critic";
 import { scoreShot, retryHint } from "@/lib/production/self-eval";
+import { getCharacterSoulReference } from "@/lib/production/character-reference";
 
 async function verifyOwnership(projectId: string, userId: string) {
   return db.query.projects.findFirst({
@@ -47,11 +48,13 @@ export async function POST(req: Request, { params }: { params: Promise<{ project
     .where(eq(productionShots.id, (await params).shotId));
 
   try {
-    const referenceImageUrl = (shot.primaryCharacter as any)?.portraitUrl || undefined;
+    const primaryCharacter = shot.primaryCharacter as any;
+    const { referenceImageUrl, soulId } = getCharacterSoulReference(primaryCharacter?.name, primaryCharacter ? [primaryCharacter] : []);
     const soulUrl = await generateSoulImage({
       apiKey: segmindKey,
       prompt: shot.soulPrompt || `${shot.subject}. ${shot.action}. ${shot.location}. Cinematic, photorealistic.`,
-      referenceImageUrl: referenceImageUrl || undefined,
+      referenceImageUrl,
+      soulId,
     });
 
     let previewImageUrl = soulUrl;
@@ -102,7 +105,10 @@ export async function POST(req: Request, { params }: { params: Promise<{ project
       const raw = await critiqueShot({
         imageUrl: previewImageUrl,
         prompt: shot.soulPrompt || `${shot.subject}. ${shot.action}. ${shot.location}.`,
-        referenceImageUrl: referenceImageUrl || undefined,
+        // The critic needs an actual image to compare against, not a soulId
+        // string — always the character's portrait, independent of whether
+        // generation itself used soulId or referenceImageUrl.
+        referenceImageUrl: primaryCharacter?.portraitUrl || undefined,
         previousShotImageUrl: prevShot?.previewImageUrl || undefined,
       });
       if (Object.keys(raw).length === 0) return;

@@ -7,7 +7,8 @@ export const SegmindImageProvider: ImageProvider = {
   async generate(params, apiKey) {
     const url = await generateSoulImage({
       apiKey, prompt: params.prompt, stylePreset: params.stylePreset,
-      referenceImageUrl: params.referenceImageUrl, referenceStrength: params.referenceStrength,
+      referenceImageUrl: params.referenceImageUrl, soulId: params.soulId,
+      referenceStrength: params.referenceStrength,
       width: params.width, height: params.height,
     });
     return { url, async: false };

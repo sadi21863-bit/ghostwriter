@@ -3,13 +3,14 @@ export const dynamic = 'force-dynamic';
 import { NextResponse } from "next/server";
 import { getRequiredSession, verifyChildOwnership } from "@/lib/auth-helpers";
 import { db } from "@/db";
-import { comicPages, comicPanels, projects, users } from "@/db/schema";
+import { characters, comicPages, comicPanels, projects, users } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { getImageProvider } from "@/lib/media/registry";
 import { decrypt } from "@/lib/crypto";
 import { put } from "@vercel/blob";
 import { critiqueShot } from "@/lib/production/vision-critic";
 import { scoreShot, retryHint } from "@/lib/production/self-eval";
+import { getCharacterSoulReference } from "@/lib/production/character-reference";
 
 async function verifyOwnership(projectId: string, userId: string) {
   return db.query.projects.findFirst({
@@ -45,10 +46,22 @@ export async function POST(req: Request, { params }: { params: Promise<{ project
   const body = await req.json().catch(() => ({}));
   const keepAsCandidate = body?.keepAsCandidate === true && !!panel.imageUrl;
 
+  // Re-resolve the character's LIVE soul reference by name rather than reusing
+  // panel.referenceImageUrl, which stores whichever value the initial
+  // generation used (a soulId UUID OR a portrait URL, conflated in one
+  // column) — passing a stale soulId through as referenceImageUrl silently
+  // breaks character consistency on every regenerate. This also picks up a
+  // Soul ID trained after the panel was first created.
+  const projectCharacters = await db.query.characters.findMany({
+    where: eq(characters.projectId, (await params).projectId),
+  });
+  const { referenceImageUrl, soulId } = getCharacterSoulReference((panel as any).characterName, projectCharacters);
+
   const result = await provider.generate({
     prompt: panel.panelPrompt,
     stylePreset: panel.artStylePreset || undefined,
-    referenceImageUrl: panel.referenceImageUrl || undefined,
+    referenceImageUrl,
+    soulId,
   }, apiKey);
 
   const rawUrl = result.url!;

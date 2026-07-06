@@ -30,6 +30,7 @@ vi.mock("@/lib/media/registry", () => ({
 const findFirstProjects = vi.fn();
 const findFirstUsers = vi.fn();
 const findFirstPanels = vi.fn();
+const findManyCharacters = vi.fn();
 const updateSet = vi.fn();
 const updateWhere = vi.fn();
 const returning = vi.fn();
@@ -39,6 +40,7 @@ vi.mock("@/db", () => ({
       projects: { findFirst: (...args: any[]) => findFirstProjects(...args) },
       users: { findFirst: (...args: any[]) => findFirstUsers(...args) },
       comicPanels: { findFirst: (...args: any[]) => findFirstPanels(...args) },
+      characters: { findMany: (...args: any[]) => findManyCharacters(...args) },
     },
     update: () => ({
       set: (vals: any) => {
@@ -71,6 +73,7 @@ describe("POST /api/projects/[projectId]/comics/[pageId]/panels/[panelId]/regene
     vi.clearAllMocks();
     findFirstProjects.mockResolvedValue({ id: "proj-1", userId: "user-1" });
     findFirstUsers.mockResolvedValue({ id: "user-1", segmindApiKey: "encrypted", imageProviderId: "segmind_soul" });
+    findManyCharacters.mockResolvedValue([]);
     generate.mockResolvedValue({ url: "https://segmind.example/generated.png" });
     returning.mockResolvedValue([{ id: "panel-1", imageUrl: "https://segmind.example/generated.png" }]);
   });
@@ -99,5 +102,38 @@ describe("POST /api/projects/[projectId]/comics/[pageId]/panels/[panelId]/regene
     await POST(makeRequest({ keepAsCandidate: true }), makeParams());
     const [setArg] = updateSet.mock.calls[0];
     expect(setArg.imageUrl).toBe("https://segmind.example/generated.png");
+  });
+
+  describe("character consistency (Soul ID regenerate bug fix)", () => {
+    it("re-resolves the character's LIVE soulId by name instead of trusting the panel's stored (possibly stale/conflated) referenceImageUrl", async () => {
+      findFirstPanels.mockResolvedValue({
+        id: "panel-1", projectId: "proj-1", panelIndex: 0, panelPrompt: "a panel", imageUrl: null, candidateImageUrls: [],
+        characterName: "Mara",
+        // Simulates the pre-fix conflated state: this column held a soulId UUID,
+        // not a URL — the fix must NOT read this field for generation anymore.
+        referenceImageUrl: "soul-uuid-STALE",
+      });
+      findManyCharacters.mockResolvedValue([
+        { name: "Mara", soulId: "soul-uuid-LIVE", portraitUrl: "https://example.com/mara.jpg" },
+      ]);
+      await POST(makeRequest(), makeParams());
+      const [callArgs] = generate.mock.calls[0];
+      expect(callArgs.soulId).toBe("soul-uuid-LIVE");
+      expect(callArgs.referenceImageUrl).toBeUndefined();
+    });
+
+    it("falls back to the character's portrait URL when there's no trained soulId", async () => {
+      findFirstPanels.mockResolvedValue({
+        id: "panel-1", projectId: "proj-1", panelIndex: 0, panelPrompt: "a panel", imageUrl: null, candidateImageUrls: [],
+        characterName: "Kessler", referenceImageUrl: "",
+      });
+      findManyCharacters.mockResolvedValue([
+        { name: "Kessler", soulId: null, portraitUrl: "https://example.com/kessler.jpg" },
+      ]);
+      await POST(makeRequest(), makeParams());
+      const [callArgs] = generate.mock.calls[0];
+      expect(callArgs.soulId).toBeUndefined();
+      expect(callArgs.referenceImageUrl).toBe("https://example.com/kessler.jpg");
+    });
   });
 });

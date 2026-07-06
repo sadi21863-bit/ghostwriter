@@ -1,5 +1,9 @@
 export interface ImageGenerationParams {
   prompt: string; stylePreset?: string; referenceImageUrl?: string;
+  /** A trained Higgsfield Soul ID (custom_reference_id) — a stronger, per-character
+   *  consistency mechanism than a single referenceImageUrl. Segmind-specific;
+   *  providers without an equivalent (e.g. OpenAI) simply ignore it. */
+  soulId?: string;
   referenceStrength?: number; width?: number; height?: number;
 }
 
