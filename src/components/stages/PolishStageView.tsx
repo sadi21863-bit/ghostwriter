@@ -12,6 +12,7 @@ import { analyzeProseRhythm } from "@/lib/analysis/rhythm";
 import { analyzeHumanize } from "@/lib/analysis/humanize";
 import { voiceLockStatus } from "@/lib/ai/voice-lock";
 import EditorNotesPanel from "@/components/EditorNotesPanel";
+import PromiseTrackerPanel from "@/components/PromiseTrackerPanel";
 import { isStoryFormat } from "@/lib/formats";
 
 interface PolishStageViewProps {
@@ -93,6 +94,7 @@ export default function PolishStageView({ project, qualityReview, onGuideRun, on
           </span>
         </div>
         {isStoryFormat(project.format) && <EditorNotesPanel project={project} updateProject={updateProject} />}
+        {isStoryFormat(project.format) && <PromiseTrackerPanel project={project} />}
         <p style={{ fontSize: 14, color: co.text, lineHeight: 1.6, marginBottom: 4 }}>
           {chapter ? <>&ldquo;{chapter.title}&rdquo; — {chapter.wordCount} words</> : "This chapter is ready for a story health check."}
         </p>
