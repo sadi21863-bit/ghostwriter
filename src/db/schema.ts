@@ -372,6 +372,7 @@ export const showcases = pgTable("showcases", {
   visibility: varchar("visibility", { length: 10 }).notNull().default("private"),
   flagged:      boolean("flagged").notNull().default(false),
   flagReason:   text("flag_reason").default(""),
+  embedding:  vectorColumn("embedding"),
   createdAt:  timestamp("created_at").defaultNow().notNull(),
   updatedAt:  timestamp("updated_at").defaultNow().notNull(),
 });

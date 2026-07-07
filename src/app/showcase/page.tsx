@@ -17,13 +17,15 @@ export default function ShowcaseDiscoveryPage() {
   const [cursor, setCursor] = useState(0);
   const [nextCursor, setNextCursor] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
+  const [query, setQuery] = useState("");
 
-  const load = async (from: number) => {
+  const load = async (from: number, q?: string) => {
     setLoading(true);
     try {
-      const res = await fetch(`/api/showcase?cursor=${from}`);
+      const url = q ? `/api/showcase?q=${encodeURIComponent(q)}` : `/api/showcase?cursor=${from}`;
+      const res = await fetch(url);
       const data = await res.json();
-      setItems(prev => from === 0 ? data.showcases : [...prev, ...data.showcases]);
+      setItems(prev => (from === 0 || q) ? data.showcases : [...prev, ...data.showcases]);
       setNextCursor(data.nextCursor);
       setCursor(from);
     } finally {
@@ -33,6 +35,17 @@ export default function ShowcaseDiscoveryPage() {
 
   useEffect(() => { load(0); }, []);
 
+  // Debounced search — re-queries on pause, falls back to the newest-first
+  // feed when the box is cleared.
+  useEffect(() => {
+    const handle = setTimeout(() => {
+      if (query.trim()) load(0, query.trim());
+      else load(0);
+    }, 400);
+    return () => clearTimeout(handle);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [query]);
+
   return (
     <div style={{ minHeight: "100vh", background: "var(--gw-page)", color: "var(--gw-t1)" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: 16, maxWidth: 960, margin: "0 auto" }}>
@@ -40,7 +53,15 @@ export default function ShowcaseDiscoveryPage() {
         <ThemeToggle />
       </div>
       <div style={{ maxWidth: 960, margin: "0 auto", padding: "0 16px 60px" }}>
-        {items.length === 0 && !loading && <p style={{ color: "var(--gw-t3)" }}>No showcases published yet.</p>}
+        <input
+          value={query}
+          onChange={e => setQuery(e.target.value)}
+          placeholder="Search showcases…"
+          style={{ width: "100%", padding: "10px 14px", borderRadius: 8, border: "1px solid var(--gw-border)", background: "var(--gw-card)", color: "var(--gw-t1)", fontSize: 14, marginBottom: 20, boxSizing: "border-box" }}
+        />
+        {items.length === 0 && !loading && (
+          <p style={{ color: "var(--gw-t3)" }}>{query.trim() ? "No showcases match that search." : "No showcases published yet."}</p>
+        )}
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 16 }}>
           {items.map(item => (
             <Link key={item.slug} href={`/showcase/${item.slug}`} style={{ textDecoration: "none", color: "inherit" }}>
@@ -54,7 +75,7 @@ export default function ShowcaseDiscoveryPage() {
             </Link>
           ))}
         </div>
-        {nextCursor != null && (
+        {!query.trim() && nextCursor != null && (
           <div style={{ textAlign: "center", marginTop: 24 }}>
             <button
               onClick={() => load(nextCursor)}

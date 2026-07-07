@@ -30,6 +30,9 @@ vi.mock("@/lib/auth-helpers", () => ({
   getRequiredSession: vi.fn(async () => ({ user: { id: "user-1" } })),
 }));
 
+const generateEmbedding = vi.fn();
+vi.mock("@/lib/ai/embeddings", () => ({ generateEmbedding: (...args: any[]) => generateEmbedding(...args) }));
+
 import { POST, GET } from "../route";
 
 const ownedProject = { id: "project-1", userId: "user-1", name: "My Novel" };
@@ -47,6 +50,8 @@ describe("POST /api/projects/[projectId]/showcase", () => {
     findFirstShowcases.mockReset();
     updateReturning.mockReset();
     insertReturning.mockReset();
+    generateEmbedding.mockReset();
+    generateEmbedding.mockResolvedValue([0.1, 0.2]);
   });
 
   it("404s when the project isn't owned by the caller", async () => {
@@ -97,6 +102,30 @@ describe("POST /api/projects/[projectId]/showcase", () => {
     const body = await res.json();
     expect(body.slug).toBe("stable-slug");
     expect(insertReturning).not.toHaveBeenCalled();
+  });
+
+  it("computes an embedding from title+blurb for the discovery feed's search", async () => {
+    findFirstProjects.mockResolvedValue(ownedProject);
+    findFirstShowcases.mockResolvedValue(undefined);
+    insertReturning.mockResolvedValue([{ id: "sc-1", slug: "abc123" }]);
+
+    await POST(makePostRequest({ title: "A Novel About Grief", blurb: "A quiet, devastating story", visibility: "private" }), {
+      params: Promise.resolve({ projectId: "project-1" }),
+    });
+
+    expect(generateEmbedding).toHaveBeenCalledWith("A Novel About Grief. A quiet, devastating story");
+  });
+
+  it("recomputes the embedding on every save, not just at creation", async () => {
+    findFirstProjects.mockResolvedValue(ownedProject);
+    findFirstShowcases.mockResolvedValue({ id: "sc-1", slug: "stable-slug", title: "old", blurb: "old", visibility: "private" });
+    updateReturning.mockResolvedValue([{ id: "sc-1", slug: "stable-slug" }]);
+
+    await POST(makePostRequest({ title: "Updated Title", blurb: "Updated blurb", visibility: "public" }), {
+      params: Promise.resolve({ projectId: "project-1" }),
+    });
+
+    expect(generateEmbedding).toHaveBeenCalledWith("Updated Title. Updated blurb");
   });
 });
 

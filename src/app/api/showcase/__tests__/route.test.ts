@@ -10,16 +10,26 @@ vi.mock("@/db", () => ({
   },
 }));
 
+const generateEmbedding = vi.fn();
+const cosineSimilarity = vi.fn();
+vi.mock("@/lib/ai/embeddings", () => ({
+  generateEmbedding: (...args: any[]) => generateEmbedding(...args),
+  cosineSimilarity: (...args: any[]) => cosineSimilarity(...args),
+}));
+
 import { GET } from "../route";
 
 function makeRequest(cursor?: string) {
   const url = cursor ? `http://localhost/api/showcase?cursor=${cursor}` : "http://localhost/api/showcase";
   return new Request(url);
 }
+function makeSearchRequest(q: string) {
+  return new Request(`http://localhost/api/showcase?q=${encodeURIComponent(q)}`);
+}
 
 describe("GET /api/showcase (public discovery feed)", () => {
   beforeEach(() => {
-    findManyShowcases.mockReset();
+    vi.clearAllMocks();
   });
 
   it("queries only visibility=public AND flagged=false, ordered newest first", async () => {
@@ -64,5 +74,47 @@ describe("GET /api/showcase (public discovery feed)", () => {
 
     const callArgs = findManyShowcases.mock.calls[0][0];
     expect(callArgs.offset).toBe(40);
+  });
+});
+
+describe("GET /api/showcase?q= (semantic search)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("ranks results by cosine similarity to the query, descending", async () => {
+    generateEmbedding.mockResolvedValue([1, 0]);
+    findManyShowcases.mockResolvedValue([
+      { slug: "low", title: "Low match", blurb: "b", embedding: [0, 1], project: { name: "Low", format: "Novel" } },
+      { slug: "high", title: "High match", blurb: "b", embedding: [1, 0], project: { name: "High", format: "Novel" } },
+    ]);
+    cosineSimilarity.mockImplementation((_q: number[], e: number[]) => (e[0] === 1 ? 0.9 : 0.1));
+
+    const res = await GET(makeSearchRequest("a story about grief"));
+    const body = await res.json();
+
+    expect(body.showcases.map((s: any) => s.slug)).toEqual(["high", "low"]);
+    expect(body.nextCursor).toBeNull();
+  });
+
+  it("only searches public, unflagged, embedded showcases", async () => {
+    generateEmbedding.mockResolvedValue([1, 0]);
+    findManyShowcases.mockResolvedValue([]);
+
+    await GET(makeSearchRequest("test"));
+
+    const callArgs = findManyShowcases.mock.calls[0][0];
+    expect(callArgs.where).toBeDefined();
+    expect(callArgs.orderBy).toBeUndefined(); // search mode ranks by similarity, not createdAt
+  });
+
+  it("returns an empty result set (fail-open) when embedding generation fails", async () => {
+    generateEmbedding.mockResolvedValue(null);
+
+    const res = await GET(makeSearchRequest("test"));
+    const body = await res.json();
+
+    expect(body.showcases).toEqual([]);
+    expect(findManyShowcases).not.toHaveBeenCalled();
   });
 });

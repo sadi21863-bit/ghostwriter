@@ -7,6 +7,7 @@ import { projects, showcases } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { randomBytes } from "crypto";
 import { buildShowcasePreview } from "@/lib/showcase/preview";
+import { generateEmbedding } from "@/lib/ai/embeddings";
 
 async function verifyOwnership(projectId: string, userId: string) {
   return db.query.projects.findFirst({
@@ -30,9 +31,14 @@ export async function POST(req: Request, { params }: { params: Promise<{ project
 
   const existing = await db.query.showcases.findFirst({ where: eq(showcases.projectId, projectId) });
 
+  // Powers the public discovery feed's search (GET /api/showcase?q=) — embeds
+  // title+blurb, the same author-written text a reader's search query would
+  // be matched against. Recomputed on every save since either field can change.
+  const embedding = await generateEmbedding(`${title ?? ""}. ${blurb ?? ""}`).catch(() => null);
+
   if (existing) {
     const [updated] = await db.update(showcases)
-      .set({ title, blurb, visibility, updatedAt: new Date() })
+      .set({ title, blurb, visibility, embedding, updatedAt: new Date() })
       .where(eq(showcases.projectId, projectId))
       .returning();
     return NextResponse.json(updated);
@@ -45,6 +51,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ project
     title: title ?? "",
     blurb: blurb ?? "",
     visibility: visibility ?? "private",
+    embedding,
   }).returning();
 
   return NextResponse.json(created);
