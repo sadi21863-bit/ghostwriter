@@ -6,6 +6,13 @@ vi.mock("@/lib/ai/client", () => ({
 }));
 vi.mock("@/lib/ai/engine", () => ({ MODELS: { default: "claude-sonnet-5", quality: "claude-opus-4-8" } }));
 
+const checkSemanticCache = vi.fn();
+const writeSemanticCache = vi.fn();
+vi.mock("@/lib/semantic-cache", () => ({
+  checkSemanticCache: (...args: any[]) => checkSemanticCache(...args),
+  writeSemanticCache: (...args: any[]) => writeSemanticCache(...args),
+}));
+
 const { groundInWebResearch, isGroundableMode } = await import("../web-research");
 
 describe("isGroundableMode", () => {
@@ -18,7 +25,11 @@ describe("isGroundableMode", () => {
 });
 
 describe("groundInWebResearch", () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => {
+    vi.clearAllMocks();
+    checkSemanticCache.mockResolvedValue(null);
+    writeSemanticCache.mockResolvedValue(undefined);
+  });
 
   it("returns empty string for a non-groundable mode without calling the model", async () => {
     const result = await groundInWebResearch("combat", "a fight scene");
@@ -59,5 +70,28 @@ describe("groundInWebResearch", () => {
     createMessage.mockResolvedValue({ content: [] });
     const result = await groundInWebResearch("historical", "a scene set in ancient Rome");
     expect(result).toBe("");
+  });
+
+  it("returns the cached result and skips the model call on a cache hit", async () => {
+    checkSemanticCache.mockResolvedValue({ text: "CACHED GROUNDING TEXT" });
+    const result = await groundInWebResearch("historical", "a scene set in ancient Rome");
+    expect(result).toBe("CACHED GROUNDING TEXT");
+    expect(createMessage).not.toHaveBeenCalled();
+  });
+
+  it("writes a fresh result to the cache on a miss", async () => {
+    createMessage.mockResolvedValue({ content: [{ type: "text", text: "- fact one" }] });
+    await groundInWebResearch("historical", "a scene set in ancient Rome");
+    expect(writeSemanticCache).toHaveBeenCalledWith(
+      "web_research",
+      expect.stringContaining("historical"),
+      expect.objectContaining({ text: expect.stringContaining("fact one") }),
+    );
+  });
+
+  it("does not write to the cache when the model call fails", async () => {
+    createMessage.mockRejectedValue(new Error("529 overloaded"));
+    await groundInWebResearch("historical", "a scene set in ancient Rome");
+    expect(writeSemanticCache).not.toHaveBeenCalled();
   });
 });

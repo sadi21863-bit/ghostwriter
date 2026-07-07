@@ -1,6 +1,8 @@
 import { anthropic as client } from "@/lib/ai/client";
+import { checkSemanticCache, writeSemanticCache } from "@/lib/semantic-cache";
 
 const GROUNDABLE_MODES = new Set(["historical", "scitech"]);
+const CACHE_TYPE = "web_research";
 
 export function isGroundableMode(mode: string): boolean {
   return GROUNDABLE_MODES.has(mode);
@@ -16,12 +18,23 @@ export function isGroundableMode(mode: string): boolean {
  * (research-scaffold/guest-intel/trend-angles), but scoped to grounding a SPECIFIC
  * story beat rather than building a reusable craft packet.
  *
- * Strictly opt-in (only fires when the caller explicitly asks) since it adds real
- * latency/cost on top of the base generation call -- never automatic. Fails open
+ * Checked against the existing cacheType-agnostic semantic cache (src/lib/semantic-cache.ts,
+ * 0.92 similarity -- "safe for research/analysis reuse") before spending a real web_search
+ * call, since two beats set in the same historical period/scientific concept are common
+ * within one project (and across a mode-sweep-style test) and would otherwise re-research
+ * the identical topic every single call.
+ *
+ * Strictly opt-in (only fires when the caller explicitly asks) since a cache MISS still
+ * adds real latency/cost on top of the base generation call -- never automatic. Fails open
  * (empty string) on any error; a research failure never blocks generation.
  */
 export async function groundInWebResearch(mode: string, queryText: string): Promise<string> {
   if (!isGroundableMode(mode) || !queryText?.trim()) return "";
+
+  const cacheKey = `${mode}:${queryText.slice(0, 500)}`;
+  const cached = await checkSemanticCache(CACHE_TYPE, cacheKey);
+  if (cached && typeof cached.text === "string") return cached.text;
+
   try {
     const { MODELS } = await import("@/lib/ai/engine");
     const res = await client.messages.create({
@@ -35,7 +48,9 @@ export async function groundInWebResearch(mode: string, queryText: string): Prom
     });
     const text = res.content.filter((b) => b.type === "text").map((b: any) => b.text).join("").trim();
     if (!text) return "";
-    return `REAL-WORLD GROUNDING (verify against these facts, do not contradict them):\n${text}`;
+    const result = `REAL-WORLD GROUNDING (verify against these facts, do not contradict them):\n${text}`;
+    await writeSemanticCache(CACHE_TYPE, cacheKey, { text: result });
+    return result;
   } catch {
     return "";
   }
