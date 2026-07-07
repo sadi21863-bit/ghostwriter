@@ -1342,14 +1342,23 @@ export default function WorldBiblePanel(props: Props) {
                   onChange={e => setNewChar((c: any) => ({ ...c, voiceId: e.target.value }))}
                 >
                   <option value="">No voice assigned</option>
-                  <option value="alloy">Alloy — neutral, balanced</option>
-                  <option value="echo">Echo — warm, conversational</option>
-                  <option value="fable">Fable — expressive, storytelling</option>
-                  <option value="onyx">Onyx — deep, authoritative</option>
-                  <option value="nova">Nova — bright, energetic</option>
-                  <option value="shimmer">Shimmer — clear, precise</option>
+                  <optgroup label="OpenAI TTS-1">
+                    <option value="alloy">Alloy — neutral, balanced</option>
+                    <option value="echo">Echo — warm, conversational</option>
+                    <option value="fable">Fable — expressive, storytelling</option>
+                    <option value="onyx">Onyx — deep, authoritative</option>
+                    <option value="nova">Nova — bright, energetic</option>
+                    <option value="shimmer">Shimmer — clear, precise</option>
+                  </optgroup>
+                  <optgroup label="Segmind (Grok TTS)">
+                    <option value="ara">Ara</option>
+                    <option value="eve">Eve — general narration, demos</option>
+                    <option value="leo">Leo</option>
+                    <option value="rex">Rex — authoritative, business tone</option>
+                    <option value="sal">Sal</option>
+                  </optgroup>
                 </select>
-                <div style={{ fontSize: 10, color: co.muted, marginTop: 3 }}>Used when generating Audio Novel exports for this character's dialogue</div>
+                <div style={{ fontSize: 10, color: co.muted, marginTop: 3 }}>Used when generating Audio Novel exports for this character's dialogue — pick a voice matching whichever provider is selected in Settings (unrecognized picks fall back to the narrator voice)</div>
               </div>
             )}
             {mi === 0 && isStoryFormat(project.format) && (

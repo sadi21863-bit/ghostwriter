@@ -15,6 +15,7 @@ type Settings = {
   segmindKeySet: boolean; segmindKeyLast4: string;
   openaiKeySet: boolean; openaiKeyLast4: string;
   imageProviderId: string;
+  ttsProviderId: string;
   trendIntelligenceKeySet: boolean; trendIntelligenceKeyLast4: string;
 };
 
@@ -42,9 +43,13 @@ export default function SettingsPage() {
   const [segmindApiKey, setSegmindApiKey] = useState("");
   const [openaiApiKey, setOpenaiApiKey] = useState("");
   const [trendKey, setTrendKey] = useState("");
+  const [ttsProviderId, setTtsProviderId] = useState("openai");
 
   useEffect(() => {
-    fetch("/api/user/settings").then(r => r.json()).then(setSettings);
+    fetch("/api/user/settings").then(r => r.json()).then(s => {
+      setSettings(s);
+      setTtsProviderId(s.ttsProviderId || "openai");
+    });
     fetch("/api/subscription").then(r => r.json()).then(setSubscription);
     fetch("/api/user/referrals").then(r => r.ok ? r.json() : { referrals: [], user: null }).then(data => {
       if (data.referrals) setReferrals(data.referrals);
@@ -60,6 +65,7 @@ export default function SettingsPage() {
     if (segmindApiKey)       body.segmindApiKey       = segmindApiKey;
     if (openaiApiKey)        body.openaiApiKey        = openaiApiKey;
     if (trendKey)            body.trendIntelligenceKey = trendKey;
+    if (ttsProviderId !== (settings?.ttsProviderId || "openai")) body.ttsProviderId = ttsProviderId;
     await fetch("/api/user/settings", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -173,7 +179,8 @@ export default function SettingsPage() {
     </div>
   );
 
-  const hasChanges = !!(higgsfieldApiKey || higgsfieldApiSecret || segmindApiKey || openaiApiKey || trendKey);
+  const hasChanges = !!(higgsfieldApiKey || higgsfieldApiSecret || segmindApiKey || openaiApiKey || trendKey
+    || ttsProviderId !== (settings?.ttsProviderId || "openai"));
 
   return (
     <>
@@ -353,9 +360,31 @@ export default function SettingsPage() {
       </section>
 
       <section style={{ marginBottom: 40 }}>
-        <h2 style={{ fontSize: 16, fontWeight: 500, marginBottom: 20, color: "var(--color-text-secondary)" }}>
-          OpenAI (Audio Novel)
+        <h2 style={{ fontSize: 16, fontWeight: 500, marginBottom: 4, color: "var(--color-text-secondary)" }}>
+          Audio Novel narration
         </h2>
+        <p style={{ fontSize: 12, color: "var(--color-text-muted)", marginBottom: 12 }}>
+          Choose which provider generates Audio Novel narration. OpenAI is more established and slightly cheaper per character; Segmind uses the same key you already added above — no second API key needed.
+        </p>
+        <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
+          {([
+            { id: "openai", label: "OpenAI TTS-1", note: "$0.015/1K chars · needs OpenAI key" },
+            { id: "segmind_grok", label: "Segmind (Grok TTS)", note: "$0.01875/1K chars · uses Segmind key" },
+          ] as const).map(p => (
+            <button
+              key={p.id}
+              onClick={() => setTtsProviderId(p.id)}
+              style={{
+                flex: 1, padding: '10px 14px', borderRadius: 8, textAlign: 'left', cursor: 'pointer',
+                border: ttsProviderId === p.id ? '2px solid var(--color-accent)' : '1px solid var(--color-border-default)',
+                background: ttsProviderId === p.id ? 'var(--color-bg-elevated)' : 'transparent',
+              }}
+            >
+              <div style={{ fontSize: 13, fontWeight: 600, color: "var(--color-text-primary)" }}>{p.label}</div>
+              <div style={{ fontSize: 11, color: "var(--color-text-muted)", marginTop: 2 }}>{p.note}</div>
+            </button>
+          ))}
+        </div>
         <Field label="OpenAI API Key" isSet={settings?.openaiKeySet ?? false} last4={settings?.openaiKeyLast4 ?? ""}
           value={openaiApiKey} onChange={setOpenaiApiKey} placeholder="sk-..." />
       </section>

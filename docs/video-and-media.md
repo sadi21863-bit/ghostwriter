@@ -155,14 +155,27 @@ Both POST routes check `mediaUrl` in the result first: if present (v1 synchronou
 
 ---
 
-## Audio Generation (OpenAI, not Segmind/Higgsfield)
+## Audio Generation (OpenAI or Segmind — user-selectable as of 2026-07-07)
 
 ```
-POST /api/audio/generate   { projectId, chapterId } → OpenAI tts-1, stores audioExports.audioUrl
+POST /api/audio/generate   { projectId, chapterId } → provider.generate(), stores audioExports.audioUrl
 POST /api/audio/lipsync    { audioExportId, characterId, projectId } → generateLipsync() → audioExports.lipsyncVideoUrl
 ```
 
-TTS confirmed solid for any chapter length (used `users.openaiApiKey` if set, else `OPENAI_API_KEY` env fallback — this is the one feature in this doc with an env fallback, since it's OpenAI not Segmind). Splits chapter content into narration/dialogue segments (`parseChapterIntoSegments`), assigning each character's `voiceId` if set, else the narrator voice (`fable`).
+Audio Novel narration now has two interchangeable providers behind `src/lib/audio/{providers,registry}.ts` (mirrors the image-provider abstraction in `src/lib/media/`), selected per-user via `users.ttsProviderId` (default `"openai"`, settings-page toggle at "Audio Novel narration"):
+
+| | OpenAI TTS-1 (`adapters/openai-tts.ts`) | Segmind Grok TTS (`adapters/segmind-grok-tts.ts`) |
+|---|---|---|
+| Cost | $0.015/1K chars | $0.01875/1K chars (~25% more) |
+| Voices | 6: alloy/echo/fable/onyx/nova/shimmer | 5: ara/eve/leo/rex/sal |
+| API key | Needs its own OpenAI key (`users.openaiApiKey`, env fallback — the one feature in this doc with an env fallback) | Reuses the same Segmind key already used for images/video/lipsync — no second key |
+| Maturity | Proven, no known issues | Newer model (xAI), no track record in this app yet |
+
+Neither is a strict win — Grok TTS costs more and has one fewer voice, but removes the second-API-key requirement; shipped as a user choice rather than a replacement. Grok TTS's real contract (scraped live from `segmind.com/models/grok-tts/api`, not guessed): `POST https://api.segmind.com/v1/grok-tts`, body `{text, voice_id, language, codec, speed}`, synchronous — returns raw audio bytes directly (`Content-Type: audio/*`) for a normal-length segment, or a JSON error body on failure. `text` is capped at 15,000 characters (well above what any single narration/dialogue segment needs).
+
+Both providers split chapter content into narration/dialogue segments via `parseChapterIntoSegments` (`src/lib/audio/segment-chapter.ts`), assigning each character's `voiceId` if it's valid for the currently-active provider, else that provider's own default narrator voice (`isValidVoiceForProvider()` — handles the case where a character's voice was assigned under the *other* provider, e.g. an OpenAI voice name while the account is now on Segmind Grok TTS, without sending an invalid `voice_id` to the API). The `WorldBiblePanel` voice picker shows both providers' voices in one `<select>`, grouped by `<optgroup>`, so a user can pre-assign voices for either provider regardless of which is currently active.
+
+TTS confirmed solid for any chapter length on the OpenAI path (unchanged from before this refactor). Grok TTS has not yet been validated against a real Segmind call — the request/response contract above is scraped from live docs, not exercised end-to-end.
 
 ---
 

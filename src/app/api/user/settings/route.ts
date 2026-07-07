@@ -22,6 +22,7 @@ export async function GET() {
     openaiKeySet:              (user.openaiApiKey || "").length > 0,
     openaiKeyLast4:            keyLast4(user.openaiApiKey || ""),
     imageProviderId:           user.imageProviderId || "segmind_soul",
+    ttsProviderId:             user.ttsProviderId || "openai",
     trendIntelligenceKeySet:   (user.trendIntelligenceKey || "").length > 0,
     trendIntelligenceKeyLast4: keyLast4(user.trendIntelligenceKey || ""),
   });
@@ -29,7 +30,7 @@ export async function GET() {
 
 export async function PATCH(req: Request) {
   const s = await getRequiredSession();
-  const { higgsfieldApiKey, higgsfieldApiSecret, segmindApiKey, openaiApiKey, imageProviderId, trendIntelligenceKey } = await req.json();
+  const { higgsfieldApiKey, higgsfieldApiSecret, segmindApiKey, openaiApiKey, imageProviderId, ttsProviderId, trendIntelligenceKey } = await req.json();
 
   const update: Record<string, string | Date> = {};
   if (higgsfieldApiKey     !== undefined) update.higgsfieldApiKey     = encrypt(higgsfieldApiKey);
@@ -38,6 +39,7 @@ export async function PATCH(req: Request) {
   if (openaiApiKey         !== undefined) update.openaiApiKey         = encrypt(openaiApiKey);
   if (trendIntelligenceKey !== undefined) update.trendIntelligenceKey = encrypt(trendIntelligenceKey);
   if (imageProviderId      !== undefined) update.imageProviderId      = imageProviderId;
+  if (ttsProviderId        !== undefined) update.ttsProviderId        = ttsProviderId;
   update.updatedAt = new Date();
 
   await db.update(users).set(update).where(eq(users.id, s.user.id));

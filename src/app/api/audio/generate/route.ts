@@ -7,9 +7,13 @@ export const dynamic = 'force-dynamic';
 export const maxDuration = 300;
 
 // src/app/api/audio/generate/route.ts
-// Converts a chapter to audio using OpenAI TTS.
-// Characters speak in their assigned voices; narration uses the narrator voice.
-// Cost: OpenAI TTS-1 at $15/1M chars ≈ ₹1.25/1K chars.
+// Converts a chapter to audio. Provider is user-selectable (users.ttsProviderId,
+// default "openai") — OpenAI TTS-1 ($0.015/1K chars, proven, needs its own key)
+// or Segmind's Grok TTS ($0.01875/1K chars, uses the same Segmind key already
+// used for images/video/lipsync, no second key needed). See
+// src/lib/audio/{providers,registry,adapters}.ts.
+// Characters speak in their assigned voices; narration uses the provider's
+// default/narrator voice.
 
 import { NextResponse } from "next/server";
 import { getRequiredSession } from "@/lib/auth-helpers";
@@ -18,10 +22,17 @@ import { getUserTier } from "@/lib/subscription";
 import { db } from "@/db";
 import { projects, chapters, characters, audioExports, users } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
+import { put } from "@vercel/blob";
 import { decrypt } from "@/lib/crypto";
-import OpenAI from "openai";
+import { getTTSProvider } from "@/lib/audio/registry";
+import { parseChapterIntoSegments } from "@/lib/audio/segment-chapter";
 
-const NARRATOR_VOICE = "fable";
+// USD/char rates, converted at the same ~83.33 INR/USD ratio the original
+// OpenAI-only estimate used (0.00125 INR/char == $0.015/1K chars * 83.33).
+const COST_INR_PER_CHAR: Record<string, number> = {
+  openai: 0.00125,        // $0.015/1K chars
+  segmind_grok: 0.0015625, // $0.01875/1K chars
+};
 
 export async function POST(req: Request) {
   const session = await getRequiredSession();
@@ -57,38 +68,34 @@ export async function POST(req: Request) {
   });
 
   const user = await db.query.users.findFirst({ where: eq(users.id, session.user.id) });
-  const openaiKey = user?.openaiApiKey
-    ? decrypt(user.openaiApiKey)
-    : process.env.OPENAI_API_KEY;
+  const provider = getTTSProvider(user?.ttsProviderId || "openai");
 
-  if (!openaiKey) {
+  const apiKey = provider.id === "segmind_grok"
+    ? decrypt(user?.segmindApiKey ?? "")
+    : (user?.openaiApiKey ? decrypt(user.openaiApiKey) : process.env.OPENAI_API_KEY);
+
+  if (!apiKey) {
+    const keyName = provider.id === "segmind_grok" ? "Segmind" : "OpenAI";
     return NextResponse.json({
-      error: "OpenAI API key required for Audio Novel. Add your key in Settings.",
+      error: `${keyName} API key required for Audio Novel. Add your key in Settings.`,
     }, { status: 400 });
   }
 
-  const openai = new OpenAI({ apiKey: openaiKey });
-
+  const costPerChar = COST_INR_PER_CHAR[provider.id] ?? COST_INR_PER_CHAR.openai;
   const [exportRecord] = await db.insert(audioExports).values({
     projectId,
     chapterId,
     status: "processing",
-    estimatedCost: `₹${Math.round(chapter.content.length * 0.00125)}`,
+    estimatedCost: `₹${Math.round(chapter.content.length * costPerChar)}`,
   }).returning();
 
-  const segments = parseChapterIntoSegments(chapter.content, projectChars);
+  const segments = parseChapterIntoSegments(chapter.content, projectChars, provider);
 
   const audioBuffers: Buffer[] = [];
 
   for (const segment of segments) {
     try {
-      const response = await openai.audio.speech.create({
-        model: "tts-1",
-        voice: segment.voice as "alloy" | "echo" | "fable" | "onyx" | "nova" | "shimmer",
-        input: segment.text,
-        speed: 1.0,
-      });
-      const buffer = Buffer.from(await response.arrayBuffer());
+      const buffer = await provider.generate({ text: segment.text, voiceId: segment.voice, speed: 1.0 }, apiKey);
       audioBuffers.push(buffer);
     } catch (err: any) {
       await db.update(audioExports)
@@ -101,7 +108,6 @@ export async function POST(req: Request) {
 
   const combinedAudio = Buffer.concat(audioBuffers);
 
-  const { put } = await import("@vercel/blob");
   const filename = `audio/${projectId}/${chapterId}-${Date.now()}.mp3`;
   const blob = await put(filename, combinedAudio, {
     access: "public",
@@ -126,65 +132,4 @@ export async function POST(req: Request) {
     exportId: exportRecord.id,
     segments: segments.length,
   });
-}
-
-// ── Dialogue parsing ──────────────────────────────────────────────────────────
-
-interface Segment {
-  text: string;
-  voice: string;
-  type: "narration" | "dialogue";
-  characterName?: string;
-}
-
-function parseChapterIntoSegments(
-  content: string,
-  chars: Array<{ name: string; voiceId: string | null }>
-): Segment[] {
-  const segments: Segment[] = [];
-  const parts = content.split(/("(?:[^"\\]|\\.)*")/g);
-
-  for (let i = 0; i < parts.length; i++) {
-    const part = parts[i];
-    if (!part.trim()) continue;
-
-    if (part.startsWith('"') && part.endsWith('"')) {
-      const precedingText = parts[i - 1] || "";
-      const followingText = parts[i + 1] || "";
-      const speaker = findSpeaker(precedingText, followingText, chars);
-      const voice = speaker?.voiceId || NARRATOR_VOICE;
-
-      segments.push({
-        text: part.slice(1, -1),
-        voice,
-        type: "dialogue",
-        characterName: speaker?.name,
-      });
-    } else {
-      const trimmed = part.trim();
-      if (trimmed) {
-        segments.push({
-          text: trimmed,
-          voice: NARRATOR_VOICE,
-          type: "narration",
-        });
-      }
-    }
-  }
-
-  return segments;
-}
-
-function findSpeaker(
-  before: string,
-  after: string,
-  chars: Array<{ name: string; voiceId: string | null }>
-): { name: string; voiceId: string } | null {
-  const context = (before + " " + after).toLowerCase();
-  for (const char of chars) {
-    if (char.voiceId && context.includes(char.name.toLowerCase())) {
-      return { name: char.name, voiceId: char.voiceId };
-    }
-  }
-  return null;
 }
