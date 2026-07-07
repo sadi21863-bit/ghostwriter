@@ -11,8 +11,10 @@ import { getUserTier } from "@/lib/subscription";
 import { db } from "@/db";
 import { audioExports, characters, users } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
-import { generateLipsync, pollJob } from "@/lib/higgsfield/client";
+import { generateLipsync } from "@/lib/higgsfield/client";
 import { decrypt } from "@/lib/crypto";
+import { scheduleCallback } from "@/lib/queue/qstash";
+import { pollAndUpdateLipsync } from "@/lib/audio/poll-lipsync";
 
 export async function POST(req: Request) {
   const session = await getRequiredSession();
@@ -64,9 +66,23 @@ export async function POST(req: Request) {
     return NextResponse.json({ status: "completed", videoUrl: mediaUrl });
   }
 
+  // Stored as "requestId|pollingUrl" (same convention as productionShots.
+  // higgsfieldJobId) so the poll side reuses the real URL generateLipsync
+  // returned instead of guessing the endpoint shape.
   await db.update(audioExports)
-    .set({ lipsyncJobId: requestId, lipsyncStatus: "processing" })
+    .set({ lipsyncJobId: `${requestId}|${pollingUrl}`, lipsyncStatus: "processing" })
     .where(eq(audioExports.id, audioExportId));
+
+  // Server-scheduled poll (see src/lib/queue/qstash.ts) — keeps the job
+  // progressing even if the user closes the tab, same pattern as production
+  // shot video generation. A no-op when QSTASH_TOKEN isn't set: the existing
+  // client-driven GET polling below is completely unaffected either way.
+  const origin = new URL(req.url).origin;
+  await scheduleCallback({
+    url: `${origin}/api/queue/segmind-lipsync-poll`,
+    body: { userId: session.user.id, audioExportId, attempt: 0 },
+    delaySeconds: 15,
+  });
 
   return NextResponse.json({ requestId, pollingUrl, status: "processing" });
 }
@@ -92,18 +108,12 @@ export async function GET(req: Request) {
   const user = await db.query.users.findFirst({ where: eq(users.id, session.user.id) });
   const apiKey = decrypt(user?.segmindApiKey ?? "");
 
-  const result = await pollJob({ apiKey, pollingUrl: `https://api.segmind.com/v1/requests/${audioExport.lipsyncJobId}` });
+  const result = await pollAndUpdateLipsync({ audioExportId, segmindApiKey: apiKey });
 
-  if (result.status === "COMPLETED" && result.mediaUrl) {
-    await db.update(audioExports)
-      .set({ lipsyncVideoUrl: result.mediaUrl, lipsyncStatus: "completed" })
-      .where(eq(audioExports.id, audioExportId));
-    return NextResponse.json({ status: "completed", videoUrl: result.mediaUrl });
+  if (result.outcome === "completed") {
+    return NextResponse.json({ status: "completed", videoUrl: result.videoUrl });
   }
-  if (result.status === "FAILED" || result.status === "ERROR") {
-    await db.update(audioExports)
-      .set({ lipsyncStatus: "failed" })
-      .where(eq(audioExports.id, audioExportId));
+  if (result.outcome === "failed") {
     return NextResponse.json({ status: "failed" });
   }
 
