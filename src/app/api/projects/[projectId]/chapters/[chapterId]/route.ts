@@ -6,6 +6,7 @@ import { db } from "@/db";
 import { chapters, projects } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { tiptapToPlainText, isValidTipTapJson } from "@/lib/editor/content-migration";
+import { updateChapterEmbedding } from "@/lib/ai/author-voice";
 
 type Ctx = { params: Promise<{ projectId: string; chapterId: string }> };
 
@@ -25,6 +26,11 @@ export async function PATCH(req: Request, { params }: Ctx) {
   const [u] = await db.update(chapters).set({ ...b, updatedAt: new Date() })
     .where(and(eq(chapters.id, chapterId), eq(chapters.projectId, projectId)))
     .returning();
+  if (!u) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  // Only fires once the scoped update above confirms chapterId truly belongs
+  // to this project — never fire on attacker-supplied chapterId/projectId
+  // combos that didn't actually match a row (fire-and-forget, never blocks the save).
+  if (b.content !== undefined) updateChapterEmbedding(chapterId, b.content);
   return NextResponse.json(u);
 }
 

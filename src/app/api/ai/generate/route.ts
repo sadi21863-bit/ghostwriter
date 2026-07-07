@@ -20,6 +20,7 @@ import { FLAGS } from "@/lib/growthbook";
 import { buildSceneBlueprint } from "@/lib/ai/scene-blueprint";
 import { buildPromiseLedger } from "@/lib/ai/promise-ledger";
 import { buildVoiceExemplars } from "@/lib/ai/exemplars";
+import { buildAuthorVoiceExemplars } from "@/lib/ai/author-voice";
 
 const VIOLATION_PATTERNS: Record<string, {
   detect: (prompt: string) => boolean;
@@ -334,11 +335,12 @@ Do NOT write the scene — just provide the accurate factual grounding.`,
     // the panel found its "wins" were length-driven and it actively hurts
     // tone-driven modes (horror/atmosphere/comedy). All three remain fail-open —
     // a failure in any one never blocks or alters base generation.
-    let blueprint = '', promiseLedger = '', voiceExemplars = '';
+    let blueprint = '', promiseLedger = '', voiceExemplars = '', authorVoiceExemplars = '';
     if (isProseMode(mode) && projectId && tier !== 'free') {
-      [promiseLedger, voiceExemplars] = await Promise.all([
+      [promiseLedger, voiceExemplars, authorVoiceExemplars] = await Promise.all([
         buildPromiseLedger(projectId),
         buildVoiceExemplars(session.user.id, effectivePrompt),
+        buildAuthorVoiceExemplars(projectId, chapterId, effectivePrompt),
       ]);
 
       const blueprintOn = await isFeatureOnServer(FLAGS.sceneBlueprint, session.user.id, tier);
@@ -346,7 +348,7 @@ Do NOT write the scene — just provide the accurate factual grounding.`,
         blueprint = await buildSceneBlueprint({ prompt: effectivePrompt, staticContext: effectiveStatic ?? undefined, dynamicContext: effectiveDynamic, format });
       }
     }
-    const finalDynamic = [effectiveDynamic, promiseLedger, voiceExemplars, blueprint].filter(Boolean).join('\n\n') || undefined;
+    const finalDynamic = [effectiveDynamic, promiseLedger, voiceExemplars, authorVoiceExemplars, blueprint].filter(Boolean).join('\n\n') || undefined;
 
     // Streaming path: emit text deltas live, then persist the generation record
     // on completion. Reuses the exact same finalDynamic (and therefore the same
