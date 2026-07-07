@@ -43,9 +43,14 @@ vi.mock("@/lib/growthbook-server", () => ({
 const buildSceneBlueprint = vi.fn();
 const buildPromiseLedger = vi.fn();
 const buildVoiceExemplars = vi.fn();
+const groundInWebResearch = vi.fn();
 vi.mock("@/lib/ai/scene-blueprint", () => ({ buildSceneBlueprint: (...args: any[]) => buildSceneBlueprint(...args) }));
 vi.mock("@/lib/ai/promise-ledger", () => ({ buildPromiseLedger: (...args: any[]) => buildPromiseLedger(...args) }));
 vi.mock("@/lib/ai/exemplars", () => ({ buildVoiceExemplars: (...args: any[]) => buildVoiceExemplars(...args) }));
+vi.mock("@/lib/ai/web-research", () => ({
+  groundInWebResearch: (...args: any[]) => groundInWebResearch(...args),
+  isGroundableMode: (mode: string) => mode === "historical" || mode === "scitech",
+}));
 
 const findFirstProjects = vi.fn();
 const findManySeriesBibles = vi.fn();
@@ -76,6 +81,7 @@ describe("POST /api/ai/generate — split prose-augmentation gating", () => {
     buildSceneBlueprint.mockResolvedValue("BLUEPRINT TEXT");
     buildPromiseLedger.mockResolvedValue("PROMISE LEDGER TEXT");
     buildVoiceExemplars.mockResolvedValue("VOICE EXEMPLARS TEXT");
+    groundInWebResearch.mockResolvedValue("");
   });
 
   it("default state (sceneBlueprint flag OFF): free helpers run, blueprint does not", async () => {
@@ -161,5 +167,41 @@ describe("POST /api/ai/generate — split prose-augmentation gating", () => {
     expect(buildSceneBlueprint).not.toHaveBeenCalled();
     expect(buildPromiseLedger).toHaveBeenCalledTimes(1);
     expect(buildVoiceExemplars).toHaveBeenCalledTimes(1);
+  });
+
+  it("calls groundInWebResearch when groundInResearch is true and mode is groundable", async () => {
+    vi.mocked(getUserTier).mockResolvedValue("story_pro" as any);
+    isFeatureOnServer.mockResolvedValue(false);
+    groundInWebResearch.mockResolvedValue("REAL-WORLD GROUNDING TEXT");
+
+    await POST(makeRequest({
+      mode: "historical", prompt: "Write the next scene.", projectId: "proj-1", format: "Novel",
+      groundInResearch: true,
+    }));
+
+    expect(groundInWebResearch).toHaveBeenCalledWith("historical", expect.any(String));
+    const callArgs: any = generate.mock.calls[0]?.[0];
+    expect(callArgs.dynamicContext).toContain("REAL-WORLD GROUNDING TEXT");
+  });
+
+  it("does not call groundInWebResearch when groundInResearch is falsy, even for a groundable mode", async () => {
+    vi.mocked(getUserTier).mockResolvedValue("story_pro" as any);
+    isFeatureOnServer.mockResolvedValue(false);
+
+    await POST(makeRequest({ mode: "historical", prompt: "Write the next scene.", projectId: "proj-1", format: "Novel" }));
+
+    expect(groundInWebResearch).not.toHaveBeenCalled();
+  });
+
+  it("does not call groundInWebResearch for a non-groundable mode even when groundInResearch is true", async () => {
+    vi.mocked(getUserTier).mockResolvedValue("story_pro" as any);
+    isFeatureOnServer.mockResolvedValue(false);
+
+    await POST(makeRequest({
+      mode: "write", prompt: "Write the next scene.", projectId: "proj-1", format: "Novel",
+      groundInResearch: true,
+    }));
+
+    expect(groundInWebResearch).not.toHaveBeenCalled();
   });
 });

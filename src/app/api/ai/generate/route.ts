@@ -21,6 +21,7 @@ import { buildSceneBlueprint } from "@/lib/ai/scene-blueprint";
 import { buildPromiseLedger } from "@/lib/ai/promise-ledger";
 import { buildVoiceExemplars } from "@/lib/ai/exemplars";
 import { buildAuthorVoiceExemplars } from "@/lib/ai/author-voice";
+import { groundInWebResearch, isGroundableMode } from "@/lib/ai/web-research";
 
 const VIOLATION_PATTERNS: Record<string, {
   detect: (prompt: string) => boolean;
@@ -196,7 +197,7 @@ export async function POST(req: Request) {
   const rl = await checkAiRateLimit(session.user.id);
   if (rl) return rl;
 
-  const { mode, prompt, context, staticContext, dynamicContext, format, projectId, chapterId, bypassViolationCheck, narrativeStructure, additionalContext, skipBlueprint, stream } = await req.json();
+  const { mode, prompt, context, staticContext, dynamicContext, format, projectId, chapterId, bypassViolationCheck, narrativeStructure, additionalContext, skipBlueprint, stream, groundInResearch } = await req.json();
 
   if (!prompt?.trim()) return NextResponse.json({ error: "Prompt is required" }, { status: 400 });
   if (!mode) return NextResponse.json({ error: "Mode is required" }, { status: 400 });
@@ -335,7 +336,7 @@ Do NOT write the scene — just provide the accurate factual grounding.`,
     // the panel found its "wins" were length-driven and it actively hurts
     // tone-driven modes (horror/atmosphere/comedy). All three remain fail-open —
     // a failure in any one never blocks or alters base generation.
-    let blueprint = '', promiseLedger = '', voiceExemplars = '', authorVoiceExemplars = '';
+    let blueprint = '', promiseLedger = '', voiceExemplars = '', authorVoiceExemplars = '', webResearch = '';
     if (isProseMode(mode) && projectId && tier !== 'free') {
       [promiseLedger, voiceExemplars, authorVoiceExemplars] = await Promise.all([
         buildPromiseLedger(projectId),
@@ -343,12 +344,20 @@ Do NOT write the scene — just provide the accurate factual grounding.`,
         buildAuthorVoiceExemplars(projectId, chapterId, effectivePrompt),
       ]);
 
+      // Real web-search grounding for historical/scitech -- unlike combat/emotional/
+      // tension/atmosphere, these two modes have no synthetic craft library, only the
+      // model's training-data recall. Strictly opt-in (groundInResearch must be
+      // explicitly true) since it adds a real extra Claude call on top of generation.
+      if (groundInResearch && isGroundableMode(mode)) {
+        webResearch = await groundInWebResearch(mode, effectivePrompt);
+      }
+
       const blueprintOn = await isFeatureOnServer(FLAGS.sceneBlueprint, session.user.id, tier);
       if (blueprintOn && !skipBlueprint) {
         blueprint = await buildSceneBlueprint({ prompt: effectivePrompt, staticContext: effectiveStatic ?? undefined, dynamicContext: effectiveDynamic, format });
       }
     }
-    const finalDynamic = [effectiveDynamic, promiseLedger, voiceExemplars, authorVoiceExemplars, blueprint].filter(Boolean).join('\n\n') || undefined;
+    const finalDynamic = [effectiveDynamic, promiseLedger, voiceExemplars, authorVoiceExemplars, webResearch, blueprint].filter(Boolean).join('\n\n') || undefined;
 
     // Streaming path: emit text deltas live, then persist the generation record
     // on completion. Reuses the exact same finalDynamic (and therefore the same
