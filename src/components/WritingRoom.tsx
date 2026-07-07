@@ -13,6 +13,7 @@ import StageRoleRail from "@/components/StageRoleRail";
 import { MODE_REGISTRY, type GenerationMode } from "@/lib/modes/registry";
 import { getVisibleModes, filterModesByQuery } from "@/lib/modes/slash-menu";
 import { LIBRARY_MODES, classifyBeat } from "@/lib/modes/classify";
+import { suggestComposition } from "@/lib/ai/composition-recommender";
 import BeatDetectionChip from "@/components/BeatDetectionChip";
 import CraftDepthChip from "@/components/CraftDepthChip";
 import { AudioNovelPanel } from "@/components/AudioNovelPanel";
@@ -185,8 +186,18 @@ export default function WritingRoom({
     [stage, slashQuery, prompt, libraryCandidates]
   );
 
+  // Detects when 2+ technique-library layers (combat/emotional/tension/atmosphere) are
+  // simultaneously present in the beat, unlike classifyBeat above which only ever picks
+  // one mode. Only offered when the format actually exposes Composition mode. Takes
+  // priority over the single-mode chip below when both would fire — a richer signal.
+  const [dismissedComposition, setDismissedComposition] = useState(false);
+  const detectedComposition = useMemo(
+    () => (stage === "draft" && slashQuery === null && visibleModes.includes("composition") ? suggestComposition(prompt) : null),
+    [stage, slashQuery, prompt, visibleModes]
+  );
+
   useEffect(() => {
-    if (!prompt.trim()) setDismissedDetection(null);
+    if (!prompt.trim()) { setDismissedDetection(null); setDismissedComposition(false); }
   }, [prompt]);
 
   const handleSelect = (m: GenerationMode) => {
@@ -437,7 +448,25 @@ export default function WritingRoom({
             onDismiss={onClearInfluence ?? (() => {})}
           />
         )}
-        {detectedMode && detectedMode !== dismissedDetection && (
+        {detectedComposition && !dismissedComposition ? (
+          <div style={{
+            display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12,
+            background: co.accentBg, border: `1px solid ${co.border}`, borderRadius: 8,
+            padding: "6px 12px", fontSize: 12,
+          }}>
+            <span style={{ color: co.text }}>{detectedComposition.reason}</span>
+            <div style={{ display: "flex", gap: 6, alignItems: "center", flexShrink: 0 }}>
+              <button style={sBtn} onClick={() => onSelectMode("composition")}>Open Composition</button>
+              <button
+                style={{ ...sBtnSm, background: "transparent", border: "none", fontSize: 14, padding: "0 4px" }}
+                onClick={() => setDismissedComposition(true)}
+                aria-label="Dismiss suggestion"
+              >
+                ×
+              </button>
+            </div>
+          </div>
+        ) : detectedMode && detectedMode !== dismissedDetection && (
           <BeatDetectionChip
             mode={detectedMode}
             onApply={() => onSelectMode(detectedMode)}
