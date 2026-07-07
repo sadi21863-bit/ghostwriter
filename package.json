@@ -21,6 +21,7 @@
     "@anthropic-ai/sdk": "^0.100.1",
     "@auth/drizzle-adapter": "^1.11.2",
     "@google/genai": "^2.8.0",
+    "@growthbook/growthbook": "^1.6.5",
     "@growthbook/growthbook-react": "^1.6.5",
     "@neondatabase/serverless": "^1.1.0",
     "@tiptap/extension-character-count": "^3.26.0",

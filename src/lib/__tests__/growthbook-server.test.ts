@@ -3,7 +3,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 const loadFeatures = vi.fn();
 const setAttributes = vi.fn();
 const isOn = vi.fn();
-vi.mock("@growthbook/growthbook-react", () => ({
+vi.mock("@growthbook/growthbook", () => ({
   GrowthBook: vi.fn().mockImplementation(function () {
     return {
       loadFeatures: (...args: any[]) => loadFeatures(...args),

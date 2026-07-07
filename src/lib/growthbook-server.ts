@@ -1,4 +1,8 @@
-import { GrowthBook } from "@growthbook/growthbook-react";
+// Core SDK, NOT growthbook-react -- the React package's GrowthBook export pulls
+// in React.createContext at module-load time, which crashes any server-only
+// module (like this one) that imports it outside a Client Component. This file
+// never touches React; it only needs the isomorphic evaluation engine.
+import { GrowthBook } from "@growthbook/growthbook";
 
 // Server-side GrowthBook evaluation — first use of this pattern in the codebase.
 // Every other flag (homeRedesign, streaming, etc.) is only ever checked

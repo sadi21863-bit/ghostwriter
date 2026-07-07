@@ -1,17 +1,11 @@
-import { GrowthBook } from "@growthbook/growthbook-react";
-
-export function createGrowthBook(userId: string, tier: string) {
-  const gb = new GrowthBook({
-    apiHost: process.env.NEXT_PUBLIC_GROWTHBOOK_API_HOST ?? "https://cdn.growthbook.io",
-    clientKey: process.env.NEXT_PUBLIC_GROWTHBOOK_CLIENT_KEY ?? "",
-    attributes: { id: userId, tier },
-    trackingCallback: (experiment, result) => {
-      console.log("Experiment:", experiment.key, "Variant:", result.variationId);
-    },
-  });
-  return gb;
-}
-
+// Pure flag-key constants, deliberately zero SDK dependency -- this file is
+// imported by both client components (WritingRoom.tsx, dashboard/page.tsx)
+// and the server-only /api/ai/generate route. It previously also exported
+// createGrowthBook() (unused everywhere, confirmed by grep), which imported
+// GrowthBook from @growthbook/growthbook-react at module scope -- that pulls
+// in React.createContext even for callers who only wanted FLAGS, which
+// crashed the server route ("createContext only works in Client Components").
+// Removed rather than fixed in place, since it had zero real callers.
 export const FLAGS = {
   craftLibrary:        "craft_library",
   constellationView:   "constellation_view",
