@@ -5,7 +5,9 @@ import { getRequiredSession } from "@/lib/auth-helpers";
 import { bootstrapCharacterIntelligence } from "@/lib/ai/engine";
 import { db } from "@/db";
 import { characters, projects } from "@/db/schema";
-import { eq, and } from "drizzle-orm";
+import { eq, and, ne, isNotNull } from "drizzle-orm";
+import { generateEmbedding } from "@/lib/ai/embeddings";
+import { buildCharacterEmbeddingText, findSimilarEntities } from "@/lib/world-bible/duplicate-detection";
 export async function POST(req: Request, { params }: { params: Promise<{ projectId: string }> }){
   const session = await getRequiredSession();
   const { projectId } = await params;
@@ -15,10 +17,22 @@ export async function POST(req: Request, { params }: { params: Promise<{ project
   const { name, role, age, appearance, personality, thinkingStyle, behavior, habits, fears, desires,
     speechPattern, backstory, arc, alwaysInContext, sortOrder, contextVisibility } = body;
   if (!name || typeof name !== "string") return NextResponse.json({ error: "name is required" }, { status: 400 });
+
+  const embedding = await generateEmbedding(buildCharacterEmbeddingText({ name, role, appearance, personality, backstory })).catch(() => null);
+
   const [r] = await db.insert(characters).values({
     projectId, name, role, age, appearance, personality, thinkingStyle, behavior, habits, fears,
-    desires, speechPattern, backstory, arc, alwaysInContext, sortOrder, contextVisibility,
+    desires, speechPattern, backstory, arc, alwaysInContext, sortOrder, contextVisibility, embedding,
   }).returning();
+
+  let similarEntities: ReturnType<typeof findSimilarEntities> = [];
+  if (r && embedding) {
+    const others = await db.query.characters.findMany({
+      where: and(eq(characters.projectId, projectId), ne(characters.id, r.id), isNotNull(characters.embedding)),
+      columns: { id: true, name: true, embedding: true },
+    });
+    similarEntities = findSimilarEntities(embedding, others);
+  }
 
   if (r) {
     bootstrapCharacterIntelligence(
@@ -33,5 +47,5 @@ export async function POST(req: Request, { params }: { params: Promise<{ project
       .catch((err) => console.error("[bootstrap] Failed for", r.name, err));
   }
 
-  return NextResponse.json(r, { status: 201 });
+  return NextResponse.json({ ...r, similarEntities }, { status: 201 });
 }

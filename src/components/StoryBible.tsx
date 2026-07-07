@@ -297,6 +297,9 @@ export default function StoryBible({ project, updateProject, open, onClose, onOp
       });
       if (!res.ok) { toast.error("Couldn't add element — try again"); return; }
       const created = await res.json();
+      if (created.similarEntities?.length) {
+        toast.warning(`This looks similar to an existing element: ${created.similarEntities.map((m: any) => m.name).join(", ")}. Created anyway — check for a duplicate.`);
+      }
       updateProject((p: any) => ({ ...p, worldEntities: [...(p.worldEntities || []), created] }));
     } finally {
       setAdding(false);

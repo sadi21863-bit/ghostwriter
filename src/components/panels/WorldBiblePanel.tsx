@@ -267,6 +267,9 @@ export default function WorldBiblePanel(props: Props) {
     } else {
       const res = await fetch(`/api/projects/${project.id}/characters`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(newChar) });
       const created = await res.json();
+      if (created.similarEntities?.length) {
+        toast.warning(`This looks similar to an existing character: ${created.similarEntities.map((m: any) => m.name).join(", ")}. Created anyway — check for a duplicate.`);
+      }
       updateProject((p: any) => ({ ...p, characters: [...p.characters, created] }));
     }
     setShowCharModal(false);
@@ -285,6 +288,9 @@ export default function WorldBiblePanel(props: Props) {
     } else {
       const res = await fetch(`/api/projects/${project.id}/locations`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(newLoc) });
       const created = await res.json();
+      if (created.similarEntities?.length) {
+        toast.warning(`This looks similar to an existing location: ${created.similarEntities.map((m: any) => m.name).join(", ")}. Created anyway — check for a duplicate.`);
+      }
       updateProject((p: any) => ({ ...p, locations: [...p.locations, created] }));
     }
     setShowLocModal(false);

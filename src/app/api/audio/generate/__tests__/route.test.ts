@@ -87,7 +87,7 @@ describe("POST /api/audio/generate — provider selection", () => {
     expect(mocks.getTTSProvider).toHaveBeenCalledWith("openai");
     expect(provider.generate).toHaveBeenCalledWith(expect.anything(), "real-openai");
     expect(res.status).toBe(200);
-  });
+  }, 20000); // per-test dynamic `import("../route")` + full-suite thread contention observed exceeding the 5s default (same class as preview-all/composite-panel's known-slow-under-load cases)
 
   it("uses the Segmind key (not OpenAI's) when ttsProviderId is segmind_grok", async () => {
     mocks.findFirstUsers.mockResolvedValue({ id: "user-1", openaiApiKey: "enc-openai", segmindApiKey: "enc-segmind", ttsProviderId: "segmind_grok" });
@@ -100,7 +100,7 @@ describe("POST /api/audio/generate — provider selection", () => {
 
     expect(mocks.getTTSProvider).toHaveBeenCalledWith("segmind_grok");
     expect(provider.generate).toHaveBeenCalledWith(expect.anything(), "real-segmind");
-  });
+  }, 20000);
 
   it("400s with a Segmind-specific message when segmind_grok is selected but no Segmind key is set", async () => {
     mocks.findFirstUsers.mockResolvedValue({ id: "user-1", openaiApiKey: "", segmindApiKey: "", ttsProviderId: "segmind_grok" });
@@ -113,7 +113,7 @@ describe("POST /api/audio/generate — provider selection", () => {
     expect(res.status).toBe(400);
     const body = await res.json();
     expect(body.error).toMatch(/Segmind/);
-  });
+  }, 20000);
 
   it("400s with an OpenAI-specific message when openai is selected but no key is set and no env fallback exists", async () => {
     mocks.findFirstUsers.mockResolvedValue({ id: "user-1", openaiApiKey: "", segmindApiKey: "", ttsProviderId: "openai" });
@@ -129,5 +129,5 @@ describe("POST /api/audio/generate — provider selection", () => {
     const body = await res.json();
     expect(body.error).toMatch(/OpenAI/);
     if (originalEnv) process.env.OPENAI_API_KEY = originalEnv;
-  });
+  }, 20000);
 });
