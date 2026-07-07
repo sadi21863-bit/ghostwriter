@@ -12,6 +12,7 @@ import { villainPovSystemPrompt, runDirectorCall } from "@/lib/roles/director";
 import { buildPromiseLedger } from "@/lib/ai/promise-ledger";
 import { buildVoiceExemplars } from "@/lib/ai/exemplars";
 import { buildModeTechniqueContext } from "@/lib/ai/mode-technique-context";
+import { suggestCombatStyleForCharacter } from "@/lib/ai/character-combat-style";
 
 
 export async function POST(req: Request, { params }: { params: Promise<{ projectId: string }> }) {
@@ -53,15 +54,21 @@ export async function POST(req: Request, { params }: { params: Promise<{ project
     ? typeMap[character.antagonistType as string]
     : "This character believes they are acting correctly. The protagonist appears as an obstacle to something they genuinely want.";
 
+  // If the caller didn't explicitly name a combat style, check whether the antagonist's
+  // own World Bible skills already establish one (e.g. a "Krav Maga" skill entry) — grounds
+  // the fight in what the author already decided about this character instead of always
+  // requiring a blind manual pick from the style list.
+  const effectiveCombatStyleA = combatStyleA || suggestCombatStyleForCharacter(character) || undefined;
+
   const [promiseLedger, voiceExemplars] = await Promise.all([
     buildPromiseLedger(projectId, "generate"),
-    buildVoiceExemplars(session.user.id, sceneDescription, combatStyleA ? "combat" : undefined),
+    buildVoiceExemplars(session.user.id, sceneDescription, effectiveCombatStyleA ? "combat" : undefined),
   ]);
   // An antagonist POV scene is very plausibly a fight (the villain rationalizing
-  // violence from their own side of it) — if the caller names two combat styles,
-  // ground it in the same biomechanics library the Writer's dedicated Combat mode
-  // uses, instead of leaving villain-pov fights generic.
-  const combatContext = buildModeTechniqueContext({ mode: "combat", combatStyleA, combatStyleB });
+  // violence from their own side of it) — if a combat style is known (explicit or
+  // inferred), ground it in the same biomechanics library the Writer's dedicated
+  // Combat mode uses, instead of leaving villain-pov fights generic.
+  const combatContext = buildModeTechniqueContext({ mode: "combat", combatStyleA: effectiveCombatStyleA, combatStyleB });
   const extra = [promiseLedger, voiceExemplars, combatContext].filter(Boolean).join("\n\n");
   const system = villainPovSystemPrompt(character.name, character.role, profileNote, character.personality, character.desires)
     + (extra ? `\n\n${extra}` : "");

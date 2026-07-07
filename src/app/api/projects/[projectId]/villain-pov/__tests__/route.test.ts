@@ -135,4 +135,43 @@ describe("POST /api/projects/[projectId]/villain-pov", () => {
     await POST(makeReq({ characterId: "char-1", sceneDescription: "a quiet confrontation" }), makeParams());
     expect(buildVoiceExemplars).toHaveBeenCalledWith("user-1", "a quiet confrontation", undefined);
   });
+
+  it("infers the combat style from the antagonist's own World Bible skills when none is explicitly supplied", async () => {
+    findFirstCharacter.mockResolvedValue({
+      id: "char-1", name: "Mordred", role: "antagonist",
+      antagonistType: null, personality: "cold", desires: "power",
+      skills: [{ name: "Krav Maga", category: "physical", level: 3, acquisitionPath: "deliberate_practice", traumaLinked: false }],
+    });
+    await POST(makeReq({ characterId: "char-1", sceneDescription: "the antagonist corners the protagonist" }), makeParams());
+    const call = createMessage.mock.calls[0][0];
+    expect(call.system).toContain("COMBAT LIBRARY");
+    expect(call.system).toContain("KRAV MAGA");
+    expect(buildVoiceExemplars).toHaveBeenCalledWith("user-1", "the antagonist corners the protagonist", "combat");
+  });
+
+  it("prefers an explicitly-supplied combat style over an inferred one from skills", async () => {
+    findFirstCharacter.mockResolvedValue({
+      id: "char-1", name: "Mordred", role: "antagonist",
+      antagonistType: null, personality: "cold", desires: "power",
+      skills: [{ name: "Krav Maga", category: "physical", level: 3, acquisitionPath: "deliberate_practice", traumaLinked: false }],
+    });
+    await POST(makeReq({
+      characterId: "char-1", sceneDescription: "the antagonist corners the protagonist",
+      combatStyleA: "Muay Thai",
+    }), makeParams());
+    const call = createMessage.mock.calls[0][0];
+    expect(call.system).toContain("MUAY THAI");
+    expect(call.system).not.toContain("KRAV MAGA");
+  });
+
+  it("does not infer a combat style from a vague, non-matching skill", async () => {
+    findFirstCharacter.mockResolvedValue({
+      id: "char-1", name: "Mordred", role: "antagonist",
+      antagonistType: null, personality: "cold", desires: "power",
+      skills: [{ name: "self-defense", category: "physical", level: 1, acquisitionPath: "deliberate_practice", traumaLinked: false }],
+    });
+    await POST(makeReq({ characterId: "char-1", sceneDescription: "a quiet confrontation" }), makeParams());
+    const call = createMessage.mock.calls[0][0];
+    expect(call.system).not.toContain("COMBAT LIBRARY");
+  });
 });
