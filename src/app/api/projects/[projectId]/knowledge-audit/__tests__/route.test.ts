@@ -78,4 +78,41 @@ describe("POST /api/projects/[projectId]/knowledge-audit", () => {
     const res = await POST(new NextRequest("http://localhost", { method: "POST" }), makeParams());
     expect(res.status).toBe(404);
   });
+
+  it("adds a semantic cross-reference hint when an open, unresolved promise's embedding matches a later chapter's", async () => {
+    findFirstProjects.mockResolvedValue({
+      chapters: [
+        { id: "chap-1", title: "Chapter 1", content: "A".repeat(150), embedding: [1, 0] },
+        { id: "chap-2", title: "Chapter 2", content: "B".repeat(150), embedding: [1, 0] },
+      ],
+      characters: [], locations: [],
+      storyThreads: [{
+        id: "t1", name: "The Missing Ring", threadType: "subplot", status: "open",
+        promises: [{
+          id: "p1", setup: "Mara hides the ring", payoffIntent: "", status: "open", priority: "A",
+          payoffChapterId: null, setupChapterId: "chap-1", embedding: [1, 0],
+        }],
+      }],
+    });
+    await POST(new NextRequest("http://localhost", { method: "POST" }), makeParams());
+    const [callArgs] = runEditorCall.mock.calls[0];
+    const content = callArgs.messages[0].content;
+    expect(content).toContain("SEMANTIC CROSS-REFERENCE HINTS");
+    expect(content).toContain("Mara hides the ring");
+    expect(content).toContain("Chapter 2");
+  });
+
+  it("omits the semantic hints section when no promise/chapter pair has embeddings", async () => {
+    findFirstProjects.mockResolvedValue({
+      chapters: twoChapters, characters: [], locations: [],
+      storyThreads: [{
+        id: "t1", name: "The Missing Ring", threadType: "subplot", status: "open",
+        promises: [{ id: "p1", setup: "Mara hides the ring", status: "open", priority: "A", payoffChapterId: null, embedding: null }],
+      }],
+    });
+    await POST(new NextRequest("http://localhost", { method: "POST" }), makeParams());
+    const [callArgs] = runEditorCall.mock.calls[0];
+    const content = callArgs.messages[0].content;
+    expect(content).not.toContain("SEMANTIC CROSS-REFERENCE HINTS");
+  });
 });

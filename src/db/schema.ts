@@ -451,6 +451,7 @@ export const storyPromises = pgTable("story_promises", {
   payoffChapterId:  uuid("payoff_chapter_id"),
   status:           varchar("status", { length: 20 }).default("open"),
   priority:         varchar("priority", { length: 5 }).default("B"),
+  embedding:        vectorColumn("embedding"),
   createdAt:        timestamp("created_at").defaultNow().notNull(),
 });
 

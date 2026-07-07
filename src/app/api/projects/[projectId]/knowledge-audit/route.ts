@@ -8,6 +8,7 @@ import { and, eq } from 'drizzle-orm';
 import { MODELS } from '@/lib/ai/engine';
 import { getUserTier, canAccessFeature } from '@/lib/subscription';
 import { knowledgeAuditSystemPrompt, runEditorCall } from '@/lib/roles/editor';
+import { buildPromiseSemanticHints } from '@/lib/story/promise-cross-reference';
 
 export async function POST(
   req: NextRequest,
@@ -62,6 +63,14 @@ export async function POST(
     return parts.join('\n');
   }).join('\n\n');
 
+  // Semantic cross-reference hints (extends the literal promiseRef above) —
+  // catches a promise that's "the same setup, worded differently" than what's
+  // actually in the manuscript, which exact-text injection alone can't. A
+  // no-op when neither the promises nor the chapters have embeddings yet
+  // (both are computed lazily, on save — see items 52/this item).
+  const allPromises = ((project as any).storyThreads ?? []).flatMap((t: any) => t.promises ?? []);
+  const semanticHints = buildPromiseSemanticHints(allPromises, chapters);
+
   const result = await runEditorCall({
     userId: session.user.id,
     operation: "knowledge-audit",
@@ -75,7 +84,7 @@ ${characterRef || 'No character profiles defined.'}
 
 STRUCTURED PROMISE TRACKER (user-authored, ground truth):
 ${promiseRef || 'No promises/threads tracked yet — infer promise/payoff purely from the manuscript.'}
-
+${semanticHints ? `\nSEMANTIC CROSS-REFERENCE HINTS (unconfirmed leads, verify against the manuscript before treating as fact):\n${semanticHints}\n` : ''}
 MANUSCRIPT:
 ${manuscript.slice(0, 180000)}`,
     }],

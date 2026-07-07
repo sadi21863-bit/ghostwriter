@@ -5,6 +5,7 @@ import { getRequiredSession } from "@/lib/auth-helpers";
 import { db } from "@/db";
 import { storyThreads, storyPromises, projects } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
+import { updatePromiseEmbedding } from "@/lib/story/promise-cross-reference";
 
 async function verifyOwnership(projectId: string, userId: string) {
   return db.query.projects.findFirst({
@@ -52,6 +53,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ project
       payoffIntent: body.payoffIntent ?? "",
       priority: body.priority ?? "B",
     }).returning();
+    if (promise) updatePromiseEmbedding(promise.id, promise.setup); // fire-and-forget, powers knowledge_audit's semantic cross-referencing
     return NextResponse.json(promise);
   }
 
