@@ -11,6 +11,7 @@ import { MODELS } from "@/lib/ai/engine";
 import { villainPovSystemPrompt, runDirectorCall } from "@/lib/roles/director";
 import { buildPromiseLedger } from "@/lib/ai/promise-ledger";
 import { buildVoiceExemplars } from "@/lib/ai/exemplars";
+import { buildModeTechniqueContext } from "@/lib/ai/mode-technique-context";
 
 
 export async function POST(req: Request, { params }: { params: Promise<{ projectId: string }> }) {
@@ -30,7 +31,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ project
   });
   if (!project) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  const { characterId, sceneDescription } = await req.json();
+  const { characterId, sceneDescription, combatStyleA, combatStyleB } = await req.json();
   if (!characterId || !sceneDescription?.trim()) {
     return NextResponse.json({ error: "characterId and sceneDescription are required" }, { status: 400 });
   }
@@ -56,7 +57,12 @@ export async function POST(req: Request, { params }: { params: Promise<{ project
     buildPromiseLedger(projectId, "generate"),
     buildVoiceExemplars(session.user.id, sceneDescription),
   ]);
-  const extra = [promiseLedger, voiceExemplars].filter(Boolean).join("\n\n");
+  // An antagonist POV scene is very plausibly a fight (the villain rationalizing
+  // violence from their own side of it) — if the caller names two combat styles,
+  // ground it in the same biomechanics library the Writer's dedicated Combat mode
+  // uses, instead of leaving villain-pov fights generic.
+  const combatContext = buildModeTechniqueContext({ mode: "combat", combatStyleA, combatStyleB });
+  const extra = [promiseLedger, voiceExemplars, combatContext].filter(Boolean).join("\n\n");
   const system = villainPovSystemPrompt(character.name, character.role, profileNote, character.personality, character.desires)
     + (extra ? `\n\n${extra}` : "");
 

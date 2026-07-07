@@ -10,6 +10,7 @@ import { MODELS } from "@/lib/ai/engine";
 import { proseTargetedFixSystemPrompt } from "@/lib/roles/editor";
 import { extractVoiceFingerprint, fingerprintToConstraints } from "@/lib/ai/voice-fingerprint";
 import { buildPromiseLedger } from "@/lib/ai/promise-ledger";
+import { buildModeTechniqueContext } from "@/lib/ai/mode-technique-context";
 
 
 export async function POST(req: Request) {
@@ -23,7 +24,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'upgrade_required', feature: 'prose_fix' }, { status: 403 });
   }
 
-  const { text, fixInstruction, projectId } = await req.json();
+  const { text, fixInstruction, projectId, mode, combatStyleA, combatStyleB, emotion, tensionType, atmosphere } = await req.json();
 
   if (!text?.trim() || !fixInstruction?.trim()) {
     return NextResponse.json({ error: "text and fixInstruction are required" }, { status: 400 });
@@ -34,7 +35,11 @@ export async function POST(req: Request) {
   const fp = extractVoiceFingerprint([cappedText]);
   const voiceConstraints = fp ? fingerprintToConstraints(fp) : "";
   const promiseLedger = projectId ? await buildPromiseLedger(projectId, "preserve") : "";
-  const extra = [voiceConstraints, promiseLedger].filter(Boolean).join("\n\n");
+  // Same technique-library grounding the original generation had, when the
+  // passage being fixed is in a technique-library mode (combat/emotional/
+  // tension/atmosphere) — see src/lib/ai/mode-technique-context.ts.
+  const techniqueContext = buildModeTechniqueContext({ mode, combatStyleA, combatStyleB, emotion, tensionType, atmosphere });
+  const extra = [voiceConstraints, promiseLedger, techniqueContext].filter(Boolean).join("\n\n");
   const system = proseTargetedFixSystemPrompt(fixInstruction) + (extra ? `\n\n${extra}` : "");
 
   try {

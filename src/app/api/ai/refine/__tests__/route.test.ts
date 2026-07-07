@@ -125,4 +125,27 @@ describe("POST /api/ai/refine", () => {
       "",
     );
   });
+
+  it("passes combat technique context to refinePassage when mode and styles are supplied", async () => {
+    refinePassage.mockResolvedValue({ text: "polished", tokensUsed: 10, model: "claude" });
+    extractVoiceFingerprint.mockReturnValue(null);
+    buildPromiseLedger.mockResolvedValue("");
+    await POST(makeRequest({
+      text: "a passage long enough to pass the minimum length check",
+      format: "Novel", mode: "combat", combatStyleA: "Muay Thai", combatStyleB: "Krav Maga",
+    }));
+    expect(refinePassage).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.any(String),
+      expect.stringContaining("COMBAT LIBRARY"),
+    );
+  });
+
+  it("omits technique context when mode is unrecognized or params are missing", async () => {
+    refinePassage.mockResolvedValue({ text: "polished", tokensUsed: 10, model: "claude" });
+    extractVoiceFingerprint.mockReturnValue(null);
+    buildPromiseLedger.mockResolvedValue("");
+    await POST(makeRequest({ text: "a passage long enough to pass the minimum length check", format: "Novel", mode: "combat" }));
+    expect(refinePassage).toHaveBeenCalledWith(expect.any(String), expect.any(String), "");
+  });
 });

@@ -7,6 +7,7 @@ import { meterAndGate, refundCredits } from "@/lib/metering/meter";
 import { refinePassage } from "@/lib/ai/engine";
 import { extractVoiceFingerprint, fingerprintToConstraints } from "@/lib/ai/voice-fingerprint";
 import { buildPromiseLedger } from "@/lib/ai/promise-ledger";
+import { buildModeTechniqueContext } from "@/lib/ai/mode-technique-context";
 import { db } from "@/db";
 import { generations } from "@/db/schema";
 import { track } from "@/lib/analytics";
@@ -19,7 +20,7 @@ export async function POST(req: Request) {
   const rl = await checkAiRateLimit(session.user.id);
   if (rl) return rl;
 
-  const { text, format, projectId, chapterId } = await req.json();
+  const { text, format, projectId, chapterId, mode, combatStyleA, combatStyleB, emotion, tensionType, atmosphere } = await req.json();
   if (!text?.trim() || text.trim().length < 40) {
     return NextResponse.json({ error: "Write a bit more before polishing." }, { status: 400 });
   }
@@ -30,7 +31,13 @@ export async function POST(req: Request) {
   const fp = extractVoiceFingerprint([text]);
   const voiceConstraints = fp ? fingerprintToConstraints(fp) : "";
   const promiseLedger = projectId ? await buildPromiseLedger(projectId, "preserve") : "";
-  const extraContext = [voiceConstraints, promiseLedger].filter(Boolean).join("\n\n");
+  // When the passage being polished was originally written in a technique-library
+  // mode (combat/emotional/tension/atmosphere), the same grounding the original
+  // generation had is passed back in here — previously refine only got voice
+  // fingerprint + promise ledger, so a fight scene's revision had no biomechanics
+  // constraint even though the original draft did.
+  const techniqueContext = buildModeTechniqueContext({ mode, combatStyleA, combatStyleB, emotion, tensionType, atmosphere });
+  const extraContext = [voiceConstraints, promiseLedger, techniqueContext].filter(Boolean).join("\n\n");
 
   try {
     const r = await refinePassage(text, format || "Novel", extraContext);

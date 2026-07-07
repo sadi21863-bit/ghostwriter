@@ -105,4 +105,21 @@ describe("POST /api/projects/[projectId]/villain-pov", () => {
     const call = createMessage.mock.calls[0][0];
     expect(call.system.endsWith("\n\n")).toBe(false);
   });
+
+  it("grounds the scene in real combat biomechanics when combat styles are supplied", async () => {
+    await POST(makeReq({
+      characterId: "char-1", sceneDescription: "the antagonist corners the protagonist",
+      combatStyleA: "Muay Thai", combatStyleB: "Krav Maga",
+    }), makeParams());
+    const call = createMessage.mock.calls[0][0];
+    expect(call.system).toContain("COMBAT LIBRARY");
+    expect(call.system).toContain("MUAY THAI");
+    expect(call.system).toContain("KRAV MAGA");
+  });
+
+  it("omits combat context when no styles are supplied", async () => {
+    await POST(makeReq({ characterId: "char-1", sceneDescription: "a quiet confrontation" }), makeParams());
+    const call = createMessage.mock.calls[0][0];
+    expect(call.system).not.toContain("COMBAT LIBRARY");
+  });
 });

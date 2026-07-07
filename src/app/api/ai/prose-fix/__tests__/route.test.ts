@@ -85,4 +85,20 @@ describe("POST /api/ai/prose-fix", () => {
     await POST(makeReq({ text: "some chapter text", fixInstruction: "fix pacing" }));
     expect(buildPromiseLedger).not.toHaveBeenCalled();
   });
+
+  it("appends combat technique context when mode and styles are supplied", async () => {
+    await POST(makeReq({
+      text: "some chapter text", fixInstruction: "fix pacing",
+      mode: "combat", combatStyleA: "Muay Thai", combatStyleB: "Krav Maga",
+    }));
+    expect(createMessage).toHaveBeenCalledWith(
+      expect.objectContaining({ system: expect.stringContaining("COMBAT LIBRARY") }),
+    );
+  });
+
+  it("does not append technique context for a mode with no dedicated library", async () => {
+    await POST(makeReq({ text: "some chapter text", fixInstruction: "fix pacing", mode: "horror" }));
+    const call = createMessage.mock.calls[0][0];
+    expect(call.system).not.toContain("COMBAT LIBRARY");
+  });
 });
