@@ -85,7 +85,7 @@ describe("POST /api/ai/generate — split prose-augmentation gating", () => {
     await POST(makeRequest({ mode: "write", prompt: "Write the next scene.", projectId: "proj-1", format: "Novel" }));
 
     expect(buildPromiseLedger).toHaveBeenCalledWith("proj-1");
-    expect(buildVoiceExemplars).toHaveBeenCalledWith("user-1", expect.any(String));
+    expect(buildVoiceExemplars).toHaveBeenCalledWith("user-1", expect.any(String), "write");
     expect(buildSceneBlueprint).not.toHaveBeenCalled();
     const callArgs: any = generate.mock.calls[0]?.[0];
     expect(callArgs.dynamicContext).toContain("PROMISE LEDGER TEXT");
@@ -101,7 +101,7 @@ describe("POST /api/ai/generate — split prose-augmentation gating", () => {
 
     expect(buildSceneBlueprint).toHaveBeenCalledTimes(1);
     expect(buildPromiseLedger).toHaveBeenCalledWith("proj-1");
-    expect(buildVoiceExemplars).toHaveBeenCalledWith("user-1", expect.any(String));
+    expect(buildVoiceExemplars).toHaveBeenCalledWith("user-1", expect.any(String), "write");
     const callArgs: any = generate.mock.calls[0]?.[0];
     expect(callArgs.dynamicContext).toContain("BLUEPRINT TEXT");
     expect(callArgs.dynamicContext).toContain("PROMISE LEDGER TEXT");

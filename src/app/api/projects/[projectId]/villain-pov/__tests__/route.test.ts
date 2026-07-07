@@ -81,7 +81,7 @@ describe("POST /api/projects/[projectId]/villain-pov", () => {
     buildVoiceExemplars.mockResolvedValue("VOICE EXEMPLARS");
     await POST(makeReq({ characterId: "char-1", sceneDescription: "a tense confrontation" }), makeParams());
     expect(buildPromiseLedger).toHaveBeenCalledWith("proj-1", "generate");
-    expect(buildVoiceExemplars).toHaveBeenCalledWith("user-1", "a tense confrontation");
+    expect(buildVoiceExemplars).toHaveBeenCalledWith("user-1", "a tense confrontation", undefined);
   });
 
   it("appends both context strings to the system prompt", async () => {
@@ -121,5 +121,18 @@ describe("POST /api/projects/[projectId]/villain-pov", () => {
     await POST(makeReq({ characterId: "char-1", sceneDescription: "a quiet confrontation" }), makeParams());
     const call = createMessage.mock.calls[0][0];
     expect(call.system).not.toContain("COMBAT LIBRARY");
+  });
+
+  it("passes 'combat' as the mode hint to buildVoiceExemplars when a combat style is supplied", async () => {
+    await POST(makeReq({
+      characterId: "char-1", sceneDescription: "the antagonist corners the protagonist",
+      combatStyleA: "Muay Thai",
+    }), makeParams());
+    expect(buildVoiceExemplars).toHaveBeenCalledWith("user-1", "the antagonist corners the protagonist", "combat");
+  });
+
+  it("passes no mode hint to buildVoiceExemplars when no combat style is supplied", async () => {
+    await POST(makeReq({ characterId: "char-1", sceneDescription: "a quiet confrontation" }), makeParams());
+    expect(buildVoiceExemplars).toHaveBeenCalledWith("user-1", "a quiet confrontation", undefined);
   });
 });

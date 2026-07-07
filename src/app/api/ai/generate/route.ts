@@ -339,7 +339,7 @@ Do NOT write the scene — just provide the accurate factual grounding.`,
     if (isProseMode(mode) && projectId && tier !== 'free') {
       [promiseLedger, voiceExemplars, authorVoiceExemplars] = await Promise.all([
         buildPromiseLedger(projectId),
-        buildVoiceExemplars(session.user.id, effectivePrompt),
+        buildVoiceExemplars(session.user.id, effectivePrompt, mode),
         buildAuthorVoiceExemplars(projectId, chapterId, effectivePrompt),
       ]);
 

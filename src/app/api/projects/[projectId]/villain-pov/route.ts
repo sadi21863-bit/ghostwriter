@@ -55,7 +55,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ project
 
   const [promiseLedger, voiceExemplars] = await Promise.all([
     buildPromiseLedger(projectId, "generate"),
-    buildVoiceExemplars(session.user.id, sceneDescription),
+    buildVoiceExemplars(session.user.id, sceneDescription, combatStyleA ? "combat" : undefined),
   ]);
   // An antagonist POV scene is very plausibly a fight (the villain rationalizing
   // violence from their own side of it) — if the caller names two combat styles,
