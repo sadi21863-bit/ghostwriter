@@ -31,12 +31,26 @@ export async function scheduleCallback(params: {
   delaySeconds?: number;
 }): Promise<{ messageId: string } | null> {
   if (!isQstashConfigured()) return null;
-  const res = await getClient().publishJSON({
-    url: params.url,
-    body: params.body,
-    delay: params.delaySeconds ?? 15,
-  });
-  return { messageId: res.messageId };
+  try {
+    const res = await getClient().publishJSON({
+      url: params.url,
+      body: params.body,
+      delay: params.delaySeconds ?? 15,
+    });
+    return { messageId: res.messageId };
+  } catch (err) {
+    // Fail open, same as the unconfigured case: this is a convenience layer
+    // (keeps a job progressing if the user closes the tab) on top of the
+    // pre-existing client-driven polling, never the only way a job advances.
+    // Found via a real local-dev run once QSTASH_TOKEN was live in .env.local:
+    // QStash's real API rejects a localhost callback URL ("resolves to a
+    // loopback address"), which previously crashed the entire calling route
+    // with a 500 even though the actual generation job had already been
+    // submitted successfully — losing real spend to an unrelated scheduling
+    // failure. Any transient QStash error should degrade the same way.
+    console.error("scheduleCallback failed, falling back to client-only polling:", err);
+    return null;
+  }
 }
 
 /**

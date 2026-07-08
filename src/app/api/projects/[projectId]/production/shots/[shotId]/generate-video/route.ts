@@ -34,20 +34,35 @@ export async function POST(req: Request, { params }: { params: Promise<{ project
   });
   if (!shot) return NextResponse.json({ error: "Shot not found" }, { status: 404 });
 
-  const { model } = await req.json();
+  const { model, duration, resolution } = await req.json();
   const validModels = ACTIVE_VIDEO_MODELS.map(m => m.id);
   if (!validModels.includes(model))
     return NextResponse.json({ error: "Invalid model" }, { status: 400 });
 
-  const { requestId, pollingUrl, mediaUrl } = await generateTextVideo({
-    apiKey: segmindKey,
-    prompt: shot.videoPrompt || shot.soulPrompt || "Cinematic scene",
-    model: model as VideoModelId,
-    cameraPreset: shot.cameraPreset || undefined,
-    viralPreset: shot.viralPreset || undefined,
-    // Hailuo requires a starting image; harmless extra context for models that don't use it.
-    imageUrl: shot.previewImageUrl || undefined,
-  });
+  // Segmind's real per-model duration ranges vary (seedance 4-15s, veo 4/6/8, etc.) and
+  // buildVideoRequestBody already snaps to each model's own allowed set — this route only
+  // needs a sane outer clamp so a client can't request something wildly invalid.
+  const clampedDuration = typeof duration === "number" ? Math.min(15, Math.max(4, duration)) : undefined;
+  const validResolutions = ["480p", "720p", "1080p", "4k"];
+  const requestedResolution = validResolutions.includes(resolution) ? resolution : undefined;
+
+  let requestId: string | undefined, pollingUrl: string | undefined, mediaUrl: string | undefined;
+  try {
+    ({ requestId, pollingUrl, mediaUrl } = await generateTextVideo({
+      apiKey: segmindKey,
+      prompt: shot.videoPrompt || shot.soulPrompt || "Cinematic scene",
+      model: model as VideoModelId,
+      duration: clampedDuration,
+      resolution: requestedResolution,
+      cameraPreset: shot.cameraPreset || undefined,
+      viralPreset: shot.viralPreset || undefined,
+      // Hailuo requires a starting image; harmless extra context for models that don't use it.
+      imageUrl: shot.previewImageUrl || undefined,
+    }));
+  } catch (err) {
+    console.error("generate-video submit failed:", err);
+    return NextResponse.json({ error: err instanceof Error ? err.message : "Video generation failed" }, { status: 502 });
+  }
 
   // This endpoint returns the finished video synchronously (raw binary, already
   // uploaded to Blob by generateTextVideo) rather than a job to poll for.

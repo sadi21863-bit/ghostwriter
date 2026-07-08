@@ -12,7 +12,7 @@ import { put } from "@vercel/blob";
 
 export type ShotPollOutcome =
   | { outcome: "final_ready"; videoUrl: string }
-  | { outcome: "error" }
+  | { outcome: "error"; error?: string }
   | { outcome: "generating_final" }
   | { outcome: "no_job" };
 
@@ -31,7 +31,7 @@ export async function pollAndUpdateShotVideo(params: {
   if (!shot.higgsfieldJobId) return { outcome: "no_job" };
 
   const [, pollingUrl] = shot.higgsfieldJobId.split("|");
-  const { status, mediaUrl } = await pollJob({ apiKey: params.segmindApiKey, pollingUrl });
+  const { status, mediaUrl, error } = await pollJob({ apiKey: params.segmindApiKey, pollingUrl });
 
   if (status === "COMPLETED" && mediaUrl) {
     let finalVideoUrl = mediaUrl;
@@ -53,9 +53,9 @@ export async function pollAndUpdateShotVideo(params: {
 
   if (status === "FAILED" || status === "ERROR") {
     await db.update(productionShots)
-      .set({ generationStatus: "error", updatedAt: new Date() })
+      .set({ generationStatus: "error", generationError: error ?? "", updatedAt: new Date() })
       .where(eq(productionShots.id, params.shotId));
-    return { outcome: "error" };
+    return { outcome: "error", error };
   }
 
   return { outcome: "generating_final" };

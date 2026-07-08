@@ -247,7 +247,7 @@ function nearestOf(allowed: number[], value: number): number {
 
 function buildVideoRequestBody(
   model: VideoModelId,
-  p: { prompt: string; aspectRatio: string; duration?: number; seed: number; imageUrl?: string; referenceImages?: string[] },
+  p: { prompt: string; aspectRatio: string; duration?: number; resolution?: "480p" | "720p" | "1080p" | "4k"; seed: number; imageUrl?: string; referenceImages?: string[] },
 ): Record<string, any> {
   switch (model) {
     case "kling":
@@ -296,6 +296,10 @@ function buildVideoRequestBody(
         prompt: p.prompt,
         aspect_ratio: p.aspectRatio,
         duration: p.duration ?? 5,
+        // Explicit rather than omitted: Segmind's own documented default (720p) happens
+        // to match, but relying on an unstated provider default is fragile if it changes
+        // server-side — real allowed values confirmed live: 480p/720p/1080p/4k.
+        resolution: p.resolution ?? "720p",
         seed: p.seed,
         enhance_prompt: true,
         negative_prompt: ANATOMY_NEGATIVE_PROMPT,
@@ -317,7 +321,10 @@ export async function generateTextVideo(params: {
   prompt?: string;
   model: VideoModelId;
   aspectRatio?: "16:9" | "9:16" | "1:1";
-  duration?: 5 | 10 | 15;
+  /** Real Segmind seedance-2.0 range is 4-15s; other models snap to their own allowed set via nearestOf. */
+  duration?: number;
+  /** Seedance 2.0 only; other models don't have a resolution field. Defaults to 720p. */
+  resolution?: "480p" | "720p" | "1080p" | "4k";
   cameraPreset?: string;
   viralPreset?: string;
   seed?: number;
@@ -346,6 +353,7 @@ export async function generateTextVideo(params: {
     prompt: finalPrompt,
     aspectRatio: params.aspectRatio ?? "16:9",
     duration: params.duration,
+    resolution: params.resolution,
     seed: params.seed ?? Math.floor(Math.random() * 999999),
     imageUrl: params.imageUrl,
     referenceImages: params.referenceImages,
@@ -454,12 +462,16 @@ function extractMediaUrl(data: any): string | undefined {
 export async function pollJob(params: {
   apiKey: string;
   pollingUrl: string;
-}): Promise<{ status: JobStatus; mediaUrl?: string }> {
+}): Promise<{ status: JobStatus; mediaUrl?: string; error?: string }> {
   const res = await fetchWithTimeout(params.pollingUrl, {
     headers: { "x-api-key": params.apiKey },
   });
-  if (!res.ok) return { status: "ERROR" };
-  const data = await res.json();
+  const data = await res.json().catch(() => null);
+  // Segmind's own content/copyright post-generation filter (confirmed live:
+  // "OutputVideoSensitiveContentDetected.PolicyViolation") returns a non-2xx
+  // status with the real reason in `error` — previously discarded entirely,
+  // so a rejected generation surfaced as an unexplained silent failure.
+  if (!res.ok) return { status: (data?.status as JobStatus) ?? "ERROR", error: data?.error };
   let mediaUrl = extractMediaUrl(data);
 
   // v2's status endpoint may not embed the result directly even once COMPLETED —
@@ -476,5 +488,5 @@ export async function pollJob(params: {
     }
   }
 
-  return { status: data.status as JobStatus, mediaUrl };
+  return { status: data.status as JobStatus, mediaUrl, error: data.error };
 }

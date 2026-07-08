@@ -40,7 +40,7 @@ export async function GET(_: Request, { params }: { params: Promise<{ projectId:
   const result = await pollAndUpdateShotVideo({ shotId, projectId, segmindApiKey: segmindKey });
 
   if (result.outcome === "final_ready") return NextResponse.json({ status: "final_ready", videoUrl: result.videoUrl });
-  if (result.outcome === "error") return NextResponse.json({ status: "error" });
+  if (result.outcome === "error") return NextResponse.json({ status: "error", error: result.error });
   if (result.outcome === "no_job") return NextResponse.json({ status: shot.generationStatus });
   return NextResponse.json({ status: "generating_final" });
 }
