@@ -31,12 +31,21 @@ export async function runMeteredCall(params: MeteredCallParams): Promise<Metered
   if (gate) return { ok: false, response: gate };
 
   try {
-    const msg = await anthropic.messages.create({
+    // Streaming, not .create() - found the hard way via a real large-chapter
+    // Director call: Anthropic's SDK rejects a synchronous request outright
+    // once max_tokens is large enough that the call *might* run past 10
+    // minutes ("Streaming is required for operations that may take longer
+    // than 10 minutes"), and Sonnet 5's default-on adaptive thinking means
+    // real multi-chapter prompts can need a large budget. Streaming sidesteps
+    // the timeout risk entirely regardless of maxTokens, so it's the safe
+    // default for every caller here, not just the ones with large budgets.
+    const stream = anthropic.messages.stream({
       model: params.model,
       max_tokens: params.maxTokens,
       system: params.system,
       messages: params.messages,
     });
+    const msg = await stream.finalMessage();
     const text = msg.content.filter(b => b.type === "text").map(b => (b as any).text).join("");
     return { ok: true, text };
   } catch (e) {

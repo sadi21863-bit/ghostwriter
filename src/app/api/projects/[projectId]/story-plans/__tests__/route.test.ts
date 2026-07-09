@@ -13,7 +13,15 @@ vi.mock("@/lib/metering/meter", () => ({
 
 const messagesCreate = vi.fn();
 vi.mock("@anthropic-ai/sdk", () => ({
-  default: class { messages = { create: (...a: any[]) => messagesCreate(...a) }; },
+  default: class {
+    messages = {
+      create: (...a: any[]) => messagesCreate(...a),
+      // runMeteredCall uses streaming (src/lib/roles/shared.ts) - route it
+      // through the same mock so existing messagesCreate.mockResolvedValue(...)
+      // setups still work unchanged.
+      stream: (...a: any[]) => ({ finalMessage: () => messagesCreate(...a) }),
+    };
+  },
 }));
 
 const findFirstProjects = vi.fn();

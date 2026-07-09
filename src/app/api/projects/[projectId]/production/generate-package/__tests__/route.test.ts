@@ -36,7 +36,15 @@ vi.mock("drizzle-orm", async (importOriginal: any) => {
 
 const createMessage = vi.fn();
 vi.mock("@anthropic-ai/sdk", () => ({
-  default: class { messages = { create: (...args: any[]) => createMessage(...args) }; },
+  default: class {
+    messages = {
+      create: (...args: any[]) => createMessage(...args),
+      // runMeteredCall uses streaming (src/lib/roles/shared.ts) - route it
+      // through the same mock so existing createMessage.mockResolvedValue(...)
+      // setups still work unchanged.
+      stream: (...args: any[]) => ({ finalMessage: () => createMessage(...args) }),
+    };
+  },
 }));
 
 const buildPromiseLedger = vi.fn();

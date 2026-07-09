@@ -135,7 +135,12 @@ Generate 3-6 shots per chapter and one multiShotScript per scene. Focus on visua
     userId: s.user.id,
     operation: "generate-package",
     model: MODELS.default,
-    maxTokens: 8000,
+    // Sonnet 5 runs adaptive thinking on by default (item 36's audit fixed most
+    // call sites for this, but not this one) - confirmed live with real chapter
+    // content: a 3-chapter project (~32K chars of real prose) consumed the
+    // entire 8000-token budget on thinking with ZERO text output, not even
+    // truncated JSON. 8000 was sized for short test content, not real chapters.
+    maxTokens: 32000,
     system: systemPrompt,
     messages: [{ role: "user", content: userPrompt }],
   });
