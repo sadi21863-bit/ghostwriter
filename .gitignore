@@ -13,6 +13,9 @@ playwright-report
 blob-report
 .playwright
 
+# real logged-in browser session cookies for live account inspection - never commit
+.higgsfield-browser-profile/
+
 # superpowers SDD scratch (progress ledger, briefs, reports, review packages)
 .superpowers/
 
