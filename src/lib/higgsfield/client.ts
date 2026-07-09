@@ -278,9 +278,11 @@ function buildVideoRequestBody(
       if (!p.imageUrl) {
         throw new Error("Hailuo requires a starting image — generate this shot's preview image first.");
       }
+      // last_frame_image must be omitted, not sent as null - Segmind's real API
+      // rejects an explicit null with "Invalid type. Expected: string, given: null"
+      // (confirmed live; every prior Hailuo call via this route would have failed).
       return {
         first_frame_image: p.imageUrl,
-        last_frame_image: null,
         prompt: p.prompt,
         duration: nearestOf([6, 10], p.duration ?? 6),
         prompt_optimizer: true,
