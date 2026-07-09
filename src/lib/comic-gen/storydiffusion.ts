@@ -99,20 +99,79 @@ export function buildStoryDiffusionBody(params: StoryDiffusionBodyParams): Recor
 
 /**
  * Crop one panel out of a Four Pannel (2x2 grid) StoryDiffusion page, clean of
- * the baked-in caption band that always lands across the bottom ~25% of each
- * panel (confirmed via real output, not a guess). `panelIndex` is 0-3, reading
+ * the baked-in caption band that always lands across the bottom of each panel
+ * (confirmed via real output, not a guess). `panelIndex` is 0-3, reading
  * left-to-right then top-to-bottom, matching the order panels appear in
  * `comic_description`. Only safe for "Four Pannel" output — "Classic Comic
  * Style"'s irregular layout has no fixed geometry to crop by index.
+ *
+ * The caption band's HEIGHT is not fixed — it scales with how much text the
+ * model bakes in (confirmed the hard way: a fixed ~75%-of-panel crop that
+ * worked for short action lines still showed the model's own caption text
+ * bleeding through when panel descriptions were longer and wrapped to more
+ * lines). Detects the real boundary instead: the caption band is a large
+ * flat-color area, so scans rows bottom-up for where per-row pixel variance
+ * jumps from "flat" to "photographic," and crops just above that jump.
  */
 export async function cropFourPanelGrid(pageBuffer: Buffer, panelIndex: 0 | 1 | 2 | 3): Promise<Buffer> {
   const meta = await sharp(pageBuffer).metadata();
   const panelSize = Math.floor((meta.width ?? 0) / 2);
-  const artHeight = Math.round(panelSize * 0.75);
   const col = panelIndex % 2;
   const row = Math.floor(panelIndex / 2);
-  return sharp(pageBuffer)
-    .extract({ left: col * panelSize, top: row * panelSize, width: panelSize, height: artHeight })
+
+  const panelBuf = await sharp(pageBuffer)
+    .extract({ left: col * panelSize, top: row * panelSize, width: panelSize, height: panelSize })
+    .toBuffer();
+
+  const artHeight = await findCaptionBandTop(panelBuf, panelSize);
+
+  return sharp(panelBuf)
+    .extract({ left: 0, top: 0, width: panelSize, height: artHeight })
     .png()
     .toBuffer();
+}
+
+/** Scans a square panel bottom-up for the row where flat caption-band color
+ *  gives way to photographic detail, searching only the bottom 45% (the
+ *  caption band is never taller than that in practice) so a genuinely flat
+ *  sky/snow region higher in the art can't be mistaken for it. Falls back to
+ *  a 75%-height crop if no clear boundary is found (e.g. a panel with no
+ *  caption baked in at all). */
+async function findCaptionBandTop(panelBuf: Buffer, panelSize: number): Promise<number> {
+  const searchTop = Math.round(panelSize * 0.55);
+  const { data, info } = await sharp(panelBuf)
+    .extract({ left: 0, top: searchTop, width: panelSize, height: panelSize - searchTop })
+    .greyscale()
+    .raw()
+    .toBuffer({ resolveWithObject: true });
+
+  const rowVariance: number[] = [];
+  for (let y = 0; y < info.height; y++) {
+    const rowStart = y * info.width;
+    let sum = 0;
+    for (let x = 0; x < info.width; x++) sum += data[rowStart + x];
+    const mean = sum / info.width;
+    let sqDiff = 0;
+    for (let x = 0; x < info.width; x++) {
+      const d = data[rowStart + x] - mean;
+      sqDiff += d * d;
+    }
+    rowVariance.push(sqDiff / info.width);
+  }
+
+  // Flat caption-band rows have very low variance. Require 8 consecutive flat
+  // rows (not just one) so a single anti-aliased edge or a genuinely flat sky
+  // strip in the art doesn't trigger a false boundary.
+  const FLAT_THRESHOLD = 60;
+  const CONSECUTIVE_REQUIRED = 8;
+  let run = 0;
+  for (let y = 0; y < rowVariance.length; y++) {
+    if (rowVariance[y] < FLAT_THRESHOLD) {
+      run++;
+      if (run >= CONSECUTIVE_REQUIRED) return searchTop + y - CONSECUTIVE_REQUIRED + 1;
+    } else {
+      run = 0;
+    }
+  }
+  return Math.round(panelSize * 0.75); // no clear flat band found - fall back to the old safe default
 }
