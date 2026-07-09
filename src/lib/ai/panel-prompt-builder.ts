@@ -8,6 +8,8 @@ export const ART_STYLES = [
     styleModifiers: "authentic black-and-white manga, crisp inked linework, screentone shading, expressive eyes, dynamic diagonal composition, speed lines for motion" },
   { id: "manhwa",        label: "Manhwa / Webtoon", higgsfieldPreset: "Anime",         color: "color",
     styleModifiers: "full-colour Korean manhwa / webtoon art, soft cel shading, clean digital linework, vibrant ambient lighting, tall vertical-scroll friendly composition" },
+  { id: "manhua",        label: "Manhua",           higgsfieldPreset: "Cinematic",     color: "color",
+    styleModifiers: "Chinese manhua art, refined painterly linework, semi-realistic proportions, cinematic dramatic lighting, detailed hair and fabric rendering, rich full-colour palette" },
   { id: "western",       label: "Western Comic",    higgsfieldPreset: "Comic Book",    color: "color",
     styleModifiers: "American comic-book art, bold confident ink outlines, halftone dot shading, saturated primary colours, dramatic chiaroscuro lighting" },
   { id: "graphic_novel", label: "Graphic Novel",    higgsfieldPreset: "Graphic Novel", color: "color",

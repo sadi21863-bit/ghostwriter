@@ -12,16 +12,28 @@
 //   That's a different philosophy from the per-panel + our-own-composite path, so
 //   StoryDiffusion is wired OPT-IN and its result is stored as a page image.
 // - The model CAN bake captions onto frames; we deliberately pass NO `#` captions
-//   so no in-image text is added (lettering stays the separate B1 stage). Whether
-//   it adds incidental text anyway is the one thing the real validation call must
-//   confirm.
+//   so no in-image text is added (lettering stays the separate B1 stage). Confirmed
+//   via a real call (2026-07-09): it bakes a caption box anyway, but always in a
+//   predictable band across the bottom ~25% of EACH panel — croppable, not a dead end.
+// - "Four Pannel" renders a clean, uniform 2x2 grid — confirmed via real output and
+//   safe to crop with simple arithmetic (see cropFourPanelGrid below). "Classic
+//   Comic Style" (8 panels) renders an IRREGULAR manga-style layout with panels of
+//   different sizes/shapes, not a uniform grid — confirmed the hard way (a naive
+//   grid-slice on this style produced garbled/wrong-aspect-ratio crops that a
+//   downstream image-to-video call correctly rejected). Only Four Pannel is safe
+//   to auto-crop today; Classic Comic Style would need real layout detection first.
 import type { ArtStyle } from "@/lib/ai/panel-prompt-builder";
 import { ANATOMY_NEGATIVE_PROMPT } from "@/lib/ai/image-quality";
+import sharp from "sharp";
 
-// ART_STYLES.id → StoryDiffusion style_name (the model's fixed option list).
+// ART_STYLES.id → StoryDiffusion style_name (the model's fixed 7-option enum,
+// confirmed live against segmind.com/models/storydiffusion/api: "(No style)",
+// "Japanese Anime", "Cinematic", "Disney Charactor", "Photographic", "Comic book",
+// "Line art" — no dedicated manhua option, so it maps to the closest real fit.
 export const STORYDIFFUSION_STYLE_BY_ART: Record<string, string> = {
   manga:         "Japanese Anime",
   manhwa:        "Japanese Anime",
+  manhua:        "Cinematic", // manhua's painterly, semi-realistic look sits closer to Cinematic than the flatter Japanese Anime line art
   anime:         "Japanese Anime",
   western:       "Comic book",
   graphic_novel: "Comic book",
@@ -83,4 +95,24 @@ export function buildStoryDiffusionBody(params: StoryDiffusionBodyParams): Recor
     }
   }
   return body;
+}
+
+/**
+ * Crop one panel out of a Four Pannel (2x2 grid) StoryDiffusion page, clean of
+ * the baked-in caption band that always lands across the bottom ~25% of each
+ * panel (confirmed via real output, not a guess). `panelIndex` is 0-3, reading
+ * left-to-right then top-to-bottom, matching the order panels appear in
+ * `comic_description`. Only safe for "Four Pannel" output — "Classic Comic
+ * Style"'s irregular layout has no fixed geometry to crop by index.
+ */
+export async function cropFourPanelGrid(pageBuffer: Buffer, panelIndex: 0 | 1 | 2 | 3): Promise<Buffer> {
+  const meta = await sharp(pageBuffer).metadata();
+  const panelSize = Math.floor((meta.width ?? 0) / 2);
+  const artHeight = Math.round(panelSize * 0.75);
+  const col = panelIndex % 2;
+  const row = Math.floor(panelIndex / 2);
+  return sharp(pageBuffer)
+    .extract({ left: col * panelSize, top: row * panelSize, width: panelSize, height: artHeight })
+    .png()
+    .toBuffer();
 }
