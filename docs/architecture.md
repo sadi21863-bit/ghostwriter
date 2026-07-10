@@ -392,8 +392,9 @@ Status polling via /status routes
 | `kling` (Kling 3.0) | action, combat | physics-aware, 4K |
 | `veo` (Veo 3.1) | realism, drama, nature | native audio (`generatesAudio: true`) |
 | `sora` (Sora 2) | drama, fantasy, stylized | **deprecated** — excluded from `ACTIVE_VIDEO_MODELS` and auto-selection |
-| `seedance` (Seedance 2.0) | social, shorts, quick | fast |
-| `wan` (WAN 2.5) | avatar, talking_head, lipsync | |
+| `seedance` (Seedance 2.0) | social, shorts, quick | fast; also the only model wired to the opt-in multi-shot-single-call path (`multiShotPrompt`, `generate-video?multiShot=1`, ≤5 shots) |
+| `wan` (WAN 2.1) | quick, budget | plain text2video only — label corrected in item 70, previously falsely claimed lipsync/avatar capability it never had |
+| `wan-r2v` (WAN 2.7 R2V) | consistency, character | new in item 70; character-consistent video straight from reference photos (no training job) — added but not yet live-verified, not auto-selected anywhere |
 | `hailuo` (Hailuo 02) | cinematic, smooth, general | |
 
 `MODE_TO_MODEL` maps a generation mode to its best-fit model for auto-selection (e.g. `combat`→`kling`, `horror`→`veo`, `comedy`→`seedance`; `default`→`kling`). Marking a model `deprecated: true` removes it from `ACTIVE_VIDEO_MODELS` and `MODE_TO_MODEL` candidates without deleting historical data referencing it.

@@ -215,6 +215,28 @@ describe("POST .../generate-video?multiShot=1 (item 68 Task 3, opt-in)", () => {
     expect(body).toEqual({ status: "final_ready", videoUrl: "https://blob.example/combined.mp4", mode: "multiShot" });
   });
 
+  it("passes a duration summed across all shots (not the single-shot 5s default) so the combined clip isn't crushed to one shot's length", async () => {
+    findManyShots.mockResolvedValue(makeShots(3)); // 3 shots x 5s = 15
+    generateTextVideo.mockResolvedValue({ mediaUrl: "https://blob.example/combined.mp4" });
+
+    await POST(makeRequest("?multiShot=1"), makeParams());
+
+    expect(generateTextVideo.mock.calls[0][0].duration).toBe(15);
+  });
+
+  it("caps the summed duration at Seedance's documented 15s max", async () => {
+    findManyShots.mockResolvedValue(Array.from({ length: 5 }, (_, i) => ({
+      id: `shot-${i + 1}`, shotNumber: i + 1, sceneNumber: 1,
+      videoPrompt: `Shot action ${i + 1}`, soulPrompt: `p${i + 1}`, duration: 10,
+      primaryCharacter: { portraitUrl: `https://example.com/char-${i}.png` },
+    }))); // 5 shots x 10s = 50, way over cap
+    generateTextVideo.mockResolvedValue({ mediaUrl: "https://blob.example/combined.mp4" });
+
+    await POST(makeRequest("?multiShot=1"), makeParams());
+
+    expect(generateTextVideo.mock.calls[0][0].duration).toBe(15);
+  });
+
   it("sets the same combined video as BOTH finalVideoUrl and sceneFinalVideoUrl on every shot in the scene (no per-shot stitch needed - the single call already covers the whole scene)", async () => {
     findManyShots.mockResolvedValue(makeShots(2));
     generateTextVideo.mockResolvedValue({ mediaUrl: "https://blob.example/combined.mp4" });

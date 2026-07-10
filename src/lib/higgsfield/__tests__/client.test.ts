@@ -59,6 +59,50 @@ describe("generateTextVideo — Seedance 2.0 reference_images", () => {
   });
 });
 
+describe("generateTextVideo — Wan 2.7 R2V (item 70)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    fetchMock.mockResolvedValue(jsonResponse({ request_id: "req-1", status_url: "https://api.segmind.com/v2/requests/req-1/status" }));
+  });
+
+  it("hits the wan2.7-r2v endpoint with reference_images and uppercase resolution", async () => {
+    await generateTextVideo({
+      apiKey: "key",
+      model: "wan-r2v",
+      prompt: "he stands at the gate",
+      referenceImages: ["https://example.com/young-man.png"],
+      resolution: "1080p",
+    });
+
+    const [url, opts] = fetchMock.mock.calls[0];
+    expect(url).toContain("wan2.7-r2v");
+    const body = JSON.parse(opts.body);
+    expect(body.reference_images).toEqual(["https://example.com/young-man.png"]);
+    expect(body.resolution).toBe("1080P");
+  });
+
+  it("defaults resolution to 720P when not specified", async () => {
+    await generateTextVideo({
+      apiKey: "key",
+      model: "wan-r2v",
+      prompt: "he stands at the gate",
+      referenceImages: ["https://example.com/young-man.png"],
+    });
+
+    const [, opts] = fetchMock.mock.calls[0];
+    expect(JSON.parse(opts.body).resolution).toBe("720P");
+  });
+
+  it("throws before any request when no reference image is provided", async () => {
+    await expect(generateTextVideo({
+      apiKey: "key",
+      model: "wan-r2v",
+      prompt: "he stands at the gate",
+    })).rejects.toThrow(/reference image/i);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+});
+
 describe("pollJob — Seedance 2.0 v2 result shape", () => {
   beforeEach(() => {
     vi.clearAllMocks();

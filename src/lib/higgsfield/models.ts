@@ -61,17 +61,39 @@ export const VIDEO_MODELS: Record<VideoModelId, VideoModelDef> = {
   },
   wan: {
     id: "wan",
-    // NOTE: this is still wired for plain text2video (wan2.1-t2v), not lipsync —
-    // generateLipsync() in client.ts sends audio_url/talking_head params that have
-    // no basis in Segmind's actual Wan contract. Segmind's real lipsync models are
-    // separate dedicated endpoints (lipsync-pro, sync.so-lipsync-2-pro), which the
-    // Audio Novel lipsync feature should be ported to — out of scope for this fix.
+    // Plain text2video only — this entry has never had any lipsync/avatar capability
+    // despite the label this replaced claiming otherwise (real audio lipsync is a
+    // fully separate, already-working feature: generateLipsync() below calls the
+    // dedicated /hallo endpoint with input_image/input_audio, nothing to do with
+    // this model or wan2.1-t2v's actual contract). Found + fixed via live research
+    // into Segmind's real Wan catalog (item 70): Alibaba/Segmind have since shipped
+    // Wan 2.2, 2.5, 2.6, and 2.7 — see `wan-r2v` below for the newer
+    // character-consistent Wan 2.7 Reference-to-Video model, added alongside this
+    // fix. Left wan2.1-t2v itself unchanged (still a real, working, cheap plain
+    // text2video endpoint) rather than guessing at a newer t2v endpoint's contract
+    // without a live call to confirm it.
     segmindEndpoint: "wan2.1-t2v", // confirmed via segmind.com/models/wan2.1-t2v/api
-    label: "WAN 2.5",
-    note: "Talking heads · Lip-sync · Avatars",
+    label: "WAN 2.1",
+    note: "Fast · Budget text-to-video",
     badge: null,
     generatesAudio: false,
-    bestFor: ["avatar", "talking_head", "lipsync"],
+    bestFor: ["quick", "budget"],
+  },
+  "wan-r2v": {
+    id: "wan-r2v",
+    // Wan 2.7 Reference-to-Video: character-consistent video generation straight
+    // from reference photos, no Soul ID training job required. Confirmed via
+    // Segmind's own blog (blog.segmind.com/wan-2-7-reference-to-video-is-now-on-segmind)
+    // — real endpoint/schema, not guessed. Added as a new opt-in model, not wired
+    // as a default anywhere: it has not been live-verified with a real call (no
+    // remaining budget at the time this was added), so ACTIVE_VIDEO_MODELS still
+    // treats it like any other selectable model but nothing auto-selects it yet.
+    segmindEndpoint: "wan2.7-r2v",
+    label: "WAN 2.7 R2V",
+    note: "Character-consistent · From reference photos",
+    badge: "NEW",
+    generatesAudio: false,
+    bestFor: ["consistency", "character"],
   },
   hailuo: {
     id: "hailuo",

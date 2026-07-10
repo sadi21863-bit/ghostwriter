@@ -8,7 +8,7 @@ How Higgsfield, Segmind, and the video pipeline actually work — corrected 2026
 
 | Provider | Used for | Integration |
 |---|---|---|
-| **Segmind** | Soul 2.0 image generation, image-to-video (DoP), all 5 text-to-video models, lipsync | Proxy API at `api.segmind.com` — `x-api-key` header |
+| **Segmind** | Soul 2.0 image generation, image-to-video (DoP), all 7 text-to-video models, lipsync | Proxy API at `api.segmind.com` — `x-api-key` header |
 | **Higgsfield** | Soul ID training only | Native platform API at `platform.higgsfield.ai` — `hf-api-key`/`hf-secret` headers |
 | **OpenAI** | Embeddings (`text-embedding-3-small`) + Audio Novel TTS (`tts-1`) | NOT used for image, video, or text generation |
 
@@ -75,7 +75,7 @@ Real contract (verified against the `higgsfield-ai/higgsfield-js` SDK source, no
 - Endpoint: `POST /v1/custom-references` with body `{ name, input_images: [{ type: "image_url", image_url }, ...] }` — requires 3+ reference images
 - The created `id` **is** the Soul ID immediately; poll `GET /v1/custom-references/{id}` for `status` (`not_ready`/`queued`/`in_progress`/`completed`/`failed`) — there's no separate job-id-vs-soul-id distinction.
 
-**Untested live** — no Higgsfield credentials on hand during the pipeline test (only Segmind). Not used by the trailer/production pipeline at all (that uses `reference_image_url`, not trained Soul IDs).
+**Wired into the production pipeline as of item 69** (was previously built but disconnected): `generate-package` fire-and-forget bootstraps and trains a Soul ID for any primary character appearing in 2+ shots via `src/lib/production/soul-id-bootstrap.ts`, never blocking the response, fails open at every step. `getCharacterSoulReference()` prefers a real trained `soulId` over the plain `reference_image_url` fallback once training completes. **Still not live-verified end-to-end against a real completed training job** — the one account tested against in item 70 had no `higgsfieldApiKey`/`higgsfieldApiSecret` set at all, so the bootstrap correctly no-op'd via its fail-open path rather than actually exercising a training run.
 
 ### Image-to-Video (DoP) — `generateDoPVideo()`
 
@@ -93,8 +93,12 @@ generateTextVideo(params: {
   aspectRatio?: "16:9"|"9:16"|"1:1"; duration?: number; seed?: number;
   cameraPreset?: string; viralPreset?: string;
   imageUrl?: string;  // required for hailuo; ignored by others
+  referenceImages?: string[];  // seedance: optional extra; wan-r2v: REQUIRED, its primary mechanism
+  multiShotPrompt?: string;  // "Shot 1: ... Shot 2: ..." — renders as one continuous scene, seedance only
 }): Promise<{ requestId?: string; pollingUrl?: string; mediaUrl?: string }>
 ```
+
+**`duration` is not optional in practice when using `multiShotPrompt`** — item 70 found live that omitting it silently applies the *single-shot* default (5s) to the whole multi-shot sequence regardless of how many shots are in the script, crushing a 3-shot scene to ~1.7s/shot. The one real caller (`generate-video/route.ts`'s `multiShot=1` path) now sums each shot's own requested duration and caps it to Seedance's documented 4-15s range before calling — any new caller of `multiShotPrompt` must do the same.
 
 **On v2 (async)** as of the pipeline test — confirmed working end-to-end (instant submission, clean polling) via a real Kling job. `POST v2/{model}` returns `{request_id, status_url}` immediately; `pollJob()` polls `status_url`.
 
@@ -105,7 +109,8 @@ Each model has a genuinely different real request schema — handled by `buildVi
 | `kling` | `kling-text2video` | `duration` must be 5 or 10; `mode: "std"\|"pro"`, no `enhance_prompt` |
 | `veo` | `veo-3.1-fast` | `duration` must be 4, 6, or 8 (not 5!); only 16:9/9:16; `generate_audio` |
 | `seedance` | `seedance-2.0` | Closest to a generic shape — the only one that "just worked" with a one-size-fits-all body. Image-to-video variant **blocks images with real human faces** (ByteDance policy) |
-| `wan` | `wan2.1-t2v` | No `duration` field — needs `base_model` (`"1.3b"\|"14b"`) + `video_length` (1-5) |
+| `wan` | `wan2.1-t2v` | No `duration` field — needs `base_model` (hardcoded `"14b"`) + `video_length` (1-5). Plain, cheap, budget text2video only — as of item 70 the label no longer falsely claims lipsync/avatar capability (that was always wrong; see `docs/gotchas.md`) |
+| `wan-r2v` | `wan2.7-r2v` | **New in item 70, not yet live-verified.** `reference_images` is REQUIRED (the model's whole point — character-consistent video straight from reference photos, no training job), `resolution` is uppercase `"720P"/"1080P"` unlike every other model's lowercase convention. Confirmed via Segmind's own blog post, not guessed |
 | `hailuo` | `hailuo-02-fast` | **Not pure text2video** — `first_frame_image` is required. `duration` must be 6 or 10 |
 | `sora` | — | `deprecated: true`, excluded from `ACTIVE_VIDEO_MODELS` |
 

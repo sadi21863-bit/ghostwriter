@@ -92,11 +92,19 @@ export async function POST(req: Request, { params }: { params: Promise<{ project
   if (useMultiShot && sceneShots.length <= MULTI_SHOT_MAX_SCENE_SIZE) {
     try {
       const multiShotPrompt = buildMultiShotScript(sceneShots);
+      // Real bug found via item 69's live comparison test: without an explicit
+      // duration, generateTextVideo's seedance branch defaults to the SINGLE-shot
+      // default of 5s regardless of shot count - a real 3-shot scene rendered
+      // with correct per-shot content (confirmed by inspecting extracted frames)
+      // but crushed into ~1.7s/shot instead of a real trailer pace. Sum each
+      // shot's own requested duration, capped at Seedance's documented 4-15s range.
+      const totalDuration = Math.min(15, Math.max(4, sceneShots.reduce((sum, sh) => sum + (sh.duration ?? 5), 0)));
       const { requestId, pollingUrl, mediaUrl: immediateUrl } = await generateTextVideo({
         apiKey: segmindKey,
         model: "seedance",
         multiShotPrompt,
         referenceImages: sceneWideReferenceImages,
+        duration: totalDuration,
       });
 
       let mediaUrl = immediateUrl;

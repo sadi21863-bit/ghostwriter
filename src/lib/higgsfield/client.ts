@@ -287,6 +287,23 @@ function buildVideoRequestBody(
         duration: nearestOf([6, 10], p.duration ?? 6),
         prompt_optimizer: true,
       };
+    case "wan-r2v":
+      // Real Segmind contract (blog.segmind.com/wan-2-7-reference-to-video-is-now-on-segmind):
+      // reference_images is the PRIMARY consistency mechanism here, not an optional
+      // extra like Seedance's — the model is built around it. resolution is
+      // "720P"/"1080P" (capital P), unlike seedance's lowercase "720p"/"1080p" —
+      // confirmed from Segmind's own documented example, not assumed to match
+      // the other models' casing.
+      if (!p.referenceImages?.length) {
+        throw new Error("Wan 2.7 R2V requires at least one reference image.");
+      }
+      return {
+        prompt: p.prompt,
+        reference_images: p.referenceImages,
+        resolution: p.resolution === "1080p" ? "1080P" : "720P",
+        duration: p.duration ?? 5,
+        seed: p.seed,
+      };
     case "seedance":
       // reference_images (up to 9) and first_frame_image are mutually exclusive on
       // Seedance 2.0 — this branch never sent an image field before, so there's
@@ -325,14 +342,14 @@ export async function generateTextVideo(params: {
   aspectRatio?: "16:9" | "9:16" | "1:1";
   /** Real Segmind seedance-2.0 range is 4-15s; other models snap to their own allowed set via nearestOf. */
   duration?: number;
-  /** Seedance 2.0 only; other models don't have a resolution field. Defaults to 720p. */
+  /** Seedance 2.0 and wan-r2v only; other models don't have a resolution field. Defaults to 720p (wan-r2v renders this as "720P"/"1080P" per its own contract). */
   resolution?: "480p" | "720p" | "1080p" | "4k";
   cameraPreset?: string;
   viralPreset?: string;
   seed?: number;
   /** Required for hailuo (image-to-video only); ignored by models that don't use it. */
   imageUrl?: string;
-  /** Seedance 2.0 only: up to 9 character-reference image URLs for cross-shot consistency. */
+  /** Seedance 2.0: up to 9 optional character-reference image URLs for cross-shot consistency. wan-r2v: REQUIRED — this is its primary consistency mechanism, not an optional extra. */
   referenceImages?: string[];
   /** When set, used as the base prompt instead of `prompt` — a "Shot 1: ... Shot 2: ..." script for one connected multi-shot sequence. */
   multiShotPrompt?: string;
