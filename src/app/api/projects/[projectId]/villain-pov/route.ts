@@ -68,7 +68,18 @@ export async function POST(req: Request, { params }: { params: Promise<{ project
   // violence from their own side of it) — if a combat style is known (explicit or
   // inferred), ground it in the same biomechanics library the Writer's dedicated
   // Combat mode uses, instead of leaving villain-pov fights generic.
-  const combatContext = buildModeTechniqueContext({ mode: "combat", combatStyleA: effectiveCombatStyleA, combatStyleB });
+  const combatContext = buildModeTechniqueContext({
+    mode: "combat",
+    combatStyleA: effectiveCombatStyleA,
+    combatStyleB,
+    // effectiveCombatStyleA always belongs to this route's own character (explicit
+    // param or inferred from their own World Bible skill) - binding the name fixes
+    // a real observed bug (item 58) where the style's terminology attached to the
+    // wrong fighter in the prose. combatStyleB's owner is unknown here (no opponent
+    // character is passed to this route), so it's deliberately left unbound rather
+    // than guessed.
+    combatStyleAOwner: effectiveCombatStyleA ? character.name : undefined,
+  });
   const extra = [promiseLedger, voiceExemplars, combatContext].filter(Boolean).join("\n\n");
   const system = villainPovSystemPrompt(character.name, character.role, profileNote, character.personality, character.desires)
     + (extra ? `\n\n${extra}` : "");

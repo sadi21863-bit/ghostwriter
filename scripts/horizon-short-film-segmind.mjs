@@ -50,8 +50,17 @@ async function pollSegmindV2(statusUrl, maxMs = 200_000) {
   let json;
   while (Date.now() - start < maxMs) {
     await sleep(7000);
-    const r = await fetch(statusUrl, { headers: { "x-api-key": SEGMIND_KEY } });
-    json = await r.json();
+    try {
+      const r = await fetch(statusUrl, { headers: { "x-api-key": SEGMIND_KEY } });
+      const text = await r.text();
+      json = JSON.parse(text);
+    } catch (e) {
+      // Transient gateway hiccup (occasionally returns an HTML error page mid-poll
+      // instead of JSON, found the hard way - crashed a whole 18-shot batch on
+      // shot 3) - treat as a skipped tick, not a fatal error, and keep polling.
+      console.log(`    [poll error, retrying] ${e.message}`);
+      continue;
+    }
     if (json.status === "COMPLETED" || json.status === "FAILED" || json.status === "ERROR") return json;
     console.log(`    status=${json.status} (${Math.round((Date.now() - start) / 1000)}s)`);
   }
@@ -109,27 +118,41 @@ async function stageShots() {
 
 async function stageAnimate(shotResults) {
   console.log("\n=== STAGE: animating all keyframes via Segmind Hailuo ===");
-  const results = [];
+  // Resume support: skip shots that already have a real video from a prior
+  // (possibly crashed) run of this stage, so a resume never double-spends.
+  const existing = existsSync(`${OUT_DIR}/shots-with-video-segmind.json`)
+    ? JSON.parse(readFileSync(`${OUT_DIR}/shots-with-video-segmind.json`, "utf8"))
+    : [];
+  const alreadyDone = new Map(existing.filter(s => s.videoUrl).map(s => [s.label, s]));
+  const results = [...alreadyDone.values()];
   for (const shot of shotResults) {
     if (!shot.imageUrl) { console.log(`skip ${shot.label} - no image`); continue; }
+    if (alreadyDone.has(shot.label)) { console.log(`skip ${shot.label} - already animated`); continue; }
     console.log(`\n--- animating ${shot.label} ---`);
-    const res = await fetch("https://api.segmind.com/v2/hailuo-02-fast", {
-      method: "POST",
-      headers: { "x-api-key": SEGMIND_KEY, "Content-Type": "application/json" },
-      body: JSON.stringify({ first_frame_image: shot.imageUrl, prompt: shot.videoPrompt, duration: 6, prompt_optimizer: true }),
-    });
-    let json = JSON.parse(await res.text());
-    console.log("  submit:", res.status, json.status);
-    if (json.status === "QUEUED" || json.status === "PROCESSING") json = await pollSegmindV2(json.status_url, 240_000);
-    console.log("  final:", json.status);
-    let videoUrl = json.video?.url ?? json.output;
-    if (json.status === "COMPLETED" && !videoUrl) {
-      const r2 = await fetch(json.response_url, { headers: { "x-api-key": SEGMIND_KEY } });
-      const j2 = await r2.json();
-      videoUrl = j2.video?.url ?? j2.output;
+    try {
+      const res = await fetch("https://api.segmind.com/v2/hailuo-02-fast", {
+        method: "POST",
+        headers: { "x-api-key": SEGMIND_KEY, "Content-Type": "application/json" },
+        body: JSON.stringify({ first_frame_image: shot.imageUrl, prompt: shot.videoPrompt, duration: 6, prompt_optimizer: true }),
+      });
+      let json = JSON.parse(await res.text());
+      console.log("  submit:", res.status, json.status);
+      if (json.status === "QUEUED" || json.status === "PROCESSING") json = await pollSegmindV2(json.status_url, 240_000);
+      console.log("  final:", json.status);
+      let videoUrl = json.video?.url ?? json.output;
+      if (json.status === "COMPLETED" && !videoUrl) {
+        const r2 = await fetch(json.response_url, { headers: { "x-api-key": SEGMIND_KEY } });
+        const j2 = await r2.json();
+        videoUrl = j2.video?.url ?? j2.output;
+      }
+      console.log("  video:", videoUrl ?? "(none)");
+      results.push({ ...shot, videoUrl });
+    } catch (e) {
+      // One shot's network/gateway hiccup shouldn't lose the rest of the batch
+      // (found the hard way - a single non-JSON response crashed all 18).
+      console.log("  FAILED (network/parse error):", e.message);
+      results.push({ ...shot, videoUrl: null, error: e.message });
     }
-    console.log("  video:", videoUrl ?? "(none)");
-    results.push({ ...shot, videoUrl });
     writeFileSync(`${OUT_DIR}/shots-with-video-segmind.json`, JSON.stringify(results, null, 2), "utf8");
   }
   return results;

@@ -131,12 +131,25 @@ export async function cropFourPanelGrid(pageBuffer: Buffer, panelIndex: 0 | 1 | 
     .toBuffer();
 }
 
-/** Scans a square panel bottom-up for the row where flat caption-band color
- *  gives way to photographic detail, searching only the bottom 45% (the
- *  caption band is never taller than that in practice) so a genuinely flat
- *  sky/snow region higher in the art can't be mistaken for it. Falls back to
- *  a 75%-height crop if no clear boundary is found (e.g. a panel with no
- *  caption baked in at all). */
+/** Scans a square panel top-down (within the bottom 45%, where the caption
+ *  band always lands in practice) for a SUDDEN, SUSTAINED jump to a much
+ *  brighter region - a real caption box, even a multi-line one.
+ *
+ *  A strict per-row flat-variance check (the original approach) breaks on
+ *  real baked-in caption TEXT: confirmed via a real failing generation
+ *  (2026-07-09) where multi-line caption text created high-variance rows
+ *  even inside an otherwise near-white caption box (text glyphs against a
+ *  white background are high-contrast), so "8 consecutive low-variance
+ *  rows" almost never occurred INSIDE the box itself - only a couple of
+ *  pixel-thin gaps between text lines ever qualified, so the crop landed
+ *  right at the very bottom edge instead of the box's real top, leaving
+ *  the whole caption visible. A windowed AVERAGE brightness is robust to
+ *  that (text rows still average bright since the white background
+ *  dominates the window), and requiring a large jump relative to the
+ *  preceding window (not just "bright") avoids false-triggering on
+ *  legitimate bright art (snow, sky) that's usually elevated gradually
+ *  rather than jumping sharply at one row. Falls back to a 75%-height crop
+ *  if no clear jump is found (e.g. a panel with no caption baked in at all). */
 async function findCaptionBandTop(panelBuf: Buffer, panelSize: number): Promise<number> {
   const searchTop = Math.round(panelSize * 0.55);
   const { data, info } = await sharp(panelBuf)
@@ -145,33 +158,40 @@ async function findCaptionBandTop(panelBuf: Buffer, panelSize: number): Promise<
     .raw()
     .toBuffer({ resolveWithObject: true });
 
-  const rowVariance: number[] = [];
+  const rowMeans: number[] = [];
   for (let y = 0; y < info.height; y++) {
     const rowStart = y * info.width;
     let sum = 0;
     for (let x = 0; x < info.width; x++) sum += data[rowStart + x];
-    const mean = sum / info.width;
-    let sqDiff = 0;
-    for (let x = 0; x < info.width; x++) {
-      const d = data[rowStart + x] - mean;
-      sqDiff += d * d;
-    }
-    rowVariance.push(sqDiff / info.width);
+    rowMeans.push(sum / info.width);
   }
 
-  // Flat caption-band rows have very low variance. Require 8 consecutive flat
-  // rows (not just one) so a single anti-aliased edge or a genuinely flat sky
-  // strip in the art doesn't trigger a false boundary.
-  const FLAT_THRESHOLD = 60;
-  const CONSECUTIVE_REQUIRED = 8;
-  let run = 0;
-  for (let y = 0; y < rowVariance.length; y++) {
-    if (rowVariance[y] < FLAT_THRESHOLD) {
-      run++;
-      if (run >= CONSECUTIVE_REQUIRED) return searchTop + y - CONSECUTIVE_REQUIRED + 1;
-    } else {
-      run = 0;
+  const WINDOW = 24;
+  const JUMP_THRESHOLD = 40;
+  const BRIGHTNESS_FLOOR = 170;
+  const windowAvg = (start: number) => {
+    const end = Math.min(start + WINDOW, rowMeans.length);
+    let sum = 0;
+    for (let i = start; i < end; i++) sum += rowMeans[i];
+    return sum / (end - start);
+  };
+
+  // If the search region is ALREADY bright from its very first row, the real
+  // jump happened above searchTop (an unusually tall caption band) and there's
+  // no "before" baseline left inside the search region to compare against -
+  // crop right at searchTop rather than scanning forward and missing it (the
+  // conservative choice: guarantees no caption bleeds through, at the cost of
+  // trimming a little extra art in this rare case).
+  if (rowMeans.length >= WINDOW && windowAvg(0) >= BRIGHTNESS_FLOOR) {
+    return searchTop;
+  }
+
+  for (let y = WINDOW; y <= rowMeans.length - WINDOW; y++) {
+    const before = windowAvg(y - WINDOW);
+    const after = windowAvg(y);
+    if (after >= BRIGHTNESS_FLOOR && after - before >= JUMP_THRESHOLD) {
+      return searchTop + y;
     }
   }
-  return Math.round(panelSize * 0.75); // no clear flat band found - fall back to the old safe default
+  return Math.round(panelSize * 0.75); // no clear caption-band jump found - fall back to the old safe default
 }

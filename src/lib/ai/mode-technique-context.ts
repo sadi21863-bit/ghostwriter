@@ -7,6 +7,8 @@ export interface ModeTechniqueRequest {
   mode?: string;
   combatStyleA?: string;
   combatStyleB?: string;
+  combatStyleAOwner?: string;
+  combatStyleBOwner?: string;
   emotion?: string;
   tensionType?: string;
   atmosphere?: string;
@@ -27,7 +29,9 @@ export interface ModeTechniqueRequest {
 export function buildModeTechniqueContext(req: ModeTechniqueRequest): string {
   switch (req.mode) {
     case "combat":
-      return req.combatStyleA ? buildCombatContext(req.combatStyleA, req.combatStyleB || "") : "";
+      return req.combatStyleA
+        ? buildCombatContext(req.combatStyleA, req.combatStyleB || "", req.combatStyleAOwner, req.combatStyleBOwner)
+        : "";
     case "emotional":
       return req.emotion ? buildEmotionalContext(req.emotion) : "";
     case "tension":

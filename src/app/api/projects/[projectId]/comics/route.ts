@@ -16,6 +16,7 @@ import { scoreShot, retryHint } from "@/lib/production/self-eval";
 import { ART_STYLES, PanelSpec, buildBreakdownPrompt, buildPanelPrompt } from "@/lib/ai/panel-prompt-builder";
 import { decrypt } from "@/lib/crypto";
 import { getCharacterSoulReference } from "@/lib/production/character-reference";
+import { generateComicPageViaStoryDiffusion } from "@/lib/comic-gen/generate-storydiffusion-page";
 
 
 function safeParseJson(raw: string) {
@@ -58,7 +59,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ project
   if (!segmindKey)
     return NextResponse.json({ error: "Add your Segmind API key in Settings to generate comics." }, { status: 400 });
 
-  const { chapterId, artStyleId } = await req.json();
+  const { chapterId, artStyleId, useStoryDiffusion } = await req.json();
 
   const chapter = await db.query.chapters.findFirst({
     where: and(eq(chapters.id, chapterId), eq(chapters.projectId, (await params).projectId)),
@@ -105,40 +106,79 @@ export async function POST(req: Request, { params }: { params: Promise<{ project
   // the whole page reproducible. Costs nothing extra — same number of calls.
   const pageSeed = Math.floor(Math.random() * 900000);
 
-  // Generate all panels (allow partial success)
-  const panelResults = await Promise.allSettled(
-    specs.map(async (spec, i) => {
-      const prompt = buildPanelPrompt(spec, project.characters, artStyleObj, project.name, worldEntities);
-      const refName = spec.characters?.[0];
-      const { referenceImageUrl, soulId, referenceStrength } = refName
-        ? getCharacterSoulReference(refName, project.characters)
-        : { referenceStrength: 0.85 };
+  const projectIdVal = (await params).projectId;
+  const uploadPanel = async (buf: Buffer, i: number) => {
+    if (!process.env.BLOB_READ_WRITE_TOKEN) {
+      return `data:image/png;base64,${buf.toString("base64")}`;
+    }
+    const blob = await put(
+      `comics/${projectIdVal}/${page.id}/panel-${i}.png`,
+      buf,
+      { access: "public", contentType: "image/png" }
+    );
+    return blob.url;
+  };
 
-      const soulUrl = await generateSoulImage({
+  // StoryDiffusion (opt-in via useStoryDiffusion): one call generates a whole
+  // consistent multi-panel page (up to 4 panels, "Four Pannel" layout only -
+  // see STORYDIFFUSION_MAX_PANELS) instead of N independent Soul calls. Real
+  // per-image cost is lower and character consistency comes from the model's
+  // own cross-panel attention rather than N separate reference-image calls.
+  // Falls back to the per-panel path on any failure so a StoryDiffusion outage
+  // doesn't turn into a total generation failure.
+  let panelResults: PromiseSettledResult<{ prompt: string; imageUrl: string; referenceImageUrl: string; characterName: string; index: number }>[];
+  if (useStoryDiffusion) {
+    try {
+      const sdResults = await generateComicPageViaStoryDiffusion({
         apiKey: segmindKey,
-        prompt,
-        stylePreset: artStyleObj.higgsfieldPreset,
-        referenceImageUrl,
-        soulId,
-        referenceStrength,
-        seed: pageSeed + i,
+        specs,
+        characters: project.characters,
+        artStyle: artStyleObj,
+        uploadPanel,
       });
+      panelResults = sdResults.map(r => ({ status: "fulfilled", value: r } as const));
+    } catch (e: any) {
+      console.error("[comics] StoryDiffusion generation failed, falling back to per-panel Soul generation:", e?.message);
+      panelResults = [{ status: "rejected", reason: e } as const];
+    }
+  } else {
+    panelResults = [];
+  }
 
-      let imageUrl = soulUrl;
-      if (process.env.BLOB_READ_WRITE_TOKEN) {
-        const imgRes = await fetch(soulUrl);
-        const imgBuf = await imgRes.arrayBuffer();
-        const blob = await put(
-          `comics/${(await params).projectId}/${page.id}/panel-${i}.png`,
-          imgBuf,
-          { access: "public", contentType: "image/png" }
-        );
-        imageUrl = blob.url;
-      }
+  if (!useStoryDiffusion || panelResults.every(r => r.status === "rejected")) {
+    // Generate all panels (allow partial success)
+    panelResults = await Promise.allSettled(
+      specs.map(async (spec, i) => {
+        const prompt = buildPanelPrompt(spec, project.characters, artStyleObj, project.name, worldEntities);
+        const refName = spec.characters?.[0];
+        const { referenceImageUrl, soulId, referenceStrength } = refName
+          ? getCharacterSoulReference(refName, project.characters)
+          : { referenceStrength: 0.85 };
 
-      return { prompt, imageUrl, referenceImageUrl: soulId ?? referenceImageUrl ?? "", characterName: refName ?? "", index: i };
-    })
-  );
+        const soulUrl = await generateSoulImage({
+          apiKey: segmindKey,
+          prompt,
+          stylePreset: artStyleObj.higgsfieldPreset,
+          referenceImageUrl,
+          soulId,
+          referenceStrength,
+          seed: pageSeed + i,
+        });
+
+        // Unlike StoryDiffusion's cropped panels (which have no original external
+        // URL and must always go through uploadPanel), a per-panel Soul image
+        // already has one - only re-upload it to blob storage when a token is
+        // configured, otherwise keep using Segmind's own URL directly (matches
+        // this route's pre-existing behavior for local/dev environments with no
+        // BLOB_READ_WRITE_TOKEN set).
+        const imageUrl = process.env.BLOB_READ_WRITE_TOKEN
+          ? await uploadPanel(Buffer.from(await (await fetch(soulUrl)).arrayBuffer()), i)
+          : soulUrl;
+
+        return { prompt, imageUrl, referenceImageUrl: soulId ?? referenceImageUrl ?? "", characterName: refName ?? "", index: i };
+      })
+    );
+  }
 
   // Insert successful panels
   const panels: any[] = [];
@@ -147,7 +187,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ project
       const { prompt, imageUrl, referenceImageUrl, characterName, index } = result.value;
       const [panel] = await db.insert(comicPanels).values({
         pageId: page.id,
-        projectId: (await params).projectId,
+        projectId: projectIdVal,
         panelIndex: index,
         imageUrl,
         panelPrompt: prompt,

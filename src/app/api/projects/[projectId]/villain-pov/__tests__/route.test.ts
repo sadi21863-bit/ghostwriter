@@ -125,6 +125,17 @@ describe("POST /api/projects/[projectId]/villain-pov", () => {
     expect(call.system).toContain("KRAV MAGA");
   });
 
+  it("binds combatStyleA to the antagonist's own name so terminology isn't misattributed (item 58 fix)", async () => {
+    await POST(makeReq({
+      characterId: "char-1", sceneDescription: "the antagonist corners the protagonist",
+      combatStyleA: "Muay Thai", combatStyleB: "Krav Maga",
+    }), makeParams());
+    const call = createMessage.mock.calls[0][0];
+    expect(call.system).toContain("used by Mordred");
+    // The opponent (styleB) has no known owner in this route - must not guess one.
+    expect(call.system).not.toMatch(/KRAV MAGA.*used by/);
+  });
+
   it("omits combat context when no styles are supplied", async () => {
     await POST(makeReq({ characterId: "char-1", sceneDescription: "a quiet confrontation" }), makeParams());
     const call = createMessage.mock.calls[0][0];

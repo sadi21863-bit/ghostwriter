@@ -10,8 +10,10 @@ vi.mock("@/lib/crypto", () => ({
 }));
 
 const generateTextVideo = vi.fn();
+const pollJob = vi.fn();
 vi.mock("@/lib/higgsfield/client", () => ({
   generateTextVideo: (...args: any[]) => generateTextVideo(...args),
+  pollJob: (...args: any[]) => pollJob(...args),
 }));
 
 const findFirstProjects = vi.fn();
@@ -37,8 +39,8 @@ vi.mock("@/db", () => ({
 
 import { POST } from "../route";
 
-function makeRequest() {
-  return new Request("http://localhost/api/projects/proj-1/production/scenes/1/generate-video", { method: "POST" });
+function makeRequest(query = "") {
+  return new Request(`http://localhost/api/projects/proj-1/production/scenes/1/generate-video${query}`, { method: "POST" });
 }
 function makeParams(sceneNumber = "1") {
   return { params: Promise.resolve({ projectId: "proj-1", sceneNumber }) };
@@ -179,5 +181,104 @@ describe("POST /api/projects/[projectId]/production/scenes/[sceneNumber]/generat
 
     expect(res.status).toBe(400);
     expect(generateTextVideo).not.toHaveBeenCalled();
+  });
+});
+
+describe("POST .../generate-video?multiShot=1 (item 68 Task 3, opt-in)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    findFirstProjects.mockResolvedValue({ id: "proj-1", userId: "user-1" });
+    findFirstUsers.mockResolvedValue({ segmindApiKey: "encrypted-key" });
+    decrypt.mockReturnValue("SG_real_key");
+  });
+
+  function makeShots(count: number) {
+    return Array.from({ length: count }, (_, i) => ({
+      id: `shot-${i + 1}`, shotNumber: i + 1, sceneNumber: 1,
+      videoPrompt: `Shot action ${i + 1}`, soulPrompt: `p${i + 1}`, duration: 5,
+      primaryCharacter: { portraitUrl: `https://example.com/char-${i}.png` },
+    }));
+  }
+
+  it("submits ONE generateTextVideo call with a combined multiShotPrompt instead of N per-shot calls, when the flag is set and the scene qualifies (<=5 shots)", async () => {
+    findManyShots.mockResolvedValue(makeShots(3));
+    generateTextVideo.mockResolvedValue({ mediaUrl: "https://blob.example/combined.mp4" });
+
+    const res = await POST(makeRequest("?multiShot=1"), makeParams());
+    const body = await res.json();
+
+    expect(generateTextVideo).toHaveBeenCalledTimes(1);
+    const call = generateTextVideo.mock.calls[0][0];
+    expect(call.multiShotPrompt).toContain("Shot 1: Shot action 1");
+    expect(call.multiShotPrompt).toContain("Shot 3: Shot action 3");
+    expect(call.prompt).toBeUndefined();
+    expect(body).toEqual({ status: "final_ready", videoUrl: "https://blob.example/combined.mp4", mode: "multiShot" });
+  });
+
+  it("sets the same combined video as BOTH finalVideoUrl and sceneFinalVideoUrl on every shot in the scene (no per-shot stitch needed - the single call already covers the whole scene)", async () => {
+    findManyShots.mockResolvedValue(makeShots(2));
+    generateTextVideo.mockResolvedValue({ mediaUrl: "https://blob.example/combined.mp4" });
+
+    await POST(makeRequest("?multiShot=1"), makeParams());
+
+    expect(updateSet).toHaveBeenCalledTimes(2);
+    expect(updateSet).toHaveBeenNthCalledWith(1, expect.objectContaining({
+      finalVideoUrl: "https://blob.example/combined.mp4",
+      sceneFinalVideoUrl: "https://blob.example/combined.mp4",
+      generationStatus: "final_ready",
+    }));
+  });
+
+  it("polls to completion when the submission returns a job instead of an immediate mediaUrl", async () => {
+    findManyShots.mockResolvedValue(makeShots(2));
+    generateTextVideo.mockResolvedValue({ requestId: "req-1", pollingUrl: "https://api.segmind.com/v2/requests/req-1/status" });
+    pollJob
+      .mockResolvedValueOnce({ status: "PROCESSING" })
+      .mockResolvedValueOnce({ status: "COMPLETED", mediaUrl: "https://blob.example/combined.mp4" });
+
+    const res = await POST(makeRequest("?multiShot=1"), makeParams());
+    const body = await res.json();
+
+    expect(pollJob).toHaveBeenCalledTimes(2);
+    expect(body.status).toBe("final_ready");
+  }, 15_000);
+
+  it("falls back to the per-shot path when the multi-shot call fails, rather than erroring out", async () => {
+    findManyShots.mockResolvedValue(makeShots(2));
+    generateTextVideo
+      .mockRejectedValueOnce(new Error("multi-shot submit failed"))
+      .mockResolvedValue({ requestId: "req-x", pollingUrl: "https://api.segmind.com/v2/requests/req-x/status" }); // per-shot fallback calls
+
+    const res = await POST(makeRequest("?multiShot=1"), makeParams());
+    const body = await res.json();
+
+    // 1 failed multi-shot attempt + 2 per-shot fallback calls = 3 total
+    expect(generateTextVideo).toHaveBeenCalledTimes(3);
+    expect(body).toEqual({ status: "generating_final", shotCount: 2 });
+  });
+
+  it("does not attempt the multi-shot path for scenes larger than 5 shots, even with the flag set", async () => {
+    findManyShots.mockResolvedValue(makeShots(6));
+    generateTextVideo.mockResolvedValue({ requestId: "req-x", pollingUrl: "https://api.segmind.com/v2/requests/req-x/status" });
+
+    await POST(makeRequest("?multiShot=1"), makeParams());
+
+    // per-shot path: one call per shot, none with multiShotPrompt
+    expect(generateTextVideo).toHaveBeenCalledTimes(6);
+    for (const call of generateTextVideo.mock.calls) {
+      expect(call[0].multiShotPrompt).toBeUndefined();
+    }
+  });
+
+  it("does not use the multi-shot path when the flag is absent, regardless of scene size (default behavior unchanged)", async () => {
+    findManyShots.mockResolvedValue(makeShots(3));
+    generateTextVideo.mockResolvedValue({ requestId: "req-x", pollingUrl: "https://api.segmind.com/v2/requests/req-x/status" });
+
+    await POST(makeRequest(), makeParams());
+
+    expect(generateTextVideo).toHaveBeenCalledTimes(3);
+    for (const call of generateTextVideo.mock.calls) {
+      expect(call[0].multiShotPrompt).toBeUndefined();
+    }
   });
 });

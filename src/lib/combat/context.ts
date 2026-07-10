@@ -2,7 +2,12 @@
 import type { CombatStyle } from "./types";
 import { COMBAT_STYLES } from "./_registry";
 
-export function buildCombatContext(styleAName: string, styleBName: string): string {
+export function buildCombatContext(
+  styleAName: string,
+  styleBName: string,
+  styleAOwnerName?: string,
+  styleBOwnerName?: string,
+): string {
   const styleA = COMBAT_STYLES[styleAName];
   const styleB = COMBAT_STYLES[styleBName];
 
@@ -12,8 +17,14 @@ export function buildCombatContext(styleAName: string, styleBName: string): stri
   blocks.push("COMBAT LIBRARY — ACTIVE STYLES");
   blocks.push("The following biomechanical data must inform every technique, stance, and movement in the fight scene. Use the correct names for techniques. Generate force from the ground up. Let strikes accumulate consequences across exchanges. Both fighters have strategy, not just reaction. Track distance explicitly.");
 
-  if (styleA) blocks.push(formatStyle(styleA));
-  if (styleB) blocks.push(formatStyle(styleB));
+  // Binding a style to a named character (when known) prevents the model from
+  // attributing technique-specific terminology to whichever fighter narrative
+  // logic happens to favor, rather than the character the style was actually
+  // sourced from (e.g. a World Bible skill) — a real, observed failure mode
+  // (Output Test 2, item 58): correct Krav Maga terminology landed on the
+  // protagonist's dialogue instead of the antagonist whose skill triggered it.
+  if (styleA) blocks.push(formatStyle(styleA, styleAOwnerName));
+  if (styleB) blocks.push(formatStyle(styleB, styleBOwnerName));
 
   if (styleA && styleB) {
     blocks.push(buildMatchupNotes(styleA, styleB));
@@ -22,9 +33,9 @@ export function buildCombatContext(styleAName: string, styleBName: string): stri
   return blocks.join("\n\n");
 }
 
-function formatStyle(s: CombatStyle): string {
+function formatStyle(s: CombatStyle, ownerName?: string): string {
   const lines: string[] = [];
-  lines.push(`STYLE: ${s.name.toUpperCase()} (${s.origin})`);
+  lines.push(`STYLE: ${s.name.toUpperCase()} (${s.origin})${ownerName ? ` — used by ${ownerName}` : ""}`);
   lines.push(`Philosophy: ${s.corePhilosophy}`);
   lines.push(`Body mechanics: ${s.bodyMechanics}`);
   lines.push(`Distance: ${s.distancePreference}`);

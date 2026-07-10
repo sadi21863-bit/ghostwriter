@@ -26,6 +26,36 @@ async function buildSyntheticPage(panelSize: number, bandStartFrac: number): Pro
   return sharp(data, { raw: { width: pageSize, height: pageSize, channels } }).png().toBuffer();
 }
 
+/** Same shape as buildSyntheticPage, but the "caption band" isn't purely flat -
+ *  it has dark "text glyph" streaks punched into it (alternating bright/dark
+ *  stripes), mirroring how real baked-in caption TEXT breaks up an otherwise
+ *  near-white band. This is the real 2026-07-09 bug case: a strict per-row
+ *  flat-variance check fails inside a band like this (the old algorithm), but
+ *  the band's ROW AVERAGE stays high throughout since white background still
+ *  dominates each row even with dark glyphs mixed in. */
+async function buildSyntheticPageWithText(panelSize: number, bandStartFrac: number): Promise<Buffer> {
+  const pageSize = panelSize * 2;
+  const channels = 3;
+  const data = Buffer.alloc(pageSize * pageSize * channels);
+  const bandStartRow = Math.round(panelSize * bandStartFrac);
+  for (let y = 0; y < pageSize; y++) {
+    const rowInPanel = y % panelSize;
+    const isBand = rowInPanel >= bandStartRow;
+    // Within the band, every 3rd row gets dark "glyph" stripes punched in across
+    // ~40% of its width (high local contrast/variance), like a line of text.
+    const isTextRow = isBand && rowInPanel % 3 === 0;
+    for (let x = 0; x < pageSize; x++) {
+      const idx = (y * pageSize + x) * channels;
+      let value: number;
+      if (isTextRow && x % 5 < 2) value = 20; // dark glyph stripe
+      else if (isBand) value = 235; // white band background
+      else value = Math.floor(Math.random() * 200) + 20; // noisy art
+      data[idx] = value; data[idx + 1] = value; data[idx + 2] = value;
+    }
+  }
+  return sharp(data, { raw: { width: pageSize, height: pageSize, channels } }).png().toBuffer();
+}
+
 describe("storyDiffusionStyleFor", () => {
   it("maps art-style ids to StoryDiffusion's fixed style_name options", () => {
     expect(storyDiffusionStyleFor({ id: "manga" })).toBe("Japanese Anime");
@@ -133,6 +163,25 @@ describe("cropFourPanelGrid", () => {
     // isn't pixel-exact at 90, but it must land well short of the old 150px.
     expect(meta.height).toBeLessThanOrEqual(110);
     expect(meta.height).toBeGreaterThan(75);
+  });
+
+  it("crops the caption band even when baked-in TEXT breaks up its flatness - the real 2026-07-09 bug case", async () => {
+    // Real generation found: a strict per-row flat-variance check (the
+    // original algorithm) almost never sees 8 consecutive flat rows INSIDE a
+    // real multi-line caption box, because the text glyphs themselves create
+    // high-contrast/high-variance rows even against a white background - the
+    // crop landed at the very bottom edge instead of the box's real top,
+    // leaving the whole caption visible. Fixed via windowed average
+    // brightness (robust to text interruption) + a sharp-jump requirement.
+    // Band deliberately starts at 65% (130px), NOT the 75% fallback (150px) -
+    // confirmed by hand that the OLD algorithm genuinely fails this exact
+    // fixture (falls through to the 150px fallback, leaking 20px of caption),
+    // while this fix correctly lands at ~134px.
+    const page = await buildSyntheticPageWithText(200, 0.65);
+    const cropped = await cropFourPanelGrid(page, 0);
+    const meta = await sharp(cropped).metadata();
+    expect(meta.height).toBeLessThanOrEqual(145);
+    expect(meta.height).toBeGreaterThan(120);
   });
 
   it("selects the correct quadrant for each panel index", async () => {

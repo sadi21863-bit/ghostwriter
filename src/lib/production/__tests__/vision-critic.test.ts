@@ -72,6 +72,21 @@ describe("critiqueShot", () => {
     expect(result).toEqual({ promptAdherence: 0.7 });
   });
 
+  it("extracts the JSON object even when the model appends prose after it", async () => {
+    createMessage.mockResolvedValue({
+      content: [{
+        type: "text",
+        text: '```json\n{"promptAdherence": 0.8, "characterConsistency": 0.5, "continuity": 0.6, "technicalQuality": 0.9, "pacing": 0.4, "coverage": 0.7, "aesthetics": 0.85}\n```\n\n**Brief Assessment:**\n- Strong technical quality, muted color grading.',
+      }],
+    });
+
+    const result = await critiqueShot({ imageUrl: "https://blob.example/shot.jpg", prompt: "A hallway" });
+    expect(result).toEqual({
+      promptAdherence: 0.8, characterConsistency: 0.5, continuity: 0.6,
+      technicalQuality: 0.9, pacing: 0.4, coverage: 0.7, aesthetics: 0.85,
+    });
+  });
+
   it("fails open (returns {}) on malformed JSON rather than throwing", async () => {
     createMessage.mockResolvedValue({ content: [{ type: "text", text: "not json at all" }] });
     const result = await critiqueShot({ imageUrl: "https://blob.example/shot.jpg", prompt: "A hallway" });

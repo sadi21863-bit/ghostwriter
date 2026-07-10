@@ -73,7 +73,18 @@ export async function GET(
   if (!project) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const { searchParams } = new URL(req.url);
-  const jobId = searchParams.get("jobId");
+  const { characterId, projectId } = await params;
+  // jobId is optional now: a caller that already has it (the manual
+  // WorldBiblePanel trigger) can pass it explicitly; generate-package's
+  // auto-bootstrap (item 68's Task 2) has no way to hand the jobId to a
+  // caller directly since it never blocks the original request, so it
+  // stores the pending job on the character row instead - polling by
+  // characterId alone picks that up.
+  let jobId = searchParams.get("jobId");
+  const char = await db.query.characters.findFirst({
+    where: and(eq(characters.id, characterId), eq(characters.projectId, projectId)),
+  });
+  if (!jobId) jobId = char?.soulIdTrainingJobId || null;
   if (!jobId) return NextResponse.json({ error: "Missing jobId" }, { status: 400 });
 
   const user = await db.query.users.findFirst({ where: eq(users.id, session.user.id) });
@@ -88,14 +99,20 @@ export async function GET(
 
   if (result.status === "completed" && result.soulId) {
     await db.update(characters)
-      .set({ soulId: result.soulId })
-      .where(and(eq(characters.id, (await params).characterId), eq(characters.projectId, (await params).projectId)));
+      .set({ soulId: result.soulId, soulIdTrainingJobId: "" })
+      .where(and(eq(characters.id, characterId), eq(characters.projectId, projectId)));
 
     return NextResponse.json({
       status: "completed",
       soulId: result.soulId,
       message: `Soul ID trained for this character. All future comic panels will be visually consistent.`,
     });
+  }
+
+  if (result.status === "failed") {
+    await db.update(characters)
+      .set({ soulIdTrainingJobId: "" })
+      .where(and(eq(characters.id, characterId), eq(characters.projectId, projectId)));
   }
 
   return NextResponse.json({ status: result.status });

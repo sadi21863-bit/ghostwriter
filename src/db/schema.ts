@@ -32,6 +32,12 @@ export const characters = pgTable("characters", {
   arc: text("arc").default(""),
   portraitUrl: text("portrait_url").default(""),
   soulId: text("soul_id").default(""),
+  // Set when generate-package auto-kicks off Soul ID training for a character
+  // it just created (see src/lib/production/soul-id-bootstrap.ts) - a pending
+  // job awaiting completion. Cleared once soulId is set (completed) or once
+  // training is confirmed failed. Lets the soul-id GET route poll by
+  // characterId alone, without a caller needing to already know the jobId.
+  soulIdTrainingJobId: text("soul_id_training_job_id").default(""),
   visualProfile: text("visual_profile").default(""),
   voiceProfile: text("voice_profile").default(""),
   voiceId: text("voice_id").default(""),

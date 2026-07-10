@@ -17,7 +17,7 @@ import type { EvalDimensions } from "./self-eval";
 const CRITIC_SYSTEM_PROMPT = `You are a film/comic-panel quality critic. You are shown a generated image and told what it was supposed to depict. Score it honestly on each dimension below, 0.0 (fails completely) to 1.0 (perfect).
 
 promptAdherence: does the image match the requested subject/action/setting?
-characterConsistency: if a reference character image is provided, does the generated character match it (face, hair, build, clothing)? If no reference image is provided, score based on internal consistency only.
+characterConsistency: if a reference character image is provided, does the generated character match it (face, hair, build, clothing)? If no reference image is provided, score based on internal consistency only. If the character's face is not legible for any deliberate compositional reason — an intentional close-up/insert on a hand or object, a backlit or shadowed silhouette, deep shadow, obscured by framing — score 1.0. There is nothing to compare against, so an intentionally illegible face is not itself an inconsistency. Only score this down when a face IS visible and it looks inconsistent.
 continuity: if a previous-shot image is provided, do lighting, location and time-of-day read as one continuous sequence with it? If no previous shot is provided, score 1.0 (nothing to break continuity with).
 technicalQuality: is the rendering free of artifacts, anatomy errors, garbled text?
 pacing: does the composition suit its likely shot duration (nothing critical crammed into a corner, nothing static that needed motion)?
@@ -35,11 +35,23 @@ export interface CritiqueInput {
 }
 
 function safeParseScores(raw: string): Partial<EvalDimensions> {
-  const clean = raw.replace(/```(?:json)?\n?|```/g, "").trim();
+  // Extract just the {...} object rather than parsing the whole cleaned
+  // string: despite "Return ONLY valid JSON", the model sometimes appends
+  // prose after the object (e.g. a "Brief Assessment" section) — a strict
+  // whole-string JSON.parse fails on that trailing text and silently
+  // returns {} (all-zero scores) with no error, since this is deliberately
+  // fail-open. The dims are flat (no nested objects), so a single non-greedy
+  // {...} match is safe.
+  const match = raw.match(/\{[^{}]*\}/);
+  if (!match) {
+    console.warn(`[critiqueShot] no JSON object found in response: ${raw.slice(0, 200)}`);
+    return {};
+  }
   try {
-    const parsed = JSON.parse(clean);
+    const parsed = JSON.parse(match[0]);
     return typeof parsed === "object" && parsed !== null ? parsed : {};
   } catch {
+    console.warn(`[critiqueShot] failed to parse extracted JSON: ${match[0].slice(0, 200)}`);
     return {};
   }
 }

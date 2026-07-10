@@ -14,6 +14,19 @@ describe("buildModeTechniqueContext", () => {
     expect(ctx).toContain("BOXING");
   });
 
+  it("binds a style to a named character when an owner is given, so the prose doesn't misattribute it", () => {
+    const ctx = buildModeTechniqueContext({
+      mode: "combat",
+      combatStyleA: "Krav Maga",
+      combatStyleB: "Boxing",
+      combatStyleAOwner: "Kessler",
+    });
+    expect(ctx).toContain("KRAV MAGA");
+    expect(ctx).toContain("used by Kessler");
+    // Boxing has no owner supplied - must not be falsely bound to anyone.
+    expect(ctx).not.toMatch(/BOXING.*used by/);
+  });
+
   it("returns emotional physiology when mode is emotional and an emotion is given", () => {
     const ctx = buildModeTechniqueContext({ mode: "emotional", emotion: "Grief" });
     expect(ctx.length).toBeGreaterThan(0);

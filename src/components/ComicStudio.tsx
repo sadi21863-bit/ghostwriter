@@ -15,6 +15,7 @@ export default function ComicStudio({ project, segmindKey, onOpenStudio }: { pro
   const [selectedChapterId, setSelectedChapterId] = useState("");
   const [exportingCbz, setExportingCbz] = useState(false);
   const [selectedArtStyleId, setSelectedArtStyleId] = useState("manga");
+  const [useStoryDiffusion, setUseStoryDiffusion] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [generationMsg, setGenerationMsg] = useState("");
   const [genError, setGenError] = useState("");
@@ -54,11 +55,13 @@ export default function ComicStudio({ project, segmindKey, onOpenStudio }: { pro
     setGenError("");
     setGenerationMsg("Analyzing scene structure...");
     try {
-      setGenerationMsg("Generating 6 panels via Higgsfield Soul 2.0... (this takes 1-2 min)");
+      setGenerationMsg(useStoryDiffusion
+        ? "Generating a consistent 4-panel page via StoryDiffusion... (this takes 1-2 min)"
+        : "Generating 6 panels via Higgsfield Soul 2.0... (this takes 1-2 min)");
       const res = await fetch(`/api/projects/${project.id}/comics`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ chapterId: selectedChapterId, artStyleId: selectedArtStyleId }),
+        body: JSON.stringify({ chapterId: selectedChapterId, artStyleId: selectedArtStyleId, useStoryDiffusion }),
       });
       const data = await res.json();
       if (data.error) { setGenError(data.error); return; }
@@ -420,6 +423,18 @@ export default function ComicStudio({ project, segmindKey, onOpenStudio }: { pro
                     {style.label}
                   </button>
                 ))}
+              </div>
+            </div>
+
+            <div style={{ marginBottom: 16 }}>
+              <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, cursor: "pointer" }}>
+                <input type="checkbox" checked={useStoryDiffusion} onChange={e => setUseStoryDiffusion(e.target.checked)} />
+                <span style={{ fontWeight: 600 }}>Use StoryDiffusion (one consistent 4-panel page, single call)</span>
+              </label>
+              <div style={{ fontSize: 11, color: co.muted, marginTop: 4, paddingLeft: 24 }}>
+                {useStoryDiffusion
+                  ? "One model call renders all 4 panels together for stronger cross-panel character consistency than 6 independent Soul calls — capped at 4 panels. Falls back to Soul 2.0 automatically if it fails."
+                  : "Off: generates up to 6 panels, each its own Soul 2.0 call with its own character reference."}
               </div>
             </div>
 
