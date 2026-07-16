@@ -323,6 +323,9 @@ export const audioExports = pgTable("audio_exports", {
   id: uuid("id").defaultRandom().primaryKey(),
   projectId: uuid("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
   chapterId: uuid("chapter_id").notNull(),
+  // "narration" (default, existing Audio Novel behavior) or "podcast" (item 71:
+  // two-host discussion mode, distinct script/voice pipeline).
+  mode: text("mode").notNull().default("narration"),
   status: text("status").notNull().default("pending"),
   audioUrl: text("audio_url").default(""),
   durationSeconds: integer("duration_seconds").default(0),

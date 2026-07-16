@@ -34,12 +34,17 @@ export function AudioNovelPanel({ project, activeChap }: Props) {
     }
   };
 
-  const generateAudio = async () => {
+  const generateAudio = async (mode: "narration" | "podcast" = "narration") => {
     if (audioGenerating || !activeChap?.content) return;
     const wc = (activeChap.content || "").split(/\s+/).filter(Boolean).length;
     const estimatedRs = Math.round(wc * 0.002 * 83);
-    if (!window.confirm(`Generate audio for this chapter? Estimated cost: ~₹${estimatedRs}. Uses your OpenAI API key.`)) return;
-    setAudioGenerating(true); setAudioMsg("Generating audio… this can take a minute for a full chapter."); setAudioUrl(null); setAudioExportId(null);
+    const confirmMsg = mode === "podcast"
+      ? `Generate a two-host podcast discussion of this chapter? Estimated cost: ~₹${estimatedRs} (plus a script-writing call). Uses your OpenAI API key.`
+      : `Generate audio for this chapter? Estimated cost: ~₹${estimatedRs}. Uses your OpenAI API key.`;
+    if (!window.confirm(confirmMsg)) return;
+    setAudioGenerating(true);
+    setAudioMsg(mode === "podcast" ? "Writing the discussion script and generating audio… this can take a minute or two." : "Generating audio… this can take a minute for a full chapter.");
+    setAudioUrl(null); setAudioExportId(null);
     setLipsyncStatus("idle"); setLipsyncVideoUrl(null); setLipsyncMsg("");
     // Bounded to the server route's own maxDuration (300s) so the button —
     // and the page — always recover with a visible message instead of
@@ -49,14 +54,15 @@ export function AudioNovelPanel({ project, activeChap }: Props) {
     try {
       const res = await fetch("/api/audio/generate", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ projectId: project.id, chapterId: activeChap.id }),
+        body: JSON.stringify({ projectId: project.id, chapterId: activeChap.id, mode }),
         signal: controller.signal,
       });
       const data = await res.json();
       if (data.audioUrl) {
         setAudioUrl(data.audioUrl);
         setAudioExportId(data.exportId || null);
-        setAudioMsg(`${Math.round(data.durationSeconds / 60)}m ${data.durationSeconds % 60}s · ${data.segments} segments`);
+        const label = data.mode === "podcast" ? "🎙️ Podcast" : "Narration";
+        setAudioMsg(`${label} · ${Math.round(data.durationSeconds / 60)}m ${data.durationSeconds % 60}s · ${data.segments} segments`);
       } else { setAudioMsg(data.error || "Audio generation failed."); }
     } catch (err: any) {
       setAudioMsg(err?.name === "AbortError" ? "Audio generation timed out. Please try again." : "Audio generation failed.");
@@ -72,13 +78,24 @@ export function AudioNovelPanel({ project, activeChap }: Props) {
     <div style={{ border: `1px solid ${co.border}`, borderRadius: 10, background: co.surface, overflow: "hidden" }}>
       <div style={{ padding: "10px 14px", display: "flex", alignItems: "center", justifyContent: "space-between", borderBottom: audioUrl ? `1px solid ${co.border}` : "none" }}>
         <span style={{ fontSize: 12, fontWeight: 700, color: co.text }}>🎧 Audio Novel</span>
-        <button
-          style={{ ...sBtnSm, background: audioGenerating ? co.surfaceAlt : co.surface, opacity: audioGenerating ? 0.7 : 1 }}
-          onClick={generateAudio}
-          disabled={audioGenerating || !activeChap?.content}
-        >
-          {audioGenerating ? "Generating…" : "Generate Audio"}
-        </button>
+        <div style={{ display: "flex", gap: 6 }}>
+          <button
+            style={{ ...sBtnSm, background: audioGenerating ? co.surfaceAlt : co.surface, opacity: audioGenerating ? 0.7 : 1 }}
+            onClick={() => generateAudio("narration")}
+            disabled={audioGenerating || !activeChap?.content}
+            title="Read this chapter aloud, in-character"
+          >
+            {audioGenerating ? "Generating…" : "Generate Audio"}
+          </button>
+          <button
+            style={{ ...sBtnSm, background: audioGenerating ? co.surfaceAlt : co.surface, opacity: audioGenerating ? 0.7 : 1 }}
+            onClick={() => generateAudio("podcast")}
+            disabled={audioGenerating || !activeChap?.content}
+            title="Two AI hosts discuss this chapter, NotebookLM-style"
+          >
+            {audioGenerating ? "Generating…" : "🎙️ Podcast Discussion"}
+          </button>
+        </div>
       </div>
 
       {castCharacters.length > 0 && (

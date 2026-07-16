@@ -26,6 +26,8 @@ import { put } from "@vercel/blob";
 import { decrypt } from "@/lib/crypto";
 import { getTTSProvider } from "@/lib/audio/registry";
 import { parseChapterIntoSegments } from "@/lib/audio/segment-chapter";
+import { concatAudioBuffers } from "@/lib/audio/concat-audio";
+import { generatePodcastScript } from "@/lib/audio/podcast-script";
 
 // USD/char rates, converted at the same ~83.33 INR/USD ratio the original
 // OpenAI-only estimate used (0.00125 INR/char == $0.015/1K chars * 83.33).
@@ -49,7 +51,8 @@ export async function POST(req: Request) {
     }, { status: 403 });
   }
 
-  const { projectId, chapterId } = await req.json();
+  const { projectId, chapterId, mode: rawMode } = await req.json();
+  const mode: "narration" | "podcast" = rawMode === "podcast" ? "podcast" : "narration";
 
   const project = await db.query.projects.findFirst({
     where: and(eq(projects.id, projectId), eq(projects.userId, session.user.id)),
@@ -85,11 +88,33 @@ export async function POST(req: Request) {
   const [exportRecord] = await db.insert(audioExports).values({
     projectId,
     chapterId,
+    mode,
     status: "processing",
     estimatedCost: `₹${Math.round(chapter.content.length * costPerChar)}`,
   }).returning();
 
-  const segments = parseChapterIntoSegments(chapter.content, projectChars, provider);
+  // Podcast mode (item 71): a two-host discussion of the chapter rather than a
+  // straight read-aloud. Two FIXED voice IDs stand in for "Host A"/"Host B" —
+  // deliberately not per-character voices, since this isn't in-scene dialogue.
+  let segments: { text: string; voice: string }[];
+  let sourceCharCount: number;
+  if (mode === "podcast") {
+    let turns;
+    try {
+      turns = await generatePodcastScript(chapter.content, project.name);
+    } catch (err: any) {
+      await db.update(audioExports).set({ status: "failed" }).where(eq(audioExports.id, exportRecord.id));
+      console.error('[audio] podcast script generation error:', err);
+      return NextResponse.json({ error: "Podcast script generation failed. Please try again." }, { status: 500 });
+    }
+    const hostVoiceA = provider.voices[0]?.id ?? provider.defaultVoiceId;
+    const hostVoiceB = provider.voices[1]?.id ?? provider.defaultVoiceId;
+    segments = turns.map(t => ({ text: t.text, voice: t.speaker === "A" ? hostVoiceA : hostVoiceB }));
+    sourceCharCount = segments.reduce((sum, s) => sum + s.text.length, 0);
+  } else {
+    segments = parseChapterIntoSegments(chapter.content, projectChars, provider);
+    sourceCharCount = chapter.content.length;
+  }
 
   const audioBuffers: Buffer[] = [];
 
@@ -106,7 +131,16 @@ export async function POST(req: Request) {
     }
   }
 
-  const combinedAudio = Buffer.concat(audioBuffers);
+  // Real audio-level concat (not Buffer.concat — raw MP3 byte concatenation of
+  // independently-encoded segments is fragile: frame boundaries/headers from
+  // separate calls don't reliably form one valid seamless file). Podcast turns
+  // get a longer pause for natural conversational pacing; narration segments
+  // (already split at clause/dialogue boundaries) get a shorter one. Both are
+  // loudness-normalized so alternating voices/segments don't jump in volume.
+  const combinedAudio = await concatAudioBuffers(audioBuffers, {
+    pauseMs: mode === "podcast" ? 350 : 150,
+    normalize: true,
+  });
 
   const filename = `audio/${projectId}/${chapterId}-${Date.now()}.mp3`;
   const blob = await put(filename, combinedAudio, {
@@ -114,7 +148,7 @@ export async function POST(req: Request) {
     contentType: "audio/mpeg",
   });
 
-  const wordCount = chapter.content.split(/\s+/).length;
+  const wordCount = (mode === "podcast" ? segments.map(s => s.text).join(" ") : chapter.content).split(/\s+/).length;
   const durationSeconds = Math.round((wordCount / 150) * 60);
 
   await db.update(audioExports)
@@ -122,7 +156,7 @@ export async function POST(req: Request) {
       status: "completed",
       audioUrl: blob.url,
       durationSeconds,
-      characterCount: chapter.content.length,
+      characterCount: sourceCharCount,
     })
     .where(eq(audioExports.id, exportRecord.id));
 
@@ -131,5 +165,6 @@ export async function POST(req: Request) {
     durationSeconds,
     exportId: exportRecord.id,
     segments: segments.length,
+    mode,
   });
 }

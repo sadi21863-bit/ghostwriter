@@ -22,6 +22,8 @@ const mocks = vi.hoisted(() => ({
   updateSet: vi.fn(),
   getTTSProvider: vi.fn(),
   put: vi.fn(),
+  concatAudioBuffers: vi.fn(),
+  generatePodcastScript: vi.fn(),
 }));
 
 vi.mock("@/lib/auth-helpers", () => ({ getRequiredSession: mocks.getRequiredSession }));
@@ -31,6 +33,12 @@ vi.mock("@/lib/crypto", () => ({ decrypt: mocks.decrypt }));
 vi.mock("@/lib/audio/registry", () => ({ getTTSProvider: mocks.getTTSProvider }));
 vi.mock("@/lib/audio/segment-chapter", () => ({
   parseChapterIntoSegments: () => [{ text: "Hello", voice: "fable", type: "narration" }],
+}));
+vi.mock("@/lib/audio/concat-audio", () => ({
+  concatAudioBuffers: (...args: any[]) => mocks.concatAudioBuffers(...args),
+}));
+vi.mock("@/lib/audio/podcast-script", () => ({
+  generatePodcastScript: (...args: any[]) => mocks.generatePodcastScript(...args),
 }));
 vi.mock("@vercel/blob", () => ({ put: mocks.put }));
 vi.mock("@/db", () => ({
@@ -73,6 +81,7 @@ describe("POST /api/audio/generate — provider selection", () => {
     mocks.findManyCharacters.mockResolvedValue([]);
     mocks.insertReturning.mockResolvedValue([{ id: "export-1" }]);
     mocks.put.mockResolvedValue({ url: "https://blob/export-1.mp3" });
+    mocks.concatAudioBuffers.mockResolvedValue(Buffer.from("combined-audio"));
   });
 
   it("defaults to the OpenAI provider and its own key when ttsProviderId is unset", async () => {
@@ -129,5 +138,101 @@ describe("POST /api/audio/generate — provider selection", () => {
     const body = await res.json();
     expect(body.error).toMatch(/OpenAI/);
     if (originalEnv) process.env.OPENAI_API_KEY = originalEnv;
+  }, 20000);
+});
+
+describe("POST /api/audio/generate — real audio concat (item 71, replaces Buffer.concat)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mocks.getRequiredSession.mockResolvedValue({ user: { id: "user-1" } });
+    mocks.checkAiRateLimit.mockResolvedValue(null);
+    mocks.getUserTier.mockResolvedValue("story_pro");
+    mocks.findFirstProjects.mockResolvedValue({ id: "p1", userId: "user-1", name: "Horizon Line" });
+    mocks.findFirstChapters.mockResolvedValue({ id: "c1", content: "Hello world" });
+    mocks.findManyCharacters.mockResolvedValue([]);
+    mocks.findFirstUsers.mockResolvedValue({ id: "user-1", openaiApiKey: "enc-openai", ttsProviderId: "openai" });
+    mocks.decrypt.mockImplementation((v: string) => v.replace("enc-", "real-"));
+    mocks.insertReturning.mockResolvedValue([{ id: "export-1" }]);
+    mocks.put.mockResolvedValue({ url: "https://blob/export-1.mp3" });
+    mocks.concatAudioBuffers.mockResolvedValue(Buffer.from("combined-audio"));
+    mocks.getTTSProvider.mockReturnValue(makeFakeProvider("openai"));
+  });
+
+  it("stitches segments via concatAudioBuffers (real ffmpeg concat), not Buffer.concat", async () => {
+    const { POST } = await import("../route");
+    await POST(makeRequest({ projectId: "p1", chapterId: "c1" }));
+
+    expect(mocks.concatAudioBuffers).toHaveBeenCalledTimes(1);
+    const [buffers, opts] = mocks.concatAudioBuffers.mock.calls[0];
+    expect(Array.isArray(buffers)).toBe(true);
+    expect(opts).toEqual({ pauseMs: 150, normalize: true });
+
+    const [, blobBuffer] = mocks.put.mock.calls[0];
+    expect(blobBuffer).toEqual(Buffer.from("combined-audio"));
+  }, 20000);
+});
+
+describe("POST /api/audio/generate — podcast mode (item 71)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mocks.getRequiredSession.mockResolvedValue({ user: { id: "user-1" } });
+    mocks.checkAiRateLimit.mockResolvedValue(null);
+    mocks.getUserTier.mockResolvedValue("story_pro");
+    mocks.findFirstProjects.mockResolvedValue({ id: "p1", userId: "user-1", name: "Horizon Line" });
+    mocks.findFirstChapters.mockResolvedValue({ id: "c1", content: "Some chapter content." });
+    mocks.findManyCharacters.mockResolvedValue([]);
+    mocks.findFirstUsers.mockResolvedValue({ id: "user-1", openaiApiKey: "enc-openai", ttsProviderId: "openai" });
+    mocks.decrypt.mockImplementation((v: string) => v.replace("enc-", "real-"));
+    mocks.insertReturning.mockResolvedValue([{ id: "export-1" }]);
+    mocks.put.mockResolvedValue({ url: "https://blob/export-1.mp3" });
+    mocks.concatAudioBuffers.mockResolvedValue(Buffer.from("combined-audio"));
+  });
+
+  it("generates a two-host script and uses two fixed voice IDs instead of per-character voices", async () => {
+    mocks.generatePodcastScript.mockResolvedValue([
+      { speaker: "A", text: "So this chapter opens strong." },
+      { speaker: "B", text: "Right, the dome reveal." },
+    ]);
+    const provider = makeFakeProvider("openai");
+    (provider as any).voices = [{ id: "host-a-voice", label: "A" }, { id: "host-b-voice", label: "B" }];
+    mocks.getTTSProvider.mockReturnValue(provider);
+
+    const { POST } = await import("../route");
+    const res = await POST(makeRequest({ projectId: "p1", chapterId: "c1", mode: "podcast" }));
+
+    expect(mocks.generatePodcastScript).toHaveBeenCalledWith("Some chapter content.", "Horizon Line");
+    expect(provider.generate).toHaveBeenNthCalledWith(1, { text: "So this chapter opens strong.", voiceId: "host-a-voice", speed: 1.0 }, "real-openai");
+    expect(provider.generate).toHaveBeenNthCalledWith(2, { text: "Right, the dome reveal.", voiceId: "host-b-voice", speed: 1.0 }, "real-openai");
+
+    const [, opts] = mocks.concatAudioBuffers.mock.calls[0];
+    expect(opts).toEqual({ pauseMs: 350, normalize: true }); // longer pause than narration mode
+
+    const body = await res.json();
+    expect(body.mode).toBe("podcast");
+    expect(res.status).toBe(200);
+  }, 20000);
+
+  it("falls back to narration mode's default pauseMs and parseChapterIntoSegments when mode is omitted", async () => {
+    mocks.getTTSProvider.mockReturnValue(makeFakeProvider("openai"));
+
+    const { POST } = await import("../route");
+    const res = await POST(makeRequest({ projectId: "p1", chapterId: "c1" }));
+
+    expect(mocks.generatePodcastScript).not.toHaveBeenCalled();
+    const [, opts] = mocks.concatAudioBuffers.mock.calls[0];
+    expect(opts.pauseMs).toBe(150);
+    const body = await res.json();
+    expect(body.mode).toBe("narration");
+  }, 20000);
+
+  it("marks the export failed and 500s when podcast script generation throws", async () => {
+    mocks.generatePodcastScript.mockRejectedValue(new Error("Claude call failed"));
+    mocks.getTTSProvider.mockReturnValue(makeFakeProvider("openai"));
+
+    const { POST } = await import("../route");
+    const res = await POST(makeRequest({ projectId: "p1", chapterId: "c1", mode: "podcast" }));
+
+    expect(res.status).toBe(500);
+    expect(mocks.updateSet).toHaveBeenCalledWith(expect.objectContaining({ status: "failed" }));
   }, 20000);
 });
