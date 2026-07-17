@@ -25,14 +25,26 @@ async function verifyOwnership(projectId: string, userId: string) {
   });
 }
 
-export async function POST(_: Request, { params }: { params: Promise<{ projectId: string }> }) {
-  const { projectId } = await params;
+export type GeneratePackageStage = "analyzing" | "directing" | "processing";
+
+/**
+ * Real UX bug this closes (item 71/72 research): ProductionStudio.tsx's
+ * "stage timeline" was 3 hardcoded setTimeout messages ("Analyzing
+ * story…" / "Building shot list…" / "Writing character profiles…" at 0s/5s/
+ * 12s) with zero connection to what the server was actually doing — if the
+ * real Director call took 90s or failed after 3s, the user saw a fabricated
+ * progression completely disconnected from reality. onProgress reports real
+ * stage transitions; the caller decides whether to stream them (below) or
+ * just await the final result, matching the exact opt-in-stream pattern
+ * already proven in src/app/api/ai/generate/route.ts.
+ */
+async function runGeneratePackage(
+  projectId: string,
+  userId: string,
+  onProgress?: (stage: GeneratePackageStage) => void,
+) {
+  onProgress?.("analyzing");
   const promiseLedger = await buildPromiseLedger(projectId, "generate");
-  const s = await getRequiredSession();
-  const rl = await checkAiRateLimit(s.user.id);
-  if (rl) return rl;
-  if (!await verifyOwnership(projectId, s.user.id))
-    return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const project = await db.query.projects.findFirst({
     where: eq(projects.id, projectId),
@@ -46,7 +58,7 @@ export async function POST(_: Request, { params }: { params: Promise<{ projectId
       storyMemories: true,
     },
   });
-  if (!project) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  if (!project) return { ok: false as const, response: NextResponse.json({ error: "Not found" }, { status: 404 }) };
 
   const chaptersText = project.chapters
     .map((c: any) => `CHAPTER: ${c.title}\n${c.content || "(empty)"}`)
@@ -154,8 +166,9 @@ SHOT CRAFT — a shot list of "visually interesting moments" reads as a random h
 
 Generate 3-6 shots per chapter and one multiShotScript per scene. Focus on shots that actually serve the scene's turn, not just visually interesting moments. Make prompts Higgsfield-ready.`;
 
+  onProgress?.("directing");
   const result = await runDirectorCall({
-    userId: s.user.id,
+    userId,
     operation: "generate-package",
     model: MODELS.default,
     // Sonnet 5 runs adaptive thinking on by default (item 36's audit fixed most
@@ -175,10 +188,11 @@ Generate 3-6 shots per chapter and one multiShotScript per scene. Focus on shots
     system: systemPrompt,
     messages: [{ role: "user", content: userPrompt }],
   });
-  if (!result.ok) return result.response;
+  if (!result.ok) return { ok: false as const, response: result.response };
 
+  onProgress?.("processing");
   const pkg = safeParseJson(result.text);
-  if (!pkg?.shots) return NextResponse.json({ error: "Failed to analyze story. Try adding chapter content first." }, { status: 500 });
+  if (!pkg?.shots) return { ok: false as const, response: NextResponse.json({ error: "Failed to analyze story. Try adding chapter content first." }, { status: 500 }) };
 
   // Resolve character names to IDs — create World Bible rows for any character the
   // package introduces that doesn't exist yet, so shots stay linked for portrait-based
@@ -278,7 +292,7 @@ Generate 3-6 shots per chapter and one multiShotScript per scene. Focus on shots
   );
   if (qualifying.length > 0) {
     (async () => {
-      const user = await db.query.users.findFirst({ where: eq(users.id, s.user.id) });
+      const user = await db.query.users.findFirst({ where: eq(users.id, userId) });
       const segmindApiKey = decrypt(user?.segmindApiKey ?? "");
       const higgsfieldApiKey = decrypt(user?.higgsfieldApiKey ?? "");
       const higgsfieldApiSecret = decrypt(user?.higgsfieldApiSecret ?? "");
@@ -302,10 +316,60 @@ Generate 3-6 shots per chapter and one multiShotScript per scene. Focus on shots
     })().catch(err => console.error("[generate-package] Soul ID bootstrap failed:", err));
   }
 
-  return NextResponse.json({
-    brief: pkg.projectBrief,
-    characterSheets: pkg.characterSheets,
-    locationSheets: pkg.locationSheets,
-    shotCount: inserted.length,
+  return {
+    ok: true as const,
+    payload: {
+      brief: pkg.projectBrief,
+      characterSheets: pkg.characterSheets,
+      locationSheets: pkg.locationSheets,
+      shotCount: inserted.length,
+    },
+  };
+}
+
+export async function POST(req: Request, { params }: { params: Promise<{ projectId: string }> }) {
+  const { projectId } = await params;
+  const s = await getRequiredSession();
+  const rl = await checkAiRateLimit(s.user.id);
+  if (rl) return rl;
+  if (!await verifyOwnership(projectId, s.user.id))
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+
+  // Opt-in, matching the exact pattern already proven in
+  // src/app/api/ai/generate/route.ts — default (no body, or stream absent)
+  // behavior is completely unchanged from before this fix.
+  const { stream: wantsStream } = await req.json().catch(() => ({ stream: false }));
+
+  if (!wantsStream) {
+    const result = await runGeneratePackage(projectId, s.user.id);
+    if (!result.ok) return result.response;
+    return NextResponse.json(result.payload);
+  }
+
+  const encoder = new TextEncoder();
+  const readable = new ReadableStream({
+    async start(controller) {
+      const send = (obj: unknown) => { try { controller.enqueue(encoder.encode(JSON.stringify(obj) + "\n")); } catch { /* client gone */ } };
+      try {
+        const result = await runGeneratePackage(projectId, s.user.id, (stage) => send({ stage }));
+        if (!result.ok) {
+          const body = await result.response.json().catch(() => ({ error: "Generation failed." }));
+          send({ stage: "error", error: body?.error ?? "Generation failed.", status: result.response.status });
+        } else {
+          send({ stage: "done", ...result.payload });
+        }
+      } catch (err: any) {
+        send({ stage: "error", error: err?.message || "Generation failed." });
+      } finally {
+        try { controller.close(); } catch { /* noop */ }
+      }
+    },
+  });
+  return new Response(readable, {
+    headers: {
+      "Content-Type": "text/plain; charset=utf-8",
+      "Cache-Control": "no-cache, no-transform",
+      "X-Accel-Buffering": "no",
+    },
   });
 }

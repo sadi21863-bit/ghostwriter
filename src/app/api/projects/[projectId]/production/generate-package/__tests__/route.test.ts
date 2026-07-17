@@ -231,3 +231,88 @@ describe("POST /api/projects/[projectId]/production/generate-package", () => {
     });
   });
 });
+
+function makeStreamReq() {
+  return new Request("http://localhost/api/projects/proj-1/production/generate-package", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ stream: true }),
+  });
+}
+
+async function readNdjsonEvents(res: Response): Promise<any[]> {
+  const reader = res.body!.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  const events: any[] = [];
+  while (true) {
+    const { value, done } = await reader.read();
+    buffer += decoder.decode(value ?? new Uint8Array(), { stream: !done });
+    const lines = buffer.split("\n");
+    buffer = lines.pop() ?? "";
+    for (const line of lines) {
+      if (line.trim()) events.push(JSON.parse(line));
+    }
+    if (done) break;
+  }
+  return events;
+}
+
+describe("POST .../generate-package?stream (item 71/72: real stage progress, replaces ProductionStudio.tsx's fake setTimeout timeline)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    findFirstProject.mockResolvedValue({
+      id: "proj-1", userId: "user-1", name: "Test", format: "Novel", genres: [],
+      characters: [], locations: [], plotThreads: [], worldEntities: [],
+      chapters: [{ id: "ch-1", title: "Ch1", content: "content", sortOrder: 0 }],
+      referenceWorks: [], storyMemories: [],
+    });
+    createMessage.mockResolvedValue({ content: [{ type: "text", text: MOCK_PACKAGE }] });
+    buildPromiseLedger.mockResolvedValue("");
+    findFirstUser.mockResolvedValue({ id: "user-1", segmindApiKey: "", higgsfieldApiKey: "", higgsfieldApiSecret: "" });
+    findFirstCharacter.mockResolvedValue({ id: "row-1", soulId: "" });
+    bootstrapAndTrainSoulId.mockResolvedValue(null);
+  });
+
+  it("streams real stage transitions in order (analyzing -> directing -> processing) followed by a done event with the same payload shape the non-streaming path returns", async () => {
+    const res = await POST(makeStreamReq(), makeParams());
+    expect(res.headers.get("Content-Type")).toContain("text/plain");
+
+    const events = await readNdjsonEvents(res);
+    const stages = events.map(e => e.stage);
+
+    expect(stages.indexOf("analyzing")).toBeGreaterThanOrEqual(0);
+    expect(stages.indexOf("directing")).toBeGreaterThan(stages.indexOf("analyzing"));
+    expect(stages.indexOf("processing")).toBeGreaterThan(stages.indexOf("directing"));
+    expect(stages[stages.length - 1]).toBe("done");
+
+    const doneEvent = events[events.length - 1];
+    expect(doneEvent).toMatchObject({ stage: "done", shotCount: 1 });
+    expect(doneEvent.brief).toBeDefined();
+  });
+
+  it("streams a real error event (not an unhandled rejection) when the Director call itself throws mid-stream", async () => {
+    createMessage.mockRejectedValue(new Error("Anthropic call failed"));
+
+    const res = await POST(makeStreamReq(), makeParams());
+    const events = await readNdjsonEvents(res);
+
+    expect(events[events.length - 1]).toMatchObject({ stage: "error", error: expect.stringContaining("Anthropic call failed") });
+  });
+
+  it("streams a real error event when the model returns a shot-less package", async () => {
+    createMessage.mockResolvedValue({ content: [{ type: "text", text: JSON.stringify({ projectBrief: {}, characterSheets: [], locationSheets: [] }) }] });
+
+    const res = await POST(makeStreamReq(), makeParams());
+    const events = await readNdjsonEvents(res);
+
+    expect(events[events.length - 1]).toMatchObject({ stage: "error" });
+  });
+
+  it("defaults to the non-streaming JSON response when stream is omitted from the body, unchanged from before this fix", async () => {
+    const res = await POST(makeReq(), makeParams());
+    expect(res.headers.get("Content-Type")).not.toContain("text/plain");
+    const body = await res.json();
+    expect(body).toMatchObject({ shotCount: 1 });
+  });
+});

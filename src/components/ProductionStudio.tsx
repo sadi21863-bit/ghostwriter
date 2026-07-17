@@ -109,19 +109,72 @@ export default function ProductionStudio({ project, segmindKey }: { project: any
     }
   }
 
+  // Real stage -> display text. Replaces a real UX bug: this used to be 3
+  // hardcoded setTimeout messages fired at 0s/5s/12s regardless of what the
+  // server was actually doing — a fabricated progression, not real progress.
+  // generate-package now streams real stage transitions (NDJSON lines, same
+  // opt-in-stream pattern as /api/ai/generate) when called with stream:true.
+  const STAGE_LABELS: Record<string, string> = {
+    analyzing: "Analyzing story…",
+    directing: "Building shot list…",
+    processing: "Writing character profiles…",
+  };
+
   async function generateShotList() {
     setGenerating(true);
     setError("");
-    setGeneratingStep("Analyzing story…");
-    setTimeout(() => setGeneratingStep("Building shot list…"), 5000);
-    setTimeout(() => setGeneratingStep("Writing character profiles…"), 12000);
+    setGeneratingStep(STAGE_LABELS.analyzing);
     try {
-      const res = await fetch(`/api/projects/${project.id}/production/generate-package`, { method: "POST" });
-      const data = await res.json();
-      if (!res.ok) { setError(data.error || "Failed to generate shot list"); return; }
-      setBrief(data.brief);
-      setCharSheets(data.characterSheets ?? []);
-      setLocSheets(data.locationSheets ?? []);
+      const res = await fetch(`/api/projects/${project.id}/production/generate-package`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ stream: true }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setError(data.error || "Failed to generate shot list");
+        return;
+      }
+      if (!res.body) {
+        // Streaming unsupported in this runtime — fall back to reading the
+        // whole response as plain JSON (shouldn't happen in a browser).
+        const data = await res.json();
+        setBrief(data.brief);
+        setCharSheets(data.characterSheets ?? []);
+        setLocSheets(data.locationSheets ?? []);
+        await loadShots();
+        return;
+      }
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      let done = false;
+      let sawError = "";
+
+      while (!done) {
+        const { value, done: readerDone } = await reader.read();
+        done = readerDone;
+        buffer += decoder.decode(value ?? new Uint8Array(), { stream: !readerDone });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() ?? ""; // keep the last, possibly-incomplete line for the next chunk
+        for (const line of lines) {
+          if (!line.trim()) continue;
+          let event: any;
+          try { event = JSON.parse(line); } catch { continue; }
+          if (event.stage === "error") {
+            sawError = event.error || "Failed to generate shot list";
+          } else if (event.stage === "done") {
+            setBrief(event.brief);
+            setCharSheets(event.characterSheets ?? []);
+            setLocSheets(event.locationSheets ?? []);
+          } else if (STAGE_LABELS[event.stage]) {
+            setGeneratingStep(STAGE_LABELS[event.stage]);
+          }
+        }
+      }
+
+      if (sawError) { setError(sawError); return; }
       await loadShots();
     } catch {
       setError("Network error. Please try again.");
