@@ -38,6 +38,10 @@ Node's built-in `fetch` (backed by its bundled `undici`) enforces an internal `h
 
 **Fix**: `fetchWithTimeout()` imports `fetch` and `Agent` directly **from the `undici` npm package** (not Node's global `fetch`) with `headersTimeout: 0, bodyTimeout: 0` on the Agent, making the function's own `AbortController`-based `ms` argument the only timeout that applies. Do not mix Node's global `fetch` with a separately-installed `undici` package's `Agent` as a `dispatcher` — that throws a *different* error (`UND_ERR_INVALID_ARG`, "invalid onRequestStart method") from a version mismatch between the two. Source `fetch` and `Agent` from the same package.
 
+### Circuit breaker (item 72): `fetchWithTimeout()` also checks/records provider health
+
+`fetchWithTimeout()` derives a provider key from the target host (`segmind.com` → `"segmind"`, `higgsfield.ai` → `"higgsfield-native"`) and consults `src/lib/circuit-breaker.ts` (same Upstash Redis instance as `src/lib/ratelimit.ts`) before every call: if that provider has had 5+ consecutive network-level failures in the last 2 minutes, the call fails fast with a clear "temporarily unavailable" error instead of making (and paying for/waiting on) a real request that's likely to fail too. Only genuine network-level failures and this function's own timeout count as a circuit-breaker failure — a clean 4xx/5xx HTTP response is still a successful round-trip as far as this function is concerned; callers already handle those status codes themselves. Fails open in every environment (deliberately unlike `ratelimit.ts`'s fail-closed-in-production convention) — blocking real requests because the breaker's own Redis dependency is down would defeat the whole point.
+
 ---
 
 ## Higgsfield Client: `src/lib/higgsfield/client.ts`
@@ -59,6 +63,10 @@ generateSoulImage(params: {
 Calls `POST v1/higgsfield-text2image-soul`. **Character consistency has two distinct paths that must not be conflated**: `soulId` (a trained Soul ID, a real UUID) goes into `custom_reference_id`; a plain portrait image URL goes into the separate `reference_image_url` field. Sending a plain URL into `custom_reference_id` 400s with a UUID-parsing error — this was a real bug, fixed.
 
 Used in: character portraits (`/api/.../characters/[id]/portrait`), comic panels (`/api/.../comics` POST), shot previews (`/api/.../production/shots/[id]/preview`).
+
+### Best-of-N candidate selection — `generateBestOfN()` (item 72, opt-in)
+
+`src/lib/production/best-of-n.ts`, adapted from the open-source ViMax project's `best_image_selector.py`. Generates N (default 3) candidates via `generateSoulImage()` in parallel (`Promise.allSettled` — one flaky generation just shrinks the field rather than failing the whole batch), then picks the best via a single comparative Claude vision call that judges all candidates side-by-side against the reference image and target description, rather than scoring one generation in isolation. This is a different mechanism from the accept/retry/stop loop in `self-eval.ts` (item 70 found that loop has zero real callers) — a separate, explicitly opt-in path, not a replacement. Wired into the shot preview route (`production/shots/[id]/preview`) behind a `bestOfN: true` body flag; default behavior (flag omitted) is the unchanged single-generation path. Fails open: a selection-call failure defaults to the first successful candidate; only throws if every single candidate generation fails.
 
 ### Soul ID Training — `trainSoulId()` / `pollSoulIdTraining()`
 
@@ -183,6 +191,10 @@ Neither is a strict win — Grok TTS costs more and has one fewer voice, but rem
 Both providers split chapter content into narration/dialogue segments via `parseChapterIntoSegments` (`src/lib/audio/segment-chapter.ts`), assigning each character's `voiceId` if it's valid for the currently-active provider, else that provider's own default narrator voice (`isValidVoiceForProvider()` — handles the case where a character's voice was assigned under the *other* provider, e.g. an OpenAI voice name while the account is now on Segmind Grok TTS, without sending an invalid `voice_id` to the API). The `WorldBiblePanel` voice picker shows both providers' voices in one `<select>`, grouped by `<optgroup>`, so a user can pre-assign voices for either provider regardless of which is currently active.
 
 TTS confirmed solid for any chapter length on the OpenAI path (unchanged from before this refactor). Grok TTS has not yet been validated against a real Segmind call — the request/response contract above is scraped from live docs, not exercised end-to-end.
+
+**Real concat bug found and fixed (item 71)**: `audio/generate/route.ts` used to stitch every segment with plain `Buffer.concat(audioBuffers)` — raw byte concatenation of independently-encoded MP3s, which doesn't reliably produce one valid seamless file (frame boundaries/headers from separate encoder calls don't just concatenate cleanly). Replaced with `concatAudioBuffers()` (`src/lib/audio/concat-audio.ts`), which decodes and re-muxes through ffmpeg's concat demuxer, with optional silence between segments and EBU R128 loudness normalization (`loudnorm=I=-16:TP=-1.5:LRA=11`). This fixes the pre-existing single-narrator path, not just the podcast mode below.
+
+**Podcast mode (item 71, opt-in `mode: "podcast"` on the same route, default `"narration"` unchanged)**: researched how NotebookLM's real "Audio Overview" works (Gemini writes a script, a genuinely different non-autoregressive audio model — SoundStorm — performs it; that specific mechanism isn't reachable via any TTS API this app has) and how the open-source `podcastfy` project achieves an equivalent effect with plain single-speaker TTS (many short conversational turns with backchannel interjections baked into the text, each synthesized independently). `generatePodcastScript()` (`src/lib/audio/podcast-script.ts`) writes a two-host discussion script via Claude and compresses long chapters via `compressForContext()` instead of truncating; the route generates each turn through two fixed host voice IDs (not per-character voices — this isn't in-scene dialogue) and stitches with a longer pause (350ms vs narration's 150ms) for conversational pacing. UI: "🎙️ Podcast Discussion" button in `AudioNovelPanel.tsx`.
 
 ---
 
