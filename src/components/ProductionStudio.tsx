@@ -203,12 +203,12 @@ export default function ProductionStudio({ project, segmindKey }: { project: any
     pollTimers.current[shotId] = timer;
   }
 
-  async function previewShot(shotId: string, keepAsCandidate = false) {
+  async function previewShot(shotId: string, keepAsCandidate = false, bestOfN = false) {
     setShots(prev => prev.map(s => s.id === shotId ? { ...s, generationStatus: "generating_preview" } : s));
     const res = await fetch(`/api/projects/${project.id}/production/shots/${shotId}/preview`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ keepAsCandidate }),
+      body: JSON.stringify({ keepAsCandidate, bestOfN }),
     });
     const data = await res.json();
     if (res.ok) {
@@ -800,7 +800,7 @@ function ShotCard({
 }: {
   shot: Shot; projectId: string; segmindKey: string;
   onUpdate: (id: string, updates: Partial<Shot>) => void;
-  onPreview: (id: string, keepAsCandidate?: boolean) => void;
+  onPreview: (id: string, keepAsCandidate?: boolean, bestOfN?: boolean) => void;
   onAnimate: (id: string) => void;
   onGenerateVideo: (id: string) => void;
   onPromoteCandidate?: (id: string, url: string) => void;
@@ -880,7 +880,16 @@ function ShotCard({
 
         <div style={{ display: "flex", flexDirection: "column", gap: 4, width: "100%" }}>
           {(status === "idle" || status === "error") && segmindKey && (
-            <button onClick={() => onPreview(shot.id)} style={btn()}>🖼 Preview</button>
+            <>
+              <button onClick={() => onPreview(shot.id)} style={btn()}>🖼 Preview</button>
+              <button
+                onClick={() => onPreview(shot.id, false, true)}
+                style={outBtn}
+                title="Generates 3 candidates in parallel and picks the best via a real comparison against the character reference — costs more than a single Preview, but a real side-by-side pick instead of one shot in the dark."
+              >
+                🎯 Best of 3
+              </button>
+            </>
           )}
           {status === "preview_ready" && segmindKey && (
             <>

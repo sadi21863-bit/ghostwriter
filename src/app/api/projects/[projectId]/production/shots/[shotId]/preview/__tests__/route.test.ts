@@ -53,6 +53,11 @@ vi.mock("@/lib/higgsfield/client", () => ({
   generateSoulImage: (...args: any[]) => generateSoulImage(...args),
 }));
 
+const generateBestOfN = vi.fn();
+vi.mock("@/lib/production/best-of-n", () => ({
+  generateBestOfN: (...args: any[]) => generateBestOfN(...args),
+}));
+
 import { POST } from "../route";
 
 function makeRequest(body: any = {}) {
@@ -99,6 +104,45 @@ describe("POST /api/projects/[projectId]/production/shots/[shotId]/preview", () 
     await POST(makeRequest({ keepAsCandidate: true }), makeParams());
     const [setArg] = updateSet.mock.calls[updateSet.mock.calls.length - 1];
     expect(setArg.previewImageUrl).toBe("https://segmind.example/generated.jpg");
+  });
+
+  describe("best-of-N (item 71/72, opt-in)", () => {
+    it("uses the single-generation path (not best-of-N) by default", async () => {
+      findFirstShots.mockResolvedValue({ id: "shot-1", projectId: "proj-1", previewImageUrl: null, candidatePreviewUrls: [] });
+      await POST(makeRequest(), makeParams());
+      expect(generateSoulImage).toHaveBeenCalledTimes(1);
+      expect(generateBestOfN).not.toHaveBeenCalled();
+    });
+
+    it("calls generateBestOfN instead of the single-shot path when bestOfN: true is set, and uses its bestImageUrl", async () => {
+      findFirstShots.mockResolvedValue({ id: "shot-1", projectId: "proj-1", previewImageUrl: null, candidatePreviewUrls: [] });
+      generateBestOfN.mockResolvedValue({
+        bestImageUrl: "https://segmind.example/best-of-3.jpg",
+        candidateUrls: ["https://segmind.example/c0.jpg", "https://segmind.example/c1.jpg", "https://segmind.example/best-of-3.jpg"],
+        reason: "Best facial match to the reference.",
+      });
+
+      await POST(makeRequest({ bestOfN: true }), makeParams());
+
+      expect(generateBestOfN).toHaveBeenCalledTimes(1);
+      expect(generateSoulImage).not.toHaveBeenCalled();
+      const [setArg] = updateSet.mock.calls[updateSet.mock.calls.length - 1];
+      expect(setArg.previewImageUrl).toBe("https://segmind.example/best-of-3.jpg");
+    });
+
+    it("passes the same soulId/referenceImageUrl resolution through to generateBestOfN as the single-shot path", async () => {
+      findFirstShots.mockResolvedValue({
+        id: "shot-1", projectId: "proj-1", previewImageUrl: null, candidatePreviewUrls: [],
+        primaryCharacter: { name: "Mara", soulId: "soul-uuid-123", portraitUrl: "https://example.com/mara.jpg" },
+      });
+      generateBestOfN.mockResolvedValue({ bestImageUrl: "https://segmind.example/best.jpg", candidateUrls: [], reason: "" });
+
+      await POST(makeRequest({ bestOfN: true }), makeParams());
+
+      const [callArgs] = generateBestOfN.mock.calls[0];
+      expect(callArgs.soulId).toBe("soul-uuid-123");
+      expect(callArgs.referenceImageUrl).toBeUndefined();
+    });
   });
 
   describe("character consistency (Soul ID vs portrait URL)", () => {

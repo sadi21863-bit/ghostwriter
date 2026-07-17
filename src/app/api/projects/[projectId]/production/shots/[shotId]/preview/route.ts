@@ -12,6 +12,7 @@ import { decrypt } from "@/lib/crypto";
 import { critiqueShot } from "@/lib/production/vision-critic";
 import { scoreShot, retryHint } from "@/lib/production/self-eval";
 import { getCharacterSoulReference } from "@/lib/production/character-reference";
+import { generateBestOfN } from "@/lib/production/best-of-n";
 
 async function verifyOwnership(projectId: string, userId: string) {
   return db.query.projects.findFirst({
@@ -42,6 +43,12 @@ export async function POST(req: Request, { params }: { params: Promise<{ project
   // sets the primary, same as before this option existed.
   const body = await req.json().catch(() => ({}));
   const keepAsCandidate = body?.keepAsCandidate === true && !!shot.previewImageUrl;
+  // Opt-in best-of-N (item 71/72 research): generates N candidates in
+  // parallel and picks the best via a real comparative vision call, instead
+  // of the single-shot generation below. Costs more per call — never the
+  // default, a caller must explicitly ask for it. Deliberately separate
+  // from (and doesn't touch) self-eval.ts's sequential retry-loop machinery.
+  const bestOfN = body?.bestOfN === true;
 
   await db.update(productionShots)
     .set({ generationStatus: "generating_preview", updatedAt: new Date() })
@@ -50,12 +57,10 @@ export async function POST(req: Request, { params }: { params: Promise<{ project
   try {
     const primaryCharacter = shot.primaryCharacter as any;
     const { referenceImageUrl, soulId } = getCharacterSoulReference(primaryCharacter?.name, primaryCharacter ? [primaryCharacter] : []);
-    const soulUrl = await generateSoulImage({
-      apiKey: segmindKey,
-      prompt: shot.soulPrompt || `${shot.subject}. ${shot.action}. ${shot.location}. Cinematic, photorealistic.`,
-      referenceImageUrl,
-      soulId,
-    });
+    const shotPrompt = shot.soulPrompt || `${shot.subject}. ${shot.action}. ${shot.location}. Cinematic, photorealistic.`;
+    const soulUrl = bestOfN
+      ? (await generateBestOfN({ apiKey: segmindKey, prompt: shotPrompt, referenceImageUrl, soulId })).bestImageUrl
+      : await generateSoulImage({ apiKey: segmindKey, prompt: shotPrompt, referenceImageUrl, soulId });
 
     let previewImageUrl = soulUrl;
     if (process.env.BLOB_READ_WRITE_TOKEN) {
