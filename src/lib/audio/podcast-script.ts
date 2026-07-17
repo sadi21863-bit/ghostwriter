@@ -1,5 +1,6 @@
 import { anthropic } from "@/lib/ai/client";
 import { MODELS } from "@/lib/ai/engine";
+import { compressForContext } from "@/lib/ai/compress-for-context";
 
 export interface PodcastTurn {
   speaker: "A" | "B";
@@ -30,10 +31,16 @@ export async function generatePodcastScript(
   chapterContent: string,
   projectName: string
 ): Promise<PodcastTurn[]> {
+  // Real bug fixed here (item 71/72 research): this used to be a plain
+  // `.slice(0, 12000)`, silently dropping the rest of any longer chapter with
+  // no signal to the model that anything was missing. compressForContext()
+  // condenses instead of truncating, so the discussion can still cover beats
+  // from the whole chapter, not just its first ~12000 characters.
+  const compressed = await compressForContext(chapterContent, 12000);
   const userPrompt = `Project: ${projectName}
 
 Source material for this episode:
-${chapterContent.slice(0, 12000)}
+${compressed}
 
 Return a JSON array like this: Array<{ "speaker": "A" | "B", "text": string }>. Aim for a natural discussion covering the key beats — roughly 20-40 turns depending on the material's length.`;
 

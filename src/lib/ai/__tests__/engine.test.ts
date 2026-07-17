@@ -18,7 +18,7 @@ vi.mock("@/lib/ai/client", () => ({
   anthropic: { messages: { create: (...args: any[]) => mockCreate(...args) } },
 }));
 
-const { getCraftDirectives, getFormatRules, WRITE_CRAFT_DIRECTIVES, refinePassage, ARTIFACT_VS_PERSONA_RULE } = await import("@/lib/ai/engine");
+const { getCraftDirectives, getFormatRules, WRITE_CRAFT_DIRECTIVES, refinePassage, ARTIFACT_VS_PERSONA_RULE, summarizeChapter } = await import("@/lib/ai/engine");
 
 describe("getCraftDirectives", () => {
   it("includes WRITE_CRAFT_DIRECTIVES content for story formats with character cards", () => {
@@ -98,6 +98,47 @@ describe("refinePassage — contradiction-flag delimiter parsing", () => {
     const result = await refinePassage("original text", "Novel");
     expect(result.text).toBe("Just the revised prose, no delimiter.");
     expect(result.contradictionFlags).toEqual([]);
+  });
+});
+
+describe("summarizeChapter — compresses instead of truncating long chapters (item 71/72)", () => {
+  // mockCreate is a single module-level mock shared (and never cleared)
+  // across this whole file - other describe blocks' own tests already rely
+  // on relative/last-call indexing rather than absolute counts for the same
+  // reason (see "generate — artifact-vs-persona rule" below). Track the call
+  // count at the start of each test here and assert on the delta, not an
+  // absolute total.
+  it("sends short chapter content through unchanged, with a single new model call", async () => {
+    const callsBefore = mockCreate.mock.calls.length;
+    mockAnthropicResponse(JSON.stringify({ fact: "Something happened.", keyEvents: ["event"] }));
+
+    const result = await summarizeChapter("A short chapter.\n\nTwo paragraphs only.");
+
+    expect(result.structuredData).toMatchObject({ fact: "Something happened." });
+    expect(mockCreate.mock.calls.length - callsBefore).toBe(1);
+  });
+
+  it("compresses a long chapter (via compressForContext) rather than dropping content past 8000 chars with a plain slice", async () => {
+    const paragraphs = Array.from({ length: 5 }, (_, i) => `Paragraph ${i}: ${"word ".repeat(500)}`);
+    const longChapter = paragraphs.join("\n\n"); // well over 8000 chars, chunks into multiple compression calls
+
+    const callsBefore = mockCreate.mock.calls.length;
+    // Compression sub-calls happen first (one per chunk, queued in order via
+    // mockResolvedValueOnce), then the real summarize call last.
+    mockAnthropicResponse("compressed chunk one");
+    mockAnthropicResponse("compressed chunk two");
+    mockAnthropicResponse(JSON.stringify({ fact: "Summarized.", keyEvents: [] }));
+
+    const result = await summarizeChapter(longChapter);
+
+    expect(result.structuredData).toMatchObject({ fact: "Summarized." });
+    const newCalls = mockCreate.mock.calls.slice(callsBefore);
+    expect(newCalls.length).toBe(3); // 2 compression chunks + 1 real summarize call, not a single pass-through
+    const finalCall = newCalls[newCalls.length - 1][0];
+    const sentContent = finalCall.messages[0].content as string;
+    expect(sentContent).toContain("compressed chunk one");
+    expect(sentContent).toContain("compressed chunk two");
+    expect(sentContent.length).toBeLessThan(longChapter.length);
   });
 });
 

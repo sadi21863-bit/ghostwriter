@@ -13,6 +13,7 @@ import { ANATOMY_NEGATIVE_PROMPT } from "@/lib/ai/image-quality";
 // a version mismatch between Node's bundled internal undici and this package.
 // Sourcing both from the same package guarantees they're compatible.
 import { fetch as undiciFetch, Agent } from "undici";
+import { isCircuitOpen, recordProviderFailure, recordProviderSuccess } from "@/lib/circuit-breaker";
 
 const SEGMIND_BASE = "https://api.segmind.com/v1";
 
@@ -24,13 +25,35 @@ const SEGMIND_BASE = "https://api.segmind.com/v1";
 // AbortController-based `ms` argument the only timeout that actually applies.
 const longRunningDispatcher = new Agent({ headersTimeout: 0, bodyTimeout: 0 });
 
-/** Wraps fetch with an abort timeout so a hung provider response can't block a request indefinitely. */
+/** Derives a short circuit-breaker key from the target host — every call in
+ *  this file goes to one of exactly two real hosts (item 71/72 research). */
+function providerFromUrl(url: string): string {
+  if (url.includes("segmind.com")) return "segmind";
+  if (url.includes("higgsfield.ai")) return "higgsfield-native";
+  return "unknown";
+}
+
+/** Wraps fetch with an abort timeout so a hung provider response can't block a
+ *  request indefinitely, and a circuit breaker so a provider that's genuinely
+ *  down doesn't get hammered with real, individually-paid-for/waited-on calls
+ *  one request at a time. Only network-level failures and our own timeout
+ *  count as a circuit-breaker failure — a clean 4xx/5xx HTTP response is a
+ *  successful round-trip as far as this function is concerned, and callers
+ *  already handle those status codes themselves. */
 async function fetchWithTimeout(url: string, opts: RequestInit, ms = 120_000): Promise<Response> {
+  const provider = providerFromUrl(url);
+  if (await isCircuitOpen(provider)) {
+    throw new Error(`${provider} is temporarily unavailable (repeated recent failures) — please try again in a couple of minutes.`);
+  }
+
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), ms);
   try {
-    return await undiciFetch(url, { ...opts, signal: ctrl.signal, dispatcher: longRunningDispatcher } as any) as unknown as Response;
+    const res = await undiciFetch(url, { ...opts, signal: ctrl.signal, dispatcher: longRunningDispatcher } as any) as unknown as Response;
+    await recordProviderSuccess(provider);
+    return res;
   } catch (err) {
+    await recordProviderFailure(provider);
     if (err instanceof Error && err.name === "AbortError") {
       throw new Error("Generation timed out. Please try again.");
     }

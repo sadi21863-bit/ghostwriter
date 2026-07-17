@@ -6,6 +6,15 @@ vi.mock("undici", () => ({
   Agent: class {},
 }));
 
+const isCircuitOpen = vi.fn().mockResolvedValue(false);
+const recordProviderFailure = vi.fn().mockResolvedValue(undefined);
+const recordProviderSuccess = vi.fn().mockResolvedValue(undefined);
+vi.mock("@/lib/circuit-breaker", () => ({
+  isCircuitOpen: (...args: any[]) => isCircuitOpen(...args),
+  recordProviderFailure: (...args: any[]) => recordProviderFailure(...args),
+  recordProviderSuccess: (...args: any[]) => recordProviderSuccess(...args),
+}));
+
 function jsonResponse(body: any, opts: { ok?: boolean; status?: number } = {}) {
   return {
     ok: opts.ok ?? true,
@@ -141,5 +150,49 @@ describe("pollJob — Seedance 2.0 v2 result shape", () => {
     const result = await pollJob({ apiKey: "key", pollingUrl: "https://api.segmind.com/v2/requests/req-2/status" });
 
     expect(result).toEqual({ status: "COMPLETED", mediaUrl: "https://example.com/older-shape.mp4" });
+  });
+});
+
+describe("fetchWithTimeout — circuit breaker integration (item 71/72)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("throws immediately without calling fetch at all when the circuit is open for the target provider", async () => {
+    isCircuitOpen.mockResolvedValue(true);
+
+    await expect(generateTextVideo({ apiKey: "key", model: "seedance", prompt: "a scene" }))
+      .rejects.toThrow(/temporarily unavailable/);
+
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("checks the circuit for the correct provider key derived from the URL (segmind.com -> 'segmind')", async () => {
+    isCircuitOpen.mockResolvedValue(false);
+    fetchMock.mockResolvedValue(jsonResponse({ request_id: "req-1", status_url: "https://api.segmind.com/v2/requests/req-1/status" }));
+
+    await generateTextVideo({ apiKey: "key", model: "seedance", prompt: "a scene" });
+
+    expect(isCircuitOpen).toHaveBeenCalledWith("segmind");
+  });
+
+  it("records a provider success after a completed fetch, even if the HTTP status itself is an error (a clean 4xx/5xx is still a successful round-trip)", async () => {
+    isCircuitOpen.mockResolvedValue(false);
+    fetchMock.mockResolvedValue(jsonResponse({ error: "bad request" }, { ok: false, status: 400 }));
+
+    await expect(generateTextVideo({ apiKey: "key", model: "seedance", prompt: "a scene" })).rejects.toThrow();
+
+    expect(recordProviderSuccess).toHaveBeenCalledWith("segmind");
+    expect(recordProviderFailure).not.toHaveBeenCalled();
+  });
+
+  it("records a provider failure when the underlying fetch itself throws (real network-level failure)", async () => {
+    isCircuitOpen.mockResolvedValue(false);
+    fetchMock.mockRejectedValue(new Error("ECONNREFUSED"));
+
+    await expect(generateTextVideo({ apiKey: "key", model: "seedance", prompt: "a scene" })).rejects.toThrow("ECONNREFUSED");
+
+    expect(recordProviderFailure).toHaveBeenCalledWith("segmind");
+    expect(recordProviderSuccess).not.toHaveBeenCalled();
   });
 });

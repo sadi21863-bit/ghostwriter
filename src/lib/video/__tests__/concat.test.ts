@@ -181,7 +181,7 @@ describe("mixAudioIntoVideo", () => {
     vi.clearAllMocks();
   });
 
-  it("pads audio with apad, copies the video stream, and applies -shortest so only trailing audio can be trimmed", async () => {
+  it("pads audio with apad, loudness-normalizes it, copies the video stream, and applies -shortest so only trailing audio can be trimmed", async () => {
     spawnMock.mockReturnValue(makeFakeProcess(0));
 
     await mixAudioIntoVideo("/tmp/video.mp4", "/tmp/audio.mp3", "/tmp/mixed.mp4");
@@ -189,7 +189,10 @@ describe("mixAudioIntoVideo", () => {
     const [bin, args] = spawnMock.mock.calls[0];
     expect(bin).toBe("/path/to/ffmpeg");
     expect(args).toEqual(expect.arrayContaining(["-i", "/tmp/video.mp4", "-i", "/tmp/audio.mp3"]));
-    expect(args[args.indexOf("-filter_complex") + 1]).toBe("[1:a]apad[a]");
+    const filterComplex = args[args.indexOf("-filter_complex") + 1];
+    expect(filterComplex).toContain("apad");
+    expect(filterComplex).toContain("loudnorm");
+    expect(filterComplex).toBe("[1:a]apad,loudnorm=I=-16:TP=-1.5:LRA=11[a]");
     expect(args).toEqual(expect.arrayContaining(["-map", "0:v", "-map", "[a]", "-c:v", "copy", "-shortest"]));
     expect(args[args.length - 1]).toBe("/tmp/mixed.mp4");
   });

@@ -161,6 +161,15 @@ describe("POST /api/projects/[projectId]/production/generate-package", () => {
     expect(userContent).toContain("FORENSIC LOCK description");
   });
 
+  it("instructs the model to split an appearance-changing character into two distinctly-named sheets (item 71/72 research finding), since two sheets sharing one name silently collide in charMap resolution", async () => {
+    await POST(makeReq(), makeParams());
+    const call = createMessage.mock.calls[0][0];
+    const userContent = call.messages[0].content as string;
+    expect(userContent).toContain("APPEARANCE-CHANGING CHARACTERS");
+    expect(userContent).toContain("distinct from the first");
+    expect(userContent).toContain("silently collide");
+  });
+
   describe("Soul ID auto-bootstrap (item 68 Task 2)", () => {
     const PACKAGE_WITH_RECURRING_CHARACTER = JSON.stringify({
       projectBrief: { title: "T", logline: "l", format: "Novel", genres: [], tone: "t", styleNotes: "" },

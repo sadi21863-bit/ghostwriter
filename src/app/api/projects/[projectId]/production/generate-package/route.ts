@@ -150,6 +150,8 @@ SHOT CRAFT — a shot list of "visually interesting moments" reads as a random h
 
 5. AXIS OF ACTION: when two characters share a scene across multiple shots (e.g. a confrontation), keep the camera on one consistent side of the imaginary line between them so their spatial relationship (who's on the left/right) doesn't flip disorientingly between cuts.
 
+6. APPEARANCE-CHANGING CHARACTERS: if a character's appearance changes significantly within this chapter (aging, injury, disguise, transformation — not just a costume change), do NOT try to describe both states in one soulIdPrompt. Output TWO separate characterSheets entries with two distinct locked descriptions, and give the second entry a name that is clearly distinct from the first (e.g. "Marcus" and "Marcus (Aged)") — two sheets sharing the exact same name resolve to the same character record and silently collide, defeating the whole point. Each shot's primaryCharacterName must then reference whichever variant is correct for that point in the story.
+
 Generate 3-6 shots per chapter and one multiShotScript per scene. Focus on shots that actually serve the scene's turn, not just visually interesting moments. Make prompts Higgsfield-ready.`;
 
   const result = await runDirectorCall({

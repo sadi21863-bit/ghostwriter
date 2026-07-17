@@ -131,6 +131,12 @@ export async function trimClip(inputPath: string, outputPath: string, startSec: 
  * so a too-short track can never truncate the VIDEO — -shortest then only
  * ever trims trailing music/silence to the video's own length. The video
  * stream itself is untouched (-c:v copy) — only the audio needs encoding.
+ *
+ * Loudness-normalized (same EBU R128 target as concatAudioBuffers's fix for
+ * the standalone Audio Novel/podcast path, item 71/72 research) — without
+ * this, a scene's own audio and its mixed-in music can land at inconsistent
+ * perceived volume, the identical bug just fixed elsewhere in the app but
+ * never applied to this, the video pipeline's own audio mixing.
  */
 export async function mixAudioIntoVideo(videoPath: string, audioPath: string, outputPath: string): Promise<void> {
   await new Promise<void>((resolve, reject) => {
@@ -138,7 +144,7 @@ export async function mixAudioIntoVideo(videoPath: string, audioPath: string, ou
       "-y",
       "-i", videoPath,
       "-i", audioPath,
-      "-filter_complex", "[1:a]apad[a]",
+      "-filter_complex", "[1:a]apad,loudnorm=I=-16:TP=-1.5:LRA=11[a]",
       "-map", "0:v",
       "-map", "[a]",
       "-c:v", "copy",

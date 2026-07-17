@@ -18,6 +18,7 @@ import { INTERROGATION_SYSTEM_PROMPT } from "@/lib/modes/interrogation";
 import { CHASE_SYSTEM_PROMPT } from "@/lib/modes/chase";
 import { checkSemanticCache, writeSemanticCache } from "@/lib/semantic-cache";
 import { MODE_REGISTRY, type GenerationMode } from "@/lib/modes/registry";
+import { compressForContext } from "@/lib/ai/compress-for-context";
 export type { GenerationMode } from "@/lib/modes/registry";
 
 export const MODELS = {
@@ -462,6 +463,13 @@ export async function summarizeChapter(
   previousMemories?: string
 ): Promise<{ fact: string; structuredData: object }> {
   const charNames = characters?.map(c => c.name).join(', ') ?? '';
+  // Real bug fixed here (item 71/72 research): this used to be a plain
+  // `.slice(0, 8000)` on the full chapter - content past that cutoff (well
+  // under one chapter's worth of prose) was silently dropped before
+  // extraction, so keyEvents/openPromisesCreated/knowledgeShifts from later
+  // in a longer chapter never made it into StoryMemory or the Promise
+  // Tracker at all. compressForContext() condenses instead of truncating.
+  const compressedContent = await compressForContext(content, 8000);
   const prompt = `Analyze this chapter and return ONLY valid JSON with no preamble:
 {
   "fact": "2-3 sentence summary of the most important thing that happened",
@@ -480,7 +488,7 @@ ${charNames ? `Known characters: ${charNames}` : ''}
 ${previousMemories ? `Previous context: ${previousMemories}` : ''}
 
 CHAPTER CONTENT:
-${content.slice(0, 8000)}`;
+${compressedContent}`;
 
   const msg = await client.messages.create({
     model: MODELS.fast,

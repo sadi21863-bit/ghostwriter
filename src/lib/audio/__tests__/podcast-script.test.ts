@@ -64,14 +64,30 @@ describe("generatePodcastScript", () => {
     await expect(generatePodcastScript("text", "Project")).rejects.toThrow(/not a JSON array/);
   });
 
-  it("truncates very long chapter content before sending it to the model", async () => {
-    createMessage.mockResolvedValue(textResponse(JSON.stringify([{ speaker: "A", text: "ok" }])));
-    const longContent = "x".repeat(50_000);
+  it("compresses very long chapter content (via compressForContext) rather than silently truncating it — real bug fixed in item 71/72: a plain .slice() used to drop content past the cutoff with no signal anything was missing", async () => {
+    // Real chapter prose has paragraph breaks - compressForContext chunks on
+    // those. Every compression sub-call and the final script-generation call
+    // all go through the same mocked createMessage, so route by call order:
+    // N compression calls (one per paragraph-sized chunk) then one final call.
+    const paragraphs = Array.from({ length: 6 }, (_, i) => `Paragraph ${i}: ${"word ".repeat(500)}`);
+    const longContent = paragraphs.join("\n\n"); // well over the 12000-char compression threshold
+    createMessage
+      .mockImplementation(async (params: any) => {
+        // Compression calls have no `system` prompt about podcast hosts; the
+        // real podcast-script call does. Use that to return the right shape.
+        if (params.system?.includes("two-host discussion podcast script")) {
+          return textResponse(JSON.stringify([{ speaker: "A", text: "ok" }]));
+        }
+        return textResponse("compressed chunk");
+      });
 
     await generatePodcastScript(longContent, "Project");
 
-    const call = createMessage.mock.calls[0][0];
-    const userMessage = call.messages[0].content as string;
+    const finalCall = createMessage.mock.calls.find((c: any) => c[0].system?.includes("two-host discussion podcast script"));
+    expect(finalCall).toBeTruthy();
+    const userMessage = finalCall![0].messages[0].content as string;
     expect(userMessage.length).toBeLessThan(longContent.length);
+    expect(userMessage).toContain("compressed chunk");
+    expect(createMessage.mock.calls.length).toBeGreaterThan(1); // real chunking/compression happened, not a single pass-through
   });
 });
