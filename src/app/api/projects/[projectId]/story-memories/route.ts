@@ -2,59 +2,74 @@ export const dynamic = 'force-dynamic';
 
 import { NextResponse } from "next/server";
 import { getRequiredSession } from "@/lib/auth-helpers";
-import { db } from "@/db";
-import { storyMemories, projects } from "@/db/schema";
-import { eq, and } from "drizzle-orm";
-import { decodeMemoryStructuredData } from "@/lib/types/story";
+import { fromSession } from "@/lib/core/auth-decorators";
+import {
+  createStoryMemory,
+  deleteStoryMemory,
+  listStoryMemories,
+} from "@/lib/core/handlers/story-memories";
+import { pgStoryMemoryRepository } from "@/lib/core/pg-story-os-repos";
+import { pgPostCommitHooks } from "@/lib/core/pg-repositories";
 
-async function verifyOwnership(projectId: string, userId: string) {
-  return db.query.projects.findFirst({
-    where: and(eq(projects.id, projectId), eq(projects.userId, userId)),
-  });
-}
+/**
+ * Phase 2 / v4 §7 — thin auth adapters around the shared story-memory handlers.
+ * The ownership probe and the writes moved to `pg-story-os-repos.ts`; the
+ * `fact is required` 400 stays here (transport validation, in the original
+ * order — ownership BEFORE the body is read), while the structuredData
+ * normalization lives in the handler (it never rejects, so it is persistence
+ * shaping, not a transport error).
+ */
+const hooks = { onCanonicalMutation: pgPostCommitHooks.onCanonicalMutation };
 
 export async function GET(_: Request, { params }: { params: Promise<{ projectId: string }> }) {
   const s = await getRequiredSession();
-  if (!await verifyOwnership((await params).projectId, s.user.id))
-    return NextResponse.json({ error: "Not found" }, { status: 404 });
-
-  const memories = await db.query.storyMemories.findMany({
-    where: eq(storyMemories.projectId, (await params).projectId),
-    orderBy: (m, { desc }) => [desc(m.createdAt)],
-  });
-  return NextResponse.json(memories);
+  const result = await listStoryMemories(
+    fromSession(s),
+    { projectId: (await params).projectId },
+    pgStoryMemoryRepository,
+  );
+  if (!result.ok) {
+    return NextResponse.json({ error: result.reason }, { status: result.status });
+  }
+  return NextResponse.json(result.memories);
 }
 
 export async function POST(req: Request, { params }: { params: Promise<{ projectId: string }> }) {
   const s = await getRequiredSession();
-  if (!await verifyOwnership((await params).projectId, s.user.id))
+  const { projectId } = await params;
+  if (!(await pgStoryMemoryRepository.ownsProject(projectId, s.user.id)))
     return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const { fact, category = "general", structuredData } = await req.json();
   if (!fact?.trim()) return NextResponse.json({ error: "fact required" }, { status: 400 });
 
-  const [memory] = await db.insert(storyMemories).values({
-    projectId: (await params).projectId,
-    fact: fact.trim(),
-    category,
-    // Normalize through the story guard so only a consistent, known shape is
-    // ever persisted. Lenient (not strict encode) because structuredData is
-    // AI-generated best-effort — drop bad sub-fields rather than reject the memory.
-    structuredData: structuredData != null ? decodeMemoryStructuredData(structuredData) : null,
-    autoExtracted: false,
-  }).returning();
-
-  return NextResponse.json(memory);
+  const result = await createStoryMemory(
+    fromSession(s),
+    { projectId, fact, category, structuredData },
+    pgStoryMemoryRepository,
+    hooks,
+  );
+  if (!result.ok) {
+    return NextResponse.json({ error: result.reason }, { status: result.status });
+  }
+  return NextResponse.json(result.memory);
 }
 
 export async function DELETE(req: Request, { params }: { params: Promise<{ projectId: string }> }) {
   const s = await getRequiredSession();
-  if (!await verifyOwnership((await params).projectId, s.user.id))
+  const { projectId } = await params;
+  if (!(await pgStoryMemoryRepository.ownsProject(projectId, s.user.id)))
     return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const { memoryId } = await req.json();
-  await db.delete(storyMemories).where(
-    and(eq(storyMemories.id, memoryId), eq(storyMemories.projectId, (await params).projectId))
+  const result = await deleteStoryMemory(
+    fromSession(s),
+    { projectId, memoryId },
+    pgStoryMemoryRepository,
+    hooks,
   );
+  if (!result.ok) {
+    return NextResponse.json({ error: result.reason }, { status: result.status });
+  }
   return NextResponse.json({ ok: true });
 }

@@ -17,8 +17,6 @@ export async function POST(req: Request) {
   const session = await getRequiredSession();
   const rl = await checkAiRateLimit(session.user.id);
   if (rl) return rl;
-  const gate = await meterAndGate(session.user.id, "trend-angles");
-  if (gate) return gate;
   const tier = await getUserTier(session.user.id);
   if (!canAccessFeature(tier, "creator_tools_advanced")) {
     return NextResponse.json({ error: "upgrade_required", feature: "creator_tools_advanced", tier }, { status: 403 });
@@ -37,6 +35,8 @@ export async function POST(req: Request) {
     }
   }
 
+  const gate = await meterAndGate(session.user.id, "trend-angles");
+  if (gate) return gate;
   try {
     const msg = await client.messages.create({
       model: MODELS.fast,

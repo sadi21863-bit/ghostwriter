@@ -5,13 +5,11 @@ import { db } from '@/db';
 import { workPackets } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 import { generateEmbedding, buildPacketEmbeddingText } from '@/lib/ai/embeddings';
+import { requireBearer } from '@/lib/auth-secret';
 
 export async function POST(req: Request) {
-  const authHeader = req.headers.get('authorization') ?? '';
-  const cronSecret = process.env.CRON_SECRET;
-  if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
+  const denied = requireBearer(req.headers.get('authorization'), "CRON_SECRET");
+  if (denied) return denied;
 
   const allPackets = await db.query.workPackets.findMany();
   const unembedded = allPackets.filter(p => !(p as any).embedding);

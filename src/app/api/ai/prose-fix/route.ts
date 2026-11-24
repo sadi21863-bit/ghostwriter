@@ -17,8 +17,6 @@ export async function POST(req: Request) {
   const session = await getRequiredSession();
   const rl = await checkAiRateLimit(session.user.id);
   if (rl) return rl;
-  const gate = await meterAndGate(session.user.id, "prose");
-  if (gate) return gate;
   const tier = await getUserTier(session.user.id);
   if (!canAccessFeature(tier, 'story_modes_advanced')) {
     return NextResponse.json({ error: 'upgrade_required', feature: 'prose_fix' }, { status: 403 });
@@ -34,6 +32,8 @@ export async function POST(req: Request) {
 
   const fp = extractVoiceFingerprint([cappedText]);
   const voiceConstraints = fp ? fingerprintToConstraints(fp) : "";
+  const gate = await meterAndGate(session.user.id, "prose-fix");
+  if (gate) return gate;
   const promiseLedger = projectId ? await buildPromiseLedger(projectId, "preserve") : "";
   // Same technique-library grounding the original generation had, when the
   // passage being fixed is in a technique-library mode (combat/emotional/

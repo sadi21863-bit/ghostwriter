@@ -34,8 +34,6 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "upgrade_required", feature: "creator_tools_advanced", tier }, { status: 403 });
   }
 
-  const gate = await meterAndGate(s.user.id, "dissect-video");
-  if (gate) return gate;
 
   const geminiError = checkGeminiKey();
   if (geminiError) {
@@ -70,6 +68,8 @@ export async function POST(req: Request) {
     .values({ userId: s.user.id, youtubeUrl, status: "pending" })
     .returning();
 
+  const gate = await meterAndGate(s.user.id, "dissect-video");
+  if (gate) return gate;
   try {
     const dispatchRes = await fetch(
       `https://api.github.com/repos/${repoOwner}/${repoName}/dispatches`,

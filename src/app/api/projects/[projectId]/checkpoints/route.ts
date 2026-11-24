@@ -2,87 +2,67 @@ export const dynamic = 'force-dynamic';
 
 import { NextResponse } from 'next/server';
 import { getRequiredSession } from '@/lib/auth-helpers';
-import { db } from '@/db';
-import { projects, storyCheckpoints } from '@/db/schema';
-import { and, eq, desc } from 'drizzle-orm';
+import { fromSession } from '@/lib/core/auth-decorators';
+import {
+  createCheckpoint,
+  deleteCheckpoint,
+  listCheckpoints,
+} from '@/lib/core/handlers/story-checkpoints';
+import { pgStoryCheckpointRepository } from '@/lib/core/pg-story-os-repos';
+import { pgPostCommitHooks } from '@/lib/core/pg-repositories';
+
+/**
+ * Phase 2 / v4 §7 — thin auth adapters around the shared checkpoint handlers.
+ * The ownership probe, the health read, the healthScore formula, and the writes
+ * moved to `pg-story-os-repos.ts` / the handler; the body parsing stays here in
+ * the original order (body read BEFORE the ownership probe, as the old route ran
+ * it). DELETE keeps its distinctive `{ success: true }` response body.
+ */
+const hooks = { onCanonicalMutation: pgPostCommitHooks.onCanonicalMutation };
 
 export async function GET(_: Request, { params }: { params: Promise<{ projectId: string }> }) {
   const s = await getRequiredSession();
-
-  const project = await db.query.projects.findFirst({
-    where: and(eq(projects.id, (await params).projectId), eq(projects.userId, s.user.id)),
-    columns: { id: true },
-  });
-  if (!project) return NextResponse.json({ error: 'Not found' }, { status: 404 });
-
-  const checkpoints = await db.query.storyCheckpoints.findMany({
-    where: eq(storyCheckpoints.projectId, (await params).projectId),
-    orderBy: [desc(storyCheckpoints.createdAt)],
-  });
-
-  return NextResponse.json({ checkpoints });
+  const result = await listCheckpoints(
+    fromSession(s),
+    { projectId: (await params).projectId },
+    pgStoryCheckpointRepository,
+  );
+  if (!result.ok) {
+    return NextResponse.json({ error: result.reason }, { status: result.status });
+  }
+  return NextResponse.json({ checkpoints: result.checkpoints });
 }
 
 export async function POST(req: Request, { params }: { params: Promise<{ projectId: string }> }) {
   const s = await getRequiredSession();
+  const { projectId } = await params;
   const { name, notes } = await req.json();
 
-  const project = await db.query.projects.findFirst({
-    where: and(eq(projects.id, (await params).projectId), eq(projects.userId, s.user.id)),
-    with: {
-      chapters:      { columns: { id: true, title: true, wordCount: true, arcPosition: true } },
-      plotThreads:   { columns: { id: true, status: true, starvationWarning: true } },
-      storyPromises: { columns: { id: true, status: true } },
-    },
-  });
-  if (!project) return NextResponse.json({ error: 'Not found' }, { status: 404 });
-
-  const proj = project as any;
-  const totalWordCount  = proj.chapters.reduce((sum: number, c: any) => sum + (c.wordCount ?? 0), 0);
-  const openThreadCount = proj.plotThreads.filter((t: any) => t.status === 'open' || t.status === 'Active').length;
-  const openPromises    = proj.storyPromises.filter((p: any) => p.status === 'open').length;
-
-  const healthScore = Math.max(0, 100
-    - (proj.plotThreads.filter((t: any) => t.starvationWarning).length * 5)
-    - (proj.chapters.filter((c: any) => (c.wordCount ?? 0) < 300).length * 3)
-    - (openPromises > 5 ? (openPromises - 5) * 4 : 0)
+  const result = await createCheckpoint(
+    fromSession(s),
+    { projectId, name, notes },
+    pgStoryCheckpointRepository,
+    hooks,
   );
-
-  const [checkpoint] = await db.insert(storyCheckpoints).values({
-    projectId: (await params).projectId,
-    name:  name?.trim() || `Checkpoint — ${new Date().toLocaleDateString()}`,
-    notes: notes ?? '',
-    snapshot: {
-      totalWordCount,
-      chapterCount: proj.chapters.length,
-      chapters: proj.chapters.map((c: any) => ({
-        id: c.id, title: c.title, wordCount: c.wordCount ?? 0, arcPosition: c.arcPosition ?? '',
-      })),
-      openThreadCount,
-      openPromises,
-      healthScore,
-    },
-  }).returning();
-
-  return NextResponse.json({ checkpoint });
+  if (!result.ok) {
+    return NextResponse.json({ error: result.reason }, { status: result.status });
+  }
+  return NextResponse.json({ checkpoint: result.checkpoint });
 }
 
 export async function DELETE(req: Request, { params }: { params: Promise<{ projectId: string }> }) {
   const s = await getRequiredSession();
+  const { projectId } = await params;
   const { checkpointId } = await req.json();
 
-  const project = await db.query.projects.findFirst({
-    where: and(eq(projects.id, (await params).projectId), eq(projects.userId, s.user.id)),
-    columns: { id: true },
-  });
-  if (!project) return NextResponse.json({ error: 'Not found' }, { status: 404 });
-
-  await db.delete(storyCheckpoints).where(
-    and(
-      eq(storyCheckpoints.id, checkpointId),
-      eq(storyCheckpoints.projectId, (await params).projectId),
-    ),
+  const result = await deleteCheckpoint(
+    fromSession(s),
+    { projectId, checkpointId },
+    pgStoryCheckpointRepository,
+    hooks,
   );
-
+  if (!result.ok) {
+    return NextResponse.json({ error: result.reason }, { status: result.status });
+  }
   return NextResponse.json({ success: true });
 }

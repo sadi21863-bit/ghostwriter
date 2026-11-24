@@ -29,8 +29,6 @@ export async function POST(req: Request) {
   const session = await getRequiredSession();
   const rl = await checkAiRateLimit(session.user.id);
   if (rl) return rl;
-  const gate = await meterAndGate(session.user.id, "tiktok-native");
-  if (gate) return gate;
   const tier = await getUserTier(session.user.id);
   if (!canAccessFeature(tier, "creator_tools_advanced")) {
     return NextResponse.json({ error: "upgrade_required", feature: "creator_tools_advanced" }, { status: 403 });
@@ -41,6 +39,8 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "topic required" }, { status: 400 });
   }
 
+  const gate = await meterAndGate(session.user.id, "tiktok-native");
+  if (gate) return gate;
   try {
     if (mode === "hooks") {
       const response = await anthropic.messages.create({

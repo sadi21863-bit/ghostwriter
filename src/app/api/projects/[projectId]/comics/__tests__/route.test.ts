@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { projects } from "@/db/schema";
 
 vi.mock("@/lib/auth-helpers", () => ({
   getRequiredSession: vi.fn(async () => ({ user: { id: "user-1" } })),
@@ -15,7 +16,9 @@ const findFirstUser = vi.fn();
 const findFirstChapter = vi.fn();
 const findFirstProject = vi.fn();
 const findManyComicPages = vi.fn();
+const insertValues = vi.fn();
 const insertReturning = vi.fn();
+const updateTables = vi.fn();
 const updateWhere = vi.fn();
 vi.mock("@/db", () => ({
   db: {
@@ -26,11 +29,17 @@ vi.mock("@/db", () => ({
       comicPages: { findMany: (...args: any[]) => findManyComicPages(...args) },
     },
     insert: vi.fn(() => ({
-      values: vi.fn(() => ({ returning: (...args: any[]) => insertReturning(...args) })),
+      values: (...vArgs: any[]) => {
+        insertValues(...vArgs);
+        return { returning: (...args: any[]) => insertReturning(...args) };
+      },
     })),
-    update: vi.fn(() => ({
-      set: vi.fn(() => ({ where: (...args: any[]) => updateWhere(...args) })),
-    })),
+    update: (...uArgs: any[]) => {
+      updateTables(...uArgs);
+      return {
+        set: vi.fn(() => ({ where: (...args: any[]) => updateWhere(...args) })),
+      };
+    },
   },
 }));
 vi.mock("drizzle-orm", async (importOriginal: any) => {
@@ -64,7 +73,7 @@ vi.mock("@/lib/comic-gen/generate-storydiffusion-page", () => ({
   generateComicPageViaStoryDiffusion: (...args: any[]) => generateComicPageViaStoryDiffusion(...args),
 }));
 
-const { POST } = await import("../route");
+const { GET, POST } = await import("../route");
 
 function makeReq(body: unknown) {
   return new Request("http://localhost/api/projects/proj-1/comics", {
@@ -134,5 +143,99 @@ describe("POST /api/projects/[projectId]/comics", () => {
     const call = generateComicPageViaStoryDiffusion.mock.calls[0][0];
     expect(call.artStyle.id).toBe("noir");
     expect(call.characters).toEqual([{ id: "c1", name: "Arthur", appearance: "tired eyes", portraitUrl: null, soulId: null }]);
+  });
+});
+
+// ------------------------------------------------------ Phase 2 migration pins
+
+describe("GET /api/projects/[projectId]/comics (thin listComicPages adapter)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    findFirstProject.mockResolvedValue({ id: "proj-1", userId: "user-1" });
+  });
+
+  it("returns the newest-first pages read from the adapter, still under `{ pages }`", async () => {
+    const pages = [
+      { id: "page-2", projectId: "proj-1", panels: [{ panelIndex: 1 }, { panelIndex: 0 }] },
+      { id: "page-1", projectId: "proj-1", panels: [] },
+    ];
+    findManyComicPages.mockResolvedValue(pages);
+
+    const res = await GET(new Request("http://localhost/api/projects/proj-1/comics"), makeParams());
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(body.pages).toEqual(pages);
+  });
+
+  it("404 `{ error: \"Not found\" }` when the project isn't owned, before any page read", async () => {
+    findFirstProject.mockResolvedValue(null);
+
+    const res = await GET(new Request("http://localhost/api/projects/proj-1/comics"), makeParams());
+
+    expect(res.status).toBe(404);
+    expect(await res.json()).toEqual({ error: "Not found" });
+    expect(findManyComicPages).not.toHaveBeenCalled();
+  });
+});
+
+describe("POST /api/projects/[projectId]/comics — migrated CRUD verbs", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    delete process.env.BLOB_READ_WRITE_TOKEN;
+    findFirstUser.mockResolvedValue({ id: "user-1", segmindApiKey: "encrypted-key" });
+    findFirstChapter.mockResolvedValue({ id: "ch-1", projectId: "proj-1", content: "Arthur boarded." });
+    findFirstProject.mockResolvedValue({
+      id: "proj-1", name: "Test Story",
+      characters: [{ id: "c1", name: "Arthur", appearance: "tired eyes", portraitUrl: null, soulId: null }],
+      worldEntities: [],
+    });
+    findManyComicPages.mockResolvedValue([]);
+    insertReturning.mockResolvedValue([{ id: "row-1", panelIndex: 0 }]);
+    updateWhere.mockResolvedValue(undefined);
+    createMessage.mockResolvedValue({ content: [{ type: "text", text: SPECS_JSON }] });
+    critiqueShot.mockResolvedValue({});
+    generateSoulImage.mockResolvedValue("https://segmind.example/panel.png");
+  });
+
+  it("the page insert carries projectId + the count-derived pageNumber (existing pages + 1)", async () => {
+    findManyComicPages.mockResolvedValue([{ id: "a" }, { id: "b" }]); // countByProject = 2
+    await POST(makeReq({ chapterId: "ch-1", artStyleId: "manga" }), makeParams());
+
+    const pageValues = insertValues.mock.calls[0][0];
+    expect(pageValues.projectId).toBe("proj-1");
+    expect(pageValues.chapterId).toBe("ch-1");
+    expect(pageValues.pageNumber).toBe(3);
+    expect(pageValues.artStyle).toBe("manga");
+  });
+
+  it("panel inserts carry projectId + the created page's id, and every insert fires a revision bump", async () => {
+    await POST(makeReq({ chapterId: "ch-1", artStyleId: "manga" }), makeParams());
+
+    // 1 page insert + 2 panel inserts (SPECS_JSON has 2 panels)
+    expect(insertValues).toHaveBeenCalledTimes(3);
+    expect(insertValues.mock.calls[1][0].pageId).toBe("row-1");
+    expect(insertValues.mock.calls[1][0].projectId).toBe("proj-1");
+    expect(insertValues.mock.calls[2][0].pageId).toBe("row-1");
+
+    // comicPage.create + comicPanel.create × 2 — every bump targets the projects table
+    expect(updateTables).toHaveBeenCalledTimes(3);
+    updateTables.mock.calls.forEach(([table]) => expect(table).toBe(projects));
+    expect(updateWhere).toHaveBeenCalledTimes(3);
+  });
+
+  it("when every panel generation fails, the page row still exists with its bump and errors are reported", async () => {
+    generateSoulImage.mockRejectedValue(new Error("Segmind rejected the prompt"));
+
+    const res = await POST(makeReq({ chapterId: "ch-1", artStyleId: "manga" }), makeParams());
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(body.errors).toBe("2 panel(s) failed to generate.");
+    expect(body.page.panels).toEqual([]);
+    // only the page insert happened; only its comicPage.create bump fired
+    expect(insertValues).toHaveBeenCalledTimes(1);
+    expect(updateTables).toHaveBeenCalledTimes(1);
+    expect(updateTables.mock.calls[0][0]).toBe(projects);
   });
 });

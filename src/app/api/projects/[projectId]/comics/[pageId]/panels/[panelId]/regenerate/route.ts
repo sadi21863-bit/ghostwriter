@@ -1,9 +1,14 @@
 export const dynamic = 'force-dynamic';
 
 import { NextResponse } from "next/server";
-import { getRequiredSession, verifyChildOwnership } from "@/lib/auth-helpers";
+import { getRequiredSession } from "@/lib/auth-helpers";
+import { fromSession } from "@/lib/core/auth-decorators";
+import { ownsChildResource } from "@/lib/core/ownership";
+import { deployPanelImage } from "@/lib/core/handlers/comics";
+import { pgComicPanelCrudRepository } from "@/lib/core/pg-comic-repos";
+import { pgChildResourceRepository, pgPostCommitHooks } from "@/lib/core/pg-repositories";
 import { db } from "@/db";
-import { characters, comicPages, comicPanels, projects, users } from "@/db/schema";
+import { characters, comicPanels, projects, users } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { getImageProvider } from "@/lib/media/registry";
 import { decrypt } from "@/lib/crypto";
@@ -18,21 +23,39 @@ async function verifyOwnership(projectId: string, userId: string) {
   });
 }
 
+/**
+ * Phase 2 / v4 §7 — the generation stays transport-coupled (the provider call
+ * and its Blob upload are external-spend orchestration, not ported until the
+ * image-provider slice ships a generation port — see handlers/comics.ts); the
+ * post-generation DB write is not. Both Phase-C branches (candidate-append vs
+ * primary-overwrite) go through `deployPanelImage`, which owns the array
+ * mechanics and the `comicPanel.regenerate` §11 bump. The route keeps the
+ * keepAsCandidate decision itself: it needs the pre-generation panel state
+ * (`!!panel.imageUrl`) for generation AND for that decision.
+ */
 export async function POST(req: Request, { params }: { params: Promise<{ projectId: string; pageId: string; panelId: string }> }) {
   const s = await getRequiredSession();
-  if (!await verifyOwnership((await params).projectId, s.user.id))
+  const { projectId, pageId, panelId } = await params;
+  if (!await verifyOwnership(projectId, s.user.id))
     return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const user = await db.query.users.findFirst({ where: eq(users.id, s.user.id) });
   if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
 
   const panel = await db.query.comicPanels.findFirst({
-    where: and(eq(comicPanels.id, (await params).panelId), eq(comicPanels.projectId, (await params).projectId)),
+    where: and(eq(comicPanels.id, panelId), eq(comicPanels.projectId, projectId)),
   });
   if (!panel) return NextResponse.json({ error: "Panel not found" }, { status: 404 });
 
-  const pageOwned = await verifyChildOwnership(comicPages, (await params).pageId, (await params).projectId);
-  if (!pageOwned) return NextResponse.json({ error: "Page not found" }, { status: 404 });
+  // Phase 2 / v4 §7: ownership proven through the Core helper — context scope is
+  // enforced, and the resource is named rather than passed as a Drizzle table.
+  const ctx = fromSession(s);
+  const pageOwned = await ownsChildResource(
+    ctx,
+    { resource: "comic_pages", childId: pageId, projectId },
+    pgChildResourceRepository,
+  );
+  if (!pageOwned.ok) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const imageProviderId = user.imageProviderId || "segmind_soul";
   const provider = getImageProvider(imageProviderId);
@@ -53,7 +76,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ project
   // breaks character consistency on every regenerate. This also picks up a
   // Soul ID trained after the panel was first created.
   const projectCharacters = await db.query.characters.findMany({
-    where: eq(characters.projectId, (await params).projectId),
+    where: eq(characters.projectId, projectId),
   });
   const { referenceImageUrl, soulId } = getCharacterSoulReference((panel as any).characterName, projectCharacters);
 
@@ -70,31 +93,26 @@ export async function POST(req: Request, { params }: { params: Promise<{ project
     const imgRes = await fetch(rawUrl);
     const imgBuffer = await imgRes.arrayBuffer();
     const blob = await put(
-      `comics/${(await params).projectId}/${(await params).pageId}/panel-${panel.panelIndex}-regen-${Date.now()}.png`,
+      `comics/${projectId}/${pageId}/panel-${panel.panelIndex}-regen-${Date.now()}.png`,
       imgBuffer,
       { access: "public", contentType: "image/png" }
     );
     imageUrl = blob.url;
   }
 
-  if (keepAsCandidate) {
-    const existing: string[] = (panel as any).candidateImageUrls ?? [];
-    const [updated] = await db
-      .update(comicPanels)
-      .set({ candidateImageUrls: [...existing, imageUrl] })
-      .where(eq(comicPanels.id, (await params).panelId))
-      .returning();
-    // Candidates aren't auto-scored by the vision-critic, same reasoning as the
-    // shots preview route: qualityScore/Weakest/Note are singular per-panel
-    // fields tracking the PRIMARY image.
-    return NextResponse.json({ panel: updated });
-  }
-
-  const [updated] = await db
-    .update(comicPanels)
-    .set({ imageUrl })
-    .where(eq(comicPanels.id, (await params).panelId))
-    .returning();
+  const imageWrite = await deployPanelImage(
+    ctx,
+    {
+      projectId,
+      panelId,
+      imageUrl,
+      keepAsCandidate,
+      existingCandidateUrls: (panel as any).candidateImageUrls ?? [],
+    },
+    pgComicPanelCrudRepository,
+    { onCanonicalMutation: pgPostCommitHooks.onCanonicalMutation },
+  );
+  if (!imageWrite.ok) return NextResponse.json({ error: imageWrite.reason }, { status: imageWrite.status });
 
   // Phase B vision-critic — see comics/route.ts for the same pattern.
   (async () => {
@@ -111,8 +129,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ project
     const result = scoreShot(raw);
     await db.update(comicPanels)
       .set({ qualityScore: result.overall, qualityWeakest: result.weakest, qualityNote: retryHint(result) })
-      .where(eq(comicPanels.id, (await params).panelId));
+      .where(and(eq(comicPanels.id, panelId), eq(comicPanels.projectId, projectId)));
   })().catch(err => console.error('[critiqueShot] panel regenerate failed:', err));
 
-  return NextResponse.json({ panel: updated });
+  return NextResponse.json({ panel: imageWrite.panel });
 }

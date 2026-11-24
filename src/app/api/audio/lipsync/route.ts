@@ -93,10 +93,20 @@ export async function GET(req: Request) {
   const audioExportId = searchParams.get("audioExportId");
   if (!audioExportId) return NextResponse.json({ error: "audioExportId required" }, { status: 400 });
 
+  // Ownership is derived from the row's own project, never from a client-supplied
+  // projectId. This handler previously looked the export up by id alone, so any
+  // authenticated user could pass another tenant's audioExportId, read their
+  // lipsyncVideoUrl (a public Blob URL that also leaks the project id in its
+  // path), and have pollAndUpdateLipsync below mutate that foreign row. Scoping
+  // through the project relation collapses cross-tenant read and write into one
+  // indistinguishable 404.
   const audioExport = await db.query.audioExports.findFirst({
     where: eq(audioExports.id, audioExportId),
+    with: { project: { columns: { userId: true } } },
   });
-  if (!audioExport) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  if (!audioExport || audioExport.project?.userId !== session.user.id) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
 
   if (audioExport.lipsyncStatus === "completed") {
     return NextResponse.json({ status: "completed", videoUrl: audioExport.lipsyncVideoUrl });

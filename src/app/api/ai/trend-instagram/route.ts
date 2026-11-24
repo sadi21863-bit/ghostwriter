@@ -18,8 +18,6 @@ export async function POST(req: Request) {
   const s = await getRequiredSession();
   const rl = await checkAiRateLimit(s.user.id);
   if (rl) return rl;
-  const gate = await meterAndGate(s.user.id, "trend-instagram");
-  if (gate) return gate;
   const tier = await getUserTier(s.user.id);
   if (!canAccessFeature(tier, "creator_tools_advanced")) {
     return NextResponse.json({ error: "upgrade_required", feature: "creator_tools_advanced", tier }, { status: 403 });
@@ -37,6 +35,8 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "TREND_INTELLIGENCE_NOT_CONNECTED" }, { status: 403 });
   }
 
+  const gate = await meterAndGate(s.user.id, "trend-instagram");
+  if (gate) return gate;
   try {
     const apifyRes = await fetch(
       "https://api.apify.com/v2/acts/patient_discovery~instagram-search-reels/run-sync-get-dataset-items",

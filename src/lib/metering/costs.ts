@@ -12,13 +12,43 @@ export const OPERATION_CREDITS: Record<string, number> = {
   "entity":            0.1, "suggest": 0.1, "summarize": 0.2,
   "adapt-chapter":     1.0,
   "refine":            0.5,
+
+  // Phase 0 (v4 §7.3): these operations were being metered by their ROUTES but
+  // had no entry here, so `creditsFor` silently fell through to
+  // DEFAULT_OPERATION_CREDIT (0.3) for all of them. Prices below are derived
+  // from the model tier and call count each route actually uses — verify against
+  // real cost before treating them as final.
+  "prose":                     0.5,   // Sonnet, 4k out — the shared "prose" route
+  "scene-to-video-prompt":     0.3,   // Sonnet, 2k out
+  "character-evolution":       0.3,   // Sonnet, 2k out
+  "research-scaffold":         0.5,   // Sonnet, 4k out
+  "analyze-work":              0.5,   // style-DNA extraction over a reference work
+  "pipeline":                  2.0,   // multi-agent: several Sonnet/Haiku calls per run
+  "analyze-reference-video":   1.0,   // Gemini 3.5 Flash over a full reference video
+
+  // `prose-fix` and `surgical-edit` previously both metered as `"prose"`, which
+  // left their own price entries dead — the table claimed 0.6 while the routes
+  // charged 0.5. They now meter under their own ids. The VALUES are deliberately
+  // left at the 0.5 users already pay, so this is a correctness fix and not an
+  // unannounced price increase; 0.6 remains the cost-derived proposal awaiting
+  // product sign-off (surgical-edit does a locate-and-replace over a full
+  // chapter, so it is arguably worth more than a prose revision).
+  "prose-fix":                 0.5,
+  "surgical-edit":             0.5,
+
   // Previously unmetered (2026-07-05 route-consolidation audit) — director/editor/writer
-  // tools that called the model with no meterAndGate/refundCredits at all.
-  "tension-curve":       0.4, "arc-heatmap": 0.4, "villain-pov": 0.5,
+  // tools that called the model with no meterAndGate/refundCredits at all. All of
+  // these meter through the shared `runMeteredCall` seam (src/lib/roles/shared.ts),
+  // which gates and charges inside the call rather than at the route's top level.
+  "tension-curve":       0.4, "villain-pov": 0.5,
   "generate-package":    0.6, "beat-sheet": 0.5,
   "knowledge-audit":     0.5, "transportation-check": 0.4,
   "alt-draft":           1.0,
   "beta-read":           0.6,
+  // NOTE: `arc-heatmap` is deliberately absent. It is a capability-registry entry
+  // that opens a client-side panel (src/components/ArcHeatMap.tsx) and has NO
+  // backend route, so there is no model call to charge. A price entry here would
+  // imply a charge that can never happen.
 };
 
 export const DEFAULT_OPERATION_CREDIT = 0.3;

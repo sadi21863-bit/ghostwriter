@@ -1,17 +1,35 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { locations, projects } from "@/db/schema";
 
 vi.mock("@/lib/auth-helpers", () => ({ getRequiredSession: vi.fn(async () => ({ user: { id: "user-1" } })) }));
 
 const findFirstProjects = vi.fn();
 const findManyLocations = vi.fn();
 const insertReturning = vi.fn();
+const insertTables: unknown[] = [];
+const insertValues: unknown[] = [];
+const updateSetCalls: { table: unknown; payload: unknown }[] = [];
 vi.mock("@/db", () => ({
   db: {
     query: {
       projects: { findFirst: (...args: any[]) => findFirstProjects(...args) },
       locations: { findMany: (...args: any[]) => findManyLocations(...args) },
     },
-    insert: () => ({ values: () => ({ returning: (...args: any[]) => insertReturning(...args) }) }),
+    insert: (table: unknown) => {
+      insertTables.push(table);
+      return {
+        values: (v: unknown) => {
+          insertValues.push(v);
+          return { returning: (...args: any[]) => insertReturning(...args) };
+        },
+      };
+    },
+    update: (table: unknown) => ({
+      set: (payload: unknown) => {
+        updateSetCalls.push({ table, payload });
+        return { where: () => Promise.resolve(undefined) };
+      },
+    }),
   },
 }));
 
@@ -35,10 +53,19 @@ function makeRequest(body: unknown) {
 function makeParams() {
   return { params: Promise.resolve({ projectId: "proj-1" }) };
 }
+const revisionBumpCalls = () =>
+  updateSetCalls.filter(
+    (c) =>
+      c.table === projects &&
+      typeof (c.payload as Record<string, unknown>).contentRevision === "object",
+  );
 
 describe("POST /api/projects/[projectId]/locations — duplicate detection", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    insertTables.length = 0;
+    insertValues.length = 0;
+    updateSetCalls.length = 0;
     findFirstProjects.mockResolvedValue({ id: "proj-1", userId: "user-1" });
     insertReturning.mockResolvedValue([{ id: "new-loc", name: "The Old Mill" }]);
   });
@@ -50,6 +77,68 @@ describe("POST /api/projects/[projectId]/locations — duplicate detection", () 
     const res = await POST(makeRequest({ name: "The Old Mill", description: "Abandoned" }), makeParams());
     const body = await res.json();
 
+    expect(res.status).toBe(201);
     expect(body.similarEntities).toEqual([{ id: "existing-loc", name: "Old Mill", similarity: 1 }]);
+  });
+
+  // ---- thin-adapter migration additions (behavior preservation + §11) ----
+
+  it("404 — unknown project probes ownership before the body is ever read", async () => {
+    findFirstProjects.mockResolvedValue(null);
+
+    const res = await POST(makeRequest({ name: "The Old Mill" }), makeParams());
+    const body = await res.json();
+
+    expect(res.status).toBe(404);
+    expect(body).toEqual({ error: "Not found" });
+    expect(insertTables).toEqual([]);
+    expect(findManyLocations).not.toHaveBeenCalled();
+  });
+
+  it("400 — missing name on an owned project never inserts a row", async () => {
+    const res = await POST(makeRequest({ description: "Abandoned" }), makeParams());
+    const body = await res.json();
+
+    expect(res.status).toBe(400);
+    expect(body).toEqual({ error: "name is required" });
+    expect(insertTables).toEqual([]);
+  });
+
+  it("§11 — a real pgPostCommitHooks revision bump fires after the insert (never before)", async () => {
+    generateEmbedding.mockResolvedValue(null);
+    findManyLocations.mockResolvedValue([]);
+
+    const res = await POST(makeRequest({ name: "The Old Mill" }), makeParams());
+
+    expect(res.status).toBe(201);
+    expect(insertTables).toEqual([locations]);
+    expect(revisionBumpCalls()).toHaveLength(1);
+    expect(updateSetCalls[0].table).toBe(projects);
+    expect(typeof (updateSetCalls[0].payload as Record<string, unknown>).contentRevision).toBe("object");
+    expect(updateSetCalls).toHaveLength(1);
+  });
+
+  it("regression — the INSERT carries the URL's projectId even though the body never includes it", async () => {
+    generateEmbedding.mockResolvedValue(null);
+    findManyLocations.mockResolvedValue([]);
+
+    const res = await POST(makeRequest({ name: "The Old Mill" }), makeParams());
+
+    expect(res.status).toBe(201);
+    expect(insertValues).toHaveLength(1);
+    const values = insertValues[0] as Record<string, unknown>;
+    expect(values.projectId).toBe("proj-1");
+    expect(values.name).toBe("The Old Mill");
+    expect(values.embedding).toBeNull();
+  });
+
+  it("skips the similarity check when the embedding generation returns null", async () => {
+    generateEmbedding.mockResolvedValue(null);
+
+    const res = await POST(makeRequest({ name: "The Old Mill" }), makeParams());
+    const body = await res.json();
+
+    expect(body.similarEntities).toEqual([]);
+    expect(findManyLocations).not.toHaveBeenCalled();
   });
 });

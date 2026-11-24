@@ -41,6 +41,14 @@ export async function POST(req: Request, { params }: { params: Promise<{ project
   // generating "another" adds to candidatePreviewUrls instead of overwriting it.
   // Only meaningful once a primary exists — the very first generation always
   // sets the primary, same as before this option existed.
+  //
+  // Phase 2 note: the CRUD half of the candidate mechanic (promote candidate →
+  // primary on the PATCH, `shot.update` revision bump, prompt rebuild) was
+  // extracted to `src/lib/core/handlers/production-shots.ts`
+  // (updateProductionShot / pgProductionShotCrudRepository). This append half
+  // stays transport-coupled: it writes the URL only after an actual Segmind
+  // generation, so extracting it would move orchestration of external spend
+  // out of the edge for no local-host win until the generation slice.
   const body = await req.json().catch(() => ({}));
   const keepAsCandidate = body?.keepAsCandidate === true && !!shot.previewImageUrl;
   // Opt-in best-of-N (item 71/72 research): generates N candidates in

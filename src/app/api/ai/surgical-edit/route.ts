@@ -17,8 +17,6 @@ export async function POST(req: Request) {
   const session = await getRequiredSession();
   const rl = await checkAiRateLimit(session.user.id);
   if (rl) return rl;
-  const gate = await meterAndGate(session.user.id, "prose");
-  if (gate) return gate;
   const tier = await getUserTier(session.user.id);
   if (!canAccessFeature(tier, 'story_modes_advanced')) {
     return NextResponse.json({ error: 'upgrade_required', feature: 'surgical_edit' }, { status: 403 });
@@ -41,6 +39,8 @@ export async function POST(req: Request) {
 
   const fp = extractVoiceFingerprint([cappedText]);
   const voiceConstraints = fp ? fingerprintToConstraints(fp) : "";
+  const gate = await meterAndGate(session.user.id, "surgical-edit");
+  if (gate) return gate;
   const promiseLedger = projectId ? await buildPromiseLedger(projectId, "preserve") : "";
   const extra = [voiceConstraints, promiseLedger].filter(Boolean).join("\n\n");
   const system = surgicalEditSystemPrompt() + (extra ? `\n\n${extra}` : "");

@@ -3,15 +3,12 @@ import type { FormEvent } from "react";
 import { useEffect, useState, Suspense } from "react";
 import { useSession, signOut } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useFeatureIsOn } from "@growthbook/growthbook-react";
 import Onboarding from "@/components/Onboarding";
 import { EmptyState } from "@/components/EmptyState";
 import { FORMATS, getFormatDisplayLabel, FORMAT_HELPER_TEXT, FORMAT_COLORS } from "@/lib/formats";
-import { FLAGS } from "@/lib/growthbook";
 import { GW_GOLD, GW_DARK, GW_THEME_CSS } from "@/lib/dashboard-theme";
 import { useGwTheme } from "@/lib/theme";
 import { ThemeToggle } from "@/components/ThemeToggle";
-import Home from "@/components/Home";
 import { toast } from "@/lib/toast";
 import { BibleShelf } from "@/components/dashboard/BibleShelf";
 import { UniverseShelf, UniverseConstellation } from "@/components/dashboard/UniverseShelf";
@@ -49,7 +46,6 @@ interface BraindumpResult {
 }
 
 export default function Dashboard() {
-  const homeRedesign = useFeatureIsOn(FLAGS.homeRedesign);
   const { data: session, status } = useSession();
   const router = useRouter();
   const [projects, setProjects] = useState<Project[]>([]);
@@ -317,7 +313,11 @@ export default function Dashboard() {
     (!seriesFilter || seriesFilter.projectIds.includes(p.id))
   );
 
-  if (homeRedesign) return <Home />;
+  // Phase 0 / v4 item 8: the `homeRedesign` branch (`if (homeRedesign) return
+  // <Home />`) is removed. The flag was OFF in production, so it never ran, and
+  // v4 forbids enabling an obsolete pre-Story-OS shell. `src/components/Home.tsx`
+  // is retained but now unreachable — its components may be reused during the
+  // new shell phase, then deleted once reachability proves nothing needs it.
 
   if (status === "loading" || (status === "authenticated" && loading)) {
     return (

@@ -7,13 +7,31 @@ const nextConfig = {
   // Prevent @neondatabase/serverless from being bundled
   // Requires DATABASE_URL at build time — set in Vercel + use copy .env.local .env locally
   serverExternalPackages: ['@neondatabase/serverless'],
-  // ffmpeg-static's binary must be explicitly declared or Vercel's default file
-  // tracing fails to find it at runtime in the serverless bundle (confirmed via
-  // vercel-labs/ffmpeg-on-vercel and github.com/vercel/next.js#53791) — it works
-  // locally without this, which is why the bug stays hidden until deployed.
+  // ffmpeg-static's and sharp's native binaries must be explicitly declared or
+  // Vercel's default file tracing fails to find them at runtime in the serverless
+  // bundle (confirmed via vercel-labs/ffmpeg-on-vercel and
+  // github.com/vercel/next.js#53791) — they work locally without this, which is
+  // why the bug stays hidden until deployed.
+  //
+  // Sprint 0: this previously listed ONLY the video status route. Every route
+  // that reaches ffmpeg/sharp transitively also needs it, or it deploys green
+  // and then 500s at runtime:
+  //   - .../generate-video/status  -> video/concat (concat/trim/xfade)
+  //   - .../add-music              -> video/concat (mixAudioIntoVideo)
+  //   - /api/audio/generate        -> audio/concat-audio (ffmpeg concat demuxer)
+  //   - .../comics/export          -> comic-gen/compose-page (sharp)
+  //   - .../panels/[panelId]/letter-> comic-lettering (sharp)
   outputFileTracingIncludes: {
     "/api/projects/[projectId]/production/scenes/[sceneNumber]/generate-video/status":
       ["./node_modules/ffmpeg-static/ffmpeg"],
+    "/api/projects/[projectId]/production/scenes/[sceneNumber]/add-music":
+      ["./node_modules/ffmpeg-static/ffmpeg"],
+    "/api/audio/generate":
+      ["./node_modules/ffmpeg-static/ffmpeg"],
+    "/api/projects/[projectId]/comics/export":
+      ["./node_modules/sharp/**/*"],
+    "/api/projects/[projectId]/comics/[pageId]/panels/[panelId]/letter":
+      ["./node_modules/sharp/**/*"],
   },
   async headers() {
     return [

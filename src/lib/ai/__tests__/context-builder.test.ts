@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { buildContext, buildStaticContext, buildDynamicContext, contextIsTrimmed, type ContextProject, type StoryMemory } from "@/lib/ai/context-builder";
+import { MODE_REGISTRY } from "@/lib/modes/registry";
 import type { Character, Chapter, Location, PlotThread } from "@/types";
 
 // ---------------------------------------------------------------------------
@@ -353,13 +354,24 @@ describe("contextPolicy — mode-aware section gating (C-2)", () => {
     expect(buildDynamicContext(project, "combat")).not.toContain("STORY MEMORY");
   });
 
-  it("suppresses realism injection for modes with needsRealism: false even when activeMode has domains", () => {
+it("suppresses realism injection when a mode's policy sets needsRealism: false, even when activeMode has domains", () => {
     const project = baseProject({ activeMode: "combat" });
-    // No policy passed (defaults to full policy, needsRealism: true) — picks up
+    // No policy passed (defaults to full policy, needsRealism: true) - picks up
     // realism domains from p.activeMode.
     expect(buildDynamicContext(project)).toContain("COMBAT REALISM");
-    // "write" mode's policy sets needsRealism: false, suppressing it.
-    expect(buildDynamicContext(project, "write")).not.toContain("COMBAT REALISM");
+
+    // Phase 0 (v4 §5.2): `write`'s policy no longer sets needsRealism:false, so
+    // the gate cannot be exercised through it any more. The gate itself is
+    // unchanged and must stay covered, so override the policy directly to prove
+    // the suppression path works. See docs/migration/context-policy-evaluation.md.
+    const entry = (MODE_REGISTRY as any).write;
+    const original = entry.contextPolicy;
+    entry.contextPolicy = { ...original, needsRealism: false };
+    try {
+      expect(buildDynamicContext(project, "write")).not.toContain("COMBAT REALISM");
+    } finally {
+      entry.contextPolicy = original;
+    }
   });
 
   it("applies a tighter static-context budget for lower subscription tiers via the tier param", () => {
@@ -477,10 +489,32 @@ describe("world entities (World Bible expansion)", () => {
     expect(ctx).toContain("Weapons:");
   });
 
-  it("omits the section for a mode that does not opt in (atmosphere)", () => {
-    const ctx = buildStaticContext(baseProject({ worldEntities: [entity] }), "atmosphere");
-    expect(ctx).not.toContain("WORLD ELEMENTS:");
-    expect(ctx).not.toContain("The Ember Blade");
+  it("omits the section for a mode whose policy sets needsWorldEntities: false", () => {
+    // Phase 0 (v4 §5.2): `atmosphere` no longer drops WORLD ELEMENTS. The
+    // shadow evaluation showed the previous default (opt-in) would strip world
+    // lore from 23 of 26 modes, including the genre modes where it matters most.
+    // The exclusion gate is unchanged and must stay covered, so it is exercised
+    // through a direct policy override instead of a mode that used to exclude.
+    const entry = (MODE_REGISTRY as any).atmosphere;
+    const original = entry.contextPolicy;
+    entry.contextPolicy = { ...original, needsWorldEntities: false };
+    try {
+      const ctx = buildStaticContext(baseProject({ worldEntities: [entity] }), "atmosphere");
+      expect(ctx).not.toContain("WORLD ELEMENTS:");
+      expect(ctx).not.toContain("The Ember Blade");
+    } finally {
+      entry.contextPolicy = original;
+    }
+  });
+
+  it("includes world elements for genre modes that previously opted out (regression guard)", () => {
+    // The whole point of the Phase-0 correction: these modes inherited
+    // needsWorldEntities:false from the base templates and would silently lose
+    // world lore on the mode-aware switch.
+    for (const mode of ["atmosphere", "mystery", "romance", "thriller", "endings", "setting", "write"]) {
+      const ctx = buildStaticContext(baseProject({ worldEntities: [entity] }), mode);
+      expect(ctx, `${mode} must receive WORLD ELEMENTS`).toContain("The Ember Blade");
+    }
   });
 
   it("includes the section for no-mode callers (FULL policy)", () => {

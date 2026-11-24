@@ -85,6 +85,12 @@ describe("POST /api/audio/lipsync", () => {
   });
 });
 
+// Ownership fix (Sprint 0 / v4 §3.1): GET previously looked the export up by id
+// alone, so any authenticated user could read another tenant's lipsyncVideoUrl
+// and have pollAndUpdateLipsync mutate that foreign row. GET now resolves
+// ownership through the row's own `project` relation, so mocked export rows must
+// carry `project.userId` — a row without it is treated as NOT owned and 404s,
+// which is the intended fail-closed behaviour.
 describe("GET /api/audio/lipsync", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -93,7 +99,7 @@ describe("GET /api/audio/lipsync", () => {
   });
 
   it("returns not_started when there's no job yet", async () => {
-    findFirstAudioExports.mockResolvedValue({ id: "a1", lipsyncStatus: "", lipsyncJobId: "" });
+    findFirstAudioExports.mockResolvedValue({ id: "a1", project: { userId: "user-1" }, lipsyncStatus: "", lipsyncJobId: "" });
     const res = await GET(makeGetRequest("a1"));
     const body = await res.json();
     expect(body.status).toBe("not_started");
@@ -101,7 +107,7 @@ describe("GET /api/audio/lipsync", () => {
   });
 
   it("delegates to the shared poll helper rather than reconstructing a pollingUrl itself", async () => {
-    findFirstAudioExports.mockResolvedValue({ id: "a1", lipsyncStatus: "processing", lipsyncJobId: "req-1|https://real-url" });
+    findFirstAudioExports.mockResolvedValue({ id: "a1", project: { userId: "user-1" }, lipsyncStatus: "processing", lipsyncJobId: "req-1|https://real-url" });
     pollAndUpdateLipsync.mockResolvedValue({ outcome: "processing" });
 
     const res = await GET(makeGetRequest("a1"));
@@ -112,11 +118,94 @@ describe("GET /api/audio/lipsync", () => {
   });
 
   it("returns completed with the video URL", async () => {
-    findFirstAudioExports.mockResolvedValue({ id: "a1", lipsyncStatus: "processing", lipsyncJobId: "req-1|https://real-url" });
+    findFirstAudioExports.mockResolvedValue({ id: "a1", project: { userId: "user-1" }, lipsyncStatus: "processing", lipsyncJobId: "req-1|https://real-url" });
     pollAndUpdateLipsync.mockResolvedValue({ outcome: "completed", videoUrl: "https://cdn/final.mp4" });
 
     const res = await GET(makeGetRequest("a1"));
     const body = await res.json();
     expect(body).toEqual({ status: "completed", videoUrl: "https://cdn/final.mp4" });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Two-tenant regression coverage (Sprint 0 / v4 §3.1)
+//
+// These assert on the cross-tenant attack directly. Ownership must come from the
+// row's own project relation, never from a client-supplied projectId, and a
+// cross-tenant READ and a cross-tenant WRITE must collapse into one 404.
+// ---------------------------------------------------------------------------
+describe("GET /api/audio/lipsync — tenant isolation", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    findFirstUsers.mockResolvedValue({ id: "user-1", segmindApiKey: "encrypted" });
+    decrypt.mockReturnValue("real-key");
+    pollAndUpdateLipsync.mockResolvedValue({ outcome: "processing" });
+  });
+
+  it("404s when the export belongs to another user instead of leaking the video URL", async () => {
+    findFirstAudioExports.mockResolvedValue({
+      id: "export-victim",
+      project: { userId: "user-2" },
+      lipsyncStatus: "completed",
+      lipsyncVideoUrl: "https://blob.example/production/project-victim/scene.mp4",
+      lipsyncJobId: null,
+    });
+
+    const res = await GET(makeGetRequest("export-victim"));
+    const body = await res.json();
+
+    expect(res.status).toBe(404);
+    // The victim's payload must not appear anywhere in the response.
+    expect(JSON.stringify(body)).not.toContain("project-victim");
+    expect(body.videoUrl).toBeUndefined();
+  });
+
+  it("never polls — and so never mutates — a row the caller does not own", async () => {
+    findFirstAudioExports.mockResolvedValue({
+      id: "export-victim",
+      project: { userId: "user-2" },
+      lipsyncStatus: "processing",
+      lipsyncJobId: "req-1|https://api.segmind.com/v1/requests/req-1",
+    });
+
+    await GET(makeGetRequest("export-victim"));
+
+    // pollAndUpdateLipsync writes to audioExports; calling it for a foreign row
+    // is a cross-tenant WRITE, strictly worse than the original read leak.
+    expect(pollAndUpdateLipsync).not.toHaveBeenCalled();
+  });
+
+  it("fails closed when the export row carries no owning project at all", async () => {
+    // A row with no resolvable project must be treated as NOT owned, never as
+    // an implicit allow. This is the regression guard for a missing relation.
+    findFirstAudioExports.mockResolvedValue({
+      id: "export-orphan",
+      lipsyncStatus: "completed",
+      lipsyncVideoUrl: "https://blob.example/production/project-x/scene.mp4",
+    });
+
+    const res = await GET(makeGetRequest("export-orphan"));
+    expect(res.status).toBe(404);
+    expect(pollAndUpdateLipsync).not.toHaveBeenCalled();
+  });
+
+  it("ignores a foreign projectId smuggled through the query string", async () => {
+    findFirstAudioExports.mockResolvedValue({
+      id: "export-mine",
+      project: { userId: "user-1" },
+      lipsyncStatus: "completed",
+      lipsyncVideoUrl: "https://blob.example/production/project-mine/scene.mp4",
+    });
+
+    const res = await GET(
+      new Request("http://localhost/api/audio/lipsync?audioExportId=export-mine&projectId=project-victim"),
+    );
+
+    // The caller owns export-mine, so it is served — proving the smuggled
+    // projectId was never used as the authorization input.
+    expect(res.status).toBe(200);
+    expect(findFirstAudioExports.mock.calls[0][0]).not.toHaveProperty(
+      "where.projectId",
+    );
   });
 });

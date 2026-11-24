@@ -2,6 +2,10 @@
 import { useState, useRef } from "react";
 import { toast } from "@/lib/toast";
 import { buildStaticContext, buildStaticContextDetailed, buildDynamicContext, buildCreatorContext } from "@/lib/ai/context-builder";
+import { buildContextForGeneration } from "@/lib/ai/context-shadow";
+import { libraryHandler } from "@/lib/ai/library-handlers";
+import { sceneHandler } from "@/lib/ai/scene-handlers";
+import { runGenerationPipeline } from "@/lib/ai/generation-service";
 import { isCreatorFormat } from "@/lib/formats";
 import { MODE_REGISTRY, type GenerationMode } from "@/lib/modes/registry";
 import type { CompositionLayer } from "@/lib/ai/composer";
@@ -83,11 +87,19 @@ export function useGeneration({
         staticCtx = buildCreatorContext({ ...extended, creatorBible });
         dynamicCtx = '';
       } else {
-        const detailed = buildStaticContextDetailed(extended);
-        staticCtx = detailed.text;
-        dynamicCtx = buildDynamicContext(extended);
-        if (detailed.skipped.length > 0) {
-          const rescued = await rescueHeadroom(detailed.skipped);
+        // Phase 0 / v4 §5: this was `buildStaticContextDetailed(extended)` with
+        // NO mode, so resolveContextPolicy returned FULL_CONTEXT_POLICY for every
+        // request and the mode-aware policy was inert in production. It now goes
+        // through buildContextForGeneration, which passes `effectiveMode`, builds
+        // both variants, and — while CONTEXT_POLICY_VERSION is "shadow" — returns
+        // the LEGACY text for actual generation while recording the difference.
+        // Zero behaviour change until the switch is deliberately moved to
+        // "mode-aware"; see src/lib/ai/context-policy-version.ts.
+        const built = buildContextForGeneration(extended, effectiveMode);
+        staticCtx = built.staticCtx;
+        dynamicCtx = built.dynamicCtx;
+        if (built.skipped.length > 0) {
+          const rescued = await rescueHeadroom(built.skipped);
           if (rescued) staticCtx += '\n\n' + rescued;
         }
       }
@@ -241,22 +253,46 @@ export function useGeneration({
     setGenerating(false); setGenTarget("");
   };
 
-  const generateDialogue = async (charAId: string, charBId: string, dialoguePrompt: string, archetypeName = "Argument") => {
-    if (!charAId || !charBId) { toast.error("Select both characters before generating dialogue."); return; }
+  /**
+   * Phase 1 / v4 item 9: "Dialogue/interrogation/chase duplicates collapse into
+   * the same path." These were three near-identical 25-line functions; they now
+   * differ only in the data in `@/lib/ai/scene-handlers`.
+   *
+   * Unlike the library modes, this family pushes an undo entry before replacing
+   * the chapter text, because it overwrites a drafted scene.
+   */
+  const runSceneGeneration = async (
+    modeKey: string,
+    idA: string,
+    idB: string,
+    rest: string[],
+    prompt: string,
+  ) => {
+    const handler = sceneHandler(modeKey);
+    if (!handler) { toast.error(`Unknown scene mode: ${modeKey}`); return; }
+    if (!idA || !idB) { toast.error(handler.missingCharactersMessage); return; }
     const p = project;
-    const charA = p.characters?.find((c: any) => c.id === charAId);
-    const charB = p.characters?.find((c: any) => c.id === charBId);
+    const charA = p.characters?.find((c: any) => c.id === idA);
+    const charB = p.characters?.find((c: any) => c.id === idB);
+    // A stale id after a character was deleted: bail silently, as before.
     if (!charA || !charB) return;
     setGenerating(true); setGenTarget("main"); setStreamText("");
     try {
-      const extended = { ...p, activeMode: 'dialogue', currentPrompt: dialoguePrompt, activeInfluence, activePatterns };
-      const { buildDialogueContext } = await import('@/lib/dialogue');
-      const libraryPrefix = buildDialogueContext(charA, charB, archetypeName) + "\n---\n";
-      const staticCtx = libraryPrefix + buildStaticContext(extended);
+      const plan = await handler.plan(charA, charB, rest);
+      const extended = { ...p, activeMode: modeKey, currentPrompt: prompt, activeInfluence, activePatterns };
+      const staticCtx = plan.contextPrefix + buildStaticContext(extended);
       const dynamicCtx = buildDynamicContext(extended);
       const res = await fetch("/api/ai/generate", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mode: "dialogue", prompt: dialoguePrompt || `Write a ${archetypeName.toLowerCase()} scene between ${charA.name} and ${charB.name}.`, staticContext: staticCtx, dynamicContext: dynamicCtx, format: p.format, projectId: p.id, chapterId: activeChap?.id }),
+        body: JSON.stringify({
+          mode: modeKey,
+          prompt: prompt || plan.defaultPrompt,
+          staticContext: staticCtx,
+          dynamicContext: dynamicCtx,
+          format: p.format,
+          projectId: p.id,
+          chapterId: activeChap?.id,
+        }),
       });
       const data = await res.json();
       if (data.error === "upgrade_required") { setUpgradeRequired?.(data.feature); }
@@ -264,57 +300,18 @@ export function useGeneration({
         setUndoStack(prev => [...prev.slice(-4), activeChap?.content || ""]);
         setStreamText(data.text);
       }
-    } catch (e) { toast.error("Dialogue generation failed. Please try again."); }
+    } catch (e) { toast.error(handler.errorMessage); }
     setGenerating(false); setGenTarget("");
   };
 
-  const generateInterrogation = async (interrogatorId: string, subjectId: string, goal: string, interrogationPrompt: string) => {
-    if (!interrogatorId || !subjectId) { toast.error("Select both characters before generating."); return; }
-    const p = project;
-    const interrogator = p.characters?.find((c: any) => c.id === interrogatorId);
-    const subject = p.characters?.find((c: any) => c.id === subjectId);
-    if (!interrogator || !subject) return;
-    setGenerating(true); setGenTarget("main"); setStreamText("");
-    try {
-      const extended = { ...p, activeMode: 'interrogation', currentPrompt: interrogationPrompt, activeInfluence, activePatterns };
-      const { buildInterrogationContext } = await import('@/lib/modes/interrogation');
-      const libraryPrefix = buildInterrogationContext(interrogator.name, subject.name, '', '', goal || '') + "\n---\n";
-      const staticCtx = libraryPrefix + buildStaticContext(extended);
-      const dynamicCtx = buildDynamicContext(extended);
-      const res = await fetch("/api/ai/generate", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mode: "interrogation", prompt: interrogationPrompt || `Write an interrogation scene where ${interrogator.name} interrogates ${subject.name}.`, staticContext: staticCtx, dynamicContext: dynamicCtx, format: p.format, projectId: p.id, chapterId: activeChap?.id }),
-      });
-      const data = await res.json();
-      if (data.error === "upgrade_required") { setUpgradeRequired?.(data.feature); }
-      else if (data.text) { setUndoStack(prev => [...prev.slice(-4), activeChap?.content || ""]); setStreamText(data.text); }
-    } catch (e) { toast.error("Interrogation generation failed. Please try again."); }
-    setGenerating(false); setGenTarget("");
-  };
+  const generateDialogue = async (charAId: string, charBId: string, dialoguePrompt: string, archetypeName = "Argument") =>
+    runSceneGeneration("dialogue", charAId, charBId, [archetypeName], dialoguePrompt);
 
-  const generateChase = async (pursuedId: string, pursuerId: string, terrain: string, stakes: string, chasePrompt: string) => {
-    if (!pursuedId || !pursuerId) { toast.error("Select both characters before generating."); return; }
-    const p = project;
-    const pursued = p.characters?.find((c: any) => c.id === pursuedId);
-    const pursuer = p.characters?.find((c: any) => c.id === pursuerId);
-    if (!pursued || !pursuer) return;
-    setGenerating(true); setGenTarget("main"); setStreamText("");
-    try {
-      const extended = { ...p, activeMode: 'chase', currentPrompt: chasePrompt, activeInfluence, activePatterns };
-      const { buildChaseContext } = await import('@/lib/modes/chase');
-      const libraryPrefix = buildChaseContext(pursued.name, pursuer.name, terrain || 'unknown terrain', 'unknown', 'unknown', stakes || 'capture') + "\n---\n";
-      const staticCtx = libraryPrefix + buildStaticContext(extended);
-      const dynamicCtx = buildDynamicContext(extended);
-      const res = await fetch("/api/ai/generate", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mode: "chase", prompt: chasePrompt || `Write a chase scene where ${pursuer.name} pursues ${pursued.name}.`, staticContext: staticCtx, dynamicContext: dynamicCtx, format: p.format, projectId: p.id, chapterId: activeChap?.id }),
-      });
-      const data = await res.json();
-      if (data.error === "upgrade_required") { setUpgradeRequired?.(data.feature); }
-      else if (data.text) { setUndoStack(prev => [...prev.slice(-4), activeChap?.content || ""]); setStreamText(data.text); }
-    } catch (e) { toast.error("Chase generation failed. Please try again."); }
-    setGenerating(false); setGenTarget("");
-  };
+  const generateInterrogation = async (interrogatorId: string, subjectId: string, goal: string, interrogationPrompt: string) =>
+    runSceneGeneration("interrogation", interrogatorId, subjectId, [goal], interrogationPrompt);
+
+  const generateChase = async (pursuedId: string, pursuerId: string, terrain: string, stakes: string, chasePrompt: string) =>
+    runSceneGeneration("chase", pursuedId, pursuerId, [terrain, stakes], chasePrompt);
 
   // ---------------------------------------------------------------------
   // The 19 library-mode generators below share an identical flow: validate
@@ -331,248 +328,141 @@ export function useGeneration({
   }) => {
     setGenerating(true); setGenTarget("main"); setStreamText("");
     try {
-      const extended = { ...project, activeMode: opts.modeKey, currentPrompt: opts.prompt, activeInfluence, activePatterns };
-      const staticCtx = opts.contextPrefix + "\n---\n" + buildStaticContext(extended);
-      const dynamicCtx = buildDynamicContext(extended);
-      const body: Record<string, unknown> = { mode: opts.modeKey, prompt: opts.prompt || opts.defaultPrompt, staticContext: staticCtx, dynamicContext: dynamicCtx, format: project.format, projectId: project.id, chapterId: activeChap.id };
-      const res = await fetch("/api/ai/generate", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-      const data = await res.json();
-      if (data.error === "upgrade_required") { setUpgradeRequired?.(data.feature); }
-      else if (data.text) setStreamText(data.text);
+      // Phase 1 / v4 item 9: the real call site for GenerationService. Stage
+      // order (build context -> generate -> parse) is now explicit rather than
+      // implied by statement order inside a try block, and a paywall refusal is
+      // a first-class pipeline stop instead of an inline `data.error` branch.
+      // `reserve`/`finalizeUsage` are deliberately NOT supplied: billing happens
+      // server-side in /api/ai/generate, and the service refuses to settle a
+      // reservation it never made.
+      const outcome = await runGenerationPipeline<{ mode: string; prompt: string }>(
+        { mode: opts.modeKey, prompt: opts.prompt || opts.defaultPrompt },
+        {
+          buildContext: () => {
+            const extended = { ...project, activeMode: opts.modeKey, currentPrompt: opts.prompt, activeInfluence, activePatterns };
+            // Phase 0 / v4 §5: was `buildStaticContext(extended)` with no mode, so every
+            // library mode silently got FULL_CONTEXT_POLICY. These 19 modes are exactly
+            // where the policy matters most — combat/horror/action are supposed to GAIN
+            // world elements and DROP memories, dialogue is supposed to DROP locations.
+            const built = buildContextForGeneration(extended, opts.modeKey);
+            return { static: opts.contextPrefix + "\n---\n" + built.staticCtx, dynamic: built.dynamicCtx };
+          },
+          generate: async (r, ctx) => {
+            const res = await fetch("/api/ai/generate", {
+              method: "POST", headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                mode: r.mode,
+                prompt: r.prompt,
+                staticContext: ctx.staticContext,
+                dynamicContext: ctx.dynamicContext,
+                format: project.format,
+                projectId: project.id,
+                chapterId: activeChap.id,
+              }),
+            });
+            const data = await res.json();
+            return data?.error
+              ? { text: "", control: data }
+              : { text: String(data?.text ?? ""), model: data?.model };
+          },
+          parse: (out) => {
+            const control = out.control as { error?: string; feature?: string } | undefined;
+            // A paywall/refusal control is a prompt, not a failure to toast.
+            if (control?.error) {
+              return { stop: { ok: false, reason: control.error, feature: control.feature } };
+            }
+            if (out.text) setStreamText(out.text);
+            return out;
+          },
+        },
+      );
+      const refusal = outcome as { feature?: string };
+      if (refusal.feature) setUpgradeRequired?.(refusal.feature);
+      else if (!outcome.ok && outcome.reason) throw new Error(outcome.reason);
     } catch { toast.error(opts.errorMessage); }
     setGenerating(false); setGenTarget("");
   };
 
-  const generateCombat = async (styleA: string, styleB: string, combatPrompt: string) => {
-    if (!styleA || !styleB) { toast.error("Select both fighting styles before generating."); return; }
-    const { buildCombatContext } = await import('@/lib/combat');
+  /**
+   * Phase 1 / v4 item 9: runs any registered library mode. The 19 hand-written
+   * wrappers (generateHorror, generateCombat, generateIsekai, …) were identical
+   * apart from the context builder, mode key, default prompt and two toasts, so
+   * they are now data in `@/lib/ai/library-handlers`. Every user-facing string is
+   * reproduced exactly — `scripts/verify-library-handlers.mts` diffs the rendered
+   * output against the pre-refactor source, and
+   * `lib/ai/__tests__/library-handlers.test.ts` pins each one.
+   */
+  const runRegisteredMode = async (modeKey: string, args: string[], prompt: string) => {
+    const handler = libraryHandler(modeKey);
+    if (!handler) { toast.error(`Unknown mode: ${modeKey}`); return; }
+    const present = args.slice(0, handler.argCount).filter(Boolean);
+    if (present.length < handler.argCount) { toast.error(handler.missingArgsMessage); return; }
+    const buildContext = await handler.loadContext();
     await runLibraryGeneration({
-      modeKey: 'combat',
-      contextPrefix: buildCombatContext(styleA, styleB),
-      prompt: combatPrompt,
-      defaultPrompt: `Write a fight scene between a ${styleA} fighter and a ${styleB} fighter.`,
-      errorMessage: "Combat generation failed. Please try again.",
+      modeKey,
+      contextPrefix: buildContext(args[0]!, args[1] ?? ""),
+      prompt,
+      defaultPrompt: handler.defaultPrompt(args),
+      errorMessage: handler.errorMessage,
     });
   };
 
-  const generateEmotionalScene = async (emotionName: string, emotionalPrompt: string) => {
-    if (!emotionName) { toast.error("Select an emotion before generating."); return; }
-    const { buildEmotionalContext } = await import('@/lib/emotional');
-    await runLibraryGeneration({
-      modeKey: 'emotional',
-      contextPrefix: buildEmotionalContext(emotionName),
-      prompt: emotionalPrompt,
-      defaultPrompt: `Write a scene that physicalizes ${emotionName}.`,
-      errorMessage: "Emotional scene generation failed. Please try again.",
-    });
-  };
+  const generateCombat = (styleA: string, styleB: string, combatPrompt: string) =>
+    runRegisteredMode("combat", [styleA, styleB], combatPrompt);
 
-  const generateAtmosphere = async (environmentName: string, atmospherePrompt: string) => {
-    if (!environmentName) { toast.error("Select an environment before generating."); return; }
-    const { buildAtmosphereContext } = await import('@/lib/atmosphere');
-    await runLibraryGeneration({
-      modeKey: 'atmosphere',
-      contextPrefix: buildAtmosphereContext(environmentName),
-      prompt: atmospherePrompt,
-      defaultPrompt: `Write a scene set in a ${environmentName.toLowerCase()} environment.`,
-      errorMessage: "Atmosphere generation failed. Please try again.",
-    });
-  };
+  const generateEmotionalScene = (emotionName: string, emotionalPrompt: string) =>
+    runRegisteredMode("emotional", [emotionName], emotionalPrompt);
 
-  const generateTension = async (tensionType: string, tensionPrompt: string) => {
-    if (!tensionType) { toast.error("Select a tension type before generating."); return; }
-    const { buildTensionContext } = await import('@/lib/tension');
-    await runLibraryGeneration({
-      modeKey: 'tension',
-      contextPrefix: buildTensionContext(tensionType),
-      prompt: tensionPrompt,
-      defaultPrompt: `Write a scene using ${tensionType.toLowerCase()} tension structure.`,
-      errorMessage: "Tension generation failed. Please try again.",
-    });
-  };
+  const generateAtmosphere = (environmentName: string, atmospherePrompt: string) =>
+    runRegisteredMode("atmosphere", [environmentName], atmospherePrompt);
 
-  const generateHorror = async (archetypeName: string, horrorPrompt: string) => {
-    if (!archetypeName) { toast.error("Select a horror archetype."); return; }
-    const { buildHorrorContext } = await import('@/lib/horror');
-    await runLibraryGeneration({
-      modeKey: 'horror',
-      contextPrefix: buildHorrorContext(archetypeName),
-      prompt: horrorPrompt,
-      defaultPrompt: `Write a ${archetypeName.toLowerCase()} horror scene.`,
-      errorMessage: "Horror generation failed. Please try again.",
-    });
-  };
+  const generateTension = (tensionType: string, tensionPrompt: string) =>
+    runRegisteredMode("tension", [tensionType], tensionPrompt);
 
-  const generateComedy = async (archetypeName: string, comedyPrompt: string) => {
-    if (!archetypeName) { toast.error("Select a comedy archetype."); return; }
-    const { buildComedyContext } = await import('@/lib/comedy');
-    await runLibraryGeneration({
-      modeKey: 'comedy',
-      contextPrefix: buildComedyContext(archetypeName),
-      prompt: comedyPrompt,
-      defaultPrompt: `Write a ${archetypeName.toLowerCase()} comedy scene.`,
-      errorMessage: "Comedy generation failed. Please try again.",
-    });
-  };
+  const generateHorror = (archetypeName: string, horrorPrompt: string) =>
+    runRegisteredMode("horror", [archetypeName], horrorPrompt);
 
-  const generateMystery = async (archetypeName: string, mysteryPrompt: string) => {
-    if (!archetypeName) { toast.error("Select a mystery archetype."); return; }
-    const { buildMysteryContext } = await import('@/lib/mystery');
-    await runLibraryGeneration({
-      modeKey: 'mystery',
-      contextPrefix: buildMysteryContext(archetypeName),
-      prompt: mysteryPrompt,
-      defaultPrompt: `Write a ${archetypeName.toLowerCase()} mystery scene.`,
-      errorMessage: "Mystery generation failed. Please try again.",
-    });
-  };
+  const generateComedy = (archetypeName: string, comedyPrompt: string) =>
+    runRegisteredMode("comedy", [archetypeName], comedyPrompt);
 
-  const generateRomance = async (archetypeName: string, romancePrompt: string) => {
-    if (!archetypeName) { toast.error("Select a romance archetype."); return; }
-    const { buildRomanceContext } = await import('@/lib/romance');
-    await runLibraryGeneration({
-      modeKey: 'romance',
-      contextPrefix: buildRomanceContext(archetypeName),
-      prompt: romancePrompt,
-      defaultPrompt: `Write a ${archetypeName.toLowerCase()} romance scene.`,
-      errorMessage: "Romance generation failed. Please try again.",
-    });
-  };
+  const generateMystery = (archetypeName: string, mysteryPrompt: string) =>
+    runRegisteredMode("mystery", [archetypeName], mysteryPrompt);
 
-  const generateMonologue = async (archetypeName: string, monologuePrompt: string) => {
-    if (!archetypeName) { toast.error("Select a monologue archetype."); return; }
-    const { buildMonologueContext } = await import('@/lib/monologue');
-    await runLibraryGeneration({
-      modeKey: 'monologue',
-      contextPrefix: buildMonologueContext(archetypeName),
-      prompt: monologuePrompt,
-      defaultPrompt: `Write a ${archetypeName.toLowerCase()} interior monologue.`,
-      errorMessage: "Monologue generation failed. Please try again.",
-    });
-  };
+  const generateRomance = (archetypeName: string, romancePrompt: string) =>
+    runRegisteredMode("romance", [archetypeName], romancePrompt);
 
-  const generateVoice = async (profileName: string, voicePrompt: string) => {
-    if (!profileName) { toast.error("Select a voice profile."); return; }
-    const { buildVoiceContext } = await import('@/lib/voice');
-    await runLibraryGeneration({
-      modeKey: 'voice',
-      contextPrefix: buildVoiceContext(profileName),
-      prompt: voicePrompt,
-      defaultPrompt: `Write a scene using the ${profileName} voice profile.`,
-      errorMessage: "Voice generation failed. Please try again.",
-    });
-  };
+  const generateMonologue = (archetypeName: string, monologuePrompt: string) =>
+    runRegisteredMode("monologue", [archetypeName], monologuePrompt);
 
-  const generateThriller = async (archetypeName: string, thrillerPrompt: string) => {
-    if (!archetypeName) { toast.error("Select a thriller archetype."); return; }
-    const { buildThrillerContext } = await import('@/lib/thriller');
-    await runLibraryGeneration({
-      modeKey: 'thriller',
-      contextPrefix: buildThrillerContext(archetypeName),
-      prompt: thrillerPrompt,
-      defaultPrompt: `Write a ${archetypeName.toLowerCase()} thriller scene.`,
-      errorMessage: "Thriller generation failed. Please try again.",
-    });
-  };
+  const generateVoice = (profileName: string, voicePrompt: string) =>
+    runRegisteredMode("voice", [profileName], voicePrompt);
 
-  const generateSports = async (archetypeName: string, sportsPrompt: string) => {
-    if (!archetypeName) { toast.error("Select a sports archetype."); return; }
-    const { buildSportsContext } = await import('@/lib/sports');
-    await runLibraryGeneration({
-      modeKey: 'sports',
-      contextPrefix: buildSportsContext(archetypeName),
-      prompt: sportsPrompt,
-      defaultPrompt: `Write a ${archetypeName.toLowerCase()} sports scene.`,
-      errorMessage: "Sports generation failed. Please try again.",
-    });
-  };
+  const generateThriller = (archetypeName: string, thrillerPrompt: string) =>
+    runRegisteredMode("thriller", [archetypeName], thrillerPrompt);
 
-  const generateAction = async (archetypeName: string, actionPrompt: string) => {
-    if (!archetypeName) { toast.error("Select an action archetype."); return; }
-    const { buildActionContext } = await import('@/lib/action');
-    await runLibraryGeneration({
-      modeKey: 'action',
-      contextPrefix: buildActionContext(archetypeName),
-      prompt: actionPrompt,
-      defaultPrompt: `Write a ${archetypeName.toLowerCase()} action scene.`,
-      errorMessage: "Action generation failed. Please try again.",
-    });
-  };
+  const generateSports = (archetypeName: string, sportsPrompt: string) =>
+    runRegisteredMode("sports", [archetypeName], sportsPrompt);
 
-  const generateSetting = async (archetypeName: string, settingPrompt: string) => {
-    if (!archetypeName) { toast.error("Select a setting archetype."); return; }
-    const { buildSettingContext } = await import('@/lib/setting');
-    await runLibraryGeneration({
-      modeKey: 'setting',
-      contextPrefix: buildSettingContext(archetypeName),
-      prompt: settingPrompt,
-      defaultPrompt: `Write a scene using the ${archetypeName} setting archetype.`,
-      errorMessage: "Setting generation failed. Please try again.",
-    });
-  };
+  const generateAction = (archetypeName: string, actionPrompt: string) =>
+    runRegisteredMode("action", [archetypeName], actionPrompt);
 
-  const generateHistorical = async (archetypeName: string, historicalPrompt: string) => {
-    if (!archetypeName) { toast.error("Select a historical archetype."); return; }
-    const { buildHistoricalContext } = await import('@/lib/historical');
-    await runLibraryGeneration({
-      modeKey: 'historical',
-      contextPrefix: buildHistoricalContext(archetypeName),
-      prompt: historicalPrompt,
-      defaultPrompt: `Write a scene using the ${archetypeName} historical texture.`,
-      errorMessage: "Historical generation failed. Please try again.",
-    });
-  };
+  const generateSetting = (archetypeName: string, settingPrompt: string) =>
+    runRegisteredMode("setting", [archetypeName], settingPrompt);
 
-  const generateScitech = async (archetypeName: string, scitechPrompt: string) => {
-    if (!archetypeName) { toast.error("Select a science/technology archetype."); return; }
-    const { buildScitechContext } = await import('@/lib/scitech');
-    await runLibraryGeneration({
-      modeKey: 'scitech',
-      contextPrefix: buildScitechContext(archetypeName),
-      prompt: scitechPrompt,
-      defaultPrompt: `Write a scene using the ${archetypeName} science/technology archetype.`,
-      errorMessage: "Scitech generation failed. Please try again.",
-    });
-  };
+  const generateHistorical = (archetypeName: string, historicalPrompt: string) =>
+    runRegisteredMode("historical", [archetypeName], historicalPrompt);
 
-  const generateEthics = async (archetypeName: string, ethicsPrompt: string) => {
-    if (!archetypeName) { toast.error("Select an ethics archetype."); return; }
-    const { buildEthicsContext } = await import('@/lib/ethics');
-    await runLibraryGeneration({
-      modeKey: 'ethics',
-      contextPrefix: buildEthicsContext(archetypeName),
-      prompt: ethicsPrompt,
-      defaultPrompt: `Write a scene using the ${archetypeName} moral archetype.`,
-      errorMessage: "Ethics generation failed. Please try again.",
-    });
-  };
+  const generateScitech = (archetypeName: string, scitechPrompt: string) =>
+    runRegisteredMode("scitech", [archetypeName], scitechPrompt);
 
-  const generateEndings = async (archetypeName: string, endingsPrompt: string) => {
-    if (!archetypeName) { toast.error("Select an endings archetype."); return; }
-    const { buildEndingsContext } = await import('@/lib/endings');
-    await runLibraryGeneration({
-      modeKey: 'endings',
-      contextPrefix: buildEndingsContext(archetypeName),
-      prompt: endingsPrompt,
-      defaultPrompt: `Write a scene using the ${archetypeName} ending archetype.`,
-      errorMessage: "Endings generation failed. Please try again.",
-    });
-  };
+  const generateEthics = (archetypeName: string, ethicsPrompt: string) =>
+    runRegisteredMode("ethics", [archetypeName], ethicsPrompt);
 
-  const generateIsekai = async (archetypeName: string, isekaiPrompt: string) => {
-    if (!archetypeName) { toast.error("Select an isekai subgenre."); return; }
-    const { buildIsekaiContext } = await import('@/lib/isekai');
-    await runLibraryGeneration({
-      modeKey: 'isekai',
-      contextPrefix: buildIsekaiContext(archetypeName),
-      prompt: isekaiPrompt,
-      defaultPrompt: `Write a ${archetypeName} isekai scene.`,
-      errorMessage: "Isekai generation failed. Please try again.",
-    });
-  };
+  const generateEndings = (archetypeName: string, endingsPrompt: string) =>
+    runRegisteredMode("endings", [archetypeName], endingsPrompt);
+
+  const generateIsekai = (archetypeName: string, isekaiPrompt: string) =>
+    runRegisteredMode("isekai", [archetypeName], isekaiPrompt);
 
   const generateComposition = async (layers: CompositionLayer[], compositionPrompt: string) => {
     if (!layers.length) { toast.error("Select at least one layer before generating."); return; }

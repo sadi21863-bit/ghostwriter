@@ -2,23 +2,26 @@ export const dynamic = 'force-dynamic';
 
 import { NextResponse } from "next/server";
 import { getRequiredSession } from "@/lib/auth-helpers";
-import { db } from "@/db";
-import { comicPages, projects } from "@/db/schema";
-import { eq, and } from "drizzle-orm";
+import { fromSession } from "@/lib/core/auth-decorators";
+import { deleteComicPage } from "@/lib/core/handlers/comics";
+import { pgComicPageCrudRepository } from "@/lib/core/pg-comic-repos";
+import { pgPostCommitHooks } from "@/lib/core/pg-repositories";
 
-async function verifyOwnership(projectId: string, userId: string) {
-  return db.query.projects.findFirst({
-    where: and(eq(projects.id, projectId), eq(projects.userId, userId)),
-  });
-}
-
+/**
+ * Phase 2 / v4 §7 — thin auth adapter for `deleteComicPage`. The scope check,
+ * the ownership probe, the scoped delete, and the §11 revision bump live in
+ * the handler; the `{ ok: true }` body (even when the row was already gone)
+ * is the route's preserved contract.
+ */
 export async function DELETE(_: Request, { params }: { params: Promise<{ projectId: string; pageId: string }> }) {
   const s = await getRequiredSession();
-  if (!await verifyOwnership((await params).projectId, s.user.id))
-    return NextResponse.json({ error: "Not found" }, { status: 404 });
-
-  await db.delete(comicPages).where(
-    and(eq(comicPages.id, (await params).pageId), eq(comicPages.projectId, (await params).projectId))
+  const { projectId, pageId } = await params;
+  const result = await deleteComicPage(
+    fromSession(s),
+    { projectId, pageId },
+    pgComicPageCrudRepository,
+    { onCanonicalMutation: pgPostCommitHooks.onCanonicalMutation },
   );
+  if (!result.ok) return NextResponse.json({ error: result.reason }, { status: result.status });
   return NextResponse.json({ ok: true });
 }

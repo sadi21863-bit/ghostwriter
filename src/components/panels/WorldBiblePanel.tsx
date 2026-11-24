@@ -8,6 +8,7 @@ import { EmptyState } from "@/components/EmptyState";
 import { extractVoiceFingerprint } from "@/lib/ai/voice-fingerprint";
 import { CapabilityIndicator } from '@/components/panels/CapabilityIndicator';
 import { toast } from "@/lib/toast";
+import { saveEntityEdit } from "@/lib/story/edit-transaction";
 
 const entityApiPath: Record<string, string> = { characters: "characters", locations: "locations", plotThreads: "plot-threads" };
 
@@ -259,11 +260,10 @@ export default function WorldBiblePanel(props: Props) {
   const saveChar = async () => {
     if (!newChar.name) return;
     if (editCharIdx !== null) {
-      const id = project.characters[editCharIdx].id;
-      const res = await fetch(`/api/projects/${project.id}/characters/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(newChar) });
-      if (!res.ok) { toast.error("Couldn't save character — try again"); return; }
-      const updated = await res.json();
-      updateProject((p: any) => ({ ...p, characters: p.characters.map((c: any, i: number) => i === editCharIdx ? updated : c) }));
+      // §13.1: allowlisted changes ride POST /story-transactions (revertable); voiceId and Advanced JSONB blobs outside the allowlist keep writing via the residual PATCH.
+      const result = await saveEntityEdit({ projectId: project.id, entityKey: "characters", entity: project.characters[editCharIdx], draft: newChar });
+      if (!result.ok) { toast.error("Couldn't save character — try again"); return; }
+      updateProject((p: any) => ({ ...p, characters: p.characters.map((c: any, i: number) => i === editCharIdx ? result.updated : c) }));
     } else {
       const res = await fetch(`/api/projects/${project.id}/characters`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(newChar) });
       const created = await res.json();
@@ -280,11 +280,9 @@ export default function WorldBiblePanel(props: Props) {
   const saveLoc = async () => {
     if (!newLoc.name) return;
     if (editLocIdx !== null) {
-      const id = project.locations[editLocIdx].id;
-      const res = await fetch(`/api/projects/${project.id}/locations/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(newLoc) });
-      if (!res.ok) { toast.error("Couldn't save location — try again"); return; }
-      const updated = await res.json();
-      updateProject((p: any) => ({ ...p, locations: p.locations.map((l: any, i: number) => i === editLocIdx ? updated : l) }));
+      const result = await saveEntityEdit({ projectId: project.id, entityKey: "locations", entity: project.locations[editLocIdx], draft: newLoc });
+      if (!result.ok) { toast.error("Couldn't save location — try again"); return; }
+      updateProject((p: any) => ({ ...p, locations: p.locations.map((l: any, i: number) => i === editLocIdx ? result.updated : l) }));
     } else {
       const res = await fetch(`/api/projects/${project.id}/locations`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(newLoc) });
       const created = await res.json();
@@ -301,11 +299,9 @@ export default function WorldBiblePanel(props: Props) {
   const savePlot = async () => {
     if (!newPlot.name) return;
     if (editPlotIdx !== null) {
-      const id = project.plotThreads[editPlotIdx].id;
-      const res = await fetch(`/api/projects/${project.id}/plot-threads/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(newPlot) });
-      if (!res.ok) { toast.error("Couldn't save plot thread — try again"); return; }
-      const updated = await res.json();
-      updateProject((p: any) => ({ ...p, plotThreads: p.plotThreads.map((t: any, i: number) => i === editPlotIdx ? updated : t) }));
+      const result = await saveEntityEdit({ projectId: project.id, entityKey: "plotThreads", entity: project.plotThreads[editPlotIdx], draft: newPlot });
+      if (!result.ok) { toast.error("Couldn't save plot thread — try again"); return; }
+      updateProject((p: any) => ({ ...p, plotThreads: p.plotThreads.map((t: any, i: number) => i === editPlotIdx ? result.updated : t) }));
     } else {
       const res = await fetch(`/api/projects/${project.id}/plot-threads`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(newPlot) });
       const created = await res.json();

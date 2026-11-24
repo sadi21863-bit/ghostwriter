@@ -2,13 +2,19 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 const findFirstProjects = vi.fn();
 const updateReturning = vi.fn();
+const updateSet = vi.fn();
 vi.mock("@/lib/auth-helpers", () => ({
   getRequiredSession: vi.fn(async () => ({ user: { id: "user-1" } })),
 }));
 vi.mock("@/db", () => ({
   db: {
     query: { projects: { findFirst: (...args: any[]) => findFirstProjects(...args) } },
-    update: () => ({ set: () => ({ where: () => ({ returning: (...args: any[]) => updateReturning(...args) }) }) }),
+    update: () => ({
+      set: (payload: unknown) => {
+        updateSet(payload);
+        return { where: () => ({ returning: (...args: any[]) => updateReturning(...args) }) };
+      },
+    }),
     delete: () => ({ where: () => Promise.resolve(undefined) }),
   },
 }));
@@ -59,5 +65,60 @@ describe("PATCH /api/projects/[projectId]/chapters/[chapterId]", () => {
     await PATCH(makeRequest({ title: "New Title" }), makeParams());
 
     expect(updateChapterEmbedding).not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * Phase 0 / Sprint 0 — mass-assignment allowlist.
+ *
+ * The handler used to spread the raw request body straight into `.set()`, so a
+ * caller could write server-owned columns: reassign the chapter to another
+ * project, overwrite its `id`, or pin a crafted `embedding` that the semantic
+ * search would then treat as ground truth.
+ */
+describe("PATCH mass-assignment allowlist", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    findFirstProjects.mockResolvedValue({ id: "proj-1", userId: "user-1" });
+    updateReturning.mockResolvedValue([{ id: "chap-1", projectId: "proj-1" }]);
+  });
+
+  const patched = () => updateSet.mock.calls[0]![0] as Record<string, unknown>;
+
+  it("writes the editable fields a client is allowed to change", async () => {
+    await PATCH(makeRequest({ title: "Ch 2", summary: "s", reviewStatus: "done" }), makeParams());
+
+    expect(patched()).toMatchObject({ title: "Ch 2", summary: "s", reviewStatus: "done" });
+  });
+
+  it("drops projectId so a chapter cannot be moved to another project", async () => {
+    await PATCH(makeRequest({ title: "Ch 2", projectId: "victim-project" }), makeParams());
+
+    expect(patched()).not.toHaveProperty("projectId");
+  });
+
+  it("drops id, embedding, and createdAt — all server-owned", async () => {
+    await PATCH(
+      makeRequest({
+        title: "Ch 2",
+        id: "attacker-chosen-id",
+        embedding: [0.1, 0.2, 0.3],
+        createdAt: new Date("1999-01-01").toISOString(),
+      }),
+      makeParams(),
+    );
+
+    const set = patched();
+    expect(set).not.toHaveProperty("id");
+    expect(set).not.toHaveProperty("embedding");
+    expect(set).not.toHaveProperty("createdAt");
+  });
+
+  it("still sets a server-owned updatedAt and the derived wordCount", async () => {
+    await PATCH(makeRequest({ content: "one two three four" }), makeParams());
+
+    const set = patched();
+    expect(set.updatedAt).toBeInstanceOf(Date);
+    expect(set.wordCount).toBe(4);
   });
 });

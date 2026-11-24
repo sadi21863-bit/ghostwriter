@@ -5,8 +5,20 @@ import { NextResponse } from "next/server";
 import { getRequiredSession } from "@/lib/auth-helpers";
 import { getUserTier, canAccessFeature } from "@/lib/subscription";
 import { db } from "@/db";
-import { chapters, comicPages, comicPanels, projects, users } from "@/db/schema";
+import { chapters, comicPanels, projects, users } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
+import { fromSession } from "@/lib/core/auth-decorators";
+import {
+  createComicPage,
+  createComicPanel,
+  listComicPages,
+} from "@/lib/core/handlers/comics";
+import {
+  pgComicPageCrudRepository,
+  pgComicPanelCrudRepository,
+} from "@/lib/core/pg-comic-repos";
+import { pgPostCommitHooks } from "@/lib/core/pg-repositories";
+import type { PostCommitHooks } from "@/lib/core/repositories";
 import { anthropic as client } from "@/lib/ai/client";
 import { MODELS } from "@/lib/ai/engine";
 import { put } from "@vercel/blob";
@@ -30,18 +42,17 @@ async function verifyOwnership(projectId: string, userId: string) {
   });
 }
 
+/**
+ * Phase 2 / v4 §7 — the list verb is a thin auth adapter for `listComicPages`:
+ * the scope check, the ownership probe, the newest-first read with panels
+ * nested in panelIndex order, and the `{ pages }` body all live in the handler.
+ */
 export async function GET(_: Request, { params }: { params: Promise<{ projectId: string }> }) {
   const s = await getRequiredSession();
-  if (!await verifyOwnership((await params).projectId, s.user.id))
-    return NextResponse.json({ error: "Not found" }, { status: 404 });
-
-  const pages = await db.query.comicPages.findMany({
-    where: eq(comicPages.projectId, (await params).projectId),
-    with: { panels: { orderBy: (p, { asc }) => [asc(p.panelIndex)] } },
-    orderBy: (p, { desc }) => [desc(p.createdAt)],
-  });
-
-  return NextResponse.json({ pages });
+  const { projectId } = await params;
+  const result = await listComicPages(fromSession(s), { projectId }, pgComicPageCrudRepository);
+  if (!result.ok) return NextResponse.json({ error: result.reason }, { status: result.status });
+  return NextResponse.json({ pages: result.pages });
 }
 
 export async function POST(req: Request, { params }: { params: Promise<{ projectId: string }> }) {
@@ -74,9 +85,20 @@ export async function POST(req: Request, { params }: { params: Promise<{ project
   if (!project) return NextResponse.json({ error: "Not found" }, { status: 404 });
   const worldEntities = (project as any).worldEntities ?? [];
 
-  // Determine page number
-  const existingPages = await db.query.comicPages.findMany({ where: eq(comicPages.projectId, (await params).projectId) });
-  const pageNumber = existingPages.length + 1;
+  const ctx = fromSession(s);
+  const hooks: PostCommitHooks = {
+    onCanonicalMutation: pgPostCommitHooks.onCanonicalMutation,
+  };
+
+  // Phase 2 / v4 §7 — the CRUD verbs this route used to do inline (the page
+  // insert and the per-panel inserts) go through `createComicPage` /
+  // `createComicPanel`, which own the page NUMBER rule (`existing pages + 1`,
+  // via `countByProject`) and the `comicPage.create` / `comicPanel.create`
+  // §11 revision bumps. What stays here, deliberately: the Claude scene
+  // breakdown, the Segmind panel generation, the Blob upload closure, the
+  // StoryDiffusion opt-in, and the fire-and-forget vision-critic sweep —
+  // external-spend orchestration is not ported until the image-provider slice
+  // ships a generation port (see handlers/comics.ts).
 
   // Call Claude to break scene into panel specs
   const { prompt: breakdownPrompt, wasTruncated } = buildBreakdownPrompt(chapter.content, project.characters, worldEntities);
@@ -93,20 +115,24 @@ export async function POST(req: Request, { params }: { params: Promise<{ project
 
   const artStyleObj = ART_STYLES.find(a => a.id === artStyleId) ?? ART_STYLES[0];
 
-  // Create page record
-  const [page] = await db.insert(comicPages).values({
-    projectId: (await params).projectId,
-    chapterId,
-    pageNumber,
-    artStyle: artStyleId ?? "manga",
-  }).returning();
+  // Create page record — only after the breakdown succeeded, exactly as before
+  // (a failed breakdown must not leave an orphan page row behind). The page
+  // NUMBER is derived by the handler at creation time.
+  const projectIdVal = (await params).projectId;
+  const pageWrite = await createComicPage(
+    ctx,
+    { projectId: projectIdVal, data: { chapterId, artStyle: artStyleId ?? "manga" } },
+    pgComicPageCrudRepository,
+    hooks,
+  );
+  if (!pageWrite.ok) return NextResponse.json({ error: pageWrite.reason }, { status: pageWrite.status });
+  const page = pageWrite.page;
 
   // A single page-level seed base keeps every panel on the page visually
   // coherent (style/character feel) while `+ i` keeps each panel distinct and
   // the whole page reproducible. Costs nothing extra — same number of calls.
   const pageSeed = Math.floor(Math.random() * 900000);
 
-  const projectIdVal = (await params).projectId;
   const uploadPanel = async (buf: Buffer, i: number) => {
     if (!process.env.BLOB_READ_WRITE_TOKEN) {
       return `data:image/png;base64,${buf.toString("base64")}`;
@@ -180,22 +206,38 @@ export async function POST(req: Request, { params }: { params: Promise<{ project
     );
   }
 
-  // Insert successful panels
+  // Insert successful panels — one `comicPanel.create` revision bump per
+  // persisted panel (a page whose whole batch failed bumps only
+  // `comicPage.create`). A refused insert (ownership lost mid-flight — the
+  // adapter invariant makes "null" unreachable) is skipped as loudly as the
+  // route can afford: the user-facing `errors` count covers generation
+  // rejections, so a refusal must not disappear silently.
   const panels: any[] = [];
   for (const result of panelResults) {
     if (result.status === "fulfilled") {
       const { prompt, imageUrl, referenceImageUrl, characterName, index } = result.value;
-      const [panel] = await db.insert(comicPanels).values({
-        pageId: page.id,
-        projectId: projectIdVal,
-        panelIndex: index,
-        imageUrl,
-        panelPrompt: prompt,
-        referenceImageUrl,
-        characterName,
-        artStylePreset: artStyleObj.higgsfieldPreset,
-      }).returning();
-      panels.push(panel);
+      const panelWrite = await createComicPanel(
+        ctx,
+        {
+          projectId: projectIdVal,
+          data: {
+            pageId: page.id,
+            panelIndex: index,
+            imageUrl,
+            panelPrompt: prompt,
+            referenceImageUrl,
+            characterName,
+            artStylePreset: artStyleObj.higgsfieldPreset,
+          },
+        },
+        pgComicPanelCrudRepository,
+        hooks,
+      );
+      if (!panelWrite.ok) {
+        console.error("[comics] panel insert refused:", panelWrite.status, panelWrite.reason);
+        continue;
+      }
+      panels.push(panelWrite.panel);
     }
   }
 

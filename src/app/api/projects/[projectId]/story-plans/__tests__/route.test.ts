@@ -45,11 +45,11 @@ vi.mock("@/db", () => ({
   },
 }));
 
-import { GET, POST, PATCH } from "../route";
+import { GET, POST, PATCH, DELETE } from "../route";
 
-function makeReq(body?: any) {
+function makeReq(body?: any, method = "POST") {
   return new Request("http://localhost/api/projects/proj-1/story-plans", {
-    method: "POST", body: body ? JSON.stringify(body) : undefined,
+    method, body: body === undefined ? undefined : JSON.stringify(body),
   });
 }
 const params = { params: Promise.resolve({ projectId: "proj-1" }) };
@@ -148,5 +148,62 @@ describe("story-plans route", () => {
     const res = await POST(makeReq({ kind: "chapter_plan", chapterId: "chap-1" }), params);
     expect(res.status).toBe(500);
     expect(insertValues).not.toHaveBeenCalled();
+  });
+});
+
+describe("story-plans route — migrated GET/PATCH/DELETE adapters", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    findFirstProjects.mockResolvedValue({ id: "proj-1", userId: "user-1", format: "Novel" });
+    updateReturning.mockResolvedValue([]);
+    deleteWhere.mockResolvedValue(undefined);
+    findManyPlans.mockResolvedValue([]);
+  });
+
+  it("GET 404s on a non-owned project without listing", async () => {
+    findFirstProjects.mockResolvedValue(undefined);
+
+    const res = await GET(makeReq(undefined, "GET"), params);
+
+    expect(res.status).toBe(404);
+    expect(findManyPlans).not.toHaveBeenCalled();
+  });
+
+  it("PATCH 404s BEFORE the body is parsed when the project belongs to someone else", async () => {
+    findFirstProjects.mockResolvedValue(undefined);
+
+    // Deliberately malformed JSON: a route that parsed the body first would 500.
+    const res = await PATCH(makeReq("not-json", "PATCH"), params);
+
+    expect(res.status).toBe(404);
+    expect(updateSet).not.toHaveBeenCalled();
+  });
+
+  it("PATCH 404s when planId matched no row in this project (deviation: was 200 {})", async () => {
+    updateReturning.mockResolvedValue([]);
+
+    const res = await PATCH(makeReq({ planId: "bogus", title: "New title" }, "PATCH"), params);
+    const body = await res.json();
+
+    expect(res.status).toBe(404);
+    expect(body).toEqual({ error: "Not found" });
+  });
+
+  it("DELETE keeps the silent-zero-match { ok: true } shape", async () => {
+    const res = await DELETE(makeReq({ planId: "bogus" }, "DELETE"), params);
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(body).toEqual({ ok: true });
+    expect(deleteWhere).toHaveBeenCalledTimes(1);
+  });
+
+  it("DELETE 404s on a non-owned project", async () => {
+    findFirstProjects.mockResolvedValue(undefined);
+
+    const res = await DELETE(makeReq({ planId: "plan-1" }, "DELETE"), params);
+
+    expect(res.status).toBe(404);
+    expect(deleteWhere).not.toHaveBeenCalled();
   });
 });

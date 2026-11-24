@@ -2,6 +2,7 @@ export const dynamic = 'force-dynamic';
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getRequiredSession } from '@/lib/auth-helpers';
+import { refundCredits } from '@/lib/metering/meter';
 import { db } from '@/db';
 import { projects } from '@/db/schema';
 import { and, eq } from 'drizzle-orm';
@@ -97,6 +98,10 @@ ${manuscript.slice(0, 180000)}`,
     const result = JSON.parse(clean);
     return NextResponse.json(result);
   } catch {
+    // The seam only refunds when the model call throws. A parse failure is
+    // caught here, so without this the user is charged for output they never
+    // receive.
+    await refundCredits(session.user.id, "knowledge-audit");
     return NextResponse.json({ error: 'Audit failed to parse. Try again.' }, { status: 422 });
   }
 }

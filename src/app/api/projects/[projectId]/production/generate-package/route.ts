@@ -3,6 +3,7 @@ export const dynamic = 'force-dynamic';
 import { NextResponse } from "next/server";
 import { getRequiredSession } from "@/lib/auth-helpers";
 import { checkAiRateLimit } from "@/lib/ratelimit";
+import { refundCredits } from "@/lib/metering/meter";
 import { db } from "@/db";
 import { projects, productionShots, characters, locations, users } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
@@ -192,7 +193,13 @@ Generate 3-6 shots per chapter and one multiShotScript per scene. Focus on shots
 
   onProgress?.("processing");
   const pkg = safeParseJson(result.text);
-  if (!pkg?.shots) return { ok: false as const, response: NextResponse.json({ error: "Failed to analyze story. Try adding chapter content first." }, { status: 500 }) };
+  if (!pkg?.shots) {
+    // The seam only refunds when the model call throws. A parse failure is
+    // caught here, so without this the user is charged for output they never
+    // receive.
+    await refundCredits(userId, "generate-package");
+    return { ok: false as const, response: NextResponse.json({ error: "Failed to analyze story. Try adding chapter content first." }, { status: 500 }) };
+  }
 
   // Resolve character names to IDs — create World Bible rows for any character the
   // package introduces that doesn't exist yet, so shots stay linked for portrait-based

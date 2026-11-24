@@ -17,8 +17,6 @@ export async function POST(req: Request) {
   const session = await getRequiredSession();
   const rl = await checkAiRateLimit(session.user.id);
   if (rl) return rl;
-  const gate = await meterAndGate(session.user.id, "virality-predict");
-  if (gate) return gate;
 
   const tier = await getUserTier(session.user.id);
   if (!canAccessFeature(tier, "virality_predict")) {
@@ -74,6 +72,8 @@ Rules:
 - improvements: 2-4 specific, actionable suggestions
 - recommendedModel: best Higgsfield model for this content type`;
 
+  const gate = await meterAndGate(session.user.id, "virality-predict");
+  if (gate) return gate;
   try {
     const response = await anthropic.messages.create({
       model: MODELS.default,

@@ -12,6 +12,7 @@ import {
   collapseSelection, nodesHiddenBySubgraphs, expandSubgraph, isSubgraphNodeId, type SubgraphNode,
 } from "@/lib/graph/graph-canvas";
 import type { GraphNodeKind, GraphRunPlan } from "@/lib/graph/graph-program";
+import { saveEntityEdit } from "@/lib/story/edit-transaction";
 import type { GraphHealthIssue, GraphHealthReport } from "@/lib/graph/graph-health";
 
 // Palette entry per creatable node kind (Phase 2 graph editing — drag onto the
@@ -235,15 +236,14 @@ function Flow({ projectId, onSelectPair, onRunCapability, height = 500 }: Props)
       // instead of assuming empty doesn't clobber existing links.
       const project = await fetch(`/api/projects/${projectId}`).then(r => r.json());
       const char = (project?.characters ?? []).find((c: any) => c.id === charId);
+      if (!char) return { ok: false };
       const existing: string[] = char?.[field] ?? [];
-      if (existing.includes(otherId)) return { ok: true } as Response;
-      return fetch(`/api/projects/${projectId}/characters/${charId}`, {
-        method: "PATCH", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ [field]: [...existing, otherId] }),
-      });
+      if (existing.includes(otherId)) return { ok: true };
+      // §13.1: link arrays sit inside DIFF_FIELDS's characters allowlist — recorded as a user-edit transaction via saveEntityEdit.
+      return saveEntityEdit({ projectId, entityKey: "characters", entity: char, draft: { [field]: [...existing, otherId] } });
     })();
 
-    request.then(r => { if (r.ok) loadGraph(); }).catch(() => {});
+    request.then((r: any) => { if (r?.ok) loadGraph(); }).catch(() => {});
   }, [nodes, projectId, loadGraph, options, onRunCapability]);
 
   // Phase 2 dataflow: when nodes are selected, ask the server which capabilities can

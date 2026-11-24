@@ -1,148 +1,77 @@
-export const dynamic = 'force-dynamic';
+export const dynamic = "force-dynamic";
+
+/**
+ * Phase 2 / v4 §7 — thin auth adapter for the relationship-map handlers
+ * (`handlers/relationship-map.ts`), formerly the 149-line compound route that
+ * mixed session auth, the co-occurrence graph build, and the pair upsert.
+ *
+ * GET → `readRelationshipMap`; PATCH → `upsertRelationshipMap`. The route owns
+ * only session auth, the URL param, and the request-body validation the legacy
+ * route performed (`characterAId`/`characterBId` required → 400); graph and row
+ * bodies pass through verbatim so the UI-facing payload shapes never drift.
+ *
+ * Wire-up: POST-commit hook imported READ-ONLY from `pg-repositories` — the
+ * canonical-mutation revision bump ("relationship.upsert" kind, §11) fires
+ * after a real upsert succeeded, never on a 403/404 refusal.
+ */
 
 import { NextResponse } from "next/server";
 import { getRequiredSession } from "@/lib/auth-helpers";
-import { db } from "@/db";
-import { projects, characterRelationships } from "@/db/schema";
-import { eq, and } from "drizzle-orm";
-
-async function verifyOwnership(projectId: string, userId: string) {
-  return db.query.projects.findFirst({
-    where: and(eq(projects.id, projectId), eq(projects.userId, userId)),
-  });
-}
+import { fromSession } from "@/lib/core/auth-decorators";
+import {
+  readRelationshipMap,
+  upsertRelationshipMap,
+  type UpsertRelationshipMapInput,
+} from "@/lib/core/handlers/relationship-map";
+import { pgPostCommitHooks } from "@/lib/core/pg-repositories";
+import { pgRelationshipMapRepository } from "@/lib/core/pg-relationship-repos";
 
 export async function GET(_: Request, { params }: { params: Promise<{ projectId: string }> }) {
   const s = await getRequiredSession();
-  if (!await verifyOwnership((await params).projectId, s.user.id))
-    return NextResponse.json({ error: "Not found" }, { status: 404 });
-
-  const project = await db.query.projects.findFirst({
-    where: eq(projects.id, (await params).projectId),
-    with: { characters: true, chapters: true },
-  });
-  if (!project) return NextResponse.json({ error: "Not found" }, { status: 404 });
-
-  const { characters, chapters } = project;
-
-  // Load stored relationship data
-  const storedRels = await db.query.characterRelationships.findMany({
-    where: eq(characterRelationships.projectId, (await params).projectId),
-  });
-  const relMap = new Map<string, typeof storedRels[0]>();
-  for (const r of storedRels) {
-    const key = r.characterAId < r.characterBId
-      ? `${r.characterAId}:${r.characterBId}`
-      : `${r.characterBId}:${r.characterAId}`;
-    relMap.set(key, r);
+  const { projectId } = await params;
+  const result = await readRelationshipMap(fromSession(s), { projectId }, pgRelationshipMapRepository);
+  if (!result.ok) {
+    return NextResponse.json({ error: result.reason }, { status: result.status });
   }
-
-  // Co-occurrence analysis
-  const coOccurrences: Record<string, Record<string, number>> = {};
-  for (const chapter of chapters) {
-    const content = (chapter.content || "").toLowerCase();
-    if (!content.trim()) continue;
-    const present = characters.filter(c => content.includes(c.name.toLowerCase()));
-    for (let i = 0; i < present.length; i++) {
-      for (let j = i + 1; j < present.length; j++) {
-        const a = present[i].id < present[j].id ? present[i] : present[j];
-        const b = present[i].id < present[j].id ? present[j] : present[i];
-        coOccurrences[a.id] ??= {};
-        coOccurrences[a.id][b.id] = (coOccurrences[a.id][b.id] ?? 0) + 1;
-      }
-    }
-  }
-
-  const edges: {
-    charAId: string; charBId: string; charAName: string; charBName: string;
-    sharedChapters: number; trustLevel: number; relationshipType: string;
-    fourHorsemen: { criticism: number; contempt: number; defensiveness: number; stonewalling: number };
-    notes: string;
-  }[] = [];
-  const connectedIds = new Set<string>();
-
-  for (const [aId, bMap] of Object.entries(coOccurrences)) {
-    for (const [bId, count] of Object.entries(bMap)) {
-      const charA = characters.find(c => c.id === aId);
-      const charB = characters.find(c => c.id === bId);
-      if (!charA || !charB) continue;
-      const key = aId < bId ? `${aId}:${bId}` : `${bId}:${aId}`;
-      const stored = relMap.get(key);
-      edges.push({
-        charAId: aId, charBId: bId, charAName: charA.name, charBName: charB.name,
-        sharedChapters: count,
-        trustLevel: stored?.trustLevel ?? 50,
-        relationshipType: stored?.relationshipType ?? "",
-        fourHorsemen: stored?.fourHorsemen ?? { criticism: 0, contempt: 0, defensiveness: 0, stonewalling: 0 },
-        notes: stored?.notes ?? "",
-      });
-      connectedIds.add(aId);
-      connectedIds.add(bId);
-    }
-  }
-
-  const isolated = characters.filter(c => !connectedIds.has(c.id)).map(c => ({ id: c.id, name: c.name }));
-  const nodes = characters.map(c => ({ id: c.id, name: c.name, role: c.role, portraitUrl: c.portraitUrl }));
-
-  return NextResponse.json({ nodes, edges, isolated });
+  return NextResponse.json(result.graph);
 }
 
-export async function PATCH(req: Request, { params }: { params: Promise<{ projectId: string }> }) {
+// Same explicit field pick the legacy route destructured: every known PATCH
+// field, nothing else, so keys the client sends beyond the payload contract
+// never flow into the handler (the adapter further ignores them by column).
+export async function PATCH(request: Request, { params }: { params: Promise<{ projectId: string }> }) {
   const s = await getRequiredSession();
-  if (!await verifyOwnership((await params).projectId, s.user.id))
-    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  const { projectId } = await params;
 
-  const { characterAId, characterBId, trustLevel, relationshipType, notes, fourHorsemen,
-    powerDifferential, emotionalRegister, knowledgeAsymmetry, dependencyStructure, attachmentStyleA, arcTrajectory
-  } = await req.json();
-  if (!characterAId || !characterBId)
+  const body = (await request.json()) as UpsertRelationshipMapInput;
+  if (!body.characterAId || !body.characterBId)
     return NextResponse.json({ error: "characterAId and characterBId required" }, { status: 400 });
 
-  const aId = characterAId < characterBId ? characterAId : characterBId;
-  const bId = characterAId < characterBId ? characterBId : characterAId;
+  const input: UpsertRelationshipMapInput = {
+    projectId,
+    characterAId: body.characterAId,
+    characterBId: body.characterBId,
+    trustLevel: body.trustLevel,
+    relationshipType: body.relationshipType,
+    notes: body.notes,
+    fourHorsemen: body.fourHorsemen,
+    powerDifferential: body.powerDifferential,
+    emotionalRegister: body.emotionalRegister,
+    knowledgeAsymmetry: body.knowledgeAsymmetry,
+    dependencyStructure: body.dependencyStructure,
+    attachmentStyleA: body.attachmentStyleA,
+    arcTrajectory: body.arcTrajectory,
+  };
 
-  const existing = await db.query.characterRelationships.findFirst({
-    where: and(
-      eq(characterRelationships.projectId, (await params).projectId),
-      eq(characterRelationships.characterAId, aId),
-      eq(characterRelationships.characterBId, bId)
-    ),
-  });
+  const result = await upsertRelationshipMap(
+    fromSession(s),
+    input,
+    pgRelationshipMapRepository,
+    { onCanonicalMutation: pgPostCommitHooks.onCanonicalMutation },
+  );
 
-  const updates: Record<string, any> = { updatedAt: new Date() };
-  if (trustLevel !== undefined) updates.trustLevel = trustLevel;
-  if (relationshipType !== undefined) updates.relationshipType = relationshipType;
-  if (notes !== undefined) updates.notes = notes;
-  if (fourHorsemen !== undefined) updates.fourHorsemen = fourHorsemen;
-  if (powerDifferential !== undefined) updates.powerDifferential = powerDifferential;
-  if (emotionalRegister !== undefined) updates.emotionalRegister = emotionalRegister;
-  if (knowledgeAsymmetry !== undefined) updates.knowledgeAsymmetry = knowledgeAsymmetry;
-  if (dependencyStructure !== undefined) updates.dependencyStructure = dependencyStructure;
-  if (attachmentStyleA !== undefined) updates.attachmentStyleA = attachmentStyleA;
-  if (arcTrajectory !== undefined) updates.arcTrajectory = arcTrajectory;
-
-  if (existing) {
-    const [updated] = await db.update(characterRelationships)
-      .set(updates)
-      .where(eq(characterRelationships.id, existing.id))
-      .returning();
-    return NextResponse.json(updated);
-  } else {
-    const [created] = await db.insert(characterRelationships).values({
-      projectId: (await params).projectId,
-      characterAId: aId,
-      characterBId: bId,
-      trustLevel: trustLevel ?? 50,
-      relationshipType: relationshipType ?? "",
-      notes: notes ?? "",
-      fourHorsemen: fourHorsemen ?? { criticism: 0, contempt: 0, defensiveness: 0, stonewalling: 0 },
-      powerDifferential: powerDifferential ?? 0,
-      emotionalRegister: emotionalRegister ?? "",
-      knowledgeAsymmetry: knowledgeAsymmetry ?? "",
-      dependencyStructure: dependencyStructure ?? "none",
-      attachmentStyleA: attachmentStyleA ?? "",
-      arcTrajectory: arcTrajectory ?? "",
-    }).returning();
-    return NextResponse.json(created);
+  if (!result.ok) {
+    return NextResponse.json({ error: result.reason }, { status: result.status });
   }
+  return NextResponse.json(result.row);
 }

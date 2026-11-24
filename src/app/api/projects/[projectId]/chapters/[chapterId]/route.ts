@@ -2,42 +2,62 @@ export const dynamic = 'force-dynamic';
 
 import { NextResponse } from "next/server";
 import { getRequiredSession } from "@/lib/auth-helpers";
-import { db } from "@/db";
-import { chapters, projects } from "@/db/schema";
-import { eq, and } from "drizzle-orm";
 import { tiptapToPlainText, isValidTipTapJson } from "@/lib/editor/content-migration";
 import { updateChapterEmbedding } from "@/lib/ai/author-voice";
+import { fromSession } from "@/lib/core/auth-decorators";
+import { pgChapterRepository, pgPostCommitHooks } from "@/lib/core/pg-repositories";
+import { deleteChapter, updateChapter } from "@/lib/core/handlers/update-chapter";
 
+/**
+ * Phase 2 / v4 §7 — this route is now a thin AUTH ADAPTER around the shared
+ * `updateChapter` business handler. It produces a `RequestContext`, calls the
+ * handler, and shapes a response. It contains no authorization rules, no
+ * allowlist, and no write logic of its own, so a local host can serve the same
+ * handler without forking this file.
+ *
+ * The mass-assignment allowlist, the project-scoped write, and the
+ * post-commit-only embedding refresh all moved to
+ * `src/lib/core/handlers/update-chapter.ts`, and are covered by the handler's
+ * own tests plus the route tests below.
+ */
 type Ctx = { params: Promise<{ projectId: string; chapterId: string }> };
-
-async function verifyOwnership(projectId: string, userId: string) {
-  return db.query.projects.findFirst({ where: and(eq(projects.id, projectId), eq(projects.userId, userId)) });
-}
 
 export async function PATCH(req: Request, { params }: Ctx) {
   const s = await getRequiredSession();
   const { projectId, chapterId } = await params;
-  if (!await verifyOwnership(projectId, s.user.id)) return NextResponse.json({ error: "Not found" }, { status: 404 });
-  const b = await req.json();
-  if (b.content !== undefined) {
-    const plain = isValidTipTapJson(b.content) ? tiptapToPlainText(JSON.parse(b.content)) : b.content;
-    b.wordCount = plain.trim().split(/\s+/).filter(Boolean).length;
+
+  // The session adapter throws for a missing user, which `getRequiredSession`
+  // has already ruled out by this point.
+  const ctx = fromSession(s);
+
+  const result = await updateChapter(
+    ctx,
+    { projectId, chapterId, patch: await req.json() },
+    pgChapterRepository,
+    {
+      // Fire-and-forget: never blocks the save, and never runs for a chapterId
+      // that did not match a row.
+      onChapterContentChanged: (id, content) => updateChapterEmbedding(id, content),
+      // §11: awaited, but only fires for patches the allowlist did not empty.
+      onCanonicalMutation: pgPostCommitHooks.onCanonicalMutation,
+    },
+    (json) => (isValidTipTapJson(json) ? tiptapToPlainText(JSON.parse(json)) : json),
+  );
+
+  if (!result.ok) {
+    return NextResponse.json({ error: result.reason }, { status: result.status });
   }
-  const [u] = await db.update(chapters).set({ ...b, updatedAt: new Date() })
-    .where(and(eq(chapters.id, chapterId), eq(chapters.projectId, projectId)))
-    .returning();
-  if (!u) return NextResponse.json({ error: "Not found" }, { status: 404 });
-  // Only fires once the scoped update above confirms chapterId truly belongs
-  // to this project — never fire on attacker-supplied chapterId/projectId
-  // combos that didn't actually match a row (fire-and-forget, never blocks the save).
-  if (b.content !== undefined) updateChapterEmbedding(chapterId, b.content);
-  return NextResponse.json(u);
+  return NextResponse.json(result.chapter);
 }
 
 export async function DELETE(_: Request, { params }: Ctx) {
   const s = await getRequiredSession();
   const { projectId, chapterId } = await params;
-  if (!await verifyOwnership(projectId, s.user.id)) return NextResponse.json({ error: "Not found" }, { status: 404 });
-  await db.delete(chapters).where(and(eq(chapters.id, chapterId), eq(chapters.projectId, projectId)));
+  const result = await deleteChapter(fromSession(s), { projectId, chapterId }, pgChapterRepository, {
+    onCanonicalMutation: pgPostCommitHooks.onCanonicalMutation,
+  });
+  if (!result.ok) {
+    return NextResponse.json({ error: "Not found" }, { status: result.status ?? 404 });
+  }
   return NextResponse.json({ ok: true });
 }

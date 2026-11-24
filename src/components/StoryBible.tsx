@@ -2,6 +2,8 @@
 import { useState, useEffect } from "react";
 import { co, sBtn, sBtnSm, sInput, sTextarea } from "@/lib/styles";
 import { DEFAULT_CHAR, DEFAULT_LOC, DEFAULT_PLOT } from "@/lib/formats";
+import { saveEntityEdit } from "@/lib/story/edit-transaction";
+import type { EntityKey } from "@/lib/ai/entity-extraction";
 import { EmptyState } from "@/components/EmptyState";
 import { toast } from "@/lib/toast";
 
@@ -307,13 +309,17 @@ export default function StoryBible({ project, updateProject, open, onClose, onOp
   };
 
   const handleSave = async (id: string, draft: any) => {
-    const res = await fetch(`/api/projects/${project.id}/${entityApiPath[key]}/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(draft) });
-    if (!res.ok) {
+    const entity = project[key]?.find((x: any) => x.id === id);
+    if (!entity) { toast.error("Couldn't save — try again"); throw new Error("Save failed"); }
+    // §13.1: allowlisted changes ride POST /story-transactions (revertable,
+    // audit-preserved); non-allowlisted draft fields (e.g. Elements `kind`)
+    // keep writing through the residual direct PATCH inside saveEntityEdit.
+    const result = await saveEntityEdit({ projectId: project.id, entityKey: key as EntityKey, entity, draft });
+    if (!result.ok) {
       toast.error("Couldn't save — try again");
       throw new Error("Save failed"); // keeps the card's local draft (and its Save button) intact instead of silently reverting
     }
-    const updated = await res.json();
-    updateProject((p: any) => ({ ...p, [key]: p[key].map((x: any) => x.id === id ? updated : x) }));
+    updateProject((p: any) => ({ ...p, [key]: p[key].map((x: any) => x.id === id ? result.updated : x) }));
   };
 
   const handleDelete = (item: any) => {

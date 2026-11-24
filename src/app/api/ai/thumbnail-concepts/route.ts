@@ -17,8 +17,6 @@ export async function POST(req: Request) {
   const session = await getRequiredSession();
   const rl = await checkAiRateLimit(session.user.id);
   if (rl) return rl;
-  const gate = await meterAndGate(session.user.id, "thumbnail-concepts");
-  if (gate) return gate;
 
   const tier = await getUserTier(session.user.id);
   if (!canAccessFeature(tier, "creator_tools_advanced")) {
@@ -53,6 +51,8 @@ Return ONLY valid JSON:
   ]
 }`;
 
+  const gate = await meterAndGate(session.user.id, "thumbnail-concepts");
+  if (gate) return gate;
   try {
     const response = await anthropic.messages.create({
       model: MODELS.default,

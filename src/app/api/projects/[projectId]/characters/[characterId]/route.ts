@@ -2,11 +2,15 @@ export const dynamic = 'force-dynamic';
 
 import { NextResponse } from "next/server";
 import { getRequiredSession } from "@/lib/auth-helpers";
-import { db } from "@/db";
-import { characters, projects } from "@/db/schema";
-import { eq, and } from "drizzle-orm";
 import { z } from "zod";
 import { decodeCharacterSkills, decodeKnowledgeMap, decodeIntelligenceProfile } from "@/lib/types/story";
+import { fromSession } from "@/lib/core/auth-decorators";
+import {
+  deleteCharacter,
+  updateCharacter,
+} from "@/lib/core/handlers/characters";
+import { pgPostCommitHooks } from "@/lib/core/pg-repositories";
+import { pgCharacterCrudRepository } from "@/lib/core/pg-character-location-repos";
 
 const CharacterPatch = z.object({
   name: z.string().min(1).optional(),
@@ -34,14 +38,25 @@ const CharacterPatch = z.object({
   contextVisibility: z.enum(["always", "mentioned", "never"]).optional(),
 });
 
-async function verifyOwnership(projectId: string, userId: string) {
-  return db.query.projects.findFirst({ where: and(eq(projects.id, projectId), eq(projects.userId, userId)) });
-}
-
+/**
+ * Phase 2 / v4 §7 — thin auth adapter for `updateCharacter` / `deleteCharacter`.
+ *
+ * Transport validation stays HERE, in the original order: the ownership probe
+ * runs BEFORE the body is read, so a wrong-project caller with an invalid patch
+ * still 404s instead of leaking "Invalid fields" (the `404-before-400` order of
+ * today's route). The Advanced character JSONB blobs (skills/knowledgeMap/
+ * intelligenceProfile/significantFlaws) are decoded through the story guard in
+ * the adapter, because the strict `CharacterPatch` allowlist drops them.
+ *
+ * Everything else — the scoped write, the server-owned `updatedAt`, and the §11
+ * revision bump after a non-empty patch or a delete — lives in the handler.
+ */
 export async function PATCH(req: Request, { params }: { params: Promise<{ projectId: string; characterId: string }> }) {
   const s = await getRequiredSession();
   const { projectId, characterId } = await params;
-  if (!await verifyOwnership(projectId, s.user.id)) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  if (!(await pgCharacterCrudRepository.ownsProject(projectId, s.user.id))) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
   const raw = await req.json();
   const parsed = CharacterPatch.safeParse(raw);
   if (!parsed.success) return NextResponse.json({ error: "Invalid fields" }, { status: 400 });
@@ -54,16 +69,29 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ projec
   if (raw.knowledgeMap !== undefined) jsonb.knowledgeMap = decodeKnowledgeMap(raw.knowledgeMap);
   if (raw.intelligenceProfile !== undefined) jsonb.intelligenceProfile = decodeIntelligenceProfile(raw.intelligenceProfile);
   if (Array.isArray(raw.significantFlaws)) jsonb.significantFlaws = raw.significantFlaws.filter((x: unknown): x is string => typeof x === "string");
-  const [u] = await db.update(characters).set({ ...parsed.data, ...jsonb, updatedAt: new Date() })
-    .where(and(eq(characters.id, characterId), eq(characters.projectId, projectId)))
-    .returning();
-  return NextResponse.json(u);
+  const result = await updateCharacter(
+    fromSession(s),
+    { projectId, characterId, patch: { ...parsed.data, ...jsonb } },
+    pgCharacterCrudRepository,
+    { onCanonicalMutation: pgPostCommitHooks.onCanonicalMutation },
+  );
+  if (!result.ok) {
+    return NextResponse.json({ error: result.reason }, { status: result.status });
+  }
+  return NextResponse.json(result.character);
 }
 
 export async function DELETE(_: Request, { params }: { params: Promise<{ projectId: string; characterId: string }> }) {
   const s = await getRequiredSession();
   const { projectId, characterId } = await params;
-  if (!await verifyOwnership(projectId, s.user.id)) return NextResponse.json({ error: "Not found" }, { status: 404 });
-  await db.delete(characters).where(and(eq(characters.id, characterId), eq(characters.projectId, projectId)));
+  const result = await deleteCharacter(
+    fromSession(s),
+    { projectId, characterId },
+    pgCharacterCrudRepository,
+    { onCanonicalMutation: pgPostCommitHooks.onCanonicalMutation },
+  );
+  if (!result.ok) {
+    return NextResponse.json({ error: result.reason }, { status: result.status });
+  }
   return NextResponse.json({ ok: true });
 }

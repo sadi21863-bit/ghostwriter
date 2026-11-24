@@ -39,8 +39,6 @@ export async function POST(req: Request) {
   const session = await getRequiredSession();
   const rl = await checkAiRateLimit(session.user.id);
   if (rl) return rl;
-  const gate = await meterAndGate(session.user.id, "pipeline");
-  if (gate) return gate;
   const tier = await getUserTier(session.user.id);
   if (!canAccessFeature(tier, 'story_modes_advanced')) {
     return NextResponse.json({ error: 'upgrade_required', feature: 'pipeline' }, { status: 403 });
@@ -56,6 +54,8 @@ export async function POST(req: Request) {
   let currentInput = prompt;
   let accumulatedContext = context || "";
 
+  const gate = await meterAndGate(session.user.id, "pipeline");
+  if (gate) return gate;
   try {
     for (const agentKey of agents as string[]) {
       const systemFn = AGENT_SYSTEM[agentKey];

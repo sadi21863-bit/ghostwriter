@@ -3,14 +3,33 @@ export const dynamic = 'force-dynamic';
 import { NextResponse } from "next/server";
 import { getRequiredSession } from "@/lib/auth-helpers";
 import { checkAiRateLimit } from "@/lib/ratelimit";
+import { refundCredits } from "@/lib/metering/meter";
 import { db } from "@/db";
 import { projects, storyPlans, chapters } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { MODELS } from "@/lib/ai/engine";
 import { beatSheetSystemPrompt, runDirectorCall } from "@/lib/roles/director";
-import { encodeStoryBeats, type StoryBeat } from "@/lib/types/story";
 import { expandArcPreset, getArcPreset } from "@/lib/graph/arc-presets";
 import { buildSceneBlueprint } from "@/lib/ai/scene-blueprint";
+import { fromSession } from "@/lib/core/auth-decorators";
+import {
+  deleteStoryPlan,
+  listStoryPlans,
+  updateStoryPlan,
+} from "@/lib/core/handlers/story-plans";
+import { pgStoryPlanRepository } from "@/lib/core/pg-story-os-repos";
+import { encodeStoryBeats } from "@/lib/types/story";
+
+/**
+ * Phase 2 / v4 §7 — GET/PATCH/DELETE are thin auth adapters around the shared
+ * story-plan handlers (`pg-story-os-repos.ts` owns the reads/writes). The POST
+ * stays inline ON PURPOSE: its three branches share one preamble (rate limit →
+ * ownership probe with the AI-facing relations loaded), and two of them are AI
+ * calls — the metered `runDirectorCall` beat-sheet pass and the
+ * `buildSceneBlueprint` chapter-plan pass — while the arc-preset branch is
+ * pure-CRUD but inseparable from that shared flow. Metered responses are not
+ * reshaped by this migration.
+ */
 
 
 function safeParseJson(raw: string) {
@@ -18,22 +37,14 @@ function safeParseJson(raw: string) {
   try { return JSON.parse(clean); } catch { return null; }
 }
 
-async function verifyOwnership(projectId: string, userId: string) {
-  return db.query.projects.findFirst({
-    where: and(eq(projects.id, projectId), eq(projects.userId, userId)),
-  });
-}
-
 export async function GET(_: Request, { params }: { params: Promise<{ projectId: string }> }) {
   const s = await getRequiredSession();
   const { projectId } = await params;
-  if (!await verifyOwnership(projectId, s.user.id))
-    return NextResponse.json({ error: "Not found" }, { status: 404 });
-  const plans = await db.query.storyPlans.findMany({
-    where: eq(storyPlans.projectId, projectId),
-    orderBy: (p, { desc }) => [desc(p.createdAt)],
-  });
-  return NextResponse.json({ plans });
+  const result = await listStoryPlans(fromSession(s), { projectId }, pgStoryPlanRepository);
+  if (!result.ok) {
+    return NextResponse.json({ error: result.reason }, { status: result.status });
+  }
+  return NextResponse.json({ plans: result.plans });
 }
 
 export async function POST(req: Request, { params }: { params: Promise<{ projectId: string }> }) {
@@ -109,8 +120,13 @@ export async function POST(req: Request, { params }: { params: Promise<{ project
   if (!result.ok) return result.response;
 
   const parsed = safeParseJson(result.text);
-  if (!parsed || !Array.isArray(parsed.beats))
+  if (!parsed || !Array.isArray(parsed.beats)) {
+    // The seam only refunds when the model call throws. A parse failure is
+    // caught here, so without this the user is charged for output they never
+    // receive.
+    await refundCredits(s.user.id, "beat-sheet");
     return NextResponse.json({ error: "Couldn't structure a beat sheet. Try a longer prompt." }, { status: 500 });
+  }
 
   // The model reasons in names; we persist ids. Map each beat's character/thread
   // names back to World Bible ids, assign order + a stable id, then validate.
@@ -144,29 +160,38 @@ export async function POST(req: Request, { params }: { params: Promise<{ project
 export async function PATCH(req: Request, { params }: { params: Promise<{ projectId: string }> }) {
   const s = await getRequiredSession();
   const { projectId } = await params;
-  if (!await verifyOwnership(projectId, s.user.id))
+  // Ownership BEFORE the body is read (pre-migration order — a wrong-project
+  // caller with a malformed body still 404s). The handler re-proves ownership
+  // so the beats-encoding 400 can only ever fire for the owner.
+  if (!(await pgStoryPlanRepository.ownsProject(projectId, s.user.id)))
     return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const { planId, title, beats } = await req.json();
-  const set: { title?: string; beats?: StoryBeat[]; updatedAt: Date } = { updatedAt: new Date() };
-  if (title !== undefined) set.title = title;
-  if (beats !== undefined) {
-    try { set.beats = encodeStoryBeats(beats); }
-    catch { return NextResponse.json({ error: "Invalid beats shape." }, { status: 400 }); }
+  const result = await updateStoryPlan(
+    fromSession(s),
+    { projectId, planId, title, beats },
+    pgStoryPlanRepository,
+  );
+  if (!result.ok) {
+    return NextResponse.json({ error: result.reason }, { status: result.status });
   }
-
-  const [updated] = await db.update(storyPlans).set(set)
-    .where(and(eq(storyPlans.id, planId), eq(storyPlans.projectId, projectId)))
-    .returning();
-  return NextResponse.json({ plan: updated });
+  return NextResponse.json({ plan: result.plan });
 }
 
 export async function DELETE(req: Request, { params }: { params: Promise<{ projectId: string }> }) {
   const s = await getRequiredSession();
   const { projectId } = await params;
-  if (!await verifyOwnership(projectId, s.user.id))
+  if (!(await pgStoryPlanRepository.ownsProject(projectId, s.user.id)))
     return NextResponse.json({ error: "Not found" }, { status: 404 });
+
   const { planId } = await req.json();
-  await db.delete(storyPlans).where(and(eq(storyPlans.id, planId), eq(storyPlans.projectId, projectId)));
+  const result = await deleteStoryPlan(
+    fromSession(s),
+    { projectId, planId },
+    pgStoryPlanRepository,
+  );
+  if (!result.ok) {
+    return NextResponse.json({ error: result.reason }, { status: result.status });
+  }
   return NextResponse.json({ ok: true });
 }

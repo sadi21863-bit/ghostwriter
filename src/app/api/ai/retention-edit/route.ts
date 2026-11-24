@@ -14,8 +14,6 @@ export async function POST(req: Request) {
   const session = await getRequiredSession();
   const rl = await checkAiRateLimit(session.user.id);
   if (rl) return rl;
-  const gate = await meterAndGate(session.user.id, "retention-edit");
-  if (gate) return gate;
   const tier = await getUserTier(session.user.id);
   if (!canAccessFeature(tier, "creator_tools_advanced")) {
     return NextResponse.json({ error: "upgrade_required", feature: "creator_tools_advanced" }, { status: 403 });
@@ -26,6 +24,8 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "script and format required" }, { status: 400 });
   }
 
+  const gate = await meterAndGate(session.user.id, "retention-edit");
+  if (gate) return gate;
   try {
     const response = await anthropic.messages.create({
       model: MODELS.default,

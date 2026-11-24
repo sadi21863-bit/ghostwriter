@@ -1,9 +1,34 @@
 export const dynamic = 'force-dynamic';
 
+/**
+ * Phase 2 / v4 §7 — the route is now a THIN adapter.
+ *
+ * Core (`generateChapter`) owns the 400 contract, the violation gate, and the
+ * pipeline wiring. This file is the host: it reads the session, prefetched the
+ * tier, and supplies I/O-shaped ports (violation record, gates, context
+ * assembly, metering, the engine, persistence, refunds).
+ *
+ * Stop-to-HTTP mapping (the documented stop contract from the handler):
+ *  - `validate`   → control IS the error body            → `NextResponse.json(control, 400)`
+ *  - `authorize`  → control IS the violation confirmation → `NextResponse.json(control)` (200)
+ *  - `buildContext` → control IS the context-size error   → `NextResponse.json(control, 400)`
+ *  - `resolveGate` → gateRef denial → the 403 paywall body; the pipeline's
+ *    `reason` already reads `upgrade_required:<feature>`
+ *  - `reserve`    → control IS the meter's NextResponse   → returned verbatim, never re-serialized
+ *  - a failure after `reserve` has already been refunded by the pipeline's
+ *    `finalizeUsage` port → the documented 429/400/500 error mapping below
+ *
+ * Behavior preserved byte-for-byte from the pre-adapter route (see git history
+ * for the inline version): the streaming branch reuses the same assembled
+ * context as the non-streaming path, streamed requests persist/track/refund
+ * from inside the stream's own lifecycle, and every control-response body is
+ * the exact string the old inline code returned.
+ */
+
 import { NextResponse } from "next/server";
 import { getRequiredSession } from "@/lib/auth-helpers";
 import { checkAiRateLimit } from "@/lib/ratelimit";
-import { getUserTier, canAccessFeature } from "@/lib/subscription";
+import { getUserTier } from "@/lib/subscription";
 import { meterAndGate, refundCredits } from "@/lib/metering/meter";
 import { GATED_MODES } from "@/types/subscription";
 import { generate, generateStream, MODELS } from "@/lib/ai/engine";
@@ -14,7 +39,6 @@ import { generations, projects, users } from "@/db/schema";
 import { and, eq, sql, lte, ne } from "drizzle-orm";
 import { universeEvents, universeCharacters, projectCharacterStates, seriesBibles, universes } from "@/db/schema";
 import { track } from "@/lib/analytics";
-import { isProseMode } from "@/lib/modes/registry";
 import { isFeatureOnServer } from "@/lib/growthbook-server";
 import { FLAGS } from "@/lib/growthbook";
 import { buildSceneBlueprint } from "@/lib/ai/scene-blueprint";
@@ -23,173 +47,71 @@ import { buildVoiceExemplars } from "@/lib/ai/exemplars";
 import { buildAuthorVoiceExemplars } from "@/lib/ai/author-voice";
 import { groundInWebResearch, isGroundableMode } from "@/lib/ai/web-research";
 
-const VIOLATION_PATTERNS: Record<string, {
-  detect: (prompt: string) => boolean;
-  flagMessage: string;
-  supportMode: string;
-}> = {
-  "op_protagonist": {
-    detect: (p) => /overpowered|(?<!\w)OP(?!\w)|perfect.*protagonist|no.*weakness|always win|never fail/i.test(p),
-    flagMessage: "This request appears to involve an overpowered/perfect protagonist. If intentional (power fantasy, isekai wish-fulfillment, parody), confirm below and I'll generate with full craft support for that specific mode. If unintentional, consider adding external constraints — who they care about, what they refuse to do, information gaps — to create tension without reducing their power.",
-    supportMode: "The OP character's tension is external: stakes come from who they love, what they won't do, and costs to others. I'll write with this in mind.",
-  },
-  "villain_accent": {
-    detect: (p) => /villain.*accent|evil.*accent|bad.*guy.*foreign/i.test(p),
-    flagMessage: "Assigning a foreign/non-standard accent to a villain activates a documented harmful trope. If intentional (the story is explicitly about this bias, or you're subverting it), confirm. Otherwise, consider: what if the villain speaks with the prestige accent, and the most trustworthy character has the stigmatized accent?",
-    supportMode: "Using accent subversion to challenge reader assumptions. The villain's prestige accent is their armor. I'll write this with full awareness.",
-  },
-  "supercrip_disability": {
-    detect: (p) => /blind.*radar|deaf.*super|disability.*superpower|disability.*gift/i.test(p),
-    flagMessage: "This appears to use a disability as a superpower source (the 'Supercrip' trope). If intentional subversion or genre-aware choice, confirm. Otherwise, consider: the disability is one dimension of a whole person, not the source of their extraordinary ability.",
-    supportMode: "Writing disability with full human complexity. The superpower, if present, comes from something other than the disability itself.",
-  },
+// Core: the 400 contract + violation gate + pipeline binding live here now.
+import { generateChapter, type GenerateChapterInput, type GenerateChapterPorts } from "@/lib/core/handlers/generate-chapter";
+import { cloudContext, type RequestContext } from "@/lib/core/request-context";
+import type { GenerationOutcome } from "@/lib/ai/generation-service";
+import type { GenerationMode } from "@/lib/modes/registry";
+// Request-boundary context assembly, moved verbatim from the inline route body.
+import {
+  applyModePromptDirective,
+  appendSeriesContext,
+  composeDynamicContext,
+  isResearchMode,
+  shouldRunProseAugmentation,
+  buildSeriesUniverseContext,
+  buildSeriesBibleContext,
+} from "@/lib/ai/generation-context";
+// The legacy-cloud interpretation of subscription gates — the single place
+// allowed to know what a gate means here.
+import { cloudGateResolver } from "@/lib/capabilities/cloud-gate-adapter";
+import type { CapabilityGate } from "@/lib/capabilities/gate";
+
+/** Body fields the handler input does not carry; the route keeps them local. */
+type GenerateBody = GenerateChapterInput & {
+  context?: string;
+  narrativeStructure?: string;
+  additionalContext?: string;
+  skipBlueprint?: boolean;
+  stream?: boolean;
+  groundInResearch?: boolean;
 };
 
-async function buildSeriesUniverseContext(proj: any, userId: string): Promise<string> {
-  if (!proj) return '';
-  const lines: string[] = [];
-
-  // SERIES: walk seriesParentId chain to collect previous stories' key events
-  if (proj.storyType === 'series' && proj.seriesParentId) {
-    const previousStories: any[] = [];
-    let currentId: string | null = proj.seriesParentId;
-    let depth = 0;
-    while (currentId && depth < 10) {
-      const prev = await db.query.projects.findFirst({
-        where: and(eq(projects.id, currentId), eq(projects.userId, userId)),
-        columns: { id: true, name: true, seriesParentId: true },
-        with: { storyMemories: { limit: 5, orderBy: (m, { desc }) => [desc(m.createdAt)] } },
-      });
-      if (!prev) break;
-      previousStories.unshift(prev);
-      currentId = (prev as any).seriesParentId ?? null;
-      depth++;
-    }
-    if (previousStories.length > 0) {
-      lines.push('SERIES CONTEXT — events from previous books that inform this story:');
-      previousStories.forEach((story: any, i: number) => {
-        lines.push(`\nBook ${i + 1}: ${story.name}`);
-        if (story.storyMemories?.length) {
-          story.storyMemories.forEach((m: any) => {
-            if (m.structuredData?.keyEvents?.length) {
-              lines.push(`  Key: ${m.structuredData.keyEvents.join(' | ')}`);
-            } else if (m.fact) {
-              lines.push(`  - ${m.fact}`);
-            }
-          });
-        }
-      });
-    }
+function toResponse(outcome: GenerationOutcome, tier: string): Response {
+  // Success: the inline route returned `NextResponse.json(r)` — the engine's
+  // own { text, model, tokensUsed } object, not a wrapped shape.
+  if (outcome.ok) {
+    return NextResponse.json({
+      text: outcome.text,
+      model: outcome.model,
+      tokensUsed: outcome.tokensUsed,
+    });
   }
-
-  // UNIVERSE: inject the universe's own premise/tone/sharedRules, plus canonical events
-  // and character states from earlier-positioned stories. The premise/tone/sharedRules
-  // half was previously missing entirely — this function only ever queried
-  // universeEvents/universeCharacters, never the universes table itself, so a
-  // universe's own foundational world rules could never reach generation regardless
-  // of timelineSort. Mirrors the equivalent series-bible pattern below.
-  if (proj.storyType === 'universe-story' && proj.universeId) {
-    const universe = await db.query.universes.findFirst({ where: eq(universes.id, proj.universeId) });
-    if (universe) {
-      lines.push(`UNIVERSE: "${universe.name}"`);
-      if (universe.premise) lines.push(`Premise: ${universe.premise}`);
-      if (universe.tone) lines.push(`Tone: ${universe.tone}`);
-      const sharedRules = (universe.sharedRules as string[] | null) ?? [];
-      if (sharedRules.length > 0) {
-        lines.push('Shared rules (must hold across every story in this universe):');
-        sharedRules.forEach((r) => lines.push(`- ${r}`));
-      }
-    }
+  if (outcome.control !== undefined) {
+    // Pre-reserve stops never cost anything, so none of these can be a refund
+    // case. `control` is either a body to serialize or (for `reserve`) the
+    // meter's own NextResponse, passed through verbatim.
+    if (outcome.control instanceof Response) return outcome.control;
+    if (outcome.stoppedAt === "authorize") return NextResponse.json(outcome.control);
+    return NextResponse.json(outcome.control, { status: 400 });
   }
-
-  if (proj.storyType === 'universe-story' && proj.universeId && proj.timelineSort != null) {
-    const canonEvents = await db.query.universeEvents.findMany({
-      where: and(
-        eq(universeEvents.universeId, proj.universeId),
-        eq(universeEvents.isCanon, true),
-        lte(universeEvents.timelineSort, (proj.timelineSort ?? 0) - 1)
-      ),
-      orderBy: (e, { asc }) => [asc(e.timelineSort)],
-      limit: 15,
-    });
-    if (canonEvents.length > 0) {
-      lines.push('UNIVERSE CANON — events established before this story:');
-      canonEvents.forEach((e: any) => {
-        lines.push(`- ${e.name}${e.description ? ': ' + e.description : ''}`);
-      });
-    }
-
-    // Universe characters with states from prior stories
-    const uniChars = await db.query.universeCharacters.findMany({
-      where: eq(universeCharacters.universeId, proj.universeId),
-      with: { states: true },
-    });
-    const priorProjs = await db.query.projects.findMany({
-      where: and(eq(projects.universeId, proj.universeId), ne(projects.id, proj.id)),
-      columns: { id: true, timelineSort: true },
-    });
-    const priorProjIds = new Set(
-      priorProjs
-        .filter((p: any) => (p.timelineSort ?? 0) < (proj.timelineSort ?? 0))
-        .map((p: any) => p.id)
+  if (outcome.gateRef) {
+    // The pipeline's denial: shape the same 403 body the old inline check
+    // returned — `feature` is the registry's gate, not a deleted set's copy.
+    return NextResponse.json(
+      { error: "upgrade_required", feature: outcome.gateRef.value, tier },
+      { status: 403 },
     );
-    if (uniChars.length > 0) {
-      const charLines: string[] = [];
-      for (const char of uniChars) {
-        const priorState = (char as any).states
-          ?.filter((s: any) => priorProjIds.has(s.projectId))
-          .sort((a: any, b: any) => (b.createdAt?.getTime?.() ?? 0) - (a.createdAt?.getTime?.() ?? 0))[0];
-        if (priorState?.isDeceased) {
-          charLines.push(`${char.name}: DECEASED (do not include in this story)`);
-          continue;
-        }
-        const parts: string[] = [`${char.name}:`];
-        const baseProfile = (char as any).baseProfile as any;
-        if (baseProfile?.role) parts.push(`  Role: ${baseProfile.role}`);
-        if (priorState?.emotionalState) parts.push(`  State: ${priorState.emotionalState}`);
-        if (priorState?.stateNotes) parts.push(`  History: ${priorState.stateNotes}`);
-        charLines.push(parts.join('\n'));
-      }
-      if (charLines.length > 0) {
-        lines.push('\nUNIVERSE CHARACTERS — state at the start of this story:');
-        lines.push(...charLines);
-      }
-    }
   }
-
-  return lines.length > 0 ? '\n\n--- STORY UNIVERSE ---\n' + lines.join('\n') : '';
-}
-
-async function buildSeriesBibleContext(projectId: string, userId: string): Promise<string> {
-  const bibles = await db.query.seriesBibles.findMany({ where: eq(seriesBibles.userId, userId) });
-  const bible = bibles.find((b: any) => (b.projectIds as string[] | null)?.includes(projectId));
-  if (!bible) return '';
-
-  const lines: string[] = [`Series: "${bible.name}"`];
-  if (bible.premise) lines.push(`Premise: ${bible.premise}`);
-  if (bible.tone) lines.push(`Tone: ${bible.tone}`);
-
-  const worldRules = (bible.worldRules as string[] | null) ?? [];
-  if (worldRules.length > 0) {
-    lines.push('World rules (must hold across every book in this series):');
-    worldRules.forEach((r) => lines.push(`- ${r}`));
-  }
-
-  const arcs = (bible.seriesCharacterArcs as { characterName: string; arcSummary: string; booksInvolved: string[] }[] | null) ?? [];
-  if (arcs.length > 0) {
-    lines.push('Series-spanning character arcs:');
-    arcs.forEach((a) => lines.push(`- ${a.characterName}: ${a.arcSummary}${a.booksInvolved?.length ? ` (books: ${a.booksInvolved.join(', ')})` : ''}`));
-  }
-
-  if (bible.continuityNotes) lines.push(`Continuity notes: ${bible.continuityNotes}`);
-
-  const timeline = (bible.timeline as { event: string; period: string; projectId?: string }[] | null) ?? [];
-  if (timeline.length > 0) {
-    lines.push('Series timeline:');
-    timeline.forEach((t) => lines.push(`- ${t.period ? `[${t.period}] ` : ''}${t.event}`));
-  }
-
-  return lines.length > 1 ? '\n\n--- SERIES BIBLE ---\n' + lines.join('\n') : '';
+  // A failure after `reserve`: the pipeline already called finalizeUsage,
+  // whose port below refunded the credit. Only the transport mapping remains.
+  const msg = outcome.reason ?? "";
+  console.error(`[gen] ${msg.slice(0, 300)}`);
+  if (msg.includes("rate_limit") || msg.includes("529"))
+    return NextResponse.json({ error: "Anthropic rate limit hit. Wait a moment and try again.", retryable: true }, { status: 429 });
+  if (msg.includes("context_length") || msg.includes("too long"))
+    return NextResponse.json({ error: "Context too long. Reduce World Bible detail or clear old memories." }, { status: 400 });
+  return NextResponse.json({ error: "Generation failed. Please try again." }, { status: 500 });
 }
 
 export async function POST(req: Request) {
@@ -197,221 +119,253 @@ export async function POST(req: Request) {
   const rl = await checkAiRateLimit(session.user.id);
   if (rl) return rl;
 
-  const { mode, prompt, context, staticContext, dynamicContext, format, projectId, chapterId, bypassViolationCheck, narrativeStructure, additionalContext, skipBlueprint, stream, groundInResearch } = await req.json();
+  const body = await req.json() as GenerateBody;
+  const ctx: RequestContext = cloudContext(session.user.id);
+  const userId = ctx.actor.id;
 
-  if (!prompt?.trim()) return NextResponse.json({ error: "Prompt is required" }, { status: 400 });
-  if (!mode) return NextResponse.json({ error: "Mode is required" }, { status: 400 });
-
-  // Violation detection: check prompt against known harmful patterns
-  if (!bypassViolationCheck && projectId) {
-    const project = await db.query.projects.findFirst({
-      where: and(eq(projects.id, projectId), eq(projects.userId, session.user.id)),
-    });
-    const confirmed = ((project as any)?.intentionalViolations || {}) as Record<string, any>;
-    for (const [violationType, pattern] of Object.entries(VIOLATION_PATTERNS)) {
-      if (pattern.detect(prompt) && !confirmed[violationType]?.confirmed) {
-        return NextResponse.json({
-          requiresConfirmation: true,
-          violationType,
-          flagMessage: pattern.flagMessage,
-          supportMode: pattern.supportMode,
-        });
-      }
-    }
-  }
-
-  // Tier check: mode-gated features (dialogue, combat, emotional, atmosphere, tension, composition)
-  const tier = await getUserTier(session.user.id);
-
-  // Server-side context caps: a deterministic ceiling per tier so the prompt-cache
-  // block stays byte-identical across calls with the same input (cap only changes
-  // on a tier change, which is an expected one-time cache miss).
-  const { cappedStatic, cappedDynamic, cappedPrompt } = capContextForTier(tier, { staticContext, dynamicContext, prompt });
-
-  const gatedFeature = GATED_MODES[mode as string];
-  if (gatedFeature && !canAccessFeature(tier, gatedFeature)) {
-    return NextResponse.json({ error: "upgrade_required", feature: gatedFeature, tier }, { status: 403 });
-  }
-
-  // Free tier: block all library modes
-  const LIBRARY_MODES = new Set([
-    'combat', 'emotional', 'atmosphere', 'tension', 'horror',
-    'comedy', 'mystery', 'romance', 'action', 'monologue',
-    'voice', 'thriller', 'sports', 'setting', 'historical',
-    'scitech', 'ethics', 'endings', 'isekai', 'composition',
-    'interrogation', 'chase',
-  ]);
-  if (tier === 'free' && LIBRARY_MODES.has(mode)) {
-    return NextResponse.json({
-      error: 'upgrade_required',
-      feature: 'story_modes_advanced',
-      message: 'Library modes require Story Pro. Upgrade for all 23 library modes.',
-    }, { status: 403 });
-  }
-
+  // Tier is pre-fetched before the pipeline: `gateFacts`, `capContextForTier`,
+  // and the free-tier model override all depend on it. Accepted deviation from
+  // the inline route: the tier read now happens even for requests that will
+  // stop at validate/authorize (it is a read; no observable wire change).
+  const tier = await getUserTier(userId);
   // Free tier: route to Haiku (4.5x cheaper, proves value, drives upgrades)
   const overrideModel = tier === 'free' ? MODELS.fast : undefined;
 
-  const gate = await meterAndGate(session.user.id, "generate");
-  if (gate) return gate;
+  // Memoized project read. The inline route fetched this row twice — once for
+  // the violation check, once for the AIisms/series context. Both stage
+  // closures now share one memoized promise.
+  let projectRowPromise: Promise<any> | null = null;
+  const loadProject = () => {
+    if (!body.projectId) return Promise.resolve(null);
+    projectRowPromise ??= db.query.projects.findFirst({
+      where: and(eq(projects.id, body.projectId), eq(projects.userId, userId)),
+    });
+    return projectRowPromise;
+  };
 
-  const totalLength = (context || "").length + (prompt || "").length;
-  if (totalLength > 150000) {
-    return NextResponse.json({ error: "Context too large. Try reducing your World Bible or clearing old memories." }, { status: 400 });
-  }
+  // The prompt persisted in the generations row is the TIER-CAPPED prompt,
+  // without the mode directive suffix (the old inline code persisted the same).
+  let recordPrompt = body.prompt ?? "";
+  // Captured inside buildContext so `generate`/`generateStream` get the
+  // directive-suffixed prompt (the old inline code had `effectivePrompt`).
+  let effectivePrompt = recordPrompt;
+  // The streaming Response is built inside the `generate` port and handed back
+  // here — the pipeline's success path has no text for it.
+  let streamResponse: Response | null = null;
 
-  try {
-    // Brainstorm mode: append 3-options directive
-    let effectivePrompt = cappedPrompt;
-    if (mode === 'brainstorm') {
-      effectivePrompt = cappedPrompt + `\n\nReturn exactly 3 distinct structural approaches as options. Do not pick one.\nFormat strictly:\n\nOPTION A — [SHORT NAME]:\n[2-3 sentences describing the structural direction, opening, key tension]\n\nOPTION B — [SHORT NAME]:\n[2-3 sentences describing a different structural direction]\n\nOPTION C — [SHORT NAME]:\n[2-3 sentences describing a third structural direction]\n\n---\nEach option must represent a genuinely different creative direction, not variations of the same idea.\nOne option should subvert expectations.`;
-    }
-    else if (mode === 'outline') {
-      effectivePrompt = cappedPrompt + `\n\nFormat each beat as a numbered list item starting with "BEAT:":\nBEAT: [beat description in present tense, 1-2 sentences]\n\nGenerate 6-12 beats appropriate for this story. Each beat should describe what happens in the scene and what changes as a result.`;
-    }
+  const ports: GenerateChapterPorts = {
+    loadViolations: async (projectId) => {
+      const row = await loadProject();
+      return ((row as { intentionalViolations?: Record<string, unknown> } | null)?.intentionalViolations || {}) as Record<string, unknown>;
+    },
 
-    // AIisms check + series/universe context (fetch project once for both)
-    let aiismsNote = '';
-    let seriesUniverseCtx = '';
-    if (projectId) {
-      const proj = await db.query.projects.findFirst({
-        where: and(eq(projects.id, projectId), eq(projects.userId, session.user.id)),
+    gates: (req) => {
+      // The registry-derived paywall. Ungated modes resolve to `null` —
+      // `resolveGates` treats it as allowed.
+      const feature = (GATED_MODES as Record<string, string | undefined>)[req.mode];
+      return [feature ? ({ kind: "subscription", value: feature } as CapabilityGate) : null];
+    },
+    gateFacts: { tier },
+    gateResolver: cloudGateResolver(),
+
+    buildContext: async (req) => {
+      // Size ceiling FIRST, before any project fetch, research call, or
+      // augmentation spend — an oversized request paid nothing extra in the
+      // inline route and must not pay more now.
+      const totalLength = (body.context || "").length + (body.prompt || "").length;
+      if (totalLength > 150000) {
+        return {
+          stop: {
+            ok: false,
+            stoppedAt: "buildContext",
+            control: { error: "Context too large. Try reducing your World Bible or clearing old memories." },
+          },
+        };
+      }
+
+      const { cappedStatic, cappedDynamic, cappedPrompt } = capContextForTier(tier, {
+        staticContext: req.staticContext,
+        dynamicContext: req.dynamicContext,
+        prompt: req.prompt,
       });
-      if (tier !== 'free' && (proj as any)?.aiismsCheck) {
-        aiismsNote = '\n\n' + buildAiismsInstruction();
+      effectivePrompt = applyModePromptDirective(req.mode, cappedPrompt ?? "");
+      recordPrompt = cappedPrompt ?? "";
+
+      // AIisms check + series/universe context (fetch project once for both)
+      let aiismsNote = '';
+      let seriesUniverseCtx = '';
+      if (req.projectId) {
+        const proj = await loadProject();
+        if (tier !== 'free' && (proj as any)?.aiismsCheck) {
+          aiismsNote = '\n\n' + buildAiismsInstruction();
+        }
+        if ((proj as any)?.storyType === 'series' || (proj as any)?.storyType === 'universe-story') {
+          seriesUniverseCtx = await buildSeriesUniverseContext(proj, userId);
+        }
+        const seriesBibleCtx = await buildSeriesBibleContext(req.projectId, userId);
+        if (seriesBibleCtx) seriesUniverseCtx += seriesBibleCtx;
       }
-      if ((proj as any)?.storyType === 'series' || (proj as any)?.storyType === 'universe-story') {
-        seriesUniverseCtx = await buildSeriesUniverseContext(proj, session.user.id);
-      }
-      const seriesBibleCtx = await buildSeriesBibleContext(projectId, session.user.id);
-      if (seriesBibleCtx) seriesUniverseCtx += seriesBibleCtx;
-    }
 
-    // Series/universe context belongs in the static (cached) block — it doesn't change mid-session.
-    // Appended AFTER the cap so server-derived series/universe context is never truncated by a
-    // client-inflated static block.
-    const effectiveStatic = seriesUniverseCtx
-      ? (cappedStatic ?? '') + '\n\n---\n' + seriesUniverseCtx
-      : cappedStatic;
+      // Series/universe context belongs in the static (cached) block — it doesn't change mid-session.
+      // Appended AFTER the cap so server-derived series/universe context is never truncated by a
+      // client-inflated static block.
+      const effectiveStatic = appendSeriesContext(cappedStatic, seriesUniverseCtx);
 
-    const RESEARCH_MODES = new Set(['historical', 'scitech', 'sports', 'setting']);
-    let domainResearchContext = '';
+      let domainResearchContext = '';
 
-    if (RESEARCH_MODES.has(mode) && process.env.GEMINI_API_KEY) {
-      try {
-        const { GoogleGenAI } = await import('@google/genai');
-        const gemini = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+      if (isResearchMode(req.mode) && process.env.GEMINI_API_KEY) {
+        try {
+          const { GoogleGenAI } = await import('@google/genai');
+          const gemini = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
-        const researchMsg = await gemini.models.generateContent({
-          model: 'gemini-3.5-flash',
-          contents: [{
-            text: `Quick domain research for fiction writing accuracy:
-Topic: "${prompt}"
-Mode: ${mode}
+          const researchMsg = await gemini.models.generateContent({
+            model: 'gemini-3.5-flash',
+            contents: [{
+              text: `Quick domain research for fiction writing accuracy:
+Topic: "${body.prompt}"
+Mode: ${req.mode}
 
 Provide 3-5 specific, accurate facts that a writer would need to portray this
 authentically. Focus on technical accuracy and realistic detail. Be brief.
 Do NOT write the scene — just provide the accurate factual grounding.`,
-          }],
-        });
+            }],
+          });
 
-        const facts = researchMsg.text;
-        if (facts && facts.trim().length > 50) {
-          domainResearchContext = `\nDOMAIN ACCURACY NOTES (verified for this scene):\n${facts}\n`;
-        }
-      } catch { /* domain research failure must never block generation */ }
-    }
-
-    const effectiveDynamic = [cappedDynamic, additionalContext, aiismsNote, domainResearchContext].filter(Boolean).join('\n\n');
-
-    // Prose-augmentation helpers, split per the 2026-06-21 six-model blind panel
-    // (docs/quality-stack-eval-judging-2026-06-20.md + the panel's own eval):
-    // judges disagreed on aggregate score (a wash) but unanimously agreed on the
-    // SAME action, which the old bundled quality_stack flag couldn't express.
-    //
-    // Free, near-zero-cost grounding helpers (promise-ledger: DB-only, no LLM;
-    // voice-exemplars: one cheap embedding call) run by DEFAULT, no flag — the
-    // panel confirmed they suppress off-bible hallucination. The costly Haiku
-    // scene-blueprint pre-pass runs ONLY behind sceneBlueprint (default OFF) —
-    // the panel found its "wins" were length-driven and it actively hurts
-    // tone-driven modes (horror/atmosphere/comedy). All three remain fail-open —
-    // a failure in any one never blocks or alters base generation.
-    let blueprint = '', promiseLedger = '', voiceExemplars = '', authorVoiceExemplars = '', webResearch = '';
-    if (isProseMode(mode) && projectId && tier !== 'free') {
-      [promiseLedger, voiceExemplars, authorVoiceExemplars] = await Promise.all([
-        buildPromiseLedger(projectId),
-        buildVoiceExemplars(session.user.id, effectivePrompt, mode),
-        buildAuthorVoiceExemplars(projectId, chapterId, effectivePrompt),
-      ]);
-
-      // Real web-search grounding for historical/scitech -- unlike combat/emotional/
-      // tension/atmosphere, these two modes have no synthetic craft library, only the
-      // model's training-data recall. Strictly opt-in (groundInResearch must be
-      // explicitly true) since it adds a real extra Claude call on top of generation.
-      if (groundInResearch && isGroundableMode(mode)) {
-        webResearch = await groundInWebResearch(mode, effectivePrompt);
-      }
-
-      const blueprintOn = await isFeatureOnServer(FLAGS.sceneBlueprint, session.user.id, tier);
-      if (blueprintOn && !skipBlueprint) {
-        blueprint = await buildSceneBlueprint({ prompt: effectivePrompt, staticContext: effectiveStatic ?? undefined, dynamicContext: effectiveDynamic, format });
-      }
-    }
-    const finalDynamic = [effectiveDynamic, promiseLedger, voiceExemplars, authorVoiceExemplars, webResearch, blueprint].filter(Boolean).join('\n\n') || undefined;
-
-    // Streaming path: emit text deltas live, then persist the generation record
-    // on completion. Reuses the exact same finalDynamic (and therefore the same
-    // prose-augmentation helpers) as the non-streaming path below.
-    if (stream) {
-      const encoder = new TextEncoder();
-      const userId = session.user.id;
-      const readable = new ReadableStream({
-        async start(controller) {
-          try {
-            const r = await generateStream(
-              { mode, prompt: effectivePrompt, context, staticContext: effectiveStatic, dynamicContext: finalDynamic, format, narrativeStructure, overrideModel },
-              (delta) => { try { controller.enqueue(encoder.encode(delta)); } catch { /* client gone */ } },
-            );
-            await db.insert(generations).values({
-              projectId, chapterId: chapterId || null, mode, prompt: cappedPrompt,
-              output: r.text, model: r.model, tokensUsed: r.tokensUsed,
-            });
-            await track(userId, 'ai_generation', { mode, format: format ?? '', streamed: true });
-          } catch (err: any) {
-            await refundCredits(userId, "generate");
-            console.error(`[gen-stream] ${err?.status} ${(err?.message || '').slice(0, 200)}`);
-            try { controller.enqueue(encoder.encode('\n\n[Generation interrupted. Please try again.]')); } catch { /* noop */ }
-          } finally {
-            try { controller.close(); } catch { /* noop */ }
+          const facts = researchMsg.text;
+          if (facts && facts.trim().length > 50) {
+            domainResearchContext = `\nDOMAIN ACCURACY NOTES (verified for this scene):\n${facts}\n`;
           }
-        },
-      });
-      return new Response(readable, {
-        headers: {
-          'Content-Type': 'text/plain; charset=utf-8',
-          'Cache-Control': 'no-cache, no-transform',
-          'X-Accel-Buffering': 'no',
-        },
-      });
-    }
+        } catch { /* domain research failure must never block generation */ }
+      }
 
-    const r = await generate({ mode, prompt: effectivePrompt, context, staticContext: effectiveStatic, dynamicContext: finalDynamic, format, narrativeStructure, overrideModel });
-    await db.insert(generations).values({
-      projectId, chapterId: chapterId || null, mode, prompt: cappedPrompt,
-      output: r.text, model: r.model, tokensUsed: r.tokensUsed,
-    });
-    await track(session.user.id, 'ai_generation', { mode, format: format ?? '' });
-    return NextResponse.json(r);
-  } catch (e: any) {
-    // Generation failed after the quota was already counted — refund it so failed
-    // requests don't consume the user's monthly allowance.
-    await refundCredits(session.user.id, "generate");
-    const msg = e?.message || "";
-    console.error(`[gen] ${e?.status} ${msg.slice(0, 300)}`);
-    if (msg.includes("rate_limit") || msg.includes("529"))
-      return NextResponse.json({ error: "Anthropic rate limit hit. Wait a moment and try again.", retryable: true }, { status: 429 });
-    if (msg.includes("context_length") || msg.includes("too long"))
-      return NextResponse.json({ error: "Context too long. Reduce World Bible detail or clear old memories." }, { status: 400 });
-    return NextResponse.json({ error: "Generation failed. Please try again." }, { status: 500 });
-  }
+      const effectiveDynamic = composeDynamicContext([cappedDynamic, body.additionalContext, aiismsNote, domainResearchContext]);
+
+      // Prose-augmentation helpers, split per the 2026-06-21 six-model blind panel
+      // (docs/quality-stack-eval-judging-2026-06-20.md + the panel's own eval):
+      // judges disagreed on aggregate score (a wash) but unanimously agreed on the
+      // SAME action, which the old bundled quality_stack flag couldn't express.
+      //
+      // Free, near-zero-cost grounding helpers (promise-ledger: DB-only, no LLM;
+      // voice-exemplars: one cheap embedding call) run by DEFAULT, no flag — the
+      // panel confirmed they suppress off-bible hallucination. The costly Haiku
+      // scene-blueprint pre-pass runs ONLY behind sceneBlueprint (default OFF) —
+      // the panel found its "wins" were length-driven and it actively hurts
+      // tone-driven modes (horror/atmosphere/comedy). All three remain fail-open —
+      // a failure in any one never blocks or alters base generation.
+      let blueprint = '', promiseLedger = '', voiceExemplars = '', authorVoiceExemplars = '', webResearch = '';
+      if (shouldRunProseAugmentation(req.mode as GenerationMode, req.projectId, tier)) {
+        [promiseLedger, voiceExemplars, authorVoiceExemplars] = await Promise.all([
+          buildPromiseLedger(req.projectId!),
+          buildVoiceExemplars(userId, effectivePrompt, req.mode),
+          buildAuthorVoiceExemplars(req.projectId!, body.chapterId, effectivePrompt),
+        ]);
+
+        // Real web-search grounding for historical/scitech -- unlike combat/emotional/
+        // tension/atmosphere, these two modes have no synthetic craft library, only the
+        // model's training-data recall. Strictly opt-in (groundInResearch must be
+        // explicitly true) since it adds a real extra Claude call on top of generation.
+        if (body.groundInResearch && isGroundableMode(req.mode)) {
+          webResearch = await groundInWebResearch(req.mode, effectivePrompt);
+        }
+
+        const blueprintOn = await isFeatureOnServer(FLAGS.sceneBlueprint, userId, tier);
+        if (blueprintOn && !body.skipBlueprint) {
+          blueprint = await buildSceneBlueprint({ prompt: effectivePrompt, staticContext: effectiveStatic ?? undefined, dynamicContext: effectiveDynamic, format: req.format as string });
+        }
+      }
+      const finalDynamic = composeDynamicContext([effectiveDynamic, promiseLedger, voiceExemplars, authorVoiceExemplars, webResearch, blueprint]) || undefined;
+
+      return { static: effectiveStatic, dynamic: finalDynamic };
+    },
+
+    reserve: async () => {
+      const gate = await meterAndGate(userId, "generate");
+      if (gate) return { stop: { ok: false, stoppedAt: "reserve", control: gate } };
+      return { operation: "generate", estimatedUnits: 1 };
+    },
+
+    generate: async (req, genCtx) => {
+      const params = {
+        mode: req.mode,
+        prompt: effectivePrompt,
+        context: body.context,
+        staticContext: genCtx.staticContext,
+        dynamicContext: genCtx.dynamicContext,
+        format: req.format as string,
+        narrativeStructure: body.narrativeStructure,
+        overrideModel,
+      };
+      if (body.stream) {
+        // Streaming path: emit text deltas live, then persist the generation
+        // record inside the stream's own lifecycle — everything after this
+        // point in the pipeline no-ops for a streamed request.
+        const encoder = new TextEncoder();
+        const readable = new ReadableStream({
+          async start(controller) {
+            try {
+              const r = await generateStream(
+                params,
+                (delta) => { try { controller.enqueue(encoder.encode(delta)); } catch { /* client gone */ } },
+              );
+              await db.insert(generations).values({
+                projectId: req.projectId, chapterId: req.chapterId || null, mode: req.mode, prompt: recordPrompt,
+                output: r.text, model: r.model, tokensUsed: r.tokensUsed,
+              });
+              await track(userId, 'ai_generation', { mode: req.mode, format: body.format ?? '', streamed: true });
+            } catch (err: any) {
+              await refundCredits(userId, "generate");
+              console.error(`[gen-stream] ${err?.status} ${(err?.message || '').slice(0, 200)}`);
+              try { controller.enqueue(encoder.encode('\n\n[Generation interrupted. Please try again.]')); } catch { /* noop */ }
+            } finally {
+              try { controller.close(); } catch { /* noop */ }
+            }
+          },
+        });
+        streamResponse = new Response(readable, {
+          headers: {
+            'Content-Type': 'text/plain; charset=utf-8',
+            'Cache-Control': 'no-cache, no-transform',
+            'X-Accel-Buffering': 'no',
+          },
+        });
+        // The stream persists and refunds itself; no text for the outcome.
+        return { text: "", model: overrideModel ?? "", tokensUsed: 0 };
+      }
+      const r = await generate(params);
+      return r;
+    },
+
+    persist: async (out, req) => {
+      // Streamed requests persist from inside the stream's own lifecycle.
+      if (body.stream) return;
+      if (out.control) return;
+      await db.insert(generations).values({
+        projectId: req.projectId, chapterId: req.chapterId || null, mode: req.mode, prompt: recordPrompt,
+        output: out.text, model: out.model, tokensUsed: out.tokensUsed,
+      });
+      await track(userId, 'ai_generation', { mode: req.mode, format: body.format ?? '' });
+    },
+
+    finalizeUsage: async (_reservation, outcome) => {
+      // The old route refunded in a catch after meterAndGate had charged; the
+      // pipeline now guarantees the settle for every post-reserve failure.
+      if (outcome.ok) return;
+      await refundCredits(userId, "generate");
+    },
+  };
+
+  const input: GenerateChapterInput = {
+    mode: body.mode,
+    prompt: body.prompt,
+    projectId: body.projectId,
+    chapterId: body.chapterId,
+    bypassViolationCheck: body.bypassViolationCheck,
+    staticContext: body.staticContext,
+    dynamicContext: body.dynamicContext,
+    format: body.format,
+  };
+
+  const outcome = await generateChapter(input, ctx, ports);
+  if (streamResponse) return streamResponse;
+  return toResponse(outcome, tier);
 }

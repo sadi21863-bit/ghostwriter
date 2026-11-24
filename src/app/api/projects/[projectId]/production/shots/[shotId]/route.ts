@@ -2,16 +2,10 @@ export const dynamic = 'force-dynamic';
 
 import { NextResponse } from "next/server";
 import { getRequiredSession } from "@/lib/auth-helpers";
-import { db } from "@/db";
-import { projects, productionShots } from "@/db/schema";
-import { eq, and } from "drizzle-orm";
-import { buildShotPromptFragment } from "@/lib/ai/shot-parameters";
-
-async function verifyOwnership(projectId: string, userId: string) {
-  return db.query.projects.findFirst({
-    where: and(eq(projects.id, projectId), eq(projects.userId, userId)),
-  });
-}
+import { fromSession } from "@/lib/core/auth-decorators";
+import { updateProductionShot } from "@/lib/core/handlers/production-shots";
+import { pgPostCommitHooks } from "@/lib/core/pg-repositories";
+import { pgProductionShotCrudRepository } from "@/lib/core/pg-production-shot-repos";
 
 const ALLOWED_FIELDS = new Set([
   "shotType", "cameraMovement", "lightingMood", "timeOfDay",
@@ -21,63 +15,46 @@ const ALLOWED_FIELDS = new Set([
   "reviewStatus", "sortOrder", "candidatePreviewUrls", "trimStartSec", "trimEndSec",
 ]);
 
+/**
+ * Phase 2 / v4 §7 — thin auth adapter for `updateProductionShot`.
+ *
+ * Transport validation stays HERE, in the original order: the ownership probe
+ * runs BEFORE the body is read, and the ALLOWED_FIELDS projection silently
+ * drops unknown fields (no 400 — exactly the old behavior; `reviewStatus`,
+ * `sortOrder`, `trimStartSec`/`trimEndSec`, `generatedVideoUrl` etc. flow
+ * through this one PATCH). `promoteCandidateUrl` is passed raw to the handler,
+ * which owns the promote-vs-current-row business rule and its 400.
+ *
+ * §11: this PATCH gains its FIRST canon revision bump — kind `shot.update`,
+ * fired only after the scoped write, and only for a non-empty client patch or
+ * an executed promote (an empty patch stays a touch).
+ *
+ * This shot's generation/poll verbs (preview POST with the `keepAsCandidate`
+ * append branch, animate + status, generate-video + its QStash poll/status,
+ * scene stitch loop) stay transport-coupled by design — see
+ * `src/lib/core/handlers/production-shots.ts` for the out-of-scope list.
+ */
 export async function PATCH(req: Request, { params }: { params: Promise<{ projectId: string; shotId: string }> }) {
   const s = await getRequiredSession();
-  if (!await verifyOwnership((await params).projectId, s.user.id))
+  const { projectId, shotId } = await params;
+  if (!(await pgProductionShotCrudRepository.ownsProject(projectId, s.user.id))) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
 
   const body = await req.json();
-  const updates: Record<string, any> = {};
+  const patch: Record<string, unknown> = {};
   for (const key of Array.from(ALLOWED_FIELDS)) {
-    if (key in body) updates[key] = body[key];
+    if (key in body) patch[key] = body[key];
   }
 
-  // Fetch current shot to merge for prompt rebuild — include projectId to prevent cross-project IDOR
-  const { projectId: pid, shotId } = await params;
-  const current = await db.query.productionShots.findFirst({
-    where: and(eq(productionShots.id, shotId), eq(productionShots.projectId, pid)),
-  });
-  if (!current) return NextResponse.json({ error: "Shot not found" }, { status: 404 });
-
-  // Phase C "keep N candidates" — promote a candidate to primary. The old
-  // primary (if any) goes back into the candidates array so nothing is lost;
-  // the promoted URL is removed from candidates since it's now the primary.
-  if (typeof body?.promoteCandidateUrl === "string") {
-    const promoted: string = body.promoteCandidateUrl;
-    const existingCandidates: string[] = (current as any).candidatePreviewUrls ?? [];
-    if (!existingCandidates.includes(promoted)) {
-      return NextResponse.json({ error: "Not a known candidate for this shot." }, { status: 400 });
-    }
-    const nextCandidates = existingCandidates.filter(u => u !== promoted);
-    if (current.previewImageUrl) nextCandidates.push(current.previewImageUrl);
-    updates.previewImageUrl = promoted;
-    updates.candidatePreviewUrls = nextCandidates;
+  const result = await updateProductionShot(
+    fromSession(s),
+    { projectId, shotId, patch, promoteCandidateUrl: body?.promoteCandidateUrl },
+    pgProductionShotCrudRepository,
+    { onCanonicalMutation: pgPostCommitHooks.onCanonicalMutation },
+  );
+  if (!result.ok) {
+    return NextResponse.json({ error: result.reason }, { status: result.status });
   }
-
-  const merged = { ...current, ...updates };
-
-  // Auto-rebuild prompts when any shot parameter changes
-  const paramFields = ["shotType", "cameraMovement", "lightingMood", "timeOfDay", "subject", "action", "location"];
-  if (paramFields.some(f => f in updates)) {
-    const fragment = buildShotPromptFragment({
-      shotType: merged.shotType ?? "Medium shot",
-      cameraMovement: merged.cameraMovement ?? "Static",
-      lightingMood: merged.lightingMood ?? "Golden hour",
-      timeOfDay: merged.timeOfDay ?? "Afternoon",
-    });
-    if (!("soulPrompt" in updates)) {
-      updates.soulPrompt = `${merged.subject}. ${merged.action}. ${merged.location}. ${fragment}. Photorealistic portrait quality.`;
-    }
-    if (!("videoPrompt" in updates)) {
-      updates.videoPrompt = `${merged.action}. ${merged.location}. ${fragment}. Cinematic motion.`;
-    }
-  }
-
-  const [updated] = await db
-    .update(productionShots)
-    .set({ ...updates, updatedAt: new Date() })
-    .where(and(eq(productionShots.id, shotId), eq(productionShots.projectId, pid)))
-    .returning();
-
-  return NextResponse.json({ shot: updated });
+  return NextResponse.json({ shot: result.shot });
 }

@@ -21,8 +21,6 @@ export async function POST(req: Request) {
   const session = await getRequiredSession();
   const rl = await checkAiRateLimit(session.user.id);
   if (rl) return rl;
-  const gate = await meterAndGate(session.user.id, "character-evolution");
-  if (gate) return gate;
 
   const tier = await getUserTier(session.user.id);
   if (!["story_pro", "all_access"].includes(tier)) {
@@ -53,6 +51,8 @@ export async function POST(req: Request) {
 
   const results: { characterId: string; characterName: string; evolutionSummary: any; contradictionWarning: any }[] = [];
 
+  const gate = await meterAndGate(session.user.id, "character-evolution");
+  if (gate) return gate;
   for (const char of mainChars) {
     const charMemories = memories.filter(m =>
       m.fact.toLowerCase().includes(char.name.toLowerCase())

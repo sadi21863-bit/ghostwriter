@@ -14,8 +14,6 @@ export async function POST(req: Request) {
   const session = await getRequiredSession();
   const rl = await checkAiRateLimit(session.user.id);
   if (rl) return rl;
-  const gate = await meterAndGate(session.user.id, "repurpose");
-  if (gate) return gate;
   const tier = await getUserTier(session.user.id);
   if (!canAccessFeature(tier, "creator_tools_advanced")) {
     return NextResponse.json({ error: "upgrade_required", feature: "creator_tools_advanced" }, { status: 403 });
@@ -28,6 +26,8 @@ export async function POST(req: Request) {
 
   const targetPlatforms: string[] = platforms || ["youtube_short", "tiktok", "instagram", "twitter_thread", "linkedin", "newsletter", "youtube_description"];
 
+  const gate = await meterAndGate(session.user.id, "repurpose");
+  if (gate) return gate;
   try {
     const response = await anthropic.messages.create({
       model: MODELS.default,

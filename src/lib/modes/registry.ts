@@ -55,8 +55,23 @@ export interface ModeConfig {
   stage: CapabilityStage;
 }
 
-const FULL: ContextPolicy  = { needsCharacters: true,  needsLocations: true,  needsMemories: true,  needsPlotThreads: true,  needsRealism: false, charDepth: "full" };
-const BRIEF: ContextPolicy = { needsCharacters: true,  needsLocations: true,  needsMemories: false, needsPlotThreads: false, needsRealism: false, charDepth: "brief" };
+// Phase 0 / v4 §5.2 correction. These bases now match the legacy full policy they
+// replace, so switching CONTEXT_POLICY_VERSION to "mode-aware" is a surgical
+// change rather than a silent removal of canon.
+//
+// The shadow evaluation (docs/migration/context-policy-evaluation.md) found the
+// previous defaults were inverted: `needsWorldEntities` and `needsRealism` were
+// absent from the bases, so they defaulted to false and a mode had to opt IN.
+// Only combat/horror/action opted in, meaning a switch would have stripped WORLD
+// ELEMENTS from 23 of 26 modes — including mystery, romance, thriller and
+// endings, where world lore matters most — in exchange for a mean 5-9% token
+// saving on exactly those modes.
+//
+// A mode that genuinely does not want these sections must now say so explicitly.
+const FULL: ContextPolicy  = { needsCharacters: true,  needsLocations: true,  needsMemories: true,
+                               needsPlotThreads: true, needsRealism: true,  needsWorldEntities: true, charDepth: "full" };
+const BRIEF: ContextPolicy = { needsCharacters: true,  needsLocations: true,  needsMemories: false,
+                               needsPlotThreads: false, needsRealism: true,  needsWorldEntities: true, charDepth: "brief" };
 
 export const MODE_REGISTRY = {
   brainstorm:    { label: "Brainstorm",    modelTier: "default", gate: null,                   qualityCheck: false, visibility: "universal",         slash: "/brainstorm",  keywords: ["brainstorm", "ideas", "what if", "possibilities", "options"], contextPolicy: { ...BRIEF, needsMemories: true, needsPlotThreads: true } , role: "writer", stage: "discover" },
@@ -92,4 +107,17 @@ export const MODE_REGISTRY = {
 // gate the quality_stack systems, which only make sense for prose generation.
 export function isProseMode(mode: string): boolean {
   return mode !== "brainstorm" && mode !== "outline";
+}
+
+/**
+ * Narrows an untrusted string to a known GenerationMode.
+ *
+ * Derived from MODE_REGISTRY itself rather than a hand-kept list, so adding a
+ * mode to the registry automatically makes it valid at the API boundary. Used by
+ * request handlers that previously only checked truthiness and let an unknown
+ * value reach engine.ts's `MI[mode](...)` dispatch, which throws a TypeError and
+ * surfaces as an opaque 500 instead of a 400.
+ */
+export function isGenerationMode(value: unknown): value is GenerationMode {
+  return typeof value === "string" && Object.prototype.hasOwnProperty.call(MODE_REGISTRY, value);
 }

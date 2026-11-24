@@ -3,6 +3,7 @@ export const dynamic = 'force-dynamic';
 import { NextResponse } from "next/server";
 import { getRequiredSession } from "@/lib/auth-helpers";
 import { checkAiRateLimit } from "@/lib/ratelimit";
+import { refundCredits } from "@/lib/metering/meter";
 import { getUserTier, canAccessFeature } from "@/lib/subscription";
 import { db } from "@/db";
 import { projects } from "@/db/schema";
@@ -82,6 +83,10 @@ Return JSON:
   try {
     return NextResponse.json(JSON.parse(result.text.replace(/```json\n?|```/g, "").trim()));
   } catch {
+    // The seam only refunds when the model call throws. A parse failure is
+    // caught here, so without this the user is charged for output they never
+    // receive.
+    await refundCredits(session.user.id, "transportation-check");
     return NextResponse.json({ error: "Parse failed" }, { status: 500 });
   }
 }

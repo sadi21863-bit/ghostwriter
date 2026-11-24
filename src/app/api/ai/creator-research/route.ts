@@ -13,8 +13,6 @@ export async function POST(req: NextRequest) {
   const session = await getRequiredSession();
   const rl = await checkAiRateLimit(session.user.id);
   if (rl) return rl;
-  const gate = await meterAndGate(session.user.id, "creator-research");
-  if (gate) return gate;
 
   const { topic, format, targetAudience } = await req.json();
   if (!topic?.trim()) return NextResponse.json({ error: "topic required" }, { status: 400 });
@@ -25,6 +23,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ researchBrief: cached.researchBrief, fromCache: true });
   }
 
+  const gate = await meterAndGate(session.user.id, "creator-research");
+  if (gate) return gate;
   try {
     const msg = await client.messages.create({
       model: MODELS.default,

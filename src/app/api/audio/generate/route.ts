@@ -59,8 +59,14 @@ export async function POST(req: Request) {
   });
   if (!project) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
+  // The chapter must belong to the SAME project that was just verified as owned.
+  // Previously this was `where: eq(chapters.id, chapterId)` with no project
+  // scope, so a caller could pair their own projectId with a victim's chapterId
+  // and have that victim's prose synthesized to audio and returned. The speaker
+  // lookup below also resolves against projectId, so the foreign chapter was
+  // additionally narrated with the wrong project's cast.
   const chapter = await db.query.chapters.findFirst({
-    where: eq(chapters.id, chapterId),
+    where: and(eq(chapters.id, chapterId), eq(chapters.projectId, projectId)),
   });
   if (!chapter?.content) {
     return NextResponse.json({ error: "Chapter has no content" }, { status: 400 });

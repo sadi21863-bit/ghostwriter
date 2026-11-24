@@ -25,8 +25,6 @@ export async function POST(req: Request) {
   const session = await getRequiredSession();
   const rl = await checkAiRateLimit(session.user.id);
   if (rl) return rl;
-  const gate = await meterAndGate(session.user.id, "prose");
-  if (gate) return gate;
   const tier = await getUserTier(session.user.id);
   if (!canAccessFeature(tier, 'story_modes_advanced')) {
     return NextResponse.json({ error: 'upgrade_required', feature: 'prose_tools' }, { status: 403 });
@@ -55,6 +53,8 @@ export async function POST(req: Request) {
     systemPrompt = proseRewriteSystemPrompt(ctx);
   }
 
+  const gate = await meterAndGate(session.user.id, "prose");
+  if (gate) return gate;
   try {
     const msg = await client.messages.create({
       model: MODELS.default,

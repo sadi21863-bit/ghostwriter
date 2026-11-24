@@ -37,7 +37,12 @@ export async function POST(req: NextRequest) {
     .values({ email: normalizedEmail, name: name?.trim() || null, hashedPassword, referralCode, trialEndAt })
     .returning({ id: users.id, email: users.email, name: users.name });
 
-  await db.insert(subscriptions).values({ userId: user.id });
+  // subscriptions.userId is UNIQUE, so a plain insert would THROW (23505) on any
+  // path that reaches this twice for the same user — e.g. an OAuth user whose
+  // first credential-login createUser event raced a manual registration, or a
+  // retried request. Make the provisioning explicitly idempotent instead of
+  // relying on the constraint to blow up.
+  await db.insert(subscriptions).values({ userId: user.id }).onConflictDoNothing();
 
   // Link referrer if a valid ref code was provided
   if (ref) {

@@ -25,6 +25,7 @@ export function AudioNovelPanel({ project, activeChap }: Props) {
     setSavingVoiceFor(characterId);
     setVoiceOverrides(prev => ({ ...prev, [characterId]: voiceId }));
     try {
+      // Direct PATCH stays (not POST /story-transactions): voiceId is TTS-provider metadata, not a story field in DIFF_FIELDS's characters allowlist.
       await fetch(`/api/projects/${project.id}/characters/${characterId}`, {
         method: "PATCH", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ voiceId }),

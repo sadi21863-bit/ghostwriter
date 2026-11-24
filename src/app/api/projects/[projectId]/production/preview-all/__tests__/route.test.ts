@@ -107,7 +107,7 @@ describe("POST /api/projects/[projectId]/production/preview-all", () => {
     expect(res.status).toBe(400);
     expect(body.error).toMatch(/exceeds your \$5\.00 run cap/);
     expect(generateSoulImage).not.toHaveBeenCalled();
-  });
+  }, 20_000); // same slow-import class as the clamp test above — the file routinely nears the 5s default under suite load
 
   it("passes a character's trained soulId instead of its portrait URL when one exists", async () => {
     // The previous test's vi.doMock("@/lib/capabilities/cost", ...) otherwise

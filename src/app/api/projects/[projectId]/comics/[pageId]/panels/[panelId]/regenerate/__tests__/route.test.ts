@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { comicPanels, projects } from "@/db/schema";
 
 // Force the no-Blob-configured path so the asserted URL is deterministic
 // regardless of whether BLOB_READ_WRITE_TOKEN happens to be set locally.
@@ -6,7 +7,14 @@ vi.stubEnv("BLOB_READ_WRITE_TOKEN", "");
 
 vi.mock("@/lib/auth-helpers", () => ({
   getRequiredSession: vi.fn(async () => ({ user: { id: "user-1" } })),
-  verifyChildOwnership: vi.fn(async () => ({ id: "page-1" })),
+}));
+// Phase 2: mock the REPOSITORY rather than the ownership helper, so the Core
+// scope enforcement stays exercised here. The importOriginal spread keeps the
+// REAL pgPostCommitHooks (wired below onto the mocked @/db) — bump assertions
+// target the actual shipped hook, not a stand-in.
+vi.mock("@/lib/core/pg-repositories", async (importOriginal: any) => ({
+  ...(await importOriginal()),
+  pgChildResourceRepository: { owns: vi.fn(async () => true) },
 }));
 vi.mock("@/lib/crypto", () => ({
   decrypt: vi.fn(() => "segmind-key"),
@@ -34,6 +42,7 @@ const findManyCharacters = vi.fn();
 const updateSet = vi.fn();
 const updateWhere = vi.fn();
 const returning = vi.fn();
+const updateTables = vi.fn();
 vi.mock("@/db", () => ({
   db: {
     query: {
@@ -42,17 +51,20 @@ vi.mock("@/db", () => ({
       comicPanels: { findFirst: (...args: any[]) => findFirstPanels(...args) },
       characters: { findMany: (...args: any[]) => findManyCharacters(...args) },
     },
-    update: () => ({
-      set: (vals: any) => {
-        updateSet(vals);
-        return {
-          where: (...args: any[]) => {
-            updateWhere(...args);
-            return { returning: (...rArgs: any[]) => returning(...rArgs) };
-          },
-        };
-      },
-    }),
+    update: (...uArgs: any[]) => {
+      updateTables(...uArgs);
+      return {
+        set: (vals: any) => {
+          updateSet(vals);
+          return {
+            where: (...args: any[]) => {
+              updateWhere(...args);
+              return { returning: (...rArgs: any[]) => returning(...rArgs) };
+            },
+          };
+        },
+      };
+    },
   },
 }));
 
@@ -78,14 +90,16 @@ describe("POST /api/projects/[projectId]/comics/[pageId]/panels/[panelId]/regene
     returning.mockResolvedValue([{ id: "panel-1", imageUrl: "https://segmind.example/generated.png" }]);
   });
 
-  it("overwrites imageUrl by default (no keepAsCandidate)", async () => {
+  it("overwrites imageUrl by default (no keepAsCandidate), then bumps (comicPanel.regenerate → projects)", async () => {
     findFirstPanels.mockResolvedValue({ id: "panel-1", projectId: "proj-1", panelIndex: 0, panelPrompt: "a panel", imageUrl: null, candidateImageUrls: [] });
     await POST(makeRequest(), makeParams());
     const [setArg] = updateSet.mock.calls[0];
     expect(setArg.imageUrl).toBe("https://segmind.example/generated.png");
+    // the panel write lands first, the revision bump targets the projects table
+    expect(updateTables.mock.calls.map(([t]) => t)).toEqual([comicPanels, projects]);
   });
 
-  it("appends to candidateImageUrls instead of overwriting when keepAsCandidate is set and a primary already exists", async () => {
+  it("appends to candidateImageUrls instead of overwriting when keepAsCandidate is set and a primary already exists, and bumps too", async () => {
     findFirstPanels.mockResolvedValue({
       id: "panel-1", projectId: "proj-1", panelIndex: 0, panelPrompt: "a panel",
       imageUrl: "https://example.com/existing-primary.png",
@@ -95,6 +109,7 @@ describe("POST /api/projects/[projectId]/comics/[pageId]/panels/[panelId]/regene
     const [setArg] = updateSet.mock.calls[0];
     expect(setArg.candidateImageUrls).toEqual(["https://example.com/candidate-a.png", "https://segmind.example/generated.png"]);
     expect(setArg.imageUrl).toBeUndefined();
+    expect(updateTables.mock.calls.map(([t]) => t)).toEqual([comicPanels, projects]);
   });
 
   it("ignores keepAsCandidate when there's no existing primary yet", async () => {

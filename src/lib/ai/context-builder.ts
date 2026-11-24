@@ -156,6 +156,15 @@ export interface StaticContextResult {
   /** Sections Headroom dropped to stay in budget, with their raw (untrimmed)
    *  content — the input the opt-in LLM-summarization layer needs to recover them. */
   skipped: { label: string; content: string }[];
+  /** Labels the ContextPolicy actually admitted content for. A label can be
+   *  registered but end up empty either because the policy gated it off
+   *  (e.g. needsLocations:false) or because the project has no such rows.
+   *  Comparing this list across two policy variants is how the Phase-0 shadow
+   *  rollout identifies exactly what a mode change adds or removes. */
+  admitted: string[];
+  /** The resolved policy for this call — surfaced for the shadow diff so a
+   *  missing mode can be proven rather than assumed. */
+  policy: ContextPolicy;
 }
 
 export function buildStaticContextDetailed(p: ContextProject, mode?: string, tier?: string): StaticContextResult {
@@ -774,11 +783,17 @@ export function buildStaticContextDetailed(p: ContextProject, mode?: string, tie
     }
   }
 
+  // Which labels ended up carrying content. Computed BEFORE packing so it
+  // reflects the policy, not Headroom's budget trimming (which is reported
+  // separately via `skipped`).
+  const admitted = sections.filter((s) => s.lines.length > 0).map((s) => s.label);
+
   // Headroom: priority-ordered, best-effort packing into the budget. Section 0
   // (header) is always kept; an over-budget section is skipped (not a hard stop)
   // so a smaller lower-priority section can still fit. Compaction + packing are
   // deterministic for identical project data, keeping the prompt-cache stable.
-  return packToBudgetLabeled(sections, budget);
+  const packed = packToBudgetLabeled(sections, budget);
+  return { ...packed, admitted, policy };
 }
 
 /** buildStaticContext is the stable, most-used entry point — same signature and

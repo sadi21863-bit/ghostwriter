@@ -2,13 +2,28 @@ export const dynamic = 'force-dynamic';
 
 import { NextResponse } from "next/server";
 import { getRequiredSession } from "@/lib/auth-helpers";
-import { db } from "@/db";
-import { referenceWorks, projects } from "@/db/schema";
-import { eq, and } from "drizzle-orm";
-export async function DELETE(_: Request, { params }: { params: Promise<{ projectId: string; refId: string }> }){
+import { fromSession } from "@/lib/core/auth-decorators";
+import { pgReferenceWorkRepository } from "@/lib/core/pg-thread-reference-repos";
+import { pgPostCommitHooks } from "@/lib/core/pg-repositories";
+import { deleteReferenceWork } from "@/lib/core/handlers/reference-works";
+
+/**
+ * Phase 2 / v4 §7 — thin AUTH ADAPTER around the shared `deleteReferenceWork`
+ * handler, mirroring `chapters/[chapterId]/route.ts`. No PATCH exists for
+ * reference works — Style DNA attributes are edited by deleting and recreating
+ * the row (see the handler's header), so the route stays delete-only.
+ */
+export async function DELETE(_: Request, { params }: { params: Promise<{ projectId: string; refId: string }> }) {
   const session = await getRequiredSession();
-  const project = await db.query.projects.findFirst({ where: and(eq(projects.id, (await params).projectId), eq(projects.userId, session.user.id)) });
-  if (!project) return NextResponse.json({ error: "Not found" }, { status: 404 });
-  await db.delete(referenceWorks).where(and(eq(referenceWorks.id, (await params).refId), eq(referenceWorks.projectId, (await params).projectId)));
+  const { projectId, refId } = await params;
+  const result = await deleteReferenceWork(
+    fromSession(session),
+    { projectId, refId },
+    pgReferenceWorkRepository,
+    { onCanonicalMutation: pgPostCommitHooks.onCanonicalMutation },
+  );
+  if (!result.ok) {
+    return NextResponse.json({ error: result.reason }, { status: result.status });
+  }
   return NextResponse.json({ ok: true });
 }

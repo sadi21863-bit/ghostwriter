@@ -23,8 +23,6 @@ export async function POST(req: Request) {
   const session = await getRequiredSession();
   const rl = await checkAiRateLimit(session.user.id);
   if (rl) return rl;
-  const gate = await meterAndGate(session.user.id, "beta-read");
-  if (gate) return gate;
   const tier = await getUserTier(session.user.id);
   if (!canAccessFeature(tier, "story_modes_advanced")) {
     return NextResponse.json({ error: "upgrade_required", feature: "beta_reader_panel" }, { status: 403 });
@@ -39,6 +37,8 @@ export async function POST(req: Request) {
   const cappedText = text.length > 8000 ? text.slice(0, 8000) + "\n\n[...chapter continues...]" : text;
   const formatLine = format ? `\n\nThis passage is from a ${format}.` : "";
 
+  const gate = await meterAndGate(session.user.id, "beta-read");
+  if (gate) return gate;
   const settled = await Promise.allSettled(
     BETA_READER_PERSONAS.map(async persona => {
       const msg = await client.messages.create({

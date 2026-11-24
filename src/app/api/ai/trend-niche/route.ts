@@ -35,8 +35,6 @@ export async function POST(req: Request) {
   const session = await getRequiredSession();
   const rl = await checkAiRateLimit(session.user.id);
   if (rl) return rl;
-  const gate = await meterAndGate(session.user.id, "trend-niche");
-  if (gate) return gate;
 
   const tier = await getUserTier(session.user.id);
   if (!canAccessFeature(tier, "creator_tools_advanced")) {
@@ -102,6 +100,8 @@ Return ONLY valid JSON:
   "nicheInsight": "One paragraph: what makes this specific niche's audience different from a general YouTube audience, and what they consistently respond to"
 }`;
 
+  const gate = await meterAndGate(session.user.id, "trend-niche");
+  if (gate) return gate;
   try {
     const trendResponse = await anthropic.messages.create({
       model: MODELS.default,

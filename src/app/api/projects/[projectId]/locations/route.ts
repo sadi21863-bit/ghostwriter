@@ -2,33 +2,50 @@ export const dynamic = 'force-dynamic';
 
 import { NextResponse } from "next/server";
 import { getRequiredSession } from "@/lib/auth-helpers";
-import { db } from "@/db";
-import { locations, projects } from "@/db/schema";
-import { eq, and, ne, isNotNull } from "drizzle-orm";
 import { generateEmbedding } from "@/lib/ai/embeddings";
-import { buildLocationEmbeddingText, findSimilarEntities } from "@/lib/world-bible/duplicate-detection";
+import { fromSession } from "@/lib/core/auth-decorators";
+import {
+  createLocation,
+  type LocationCreateData,
+} from "@/lib/core/handlers/locations";
+import { pgPostCommitHooks } from "@/lib/core/pg-repositories";
+import { pgLocationCrudRepository } from "@/lib/core/pg-character-location-repos";
+
+/**
+ * Phase 2 / v4 §7 — thin auth adapter for `createLocation`.
+ *
+ * The route produces a `RequestContext`, calls the handler, and shapes a
+ * response. It owns only the transport validations whose 400s must keep
+ * happening HERE (in the original order): the ownership probe runs BEFORE the
+ * body is read, so a wrong-project caller with a missing `name` still got
+ * the 404 from today's route — the `404-before-400` order is preserved, and the
+ * handler re-proves ownership itself so a same-shaped request coming from a
+ * non-Next host cannot outflank it.
+ *
+ * The create's embedding + duplicate-detection wiring lives in the handler
+ * (`embedText` DI seam); the adapter supplies the I/O, exactly like the
+ * chapter PATCH adapter supplies `onChapterContentChanged`.
+ */
 export async function POST(req: Request, { params }: { params: Promise<{ projectId: string }> }){
   const session = await getRequiredSession();
   const { projectId } = await params;
-  const project = await db.query.projects.findFirst({ where: and(eq(projects.id, projectId), eq(projects.userId, session.user.id)) });
-  if (!project) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  if (!(await pgLocationCrudRepository.ownsProject(projectId, session.user.id))) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
   const { name, description, atmosphere, history, sensoryDetails, alwaysInContext, sortOrder } = await req.json();
   if (!name || typeof name !== "string") return NextResponse.json({ error: "name is required" }, { status: 400 });
 
-  const embedding = await generateEmbedding(buildLocationEmbeddingText({ name, description, atmosphere, history })).catch(() => null);
+  const data: LocationCreateData = { name, description, atmosphere, history, sensoryDetails, alwaysInContext, sortOrder };
 
-  const [r] = await db.insert(locations).values({
-    projectId, name, description, atmosphere, history, sensoryDetails, alwaysInContext, sortOrder, embedding,
-  }).returning();
-
-  let similarEntities: ReturnType<typeof findSimilarEntities> = [];
-  if (r && embedding) {
-    const others = await db.query.locations.findMany({
-      where: and(eq(locations.projectId, projectId), ne(locations.id, r.id), isNotNull(locations.embedding)),
-      columns: { id: true, name: true, embedding: true },
-    });
-    similarEntities = findSimilarEntities(embedding, others);
+  const result = await createLocation(
+    fromSession(session),
+    { projectId, data },
+    pgLocationCrudRepository,
+    { onCanonicalMutation: pgPostCommitHooks.onCanonicalMutation },
+    (text) => generateEmbedding(text),
+  );
+  if (!result.ok) {
+    return NextResponse.json({ error: result.reason }, { status: result.status });
   }
-
-  return NextResponse.json({ ...r, similarEntities }, { status: 201 });
+  return NextResponse.json({ ...result.location, similarEntities: result.similarEntities }, { status: 201 });
 }

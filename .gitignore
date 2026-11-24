@@ -25,3 +25,12 @@ graphify-out/
 # typecheck-after-edit hook's runtime state (ephemeral, regenerated per session)
 .claude/hooks/.typecheck-last.json
 .claude/hooks/.typecheck.lock
+
+# Phase -1A legacy data backup (docs/migration/legacy-data.sql).
+# Contains actual manuscript/story content from the production database and is
+# ~24MB. The DDL baseline, inventory and schema-diff ARE committed; the data dump
+# is not — it is a local restore point only, never source-controlled.
+docs/migration/legacy-data.sql
+
+# Stray root-level verification logs from the migration waves (run artifacts, not source)
+/*.log

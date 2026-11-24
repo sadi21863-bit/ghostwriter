@@ -18,8 +18,6 @@ export async function POST(req: Request) {
   const session = await getRequiredSession();
   const rl = await checkAiRateLimit(session.user.id);
   if (rl) return rl;
-  const gate = await meterAndGate(session.user.id, "scene-to-video-prompt");
-  if (gate) return gate;
 
   const tier = await getUserTier(session.user.id);
   if (!canAccessFeature(tier, "story_modes_advanced")) {
@@ -84,6 +82,8 @@ Return ONLY valid JSON:
   "modelReason": "One sentence explaining why this model fits the scene best"
 }`;
 
+  const gate = await meterAndGate(session.user.id, "scene-to-video-prompt");
+  if (gate) return gate;
   try {
     const response = await anthropic.messages.create({
       model: MODELS.default,

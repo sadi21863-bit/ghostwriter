@@ -20,8 +20,6 @@ export async function POST(req: Request) {
   const session = await getRequiredSession();
   const rl = await checkAiRateLimit(session.user.id);
   if (rl) return rl;
-  const gate = await meterAndGate(session.user.id, "suggest");
-  if (gate) return gate;
 
   const tier = await getUserTier(session.user.id);
   if (!canAccessFeature(tier, "ai_suggestion_active")) {
@@ -89,6 +87,8 @@ Rules for suggestions:
 - Pacing issues: note if a chapter is all dialogue with no action, or all action with no interiority
 - If the chapter is good, return an empty suggestions array`;
 
+  const gate = await meterAndGate(session.user.id, "suggest");
+  if (gate) return gate;
   try {
     const response = await anthropic.messages.create({
       model: MODELS.default,

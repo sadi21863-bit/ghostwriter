@@ -28,8 +28,6 @@ export async function POST(req: NextRequest) {
   const rl = await checkAiRateLimit(session.user.id);
   if (rl) return rl;
 
-  const gate = await meterAndGate(session.user.id, "braindump");
-  if (gate) return gate;
 
   const { text } = await req.json();
 
@@ -38,6 +36,8 @@ export async function POST(req: NextRequest) {
   }
 
   let raw: string;
+  const gate = await meterAndGate(session.user.id, "braindump");
+  if (gate) return gate;
   try {
     const msg = await client.messages.create({
       model: MODELS.default,

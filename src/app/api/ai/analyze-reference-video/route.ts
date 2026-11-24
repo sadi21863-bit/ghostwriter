@@ -10,8 +10,6 @@ export async function POST(req: NextRequest) {
   const session = await getRequiredSession();
   const rl = await checkAiRateLimit(session.user.id);
   if (rl) return rl;
-  const gate = await meterAndGate(session.user.id, "analyze-reference-video");
-  if (gate) return gate;
   const tier = await getUserTier(session.user.id);
 
   if (!canAccessFeature(tier, 'creator_tools_advanced')) {
@@ -28,6 +26,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Valid YouTube URL required' }, { status: 400 });
   }
 
+  const gate = await meterAndGate(session.user.id, "analyze-reference-video");
+  if (gate) return gate;
   try {
     const { GoogleGenAI } = await import('@google/genai');
     const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });

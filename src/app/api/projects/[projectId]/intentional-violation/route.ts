@@ -2,35 +2,45 @@ export const dynamic = 'force-dynamic';
 
 import { NextResponse } from "next/server";
 import { getRequiredSession } from "@/lib/auth-helpers";
-import { db } from "@/db";
-import { projects } from "@/db/schema";
-import { eq, and } from "drizzle-orm";
+import { fromSession } from "@/lib/core/auth-decorators";
+import { pgIntentionalViolationRepository } from "@/lib/core/pg-world-entity-repos";
+import { pgPostCommitHooks } from "@/lib/core/pg-repositories";
+import {
+  readIntentionalViolations,
+  recordIntentionalViolation,
+} from "@/lib/core/handlers/intentional-violations";
 
+/**
+ * Phase 2 / v4 §7 — thin AUTH ADAPTER around the intentional-violation
+ * handlers (`src/lib/core/handlers/intentional-violations.ts`): produce a
+ * `RequestContext`, call the handler, shape the response. The ownership probe,
+ * the `violationType required` 400, and the projects-row jsonb merge all moved
+ * to the handler/`pg-world-entity-repos.ts`; the response bodies are unchanged
+ * from the pre-migration route (`{success: true}` for POST,
+ * `{violations: {...}}` for GET, 404 `{error: "Not found"}`).
+ */
 export async function POST(req: Request, { params }: { params: Promise<{ projectId: string }> }) {
-  const session = await getRequiredSession();
-  const project = await db.query.projects.findFirst({
-    where: and(eq(projects.id, (await params).projectId), eq(projects.userId, session.user.id)),
-  });
-  if (!project) return NextResponse.json({ error: "Not found" }, { status: 404 });
-
-  const { violationType, purpose } = await req.json();
-  if (!violationType) return NextResponse.json({ error: "violationType required" }, { status: 400 });
-
-  const existing = ((project as any).intentionalViolations || {}) as Record<string, any>;
-  existing[violationType] = { confirmed: true, purpose: purpose || "", timestamp: new Date().toISOString() };
-
-  await db.update(projects)
-    .set({ intentionalViolations: existing } as any)
-    .where(eq(projects.id, (await params).projectId));
-
+  const s = await getRequiredSession();
+  const { projectId } = await params;
+  const body = await req.json();
+  const result = await recordIntentionalViolation(
+    fromSession(s),
+    { projectId, violationType: body?.violationType, purpose: body?.purpose },
+    pgIntentionalViolationRepository,
+    {
+      // Canon-adjacent: the acknowledgement persists in the project row and
+      // feeds the generation-violations confirmation gates.
+      onCanonicalMutation: pgPostCommitHooks.onCanonicalMutation,
+    },
+  );
+  if (!result.ok) return NextResponse.json({ error: result.reason }, { status: result.status });
   return NextResponse.json({ success: true });
 }
 
-export async function GET(_req: Request, { params }: { params: Promise<{ projectId: string }> }) {
-  const session = await getRequiredSession();
-  const project = await db.query.projects.findFirst({
-    where: and(eq(projects.id, (await params).projectId), eq(projects.userId, session.user.id)),
-  });
-  if (!project) return NextResponse.json({ error: "Not found" }, { status: 404 });
-  return NextResponse.json({ violations: (project as any).intentionalViolations || {} });
+export async function GET(_: Request, { params }: { params: Promise<{ projectId: string }> }) {
+  const s = await getRequiredSession();
+  const { projectId } = await params;
+  const result = await readIntentionalViolations(fromSession(s), { projectId }, pgIntentionalViolationRepository);
+  if (!result.ok) return NextResponse.json({ error: result.reason }, { status: result.status });
+  return NextResponse.json({ violations: result.violations });
 }

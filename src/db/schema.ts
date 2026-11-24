@@ -13,7 +13,7 @@ const vectorColumn = customType<{ data: number[]; driverData: string }>({
 export const users = pgTable("users", { id: uuid("id").defaultRandom().primaryKey(), name: text("name"), email: text("email").notNull().unique(), emailVerified: timestamp("email_verified", { mode: "date" }), image: text("image"), hashedPassword: text("hashed_password"), higgsfieldApiKey: text("higgsfield_api_key").default(""), higgsfieldApiSecret: text("higgsfield_api_secret").default(""), segmindApiKey: text("segmind_api_key").default(""), openaiApiKey: text("openai_api_key").default(""), imageProviderId: text("image_provider_id").default("segmind_soul"), ttsProviderId: text("tts_provider_id").default("openai"), trendIntelligenceKey: text("trend_intelligence_key").default(""), referralCode: varchar("referral_code", { length: 12 }), monthlyGenerations: real("monthly_generations").default(0), monthlyGenerationsResetAt: timestamp("monthly_generations_reset_at"), trialEndAt: timestamp("trial_end_at"), createdAt: timestamp("created_at").defaultNow().notNull(), updatedAt: timestamp("updated_at").defaultNow().notNull() });
 export const accounts = pgTable("accounts", { id: uuid("id").defaultRandom().primaryKey(), userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }), type: text("type").notNull(), provider: text("provider").notNull(), providerAccountId: text("provider_account_id").notNull(), refresh_token: text("refresh_token"), access_token: text("access_token"), expires_at: integer("expires_at"), token_type: text("token_type"), scope: text("scope"), id_token: text("id_token"), session_state: text("session_state") });
 export const sessions = pgTable("sessions", { id: uuid("id").defaultRandom().primaryKey(), sessionToken: text("session_token").notNull().unique(), userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }), expires: timestamp("expires", { mode: "date" }).notNull() });
-export const projects = pgTable("projects", { id: uuid("id").defaultRandom().primaryKey(), userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }), name: text("name").notNull().default("Untitled Project"), format: varchar("format", { length: 50 }).notNull().default("Novel"), genres: jsonb("genres").$type().default([]), skillLevel: varchar("skill_level", { length: 20 }).notNull().default("beginner"), notes: text("notes").default(""), controllingIdea: text("controlling_idea").default(""), dismissedGuideIds: jsonb("dismissed_guide_ids").$type<string[]>().default([]), intentionalViolations: jsonb("intentional_violations").$type<Record<string, { confirmed: boolean; purpose: string; timestamp: string }>>().default({}), aiRules: jsonb("ai_rules").$type<any[]>().default([]), isHiggsfieldProject: boolean("is_higgsfield_project").default(false), narratorVoice: text("narrator_voice").default(""), narrativeStructure: varchar("narrative_structure", { length: 30 }).default("linear"), qualityGradingEnabled: boolean("quality_grading_enabled").default(false), aiismsCheck: boolean("aiisms_check").default(false), storyType: varchar("story_type", { length: 20 }).default("linear"), universeId: uuid("universe_id"), timelineSort: integer("timeline_sort"), phase: text("phase"), seriesParentId: uuid("series_parent_id"), adaptedFromProjectId: uuid("adapted_from_project_id"), biggestChallenge: text("biggest_challenge").default(""), aiInitiative: varchar("ai_initiative", { length: 20 }).default("Collaborates"), densityLevel: varchar("density_level", { length: 10 }).default("standard"), createdAt: timestamp("created_at").defaultNow().notNull(), updatedAt: timestamp("updated_at").defaultNow().notNull() });
+export const projects = pgTable("projects", { id: uuid("id").defaultRandom().primaryKey(), userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }), name: text("name").notNull().default("Untitled Project"), format: varchar("format", { length: 50 }).notNull().default("Novel"), genres: jsonb("genres").$type().default([]), skillLevel: varchar("skill_level", { length: 20 }).notNull().default("beginner"), notes: text("notes").default(""), controllingIdea: text("controlling_idea").default(""), dismissedGuideIds: jsonb("dismissed_guide_ids").$type<string[]>().default([]), intentionalViolations: jsonb("intentional_violations").$type<Record<string, { confirmed: boolean; purpose: string; timestamp: string }>>().default({}), aiRules: jsonb("ai_rules").$type<any[]>().default([]), isHiggsfieldProject: boolean("is_higgsfield_project").default(false), narratorVoice: text("narrator_voice").default(""), narrativeStructure: varchar("narrative_structure", { length: 30 }).default("linear"), qualityGradingEnabled: boolean("quality_grading_enabled").default(false), aiismsCheck: boolean("aiisms_check").default(false), storyType: varchar("story_type", { length: 20 }).default("linear"), universeId: uuid("universe_id"), timelineSort: integer("timeline_sort"), phase: text("phase"), seriesParentId: uuid("series_parent_id"), adaptedFromProjectId: uuid("adapted_from_project_id"), biggestChallenge: text("biggest_challenge").default(""), aiInitiative: varchar("ai_initiative", { length: 20 }).default("Collaborates"), densityLevel: varchar("density_level", { length: 10 }).default("standard"), contentRevision: integer("content_revision"), createdAt: timestamp("created_at").defaultNow().notNull(), updatedAt: timestamp("updated_at").defaultNow().notNull() });
 export const characters = pgTable("characters", {
   id: uuid("id").defaultRandom().primaryKey(),
   projectId: uuid("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
@@ -157,6 +157,33 @@ export const worldEntities = pgTable("world_entities", {
 });
 export const referenceWorks = pgTable("reference_works", { id: uuid("id").defaultRandom().primaryKey(), projectId: uuid("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }), title: text("title").notNull(), attributes: jsonb("attributes").$type().default({}), createdAt: timestamp("created_at").defaultNow().notNull() });
 export const generations = pgTable("generations", { id: uuid("id").defaultRandom().primaryKey(), projectId: uuid("project_id").references(() => projects.id, { onDelete: "cascade" }), chapterId: uuid("chapter_id").references(() => chapters.id, { onDelete: "set null" }), mode: varchar("mode", { length: 50 }).notNull(), prompt: text("prompt").notNull(), output: text("output").notNull(), model: varchar("model", { length: 100 }).default("claude-sonnet-5"), tokensUsed: integer("tokens_used"), createdAt: timestamp("created_at").defaultNow().notNull() });
+
+// Story Transactions (v4 §13.1 slice 1, Phase 5A) — model-output-driven canonical
+// edits with full provenance, persisted by the `applyStoryTransaction` handler
+// BEFORE its changes touch canon, so audit/revert is possible later. `id` is
+// deliberately text (the only non-uuid PK in this file): the handler supplies
+// its own transaction id (injectable, with a random fallback token), which is
+// persisted verbatim and referenced by the change rows.
+export const storyTransactions = pgTable("story_transactions", {
+  id:                 text("id").primaryKey(),
+  projectId:          uuid("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
+  source:             varchar("source", { length: 20 }).notNull(),
+  sourceGenerationId: text("source_generation_id"),
+  createdAt:          timestamp("created_at").defaultNow().notNull(),
+});
+export const storyChanges = pgTable("story_changes", {
+  id:            uuid("id").defaultRandom().primaryKey(),
+  transactionId: text("transaction_id").notNull().references(() => storyTransactions.id, { onDelete: "cascade" }),
+  // Denormalized from story_transactions so audit queries can scope a project
+  // without joining through the transaction row.
+  projectId:     uuid("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
+  seq:           integer("seq").notNull(),
+  entityKey:     varchar("entity_key", { length: 20 }).notNull(),
+  entityId:      text("entity_id").notNull(),
+  field:         varchar("field", { length: 40 }).notNull(),
+  oldValue:      text("old_value").default("").notNull(),
+  newValue:      text("new_value").notNull(),
+});
 
 export const creatorBibles = pgTable("creator_bibles", {
   id: uuid("id").defaultRandom().primaryKey(),

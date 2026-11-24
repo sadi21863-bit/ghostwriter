@@ -11,13 +11,16 @@ export async function POST(req: Request) {
   const session = await getRequiredSession();
   const rl = await checkAiRateLimit(session.user.id);
   if (rl) return rl;
-  const gate = await meterAndGate(session.user.id, "summarize");
-  if (gate) return gate;
   const tier = await getUserTier(session.user.id);
   if (!canAccessFeature(tier, 'story_memories')) {
     return NextResponse.json({ error: 'upgrade_required', feature: 'story_memories' }, { status: 403 });
   }
   const { content, chapterTitle, arcPosition, characters, previousMemories } = await req.json();
+  // Phase 0 (v4 §7.3): meter after the entitlement gate and after the payload read,
+  // so a refused or unparseable request is never charged. Must stay OUTSIDE the try
+  // below — inside it, a throw would refund a charge that never happened.
+  const gate = await meterAndGate(session.user.id, "summarize");
+  if (gate) return gate;
   try {
     const result = await summarizeChapter(content, chapterTitle, arcPosition, characters, previousMemories);
     return NextResponse.json({ summary: result.fact, structuredData: result.structuredData });

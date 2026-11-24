@@ -2,53 +2,23 @@ export const dynamic = 'force-dynamic';
 
 import { NextResponse } from "next/server";
 import { getRequiredSession } from "@/lib/auth-helpers";
-import { db } from "@/db";
-import { projects, characterRelationships } from "@/db/schema";
-import { eq, and } from "drizzle-orm";
-import { buildStoryGraph } from "@/lib/graph/story-graph";
-import { analyzeGraphHealth } from "@/lib/graph/graph-health";
-import { contextIsTrimmed } from "@/lib/ai/context-builder";
+import { fromSession } from "@/lib/core/auth-decorators";
+import { readStoryGraph } from "@/lib/core/handlers/story-graph";
+import { pgStoryGraphRepository } from "@/lib/core/pg-story-os-repos";
 
-async function verifyOwnership(projectId: string, userId: string) {
-  return db.query.projects.findFirst({
-    where: and(eq(projects.id, projectId), eq(projects.userId, userId)),
-  });
-}
-
-// The multi-entity Story Graph (Phase 1) — characters + locations + threads and
-// the relationships that already exist in the World Bible. Separate from
-// /relationship-map (which WorldBiblePanel still consumes in its char-only shape)
-// so this is purely additive and non-breaking.
+/**
+ * Phase 2 / v4 §7 — thin auth adapter around the shared `readStoryGraph`
+ * handler. The ownership probe and the multi-relation read moved to
+ * `pg-story-os-repos.ts`; the graph build, health analysis, and Headroom trim
+ * signal stay composed inside the handler — the "read → build → health" port
+ * shape is unchanged from the pre-migration route.
+ */
 export async function GET(_: Request, { params }: { params: Promise<{ projectId: string }> }) {
   const s = await getRequiredSession();
   const { projectId } = await params;
-  if (!await verifyOwnership(projectId, s.user.id))
-    return NextResponse.json({ error: "Not found" }, { status: 404 });
-
-  const project = await db.query.projects.findFirst({
-    where: eq(projects.id, projectId),
-    with: { characters: true, locations: true, plotThreads: true, chapters: true, worldEntities: true },
-  });
-  if (!project) return NextResponse.json({ error: "Not found" }, { status: 404 });
-
-  const storedRels = await db.query.characterRelationships.findMany({
-    where: eq(characterRelationships.projectId, projectId),
-  });
-
-  const graph = buildStoryGraph({
-    characters: (project as any).characters ?? [],
-    locations: (project as any).locations ?? [],
-    plotThreads: (project as any).plotThreads ?? [],
-    chapters: (project as any).chapters ?? [],
-    storedRels: storedRels.map(r => ({ characterAId: r.characterAId, characterBId: r.characterBId, trustLevel: r.trustLevel, relationshipType: r.relationshipType })),
-    worldEntities: (project as any).worldEntities ?? [],
-  });
-
-  // Headroom trims context silently (by design, for prompt-cache stability) — this
-  // is the one place that surfaces it as a yes/no signal, in the same response as
-  // the structural graph health, since Studio's graph view is where a user would
-  // naturally look to understand whether their project's full story reaches the AI.
-  const contextTrimmed = contextIsTrimmed({ ...(project as any), characterRelationships: storedRels });
-
-  return NextResponse.json({ ...graph, health: analyzeGraphHealth(graph), contextTrimmed });
+  const result = await readStoryGraph(fromSession(s), { projectId }, pgStoryGraphRepository);
+  if (!result.ok) {
+    return NextResponse.json({ error: result.reason }, { status: result.status });
+  }
+  return NextResponse.json({ ...result.graph, health: result.health, contextTrimmed: result.contextTrimmed });
 }

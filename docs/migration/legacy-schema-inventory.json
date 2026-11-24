@@ -1,0 +1,6629 @@
+{
+  "generatedAt": "2026-10-03T19:58:18.947Z",
+  "source": {
+    "envFile": ".env",
+    "host": "ep-weathered-dawn-a1coz6bh-pooler.ap-southeast-1.aws.neon.tech"
+  },
+  "note": "Observed production state captured by scripts/db-legacy-baseline.mjs. This is authoritative for Phase -1A; migration history is NOT.",
+  "extensions": [
+    {
+      "name": "plpgsql",
+      "version": "1.0"
+    },
+    {
+      "name": "vector",
+      "version": "0.8.0"
+    }
+  ],
+  "customTypes": [
+    {
+      "name": "accounts",
+      "kind": "c",
+      "formatted": "accounts"
+    },
+    {
+      "name": "audio_exports",
+      "kind": "c",
+      "formatted": "audio_exports"
+    },
+    {
+      "name": "chapters",
+      "kind": "c",
+      "formatted": "chapters"
+    },
+    {
+      "name": "character_evolution_log",
+      "kind": "c",
+      "formatted": "character_evolution_log"
+    },
+    {
+      "name": "character_relationships",
+      "kind": "c",
+      "formatted": "character_relationships"
+    },
+    {
+      "name": "characters",
+      "kind": "c",
+      "formatted": "characters"
+    },
+    {
+      "name": "comic_pages",
+      "kind": "c",
+      "formatted": "comic_pages"
+    },
+    {
+      "name": "comic_panels",
+      "kind": "c",
+      "formatted": "comic_panels"
+    },
+    {
+      "name": "creator_bibles",
+      "kind": "c",
+      "formatted": "creator_bibles"
+    },
+    {
+      "name": "editor_notes",
+      "kind": "c",
+      "formatted": "editor_notes"
+    },
+    {
+      "name": "email_verification_tokens",
+      "kind": "c",
+      "formatted": "email_verification_tokens"
+    },
+    {
+      "name": "generations",
+      "kind": "c",
+      "formatted": "generations"
+    },
+    {
+      "name": "locations",
+      "kind": "c",
+      "formatted": "locations"
+    },
+    {
+      "name": "password_reset_tokens",
+      "kind": "c",
+      "formatted": "password_reset_tokens"
+    },
+    {
+      "name": "platform_events",
+      "kind": "c",
+      "formatted": "platform_events"
+    },
+    {
+      "name": "plot_threads",
+      "kind": "c",
+      "formatted": "plot_threads"
+    },
+    {
+      "name": "production_shots",
+      "kind": "c",
+      "formatted": "production_shots"
+    },
+    {
+      "name": "project_character_states",
+      "kind": "c",
+      "formatted": "project_character_states"
+    },
+    {
+      "name": "projects",
+      "kind": "c",
+      "formatted": "projects"
+    },
+    {
+      "name": "reader_reactions",
+      "kind": "c",
+      "formatted": "reader_reactions"
+    },
+    {
+      "name": "reader_sessions",
+      "kind": "c",
+      "formatted": "reader_sessions"
+    },
+    {
+      "name": "reference_works",
+      "kind": "c",
+      "formatted": "reference_works"
+    },
+    {
+      "name": "referrals",
+      "kind": "c",
+      "formatted": "referrals"
+    },
+    {
+      "name": "semantic_cache",
+      "kind": "c",
+      "formatted": "semantic_cache"
+    },
+    {
+      "name": "series_bibles",
+      "kind": "c",
+      "formatted": "series_bibles"
+    },
+    {
+      "name": "sessions",
+      "kind": "c",
+      "formatted": "sessions"
+    },
+    {
+      "name": "showcases",
+      "kind": "c",
+      "formatted": "showcases"
+    },
+    {
+      "name": "story_checkpoints",
+      "kind": "c",
+      "formatted": "story_checkpoints"
+    },
+    {
+      "name": "story_memories",
+      "kind": "c",
+      "formatted": "story_memories"
+    },
+    {
+      "name": "story_plans",
+      "kind": "c",
+      "formatted": "story_plans"
+    },
+    {
+      "name": "story_promises",
+      "kind": "c",
+      "formatted": "story_promises"
+    },
+    {
+      "name": "story_threads",
+      "kind": "c",
+      "formatted": "story_threads"
+    },
+    {
+      "name": "subscriptions",
+      "kind": "c",
+      "formatted": "subscriptions"
+    },
+    {
+      "name": "universe_characters",
+      "kind": "c",
+      "formatted": "universe_characters"
+    },
+    {
+      "name": "universe_events",
+      "kind": "c",
+      "formatted": "universe_events"
+    },
+    {
+      "name": "universes",
+      "kind": "c",
+      "formatted": "universes"
+    },
+    {
+      "name": "users",
+      "kind": "c",
+      "formatted": "users"
+    },
+    {
+      "name": "video_analysis_jobs",
+      "kind": "c",
+      "formatted": "video_analysis_jobs"
+    },
+    {
+      "name": "work_packets",
+      "kind": "c",
+      "formatted": "work_packets"
+    },
+    {
+      "name": "work_patterns",
+      "kind": "c",
+      "formatted": "work_patterns"
+    },
+    {
+      "name": "world_entities",
+      "kind": "c",
+      "formatted": "world_entities"
+    }
+  ],
+  "tableCount": 41,
+  "tables": [
+    {
+      "name": "accounts",
+      "columnCount": 12,
+      "columns": [
+        {
+          "name": "id",
+          "ordinal": 1,
+          "type": "uuid",
+          "notNull": true,
+          "default": "gen_random_uuid()",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "user_id",
+          "ordinal": 2,
+          "type": "uuid",
+          "notNull": true,
+          "default": null,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "type",
+          "ordinal": 3,
+          "type": "text",
+          "notNull": true,
+          "default": null,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "provider",
+          "ordinal": 4,
+          "type": "text",
+          "notNull": true,
+          "default": null,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "provider_account_id",
+          "ordinal": 5,
+          "type": "text",
+          "notNull": true,
+          "default": null,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "refresh_token",
+          "ordinal": 6,
+          "type": "text",
+          "notNull": false,
+          "default": null,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "access_token",
+          "ordinal": 7,
+          "type": "text",
+          "notNull": false,
+          "default": null,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "expires_at",
+          "ordinal": 8,
+          "type": "integer",
+          "notNull": false,
+          "default": null,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "token_type",
+          "ordinal": 9,
+          "type": "text",
+          "notNull": false,
+          "default": null,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "scope",
+          "ordinal": 10,
+          "type": "text",
+          "notNull": false,
+          "default": null,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "id_token",
+          "ordinal": 11,
+          "type": "text",
+          "notNull": false,
+          "default": null,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "session_state",
+          "ordinal": 12,
+          "type": "text",
+          "notNull": false,
+          "default": null,
+          "identity": "",
+          "generated": ""
+        }
+      ],
+      "primaryKey": [
+        "id"
+      ],
+      "uniqueIndexes": [],
+      "foreignKeys": [
+        {
+          "name": "accounts_user_id_users_id_fk",
+          "columns": [
+            "user_id"
+          ],
+          "references": {
+            "table": "users",
+            "columns": [
+              "id"
+            ]
+          },
+          "onDelete": "CASCADE",
+          "onUpdate": "NO ACTION"
+        }
+      ]
+    },
+    {
+      "name": "audio_exports",
+      "columnCount": 13,
+      "columns": [
+        {
+          "name": "id",
+          "ordinal": 1,
+          "type": "uuid",
+          "notNull": true,
+          "default": "gen_random_uuid()",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "project_id",
+          "ordinal": 2,
+          "type": "uuid",
+          "notNull": true,
+          "default": null,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "chapter_id",
+          "ordinal": 3,
+          "type": "uuid",
+          "notNull": true,
+          "default": null,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "status",
+          "ordinal": 4,
+          "type": "text",
+          "notNull": true,
+          "default": "'pending'::text",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "audio_url",
+          "ordinal": 5,
+          "type": "text",
+          "notNull": false,
+          "default": "''::text",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "duration_seconds",
+          "ordinal": 6,
+          "type": "integer",
+          "notNull": false,
+          "default": "0",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "character_count",
+          "ordinal": 7,
+          "type": "integer",
+          "notNull": false,
+          "default": "0",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "estimated_cost",
+          "ordinal": 8,
+          "type": "text",
+          "notNull": false,
+          "default": "''::text",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "created_at",
+          "ordinal": 9,
+          "type": "timestamp without time zone",
+          "notNull": true,
+          "default": "now()",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "lipsync_video_url",
+          "ordinal": 10,
+          "type": "text",
+          "notNull": false,
+          "default": "''::text",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "lipsync_job_id",
+          "ordinal": 11,
+          "type": "text",
+          "notNull": false,
+          "default": "''::text",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "lipsync_status",
+          "ordinal": 12,
+          "type": "text",
+          "notNull": false,
+          "default": "''::text",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "mode",
+          "ordinal": 13,
+          "type": "text",
+          "notNull": true,
+          "default": "'narration'::text",
+          "identity": "",
+          "generated": ""
+        }
+      ],
+      "primaryKey": [
+        "id"
+      ],
+      "uniqueIndexes": [],
+      "foreignKeys": [
+        {
+          "name": "audio_exports_project_id_projects_id_fk",
+          "columns": [
+            "project_id"
+          ],
+          "references": {
+            "table": "projects",
+            "columns": [
+              "id"
+            ]
+          },
+          "onDelete": "CASCADE",
+          "onUpdate": "NO ACTION"
+        }
+      ]
+    },
+    {
+      "name": "chapters",
+      "columnCount": 21,
+      "columns": [
+        {
+          "name": "id",
+          "ordinal": 1,
+          "type": "uuid",
+          "notNull": true,
+          "default": "gen_random_uuid()",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "project_id",
+          "ordinal": 2,
+          "type": "uuid",
+          "notNull": true,
+          "default": null,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "title",
+          "ordinal": 3,
+          "type": "text",
+          "notNull": true,
+          "default": "'Chapter 1'::text",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "content",
+          "ordinal": 4,
+          "type": "text",
+          "notNull": false,
+          "default": "''::text",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "summary",
+          "ordinal": 5,
+          "type": "text",
+          "notNull": false,
+          "default": "''::text",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "sort_order",
+          "ordinal": 6,
+          "type": "integer",
+          "notNull": false,
+          "default": "0",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "word_count",
+          "ordinal": 7,
+          "type": "integer",
+          "notNull": false,
+          "default": "0",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "created_at",
+          "ordinal": 8,
+          "type": "timestamp without time zone",
+          "notNull": true,
+          "default": "now()",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "updated_at",
+          "ordinal": 9,
+          "type": "timestamp without time zone",
+          "notNull": true,
+          "default": "now()",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "tags",
+          "ordinal": 10,
+          "type": "jsonb",
+          "notNull": false,
+          "default": "'[]'::jsonb",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "chapter_type",
+          "ordinal": 11,
+          "type": "character varying(30)",
+          "notNull": false,
+          "default": "'chapter'::character varying",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "branch_id",
+          "ordinal": 12,
+          "type": "text",
+          "notNull": false,
+          "default": "'main'::text",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "branch_label",
+          "ordinal": 13,
+          "type": "text",
+          "notNull": false,
+          "default": "''::text",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "parent_chapter_id",
+          "ordinal": 14,
+          "type": "uuid",
+          "notNull": false,
+          "default": null,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "alternate_drafts",
+          "ordinal": 15,
+          "type": "jsonb",
+          "notNull": false,
+          "default": "'[]'::jsonb",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "emotional_tone",
+          "ordinal": 16,
+          "type": "character varying(50)",
+          "notNull": false,
+          "default": "''::character varying",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "arc_position",
+          "ordinal": 17,
+          "type": "character varying(40)",
+          "notNull": false,
+          "default": "''::character varying",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "scenes",
+          "ordinal": 18,
+          "type": "jsonb",
+          "notNull": false,
+          "default": "'[]'::jsonb",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "storyline_id",
+          "ordinal": 19,
+          "type": "text",
+          "notNull": false,
+          "default": null,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "review_status",
+          "ordinal": 20,
+          "type": "character varying(12)",
+          "notNull": true,
+          "default": "'draft'::character varying",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "embedding",
+          "ordinal": 21,
+          "type": "vector(1536)",
+          "notNull": false,
+          "default": null,
+          "identity": "",
+          "generated": ""
+        }
+      ],
+      "primaryKey": [
+        "id"
+      ],
+      "uniqueIndexes": [],
+      "foreignKeys": [
+        {
+          "name": "chapters_project_id_projects_id_fk",
+          "columns": [
+            "project_id"
+          ],
+          "references": {
+            "table": "projects",
+            "columns": [
+              "id"
+            ]
+          },
+          "onDelete": "CASCADE",
+          "onUpdate": "NO ACTION"
+        }
+      ]
+    },
+    {
+      "name": "character_evolution_log",
+      "columnCount": 9,
+      "columns": [
+        {
+          "name": "id",
+          "ordinal": 1,
+          "type": "uuid",
+          "notNull": true,
+          "default": "gen_random_uuid()",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "project_id",
+          "ordinal": 2,
+          "type": "uuid",
+          "notNull": true,
+          "default": null,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "character_id",
+          "ordinal": 3,
+          "type": "uuid",
+          "notNull": true,
+          "default": null,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "chapter_index",
+          "ordinal": 4,
+          "type": "integer",
+          "notNull": true,
+          "default": null,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "trigger_memory_ids",
+          "ordinal": 5,
+          "type": "text[]",
+          "notNull": true,
+          "default": "'{}'::text[]",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "previous_state",
+          "ordinal": 6,
+          "type": "jsonb",
+          "notNull": true,
+          "default": "'{}'::jsonb",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "updated_traits",
+          "ordinal": 7,
+          "type": "jsonb",
+          "notNull": true,
+          "default": "'{}'::jsonb",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "evolution_summary",
+          "ordinal": 8,
+          "type": "text",
+          "notNull": true,
+          "default": "''::text",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "created_at",
+          "ordinal": 9,
+          "type": "timestamp without time zone",
+          "notNull": true,
+          "default": "now()",
+          "identity": "",
+          "generated": ""
+        }
+      ],
+      "primaryKey": [
+        "id"
+      ],
+      "uniqueIndexes": [],
+      "foreignKeys": [
+        {
+          "name": "character_evolution_log_character_id_characters_id_fk",
+          "columns": [
+            "character_id"
+          ],
+          "references": {
+            "table": "characters",
+            "columns": [
+              "id"
+            ]
+          },
+          "onDelete": "CASCADE",
+          "onUpdate": "NO ACTION"
+        },
+        {
+          "name": "character_evolution_log_project_id_projects_id_fk",
+          "columns": [
+            "project_id"
+          ],
+          "references": {
+            "table": "projects",
+            "columns": [
+              "id"
+            ]
+          },
+          "onDelete": "CASCADE",
+          "onUpdate": "NO ACTION"
+        }
+      ]
+    },
+    {
+      "name": "character_relationships",
+      "columnCount": 15,
+      "columns": [
+        {
+          "name": "id",
+          "ordinal": 1,
+          "type": "uuid",
+          "notNull": true,
+          "default": "gen_random_uuid()",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "project_id",
+          "ordinal": 2,
+          "type": "uuid",
+          "notNull": true,
+          "default": null,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "character_a_id",
+          "ordinal": 3,
+          "type": "uuid",
+          "notNull": true,
+          "default": null,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "character_b_id",
+          "ordinal": 4,
+          "type": "uuid",
+          "notNull": true,
+          "default": null,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "trust_level",
+          "ordinal": 5,
+          "type": "integer",
+          "notNull": false,
+          "default": "50",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "relationship_type",
+          "ordinal": 6,
+          "type": "text",
+          "notNull": false,
+          "default": "''::text",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "four_horsemen",
+          "ordinal": 7,
+          "type": "jsonb",
+          "notNull": false,
+          "default": "'{\"contempt\": 0, \"criticism\": 0, \"stonewalling\": 0, \"defensiveness\": 0}'::jsonb",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "notes",
+          "ordinal": 8,
+          "type": "text",
+          "notNull": false,
+          "default": "''::text",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "updated_at",
+          "ordinal": 9,
+          "type": "timestamp without time zone",
+          "notNull": true,
+          "default": "now()",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "power_differential",
+          "ordinal": 10,
+          "type": "integer",
+          "notNull": false,
+          "default": "0",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "emotional_register",
+          "ordinal": 11,
+          "type": "character varying(50)",
+          "notNull": false,
+          "default": "''::character varying",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "knowledge_asymmetry",
+          "ordinal": 12,
+          "type": "text",
+          "notNull": false,
+          "default": "''::text",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "dependency_structure",
+          "ordinal": 13,
+          "type": "character varying(50)",
+          "notNull": false,
+          "default": "'none'::character varying",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "attachment_style_a",
+          "ordinal": 14,
+          "type": "character varying(30)",
+          "notNull": false,
+          "default": "''::character varying",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "arc_trajectory",
+          "ordinal": 15,
+          "type": "character varying(30)",
+          "notNull": false,
+          "default": "''::character varying",
+          "identity": "",
+          "generated": ""
+        }
+      ],
+      "primaryKey": [
+        "id"
+      ],
+      "uniqueIndexes": [],
+      "foreignKeys": [
+        {
+          "name": "character_relationships_character_a_id_characters_id_fk",
+          "columns": [
+            "character_a_id"
+          ],
+          "references": {
+            "table": "characters",
+            "columns": [
+              "id"
+            ]
+          },
+          "onDelete": "CASCADE",
+          "onUpdate": "NO ACTION"
+        },
+        {
+          "name": "character_relationships_character_b_id_characters_id_fk",
+          "columns": [
+            "character_b_id"
+          ],
+          "references": {
+            "table": "characters",
+            "columns": [
+              "id"
+            ]
+          },
+          "onDelete": "CASCADE",
+          "onUpdate": "NO ACTION"
+        },
+        {
+          "name": "character_relationships_project_id_projects_id_fk",
+          "columns": [
+            "project_id"
+          ],
+          "references": {
+            "table": "projects",
+            "columns": [
+              "id"
+            ]
+          },
+          "onDelete": "CASCADE",
+          "onUpdate": "NO ACTION"
+        }
+      ]
+    },
+    {
+      "name": "characters",
+      "columnCount": 85,
+      "columns": [
+        {
+          "name": "id",
+          "ordinal": 1,
+          "type": "uuid",
+          "notNull": true,
+          "default": "gen_random_uuid()",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "project_id",
+          "ordinal": 2,
+          "type": "uuid",
+          "notNull": true,
+          "default": null,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "name",
+          "ordinal": 3,
+          "type": "text",
+          "notNull": true,
+          "default": null,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "role",
+          "ordinal": 4,
+          "type": "text",
+          "notNull": false,
+          "default": "''::text",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "age",
+          "ordinal": 5,
+          "type": "text",
+          "notNull": false,
+          "default": "''::text",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "appearance",
+          "ordinal": 6,
+          "type": "text",
+          "notNull": false,
+          "default": "''::text",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "personality",
+          "ordinal": 7,
+          "type": "text",
+          "notNull": false,
+          "default": "''::text",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "thinking_style",
+          "ordinal": 8,
+          "type": "text",
+          "notNull": false,
+          "default": "''::text",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "behavior",
+          "ordinal": 9,
+          "type": "text",
+          "notNull": false,
+          "default": "''::text",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "habits",
+          "ordinal": 10,
+          "type": "text",
+          "notNull": false,
+          "default": "''::text",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "fears",
+          "ordinal": 11,
+          "type": "text",
+          "notNull": false,
+          "default": "''::text",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "desires",
+          "ordinal": 12,
+          "type": "text",
+          "notNull": false,
+          "default": "''::text",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "speech_pattern",
+          "ordinal": 13,
+          "type": "text",
+          "notNull": false,
+          "default": "''::text",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "backstory",
+          "ordinal": 14,
+          "type": "text",
+          "notNull": false,
+          "default": "''::text",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "arc",
+          "ordinal": 15,
+          "type": "text",
+          "notNull": false,
+          "default": "''::text",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "sort_order",
+          "ordinal": 16,
+          "type": "integer",
+          "notNull": false,
+          "default": "0",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "created_at",
+          "ordinal": 17,
+          "type": "timestamp without time zone",
+          "notNull": true,
+          "default": "now()",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "portrait_url",
+          "ordinal": 18,
+          "type": "text",
+          "notNull": false,
+          "default": "''::text",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "linked_location_ids",
+          "ordinal": 19,
+          "type": "jsonb",
+          "notNull": false,
+          "default": "'[]'::jsonb",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "linked_plot_thread_ids",
+          "ordinal": 20,
+          "type": "jsonb",
+          "notNull": false,
+          "default": "'[]'::jsonb",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "always_in_context",
+          "ordinal": 21,
+          "type": "boolean",
+          "notNull": false,
+          "default": "true",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "soul_id",
+          "ordinal": 22,
+          "type": "text",
+          "notNull": false,
+          "default": "''::text",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "visual_profile",
+          "ordinal": 23,
+          "type": "text",
+          "notNull": false,
+          "default": "''::text",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "voice_profile",
+          "ordinal": 24,
+          "type": "text",
+          "notNull": false,
+          "default": "''::text",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "voice_id",
+          "ordinal": 25,
+          "type": "text",
+          "notNull": false,
+          "default": "''::text",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "structural_function",
+          "ordinal": 26,
+          "type": "text",
+          "notNull": false,
+          "default": "''::text",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "voice_register",
+          "ordinal": 27,
+          "type": "text",
+          "notNull": false,
+          "default": "''::text",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "voice_compression",
+          "ordinal": 28,
+          "type": "text",
+          "notNull": false,
+          "default": "''::text",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "verbal_tic",
+          "ordinal": 29,
+          "type": "text",
+          "notNull": false,
+          "default": "''::text",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "antagonist_toggle",
+          "ordinal": 30,
+          "type": "boolean",
+          "notNull": false,
+          "default": "false",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "antagonist_type",
+          "ordinal": 31,
+          "type": "text",
+          "notNull": false,
+          "default": "''::text",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "self_justification_pattern",
+          "ordinal": 32,
+          "type": "text",
+          "notNull": false,
+          "default": "''::text",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "moral_foundation_profile",
+          "ordinal": 33,
+          "type": "text",
+          "notNull": false,
+          "default": "''::text",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "kinesics_baseline",
+          "ordinal": 34,
+          "type": "text",
+          "notNull": false,
+          "default": "''::text",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "kinesics_micro",
+          "ordinal": 35,
+          "type": "text",
+          "notNull": false,
+          "default": "''::text",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "kinesics_idiosyncrasy",
+          "ordinal": 36,
+          "type": "text",
+          "notNull": false,
+          "default": "''::text",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "proxemics_culture",
+          "ordinal": 37,
+          "type": "text",
+          "notNull": false,
+          "default": "''::text",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "proxemics_intimate_list",
+          "ordinal": 38,
+          "type": "text",
+          "notNull": false,
+          "default": "''::text",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "proxemics_violation_response",
+          "ordinal": 39,
+          "type": "text",
+          "notNull": false,
+          "default": "''::text",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "paralanguage_baseline",
+          "ordinal": 40,
+          "type": "text",
+          "notNull": false,
+          "default": "''::text",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "paralanguage_stress_degradation",
+          "ordinal": 41,
+          "type": "text",
+          "notNull": false,
+          "default": "''::text",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "paralanguage_signature_sound",
+          "ordinal": 42,
+          "type": "text",
+          "notNull": false,
+          "default": "''::text",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "haptics_touch_level",
+          "ordinal": 43,
+          "type": "text",
+          "notNull": false,
+          "default": "''::text",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "haptics_trauma_modifier",
+          "ordinal": 44,
+          "type": "text",
+          "notNull": false,
+          "default": "''::text",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "chronemics_time_type",
+          "ordinal": 45,
+          "type": "text",
+          "notNull": false,
+          "default": "''::text",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "chronemics_lateness",
+          "ordinal": 46,
+          "type": "text",
+          "notNull": false,
+          "default": "''::text",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "oculesics_default",
+          "ordinal": 47,
+          "type": "text",
+          "notNull": false,
+          "default": "''::text",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "oculesics_deception",
+          "ordinal": 48,
+          "type": "text",
+          "notNull": false,
+          "default": "''::text",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "objectics_signature",
+          "ordinal": 49,
+          "type": "text",
+          "notNull": false,
+          "default": "''::text",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "appearance_signature",
+          "ordinal": 50,
+          "type": "text",
+          "notNull": false,
+          "default": "''::text",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "appearance_trajectory",
+          "ordinal": 51,
+          "type": "text",
+          "notNull": false,
+          "default": "''::text",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "native_language",
+          "ordinal": 52,
+          "type": "text",
+          "notNull": false,
+          "default": "''::text",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "acquired_languages",
+          "ordinal": 53,
+          "type": "text",
+          "notNull": false,
+          "default": "''::text",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "dominant_language_context",
+          "ordinal": 54,
+          "type": "text",
+          "notNull": false,
+          "default": "''::text",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "language_loss_history",
+          "ordinal": 55,
+          "type": "text",
+          "notNull": false,
+          "default": "''::text",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "accent_profile",
+          "ordinal": 56,
+          "type": "text",
+          "notNull": false,
+          "default": "''::text",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "reversion_trigger",
+          "ordinal": 57,
+          "type": "text",
+          "notNull": false,
+          "default": "''::text",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "register_default",
+          "ordinal": 58,
+          "type": "text",
+          "notNull": false,
+          "default": "''::text",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "register_range",
+          "ordinal": 59,
+          "type": "text",
+          "notNull": false,
+          "default": "''::text",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "code_switching_triggers",
+          "ordinal": 60,
+          "type": "text",
+          "notNull": false,
+          "default": "''::text",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "idiolect_fingerprint",
+          "ordinal": 61,
+          "type": "text",
+          "notNull": false,
+          "default": "''::text",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "root_wound",
+          "ordinal": 62,
+          "type": "text",
+          "notNull": false,
+          "default": "''::text",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "hamartia",
+          "ordinal": 63,
+          "type": "text",
+          "notNull": false,
+          "default": "''::text",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "significant_flaws",
+          "ordinal": 64,
+          "type": "jsonb",
+          "notNull": false,
+          "default": "'[]'::jsonb",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "cognitive_bias",
+          "ordinal": 65,
+          "type": "text",
+          "notNull": false,
+          "default": "''::text",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "blind_spot",
+          "ordinal": 66,
+          "type": "text",
+          "notNull": false,
+          "default": "''::text",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "strength_branch",
+          "ordinal": 67,
+          "type": "text",
+          "notNull": false,
+          "default": "''::text",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "compensation_mode",
+          "ordinal": 68,
+          "type": "text",
+          "notNull": false,
+          "default": "''::text",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "compensation_behavior",
+          "ordinal": 69,
+          "type": "text",
+          "notNull": false,
+          "default": "''::text",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "compensation_trigger",
+          "ordinal": 70,
+          "type": "text",
+          "notNull": false,
+          "default": "''::text",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "flaw_arc_mode",
+          "ordinal": 71,
+          "type": "text",
+          "notNull": false,
+          "default": "''::text",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "disability_profile",
+          "ordinal": 72,
+          "type": "text",
+          "notNull": false,
+          "default": "''::text",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "skills",
+          "ordinal": 73,
+          "type": "jsonb",
+          "notNull": false,
+          "default": "'[]'::jsonb",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "knowledge_map",
+          "ordinal": 74,
+          "type": "jsonb",
+          "notNull": false,
+          "default": "'{}'::jsonb",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "intelligence_profile",
+          "ordinal": 75,
+          "type": "jsonb",
+          "notNull": false,
+          "default": "'{}'::jsonb",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "cultural_worldview",
+          "ordinal": 76,
+          "type": "text",
+          "notNull": false,
+          "default": "''::text",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "character_want",
+          "ordinal": 77,
+          "type": "text",
+          "notNull": false,
+          "default": "''::text",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "character_need",
+          "ordinal": 78,
+          "type": "text",
+          "notNull": false,
+          "default": "''::text",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "contradiction",
+          "ordinal": 79,
+          "type": "text",
+          "notNull": false,
+          "default": "''::text",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "narrator_blind_spot",
+          "ordinal": 80,
+          "type": "text",
+          "notNull": false,
+          "default": "''::text",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "first_impression_note",
+          "ordinal": 81,
+          "type": "text",
+          "notNull": false,
+          "default": "''::text",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "context_visibility",
+          "ordinal": 82,
+          "type": "character varying(20)",
+          "notNull": false,
+          "default": "'always'::character varying",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "updated_at",
+          "ordinal": 83,
+          "type": "timestamp without time zone",
+          "notNull": true,
+          "default": "now()",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "embedding",
+          "ordinal": 84,
+          "type": "vector(1536)",
+          "notNull": false,
+          "default": null,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "soul_id_training_job_id",
+          "ordinal": 85,
+          "type": "text",
+          "notNull": false,
+          "default": "''::text",
+          "identity": "",
+          "generated": ""
+        }
+      ],
+      "primaryKey": [
+        "id"
+      ],
+      "uniqueIndexes": [],
+      "foreignKeys": [
+        {
+          "name": "characters_project_id_projects_id_fk",
+          "columns": [
+            "project_id"
+          ],
+          "references": {
+            "table": "projects",
+            "columns": [
+              "id"
+            ]
+          },
+          "onDelete": "CASCADE",
+          "onUpdate": "NO ACTION"
+        }
+      ]
+    },
+    {
+      "name": "comic_pages",
+      "columnCount": 6,
+      "columns": [
+        {
+          "name": "id",
+          "ordinal": 1,
+          "type": "uuid",
+          "notNull": true,
+          "default": "gen_random_uuid()",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "project_id",
+          "ordinal": 2,
+          "type": "uuid",
+          "notNull": true,
+          "default": null,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "chapter_id",
+          "ordinal": 3,
+          "type": "uuid",
+          "notNull": true,
+          "default": null,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "page_number",
+          "ordinal": 4,
+          "type": "integer",
+          "notNull": true,
+          "default": "1",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "art_style",
+          "ordinal": 5,
+          "type": "text",
+          "notNull": true,
+          "default": "'manga'::text",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "created_at",
+          "ordinal": 6,
+          "type": "timestamp without time zone",
+          "notNull": true,
+          "default": "now()",
+          "identity": "",
+          "generated": ""
+        }
+      ],
+      "primaryKey": [
+        "id"
+      ],
+      "uniqueIndexes": [],
+      "foreignKeys": [
+        {
+          "name": "comic_pages_chapter_id_chapters_id_fk",
+          "columns": [
+            "chapter_id"
+          ],
+          "references": {
+            "table": "chapters",
+            "columns": [
+              "id"
+            ]
+          },
+          "onDelete": "CASCADE",
+          "onUpdate": "NO ACTION"
+        },
+        {
+          "name": "comic_pages_project_id_projects_id_fk",
+          "columns": [
+            "project_id"
+          ],
+          "references": {
+            "table": "projects",
+            "columns": [
+              "id"
+            ]
+          },
+          "onDelete": "CASCADE",
+          "onUpdate": "NO ACTION"
+        }
+      ]
+    },
+    {
+      "name": "comic_panels",
+      "columnCount": 20,
+      "columns": [
+        {
+          "name": "id",
+          "ordinal": 1,
+          "type": "uuid",
+          "notNull": true,
+          "default": "gen_random_uuid()",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "page_id",
+          "ordinal": 2,
+          "type": "uuid",
+          "notNull": true,
+          "default": null,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "project_id",
+          "ordinal": 3,
+          "type": "uuid",
+          "notNull": true,
+          "default": null,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "panel_index",
+          "ordinal": 4,
+          "type": "integer",
+          "notNull": true,
+          "default": null,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "image_url",
+          "ordinal": 5,
+          "type": "text",
+          "notNull": true,
+          "default": null,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "panel_prompt",
+          "ordinal": 6,
+          "type": "text",
+          "notNull": true,
+          "default": null,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "reference_image_url",
+          "ordinal": 7,
+          "type": "text",
+          "notNull": false,
+          "default": "''::text",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "art_style_preset",
+          "ordinal": 8,
+          "type": "text",
+          "notNull": false,
+          "default": "''::text",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "dialogue",
+          "ordinal": 9,
+          "type": "text",
+          "notNull": false,
+          "default": "''::text",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "caption",
+          "ordinal": 10,
+          "type": "text",
+          "notNull": false,
+          "default": "''::text",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "speaker_name",
+          "ordinal": 11,
+          "type": "text",
+          "notNull": false,
+          "default": "''::text",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "created_at",
+          "ordinal": 12,
+          "type": "timestamp without time zone",
+          "notNull": true,
+          "default": "now()",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "lettered_image_url",
+          "ordinal": 13,
+          "type": "text",
+          "notNull": false,
+          "default": "''::text",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "bubble_type",
+          "ordinal": 14,
+          "type": "character varying(20)",
+          "notNull": false,
+          "default": "'speech'::character varying",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "quality_score",
+          "ordinal": 15,
+          "type": "real",
+          "notNull": false,
+          "default": null,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "quality_weakest",
+          "ordinal": 16,
+          "type": "character varying(30)",
+          "notNull": false,
+          "default": null,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "quality_note",
+          "ordinal": 17,
+          "type": "text",
+          "notNull": false,
+          "default": "''::text",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "review_status",
+          "ordinal": 18,
+          "type": "character varying(12)",
+          "notNull": true,
+          "default": "'draft'::character varying",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "candidate_image_urls",
+          "ordinal": 19,
+          "type": "jsonb",
+          "notNull": false,
+          "default": "'[]'::jsonb",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "character_name",
+          "ordinal": 20,
+          "type": "text",
+          "notNull": false,
+          "default": "''::text",
+          "identity": "",
+          "generated": ""
+        }
+      ],
+      "primaryKey": [
+        "id"
+      ],
+      "uniqueIndexes": [],
+      "foreignKeys": [
+        {
+          "name": "comic_panels_page_id_comic_pages_id_fk",
+          "columns": [
+            "page_id"
+          ],
+          "references": {
+            "table": "comic_pages",
+            "columns": [
+              "id"
+            ]
+          },
+          "onDelete": "CASCADE",
+          "onUpdate": "NO ACTION"
+        },
+        {
+          "name": "comic_panels_project_id_projects_id_fk",
+          "columns": [
+            "project_id"
+          ],
+          "references": {
+            "table": "projects",
+            "columns": [
+              "id"
+            ]
+          },
+          "onDelete": "CASCADE",
+          "onUpdate": "NO ACTION"
+        }
+      ]
+    },
+    {
+      "name": "creator_bibles",
+      "columnCount": 18,
+      "columns": [
+        {
+          "name": "id",
+          "ordinal": 1,
+          "type": "uuid",
+          "notNull": true,
+          "default": "gen_random_uuid()",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "project_id",
+          "ordinal": 2,
+          "type": "uuid",
+          "notNull": true,
+          "default": null,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "channel_name",
+          "ordinal": 3,
+          "type": "text",
+          "notNull": false,
+          "default": "''::text",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "niche",
+          "ordinal": 4,
+          "type": "text",
+          "notNull": false,
+          "default": "''::text",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "audience_age",
+          "ordinal": 5,
+          "type": "text",
+          "notNull": false,
+          "default": "''::text",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "audience_interests",
+          "ordinal": 6,
+          "type": "text",
+          "notNull": false,
+          "default": "''::text",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "audience_pain_points",
+          "ordinal": 7,
+          "type": "text",
+          "notNull": false,
+          "default": "''::text",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "channel_voice",
+          "ordinal": 8,
+          "type": "text",
+          "notNull": false,
+          "default": "''::text",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "content_pillars",
+          "ordinal": 9,
+          "type": "jsonb",
+          "notNull": false,
+          "default": "'[]'::jsonb",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "competitor_notes",
+          "ordinal": 10,
+          "type": "text",
+          "notNull": false,
+          "default": "''::text",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "default_cta",
+          "ordinal": 11,
+          "type": "text",
+          "notNull": false,
+          "default": "''::text",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "created_at",
+          "ordinal": 12,
+          "type": "timestamp without time zone",
+          "notNull": true,
+          "default": "now()",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "updated_at",
+          "ordinal": 13,
+          "type": "timestamp without time zone",
+          "notNull": true,
+          "default": "now()",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "cohost_voice",
+          "ordinal": 14,
+          "type": "character varying(50)",
+          "notNull": false,
+          "default": "'none'::character varying",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "hook_memory",
+          "ordinal": 15,
+          "type": "jsonb",
+          "notNull": false,
+          "default": "'[]'::jsonb",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "tiktok_handle",
+          "ordinal": 16,
+          "type": "text",
+          "notNull": false,
+          "default": "''::text",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "tiktok_niche",
+          "ordinal": 17,
+          "type": "text",
+          "notNull": false,
+          "default": "''::text",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "sound_strategy",
+          "ordinal": 18,
+          "type": "text",
+          "notNull": false,
+          "default": "''::text",
+          "identity": "",
+          "generated": ""
+        }
+      ],
+      "primaryKey": [
+        "id"
+      ],
+      "uniqueIndexes": [
+        "CREATE UNIQUE INDEX creator_bibles_project_id_unique ON public.creator_bibles USING btree (project_id)"
+      ],
+      "foreignKeys": [
+        {
+          "name": "creator_bibles_project_id_projects_id_fk",
+          "columns": [
+            "project_id"
+          ],
+          "references": {
+            "table": "projects",
+            "columns": [
+              "id"
+            ]
+          },
+          "onDelete": "CASCADE",
+          "onUpdate": "NO ACTION"
+        }
+      ]
+    },
+    {
+      "name": "editor_notes",
+      "columnCount": 12,
+      "columns": [
+        {
+          "name": "id",
+          "ordinal": 1,
+          "type": "uuid",
+          "notNull": true,
+          "default": "gen_random_uuid()",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "project_id",
+          "ordinal": 2,
+          "type": "uuid",
+          "notNull": true,
+          "default": null,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "chapter_id",
+          "ordinal": 3,
+          "type": "uuid",
+          "notNull": false,
+          "default": null,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "type",
+          "ordinal": 4,
+          "type": "character varying(12)",
+          "notNull": true,
+          "default": "'issue'::character varying",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "severity",
+          "ordinal": 5,
+          "type": "character varying(8)",
+          "notNull": true,
+          "default": "'medium'::character varying",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "category",
+          "ordinal": 6,
+          "type": "character varying(24)",
+          "notNull": true,
+          "default": "'general'::character varying",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "message",
+          "ordinal": 7,
+          "type": "text",
+          "notNull": true,
+          "default": null,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "suggested_fix",
+          "ordinal": 8,
+          "type": "text",
+          "notNull": false,
+          "default": "''::text",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "status",
+          "ordinal": 9,
+          "type": "character varying(10)",
+          "notNull": true,
+          "default": "'open'::character varying",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "source",
+          "ordinal": 10,
+          "type": "character varying(16)",
+          "notNull": true,
+          "default": "'manual'::character varying",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "created_at",
+          "ordinal": 11,
+          "type": "timestamp without time zone",
+          "notNull": true,
+          "default": "now()",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "updated_at",
+          "ordinal": 12,
+          "type": "timestamp without time zone",
+          "notNull": true,
+          "default": "now()",
+          "identity": "",
+          "generated": ""
+        }
+      ],
+      "primaryKey": [
+        "id"
+      ],
+      "uniqueIndexes": [],
+      "foreignKeys": [
+        {
+          "name": "editor_notes_chapter_id_chapters_id_fk",
+          "columns": [
+            "chapter_id"
+          ],
+          "references": {
+            "table": "chapters",
+            "columns": [
+              "id"
+            ]
+          },
+          "onDelete": "CASCADE",
+          "onUpdate": "NO ACTION"
+        },
+        {
+          "name": "editor_notes_project_id_projects_id_fk",
+          "columns": [
+            "project_id"
+          ],
+          "references": {
+            "table": "projects",
+            "columns": [
+              "id"
+            ]
+          },
+          "onDelete": "CASCADE",
+          "onUpdate": "NO ACTION"
+        }
+      ]
+    },
+    {
+      "name": "email_verification_tokens",
+      "columnCount": 6,
+      "columns": [
+        {
+          "name": "id",
+          "ordinal": 1,
+          "type": "uuid",
+          "notNull": true,
+          "default": "gen_random_uuid()",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "user_id",
+          "ordinal": 2,
+          "type": "uuid",
+          "notNull": true,
+          "default": null,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "token",
+          "ordinal": 3,
+          "type": "text",
+          "notNull": true,
+          "default": null,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "expires_at",
+          "ordinal": 4,
+          "type": "timestamp without time zone",
+          "notNull": true,
+          "default": null,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "used_at",
+          "ordinal": 5,
+          "type": "timestamp without time zone",
+          "notNull": false,
+          "default": null,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "created_at",
+          "ordinal": 6,
+          "type": "timestamp without time zone",
+          "notNull": true,
+          "default": "now()",
+          "identity": "",
+          "generated": ""
+        }
+      ],
+      "primaryKey": [
+        "id"
+      ],
+      "uniqueIndexes": [
+        "CREATE UNIQUE INDEX email_verification_tokens_token_unique ON public.email_verification_tokens USING btree (token)"
+      ],
+      "foreignKeys": [
+        {
+          "name": "email_verification_tokens_user_id_users_id_fk",
+          "columns": [
+            "user_id"
+          ],
+          "references": {
+            "table": "users",
+            "columns": [
+              "id"
+            ]
+          },
+          "onDelete": "CASCADE",
+          "onUpdate": "NO ACTION"
+        }
+      ]
+    },
+    {
+      "name": "generations",
+      "columnCount": 9,
+      "columns": [
+        {
+          "name": "id",
+          "ordinal": 1,
+          "type": "uuid",
+          "notNull": true,
+          "default": "gen_random_uuid()",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "project_id",
+          "ordinal": 2,
+          "type": "uuid",
+          "notNull": false,
+          "default": null,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "chapter_id",
+          "ordinal": 3,
+          "type": "uuid",
+          "notNull": false,
+          "default": null,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "mode",
+          "ordinal": 4,
+          "type": "character varying(50)",
+          "notNull": true,
+          "default": null,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "prompt",
+          "ordinal": 5,
+          "type": "text",
+          "notNull": true,
+          "default": null,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "output",
+          "ordinal": 6,
+          "type": "text",
+          "notNull": true,
+          "default": null,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "model",
+          "ordinal": 7,
+          "type": "character varying(100)",
+          "notNull": false,
+          "default": "'claude-sonnet-5'::character varying",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "tokens_used",
+          "ordinal": 8,
+          "type": "integer",
+          "notNull": false,
+          "default": null,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "created_at",
+          "ordinal": 9,
+          "type": "timestamp without time zone",
+          "notNull": true,
+          "default": "now()",
+          "identity": "",
+          "generated": ""
+        }
+      ],
+      "primaryKey": [
+        "id"
+      ],
+      "uniqueIndexes": [],
+      "foreignKeys": [
+        {
+          "name": "generations_chapter_id_chapters_id_fk",
+          "columns": [
+            "chapter_id"
+          ],
+          "references": {
+            "table": "chapters",
+            "columns": [
+              "id"
+            ]
+          },
+          "onDelete": "SET NULL",
+          "onUpdate": "NO ACTION"
+        },
+        {
+          "name": "generations_project_id_projects_id_fk",
+          "columns": [
+            "project_id"
+          ],
+          "references": {
+            "table": "projects",
+            "columns": [
+              "id"
+            ]
+          },
+          "onDelete": "CASCADE",
+          "onUpdate": "NO ACTION"
+        }
+      ]
+    },
+    {
+      "name": "locations",
+      "columnCount": 13,
+      "columns": [
+        {
+          "name": "id",
+          "ordinal": 1,
+          "type": "uuid",
+          "notNull": true,
+          "default": "gen_random_uuid()",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "project_id",
+          "ordinal": 2,
+          "type": "uuid",
+          "notNull": true,
+          "default": null,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "name",
+          "ordinal": 3,
+          "type": "text",
+          "notNull": true,
+          "default": null,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "description",
+          "ordinal": 4,
+          "type": "text",
+          "notNull": false,
+          "default": "''::text",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "atmosphere",
+          "ordinal": 5,
+          "type": "text",
+          "notNull": false,
+          "default": "''::text",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "history",
+          "ordinal": 6,
+          "type": "text",
+          "notNull": false,
+          "default": "''::text",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "sensory_details",
+          "ordinal": 7,
+          "type": "text",
+          "notNull": false,
+          "default": "''::text",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "sort_order",
+          "ordinal": 8,
+          "type": "integer",
+          "notNull": false,
+          "default": "0",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "created_at",
+          "ordinal": 9,
+          "type": "timestamp without time zone",
+          "notNull": true,
+          "default": "now()",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "linked_character_ids",
+          "ordinal": 10,
+          "type": "jsonb",
+          "notNull": false,
+          "default": "'[]'::jsonb",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "always_in_context",
+          "ordinal": 11,
+          "type": "boolean",
+          "notNull": false,
+          "default": "true",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "updated_at",
+          "ordinal": 12,
+          "type": "timestamp without time zone",
+          "notNull": true,
+          "default": "now()",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "embedding",
+          "ordinal": 13,
+          "type": "vector(1536)",
+          "notNull": false,
+          "default": null,
+          "identity": "",
+          "generated": ""
+        }
+      ],
+      "primaryKey": [
+        "id"
+      ],
+      "uniqueIndexes": [],
+      "foreignKeys": [
+        {
+          "name": "locations_project_id_projects_id_fk",
+          "columns": [
+            "project_id"
+          ],
+          "references": {
+            "table": "projects",
+            "columns": [
+              "id"
+            ]
+          },
+          "onDelete": "CASCADE",
+          "onUpdate": "NO ACTION"
+        }
+      ]
+    },
+    {
+      "name": "password_reset_tokens",
+      "columnCount": 6,
+      "columns": [
+        {
+          "name": "id",
+          "ordinal": 1,
+          "type": "uuid",
+          "notNull": true,
+          "default": "gen_random_uuid()",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "user_id",
+          "ordinal": 2,
+          "type": "uuid",
+          "notNull": true,
+          "default": null,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "token",
+          "ordinal": 3,
+          "type": "text",
+          "notNull": true,
+          "default": null,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "expires_at",
+          "ordinal": 4,
+          "type": "timestamp without time zone",
+          "notNull": true,
+          "default": null,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "used_at",
+          "ordinal": 5,
+          "type": "timestamp without time zone",
+          "notNull": false,
+          "default": null,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "created_at",
+          "ordinal": 6,
+          "type": "timestamp without time zone",
+          "notNull": true,
+          "default": "now()",
+          "identity": "",
+          "generated": ""
+        }
+      ],
+      "primaryKey": [
+        "id"
+      ],
+      "uniqueIndexes": [
+        "CREATE UNIQUE INDEX password_reset_tokens_token_unique ON public.password_reset_tokens USING btree (token)"
+      ],
+      "foreignKeys": [
+        {
+          "name": "password_reset_tokens_user_id_users_id_fk",
+          "columns": [
+            "user_id"
+          ],
+          "references": {
+            "table": "users",
+            "columns": [
+              "id"
+            ]
+          },
+          "onDelete": "CASCADE",
+          "onUpdate": "NO ACTION"
+        }
+      ]
+    },
+    {
+      "name": "platform_events",
+      "columnCount": 5,
+      "columns": [
+        {
+          "name": "id",
+          "ordinal": 1,
+          "type": "uuid",
+          "notNull": true,
+          "default": "gen_random_uuid()",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "user_id",
+          "ordinal": 2,
+          "type": "uuid",
+          "notNull": false,
+          "default": null,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "event",
+          "ordinal": 3,
+          "type": "character varying(60)",
+          "notNull": true,
+          "default": null,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "properties",
+          "ordinal": 4,
+          "type": "jsonb",
+          "notNull": false,
+          "default": "'{}'::jsonb",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "created_at",
+          "ordinal": 5,
+          "type": "timestamp without time zone",
+          "notNull": true,
+          "default": "now()",
+          "identity": "",
+          "generated": ""
+        }
+      ],
+      "primaryKey": [
+        "id"
+      ],
+      "uniqueIndexes": [],
+      "foreignKeys": [
+        {
+          "name": "platform_events_user_id_users_id_fk",
+          "columns": [
+            "user_id"
+          ],
+          "references": {
+            "table": "users",
+            "columns": [
+              "id"
+            ]
+          },
+          "onDelete": "SET NULL",
+          "onUpdate": "NO ACTION"
+        }
+      ]
+    },
+    {
+      "name": "plot_threads",
+      "columnCount": 13,
+      "columns": [
+        {
+          "name": "id",
+          "ordinal": 1,
+          "type": "uuid",
+          "notNull": true,
+          "default": "gen_random_uuid()",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "project_id",
+          "ordinal": 2,
+          "type": "uuid",
+          "notNull": true,
+          "default": null,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "name",
+          "ordinal": 3,
+          "type": "text",
+          "notNull": true,
+          "default": null,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "description",
+          "ordinal": 4,
+          "type": "text",
+          "notNull": false,
+          "default": "''::text",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "status",
+          "ordinal": 5,
+          "type": "character varying(20)",
+          "notNull": false,
+          "default": "'Active'::character varying",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "stakes",
+          "ordinal": 6,
+          "type": "text",
+          "notNull": false,
+          "default": "''::text",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "connections",
+          "ordinal": 7,
+          "type": "text",
+          "notNull": false,
+          "default": "''::text",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "sort_order",
+          "ordinal": 8,
+          "type": "integer",
+          "notNull": false,
+          "default": "0",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "created_at",
+          "ordinal": 9,
+          "type": "timestamp without time zone",
+          "notNull": true,
+          "default": "now()",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "always_in_context",
+          "ordinal": 10,
+          "type": "boolean",
+          "notNull": false,
+          "default": "true",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "last_mentioned_chapter_id",
+          "ordinal": 11,
+          "type": "uuid",
+          "notNull": false,
+          "default": null,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "starvation_warning",
+          "ordinal": 12,
+          "type": "boolean",
+          "notNull": false,
+          "default": "false",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "updated_at",
+          "ordinal": 13,
+          "type": "timestamp without time zone",
+          "notNull": true,
+          "default": "now()",
+          "identity": "",
+          "generated": ""
+        }
+      ],
+      "primaryKey": [
+        "id"
+      ],
+      "uniqueIndexes": [],
+      "foreignKeys": [
+        {
+          "name": "plot_threads_project_id_projects_id_fk",
+          "columns": [
+            "project_id"
+          ],
+          "references": {
+            "table": "projects",
+            "columns": [
+              "id"
+            ]
+          },
+          "onDelete": "CASCADE",
+          "onUpdate": "NO ACTION"
+        }
+      ]
+    },
+    {
+      "name": "production_shots",
+      "columnCount": 44,
+      "columns": [
+        {
+          "name": "id",
+          "ordinal": 1,
+          "type": "uuid",
+          "notNull": true,
+          "default": "gen_random_uuid()",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "project_id",
+          "ordinal": 2,
+          "type": "uuid",
+          "notNull": true,
+          "default": null,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "chapter_id",
+          "ordinal": 3,
+          "type": "uuid",
+          "notNull": false,
+          "default": null,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "scene_number",
+          "ordinal": 4,
+          "type": "integer",
+          "notNull": true,
+          "default": "1",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "shot_number",
+          "ordinal": 5,
+          "type": "integer",
+          "notNull": true,
+          "default": "1",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "shot_type",
+          "ordinal": 6,
+          "type": "text",
+          "notNull": false,
+          "default": "'Medium shot'::text",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "camera_movement",
+          "ordinal": 7,
+          "type": "text",
+          "notNull": false,
+          "default": "'Static'::text",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "lighting_mood",
+          "ordinal": 8,
+          "type": "text",
+          "notNull": false,
+          "default": "'Golden hour'::text",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "time_of_day",
+          "ordinal": 9,
+          "type": "text",
+          "notNull": false,
+          "default": "'Afternoon'::text",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "subject",
+          "ordinal": 10,
+          "type": "text",
+          "notNull": false,
+          "default": "''::text",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "action",
+          "ordinal": 11,
+          "type": "text",
+          "notNull": false,
+          "default": "''::text",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "location",
+          "ordinal": 12,
+          "type": "text",
+          "notNull": false,
+          "default": "''::text",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "mood",
+          "ordinal": 13,
+          "type": "text",
+          "notNull": false,
+          "default": "''::text",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "primary_character_id",
+          "ordinal": 14,
+          "type": "uuid",
+          "notNull": false,
+          "default": null,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "soul_prompt",
+          "ordinal": 15,
+          "type": "text",
+          "notNull": false,
+          "default": "''::text",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "video_prompt",
+          "ordinal": 16,
+          "type": "text",
+          "notNull": false,
+          "default": "''::text",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "dialogue",
+          "ordinal": 17,
+          "type": "text",
+          "notNull": false,
+          "default": "''::text",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "speaker",
+          "ordinal": 18,
+          "type": "text",
+          "notNull": false,
+          "default": "''::text",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "preview_image_url",
+          "ordinal": 19,
+          "type": "text",
+          "notNull": false,
+          "default": "''::text",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "animated_video_url",
+          "ordinal": 20,
+          "type": "text",
+          "notNull": false,
+          "default": "''::text",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "final_video_url",
+          "ordinal": 21,
+          "type": "text",
+          "notNull": false,
+          "default": "''::text",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "generation_status",
+          "ordinal": 22,
+          "type": "character varying(30)",
+          "notNull": false,
+          "default": "'idle'::character varying",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "higgsfield_job_id",
+          "ordinal": 23,
+          "type": "text",
+          "notNull": false,
+          "default": "''::text",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "sort_order",
+          "ordinal": 24,
+          "type": "integer",
+          "notNull": false,
+          "default": "0",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "created_at",
+          "ordinal": 25,
+          "type": "timestamp without time zone",
+          "notNull": true,
+          "default": "now()",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "updated_at",
+          "ordinal": 26,
+          "type": "timestamp without time zone",
+          "notNull": true,
+          "default": "now()",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "camera_preset",
+          "ordinal": 27,
+          "type": "text",
+          "notNull": false,
+          "default": "''::text",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "viral_preset",
+          "ordinal": 28,
+          "type": "text",
+          "notNull": false,
+          "default": "''::text",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "character_emotion",
+          "ordinal": 29,
+          "type": "text",
+          "notNull": false,
+          "default": "''::text",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "focal_length",
+          "ordinal": 30,
+          "type": "text",
+          "notNull": false,
+          "default": "''::text",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "duration",
+          "ordinal": 31,
+          "type": "integer",
+          "notNull": false,
+          "default": "5",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "aspect_ratio",
+          "ordinal": 32,
+          "type": "text",
+          "notNull": false,
+          "default": "'16:9'::text",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "generated_video_url",
+          "ordinal": 33,
+          "type": "text",
+          "notNull": false,
+          "default": "''::text",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "multi_shot_script",
+          "ordinal": 34,
+          "type": "text",
+          "notNull": false,
+          "default": "''::text",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "scene_final_video_url",
+          "ordinal": 35,
+          "type": "text",
+          "notNull": false,
+          "default": "''::text",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "quality_score",
+          "ordinal": 36,
+          "type": "real",
+          "notNull": false,
+          "default": null,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "quality_weakest",
+          "ordinal": 37,
+          "type": "character varying(30)",
+          "notNull": false,
+          "default": null,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "quality_note",
+          "ordinal": 38,
+          "type": "text",
+          "notNull": false,
+          "default": "''::text",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "review_status",
+          "ordinal": 39,
+          "type": "character varying(12)",
+          "notNull": true,
+          "default": "'draft'::character varying",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "candidate_preview_urls",
+          "ordinal": 40,
+          "type": "jsonb",
+          "notNull": false,
+          "default": "'[]'::jsonb",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "trim_start_sec",
+          "ordinal": 41,
+          "type": "real",
+          "notNull": false,
+          "default": null,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "trim_end_sec",
+          "ordinal": 42,
+          "type": "real",
+          "notNull": false,
+          "default": null,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "scene_audio_track_url",
+          "ordinal": 43,
+          "type": "text",
+          "notNull": false,
+          "default": "''::text",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "generation_error",
+          "ordinal": 44,
+          "type": "text",
+          "notNull": false,
+          "default": "''::text",
+          "identity": "",
+          "generated": ""
+        }
+      ],
+      "primaryKey": [
+        "id"
+      ],
+      "uniqueIndexes": [],
+      "foreignKeys": [
+        {
+          "name": "production_shots_chapter_id_chapters_id_fk",
+          "columns": [
+            "chapter_id"
+          ],
+          "references": {
+            "table": "chapters",
+            "columns": [
+              "id"
+            ]
+          },
+          "onDelete": "SET NULL",
+          "onUpdate": "NO ACTION"
+        },
+        {
+          "name": "production_shots_primary_character_id_characters_id_fk",
+          "columns": [
+            "primary_character_id"
+          ],
+          "references": {
+            "table": "characters",
+            "columns": [
+              "id"
+            ]
+          },
+          "onDelete": "SET NULL",
+          "onUpdate": "NO ACTION"
+        },
+        {
+          "name": "production_shots_project_id_projects_id_fk",
+          "columns": [
+            "project_id"
+          ],
+          "references": {
+            "table": "projects",
+            "columns": [
+              "id"
+            ]
+          },
+          "onDelete": "CASCADE",
+          "onUpdate": "NO ACTION"
+        }
+      ]
+    },
+    {
+      "name": "project_character_states",
+      "columnCount": 8,
+      "columns": [
+        {
+          "name": "id",
+          "ordinal": 1,
+          "type": "uuid",
+          "notNull": true,
+          "default": "gen_random_uuid()",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "project_id",
+          "ordinal": 2,
+          "type": "uuid",
+          "notNull": true,
+          "default": null,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "universe_char_id",
+          "ordinal": 3,
+          "type": "uuid",
+          "notNull": true,
+          "default": null,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "knowledge_override",
+          "ordinal": 4,
+          "type": "jsonb",
+          "notNull": false,
+          "default": null,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "emotional_state",
+          "ordinal": 5,
+          "type": "text",
+          "notNull": false,
+          "default": null,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "state_notes",
+          "ordinal": 6,
+          "type": "text",
+          "notNull": false,
+          "default": null,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "is_deceased",
+          "ordinal": 7,
+          "type": "boolean",
+          "notNull": false,
+          "default": "false",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "created_at",
+          "ordinal": 8,
+          "type": "timestamp without time zone",
+          "notNull": true,
+          "default": "now()",
+          "identity": "",
+          "generated": ""
+        }
+      ],
+      "primaryKey": [
+        "id"
+      ],
+      "uniqueIndexes": [],
+      "foreignKeys": [
+        {
+          "name": "project_character_states_project_id_projects_id_fk",
+          "columns": [
+            "project_id"
+          ],
+          "references": {
+            "table": "projects",
+            "columns": [
+              "id"
+            ]
+          },
+          "onDelete": "CASCADE",
+          "onUpdate": "NO ACTION"
+        },
+        {
+          "name": "project_character_states_universe_char_id_universe_characters_i",
+          "columns": [
+            "universe_char_id"
+          ],
+          "references": {
+            "table": "universe_characters",
+            "columns": [
+              "id"
+            ]
+          },
+          "onDelete": "CASCADE",
+          "onUpdate": "NO ACTION"
+        }
+      ]
+    },
+    {
+      "name": "projects",
+      "columnCount": 27,
+      "columns": [
+        {
+          "name": "id",
+          "ordinal": 1,
+          "type": "uuid",
+          "notNull": true,
+          "default": "gen_random_uuid()",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "user_id",
+          "ordinal": 2,
+          "type": "uuid",
+          "notNull": true,
+          "default": null,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "name",
+          "ordinal": 3,
+          "type": "text",
+          "notNull": true,
+          "default": "'Untitled Project'::text",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "format",
+          "ordinal": 4,
+          "type": "character varying(50)",
+          "notNull": true,
+          "default": "'Novel'::character varying",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "genres",
+          "ordinal": 5,
+          "type": "jsonb",
+          "notNull": false,
+          "default": "'[]'::jsonb",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "notes",
+          "ordinal": 6,
+          "type": "text",
+          "notNull": false,
+          "default": "''::text",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "created_at",
+          "ordinal": 7,
+          "type": "timestamp without time zone",
+          "notNull": true,
+          "default": "now()",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "updated_at",
+          "ordinal": 8,
+          "type": "timestamp without time zone",
+          "notNull": true,
+          "default": "now()",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "skill_level",
+          "ordinal": 9,
+          "type": "character varying(20)",
+          "notNull": true,
+          "default": "'beginner'::character varying",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "controlling_idea",
+          "ordinal": 10,
+          "type": "text",
+          "notNull": false,
+          "default": "''::text",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "intentional_violations",
+          "ordinal": 11,
+          "type": "jsonb",
+          "notNull": false,
+          "default": "'{}'::jsonb",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "ai_rules",
+          "ordinal": 12,
+          "type": "jsonb",
+          "notNull": false,
+          "default": "'[]'::jsonb",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "is_higgsfield_project",
+          "ordinal": 13,
+          "type": "boolean",
+          "notNull": false,
+          "default": "false",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "narrator_voice",
+          "ordinal": 14,
+          "type": "text",
+          "notNull": false,
+          "default": "''::text",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "narrative_structure",
+          "ordinal": 15,
+          "type": "character varying(30)",
+          "notNull": false,
+          "default": "'linear'::character varying",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "quality_grading_enabled",
+          "ordinal": 16,
+          "type": "boolean",
+          "notNull": false,
+          "default": "false",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "aiisms_check",
+          "ordinal": 17,
+          "type": "boolean",
+          "notNull": false,
+          "default": "false",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "story_type",
+          "ordinal": 18,
+          "type": "character varying(20)",
+          "notNull": false,
+          "default": "'linear'::character varying",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "universe_id",
+          "ordinal": 19,
+          "type": "uuid",
+          "notNull": false,
+          "default": null,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "timeline_sort",
+          "ordinal": 20,
+          "type": "integer",
+          "notNull": false,
+          "default": null,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "phase",
+          "ordinal": 21,
+          "type": "text",
+          "notNull": false,
+          "default": null,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "series_parent_id",
+          "ordinal": 22,
+          "type": "uuid",
+          "notNull": false,
+          "default": null,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "dismissed_guide_ids",
+          "ordinal": 23,
+          "type": "jsonb",
+          "notNull": false,
+          "default": "'[]'::jsonb",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "biggest_challenge",
+          "ordinal": 24,
+          "type": "text",
+          "notNull": false,
+          "default": "''::text",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "ai_initiative",
+          "ordinal": 25,
+          "type": "character varying(20)",
+          "notNull": false,
+          "default": "'Collaborates'::character varying",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "adapted_from_project_id",
+          "ordinal": 26,
+          "type": "uuid",
+          "notNull": false,
+          "default": null,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "density_level",
+          "ordinal": 27,
+          "type": "character varying(10)",
+          "notNull": false,
+          "default": "'standard'::character varying",
+          "identity": "",
+          "generated": ""
+        }
+      ],
+      "primaryKey": [
+        "id"
+      ],
+      "uniqueIndexes": [],
+      "foreignKeys": [
+        {
+          "name": "projects_user_id_users_id_fk",
+          "columns": [
+            "user_id"
+          ],
+          "references": {
+            "table": "users",
+            "columns": [
+              "id"
+            ]
+          },
+          "onDelete": "CASCADE",
+          "onUpdate": "NO ACTION"
+        }
+      ]
+    },
+    {
+      "name": "reader_reactions",
+      "columnCount": 6,
+      "columns": [
+        {
+          "name": "id",
+          "ordinal": 1,
+          "type": "uuid",
+          "notNull": true,
+          "default": "gen_random_uuid()",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "session_id",
+          "ordinal": 2,
+          "type": "uuid",
+          "notNull": true,
+          "default": null,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "chapter_id",
+          "ordinal": 3,
+          "type": "uuid",
+          "notNull": true,
+          "default": null,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "text_offset",
+          "ordinal": 4,
+          "type": "integer",
+          "notNull": true,
+          "default": null,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "reaction_type",
+          "ordinal": 5,
+          "type": "text",
+          "notNull": true,
+          "default": null,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "created_at",
+          "ordinal": 6,
+          "type": "timestamp without time zone",
+          "notNull": true,
+          "default": "now()",
+          "identity": "",
+          "generated": ""
+        }
+      ],
+      "primaryKey": [
+        "id"
+      ],
+      "uniqueIndexes": [],
+      "foreignKeys": [
+        {
+          "name": "reader_reactions_chapter_id_chapters_id_fk",
+          "columns": [
+            "chapter_id"
+          ],
+          "references": {
+            "table": "chapters",
+            "columns": [
+              "id"
+            ]
+          },
+          "onDelete": "CASCADE",
+          "onUpdate": "NO ACTION"
+        },
+        {
+          "name": "reader_reactions_session_id_reader_sessions_id_fk",
+          "columns": [
+            "session_id"
+          ],
+          "references": {
+            "table": "reader_sessions",
+            "columns": [
+              "id"
+            ]
+          },
+          "onDelete": "CASCADE",
+          "onUpdate": "NO ACTION"
+        }
+      ]
+    },
+    {
+      "name": "reader_sessions",
+      "columnCount": 5,
+      "columns": [
+        {
+          "name": "id",
+          "ordinal": 1,
+          "type": "uuid",
+          "notNull": true,
+          "default": "gen_random_uuid()",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "project_id",
+          "ordinal": 2,
+          "type": "uuid",
+          "notNull": true,
+          "default": null,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "token",
+          "ordinal": 3,
+          "type": "text",
+          "notNull": true,
+          "default": null,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "expires_at",
+          "ordinal": 4,
+          "type": "timestamp without time zone",
+          "notNull": true,
+          "default": null,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "created_at",
+          "ordinal": 5,
+          "type": "timestamp without time zone",
+          "notNull": true,
+          "default": "now()",
+          "identity": "",
+          "generated": ""
+        }
+      ],
+      "primaryKey": [
+        "id"
+      ],
+      "uniqueIndexes": [
+        "CREATE UNIQUE INDEX reader_sessions_token_unique ON public.reader_sessions USING btree (token)"
+      ],
+      "foreignKeys": [
+        {
+          "name": "reader_sessions_project_id_projects_id_fk",
+          "columns": [
+            "project_id"
+          ],
+          "references": {
+            "table": "projects",
+            "columns": [
+              "id"
+            ]
+          },
+          "onDelete": "CASCADE",
+          "onUpdate": "NO ACTION"
+        }
+      ]
+    },
+    {
+      "name": "reference_works",
+      "columnCount": 5,
+      "columns": [
+        {
+          "name": "id",
+          "ordinal": 1,
+          "type": "uuid",
+          "notNull": true,
+          "default": "gen_random_uuid()",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "project_id",
+          "ordinal": 2,
+          "type": "uuid",
+          "notNull": true,
+          "default": null,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "title",
+          "ordinal": 3,
+          "type": "text",
+          "notNull": true,
+          "default": null,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "attributes",
+          "ordinal": 4,
+          "type": "jsonb",
+          "notNull": false,
+          "default": "'{}'::jsonb",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "created_at",
+          "ordinal": 5,
+          "type": "timestamp without time zone",
+          "notNull": true,
+          "default": "now()",
+          "identity": "",
+          "generated": ""
+        }
+      ],
+      "primaryKey": [
+        "id"
+      ],
+      "uniqueIndexes": [],
+      "foreignKeys": [
+        {
+          "name": "reference_works_project_id_projects_id_fk",
+          "columns": [
+            "project_id"
+          ],
+          "references": {
+            "table": "projects",
+            "columns": [
+              "id"
+            ]
+          },
+          "onDelete": "CASCADE",
+          "onUpdate": "NO ACTION"
+        }
+      ]
+    },
+    {
+      "name": "referrals",
+      "columnCount": 6,
+      "columns": [
+        {
+          "name": "id",
+          "ordinal": 1,
+          "type": "uuid",
+          "notNull": true,
+          "default": "gen_random_uuid()",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "referrer_id",
+          "ordinal": 2,
+          "type": "uuid",
+          "notNull": true,
+          "default": null,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "referee_id",
+          "ordinal": 3,
+          "type": "uuid",
+          "notNull": true,
+          "default": null,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "status",
+          "ordinal": 4,
+          "type": "character varying(20)",
+          "notNull": false,
+          "default": "'pending'::character varying",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "reward_applied",
+          "ordinal": 5,
+          "type": "boolean",
+          "notNull": false,
+          "default": "false",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "created_at",
+          "ordinal": 6,
+          "type": "timestamp without time zone",
+          "notNull": true,
+          "default": "now()",
+          "identity": "",
+          "generated": ""
+        }
+      ],
+      "primaryKey": [
+        "id"
+      ],
+      "uniqueIndexes": [],
+      "foreignKeys": [
+        {
+          "name": "referrals_referee_id_users_id_fk",
+          "columns": [
+            "referee_id"
+          ],
+          "references": {
+            "table": "users",
+            "columns": [
+              "id"
+            ]
+          },
+          "onDelete": "CASCADE",
+          "onUpdate": "NO ACTION"
+        },
+        {
+          "name": "referrals_referrer_id_users_id_fk",
+          "columns": [
+            "referrer_id"
+          ],
+          "references": {
+            "table": "users",
+            "columns": [
+              "id"
+            ]
+          },
+          "onDelete": "CASCADE",
+          "onUpdate": "NO ACTION"
+        }
+      ]
+    },
+    {
+      "name": "semantic_cache",
+      "columnCount": 8,
+      "columns": [
+        {
+          "name": "id",
+          "ordinal": 1,
+          "type": "uuid",
+          "notNull": true,
+          "default": "gen_random_uuid()",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "cache_type",
+          "ordinal": 2,
+          "type": "character varying(40)",
+          "notNull": true,
+          "default": null,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "input_key",
+          "ordinal": 3,
+          "type": "text",
+          "notNull": true,
+          "default": null,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "embedding",
+          "ordinal": 4,
+          "type": "vector(1536)",
+          "notNull": false,
+          "default": null,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "cached_output",
+          "ordinal": 5,
+          "type": "jsonb",
+          "notNull": true,
+          "default": null,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "hit_count",
+          "ordinal": 6,
+          "type": "integer",
+          "notNull": false,
+          "default": "0",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "created_at",
+          "ordinal": 7,
+          "type": "timestamp without time zone",
+          "notNull": true,
+          "default": "now()",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "last_hit_at",
+          "ordinal": 8,
+          "type": "timestamp without time zone",
+          "notNull": false,
+          "default": null,
+          "identity": "",
+          "generated": ""
+        }
+      ],
+      "primaryKey": [
+        "id"
+      ],
+      "uniqueIndexes": [],
+      "foreignKeys": []
+    },
+    {
+      "name": "series_bibles",
+      "columnCount": 12,
+      "columns": [
+        {
+          "name": "id",
+          "ordinal": 1,
+          "type": "uuid",
+          "notNull": true,
+          "default": "gen_random_uuid()",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "user_id",
+          "ordinal": 2,
+          "type": "uuid",
+          "notNull": true,
+          "default": null,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "name",
+          "ordinal": 3,
+          "type": "text",
+          "notNull": true,
+          "default": null,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "premise",
+          "ordinal": 4,
+          "type": "text",
+          "notNull": false,
+          "default": "''::text",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "tone",
+          "ordinal": 5,
+          "type": "text",
+          "notNull": false,
+          "default": "''::text",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "world_rules",
+          "ordinal": 6,
+          "type": "jsonb",
+          "notNull": false,
+          "default": "'[]'::jsonb",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "series_character_arcs",
+          "ordinal": 7,
+          "type": "jsonb",
+          "notNull": false,
+          "default": "'[]'::jsonb",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "continuity_notes",
+          "ordinal": 8,
+          "type": "text",
+          "notNull": false,
+          "default": "''::text",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "project_ids",
+          "ordinal": 9,
+          "type": "jsonb",
+          "notNull": false,
+          "default": "'[]'::jsonb",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "timeline",
+          "ordinal": 10,
+          "type": "jsonb",
+          "notNull": false,
+          "default": "'[]'::jsonb",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "created_at",
+          "ordinal": 11,
+          "type": "timestamp without time zone",
+          "notNull": true,
+          "default": "now()",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "updated_at",
+          "ordinal": 12,
+          "type": "timestamp without time zone",
+          "notNull": true,
+          "default": "now()",
+          "identity": "",
+          "generated": ""
+        }
+      ],
+      "primaryKey": [
+        "id"
+      ],
+      "uniqueIndexes": [],
+      "foreignKeys": [
+        {
+          "name": "series_bibles_user_id_users_id_fk",
+          "columns": [
+            "user_id"
+          ],
+          "references": {
+            "table": "users",
+            "columns": [
+              "id"
+            ]
+          },
+          "onDelete": "CASCADE",
+          "onUpdate": "NO ACTION"
+        }
+      ]
+    },
+    {
+      "name": "sessions",
+      "columnCount": 4,
+      "columns": [
+        {
+          "name": "id",
+          "ordinal": 1,
+          "type": "uuid",
+          "notNull": true,
+          "default": "gen_random_uuid()",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "session_token",
+          "ordinal": 2,
+          "type": "text",
+          "notNull": true,
+          "default": null,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "user_id",
+          "ordinal": 3,
+          "type": "uuid",
+          "notNull": true,
+          "default": null,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "expires",
+          "ordinal": 4,
+          "type": "timestamp without time zone",
+          "notNull": true,
+          "default": null,
+          "identity": "",
+          "generated": ""
+        }
+      ],
+      "primaryKey": [
+        "id"
+      ],
+      "uniqueIndexes": [
+        "CREATE UNIQUE INDEX sessions_session_token_unique ON public.sessions USING btree (session_token)"
+      ],
+      "foreignKeys": [
+        {
+          "name": "sessions_user_id_users_id_fk",
+          "columns": [
+            "user_id"
+          ],
+          "references": {
+            "table": "users",
+            "columns": [
+              "id"
+            ]
+          },
+          "onDelete": "CASCADE",
+          "onUpdate": "NO ACTION"
+        }
+      ]
+    },
+    {
+      "name": "showcases",
+      "columnCount": 12,
+      "columns": [
+        {
+          "name": "id",
+          "ordinal": 1,
+          "type": "uuid",
+          "notNull": true,
+          "default": "gen_random_uuid()",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "project_id",
+          "ordinal": 2,
+          "type": "uuid",
+          "notNull": true,
+          "default": null,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "user_id",
+          "ordinal": 3,
+          "type": "uuid",
+          "notNull": true,
+          "default": null,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "slug",
+          "ordinal": 4,
+          "type": "text",
+          "notNull": true,
+          "default": null,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "title",
+          "ordinal": 5,
+          "type": "text",
+          "notNull": true,
+          "default": "''::text",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "blurb",
+          "ordinal": 6,
+          "type": "text",
+          "notNull": false,
+          "default": "''::text",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "visibility",
+          "ordinal": 7,
+          "type": "character varying(10)",
+          "notNull": true,
+          "default": "'private'::character varying",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "flagged",
+          "ordinal": 8,
+          "type": "boolean",
+          "notNull": true,
+          "default": "false",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "flag_reason",
+          "ordinal": 9,
+          "type": "text",
+          "notNull": false,
+          "default": "''::text",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "created_at",
+          "ordinal": 10,
+          "type": "timestamp without time zone",
+          "notNull": true,
+          "default": "now()",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "updated_at",
+          "ordinal": 11,
+          "type": "timestamp without time zone",
+          "notNull": true,
+          "default": "now()",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "embedding",
+          "ordinal": 12,
+          "type": "vector(1536)",
+          "notNull": false,
+          "default": null,
+          "identity": "",
+          "generated": ""
+        }
+      ],
+      "primaryKey": [
+        "id"
+      ],
+      "uniqueIndexes": [
+        "CREATE UNIQUE INDEX showcases_project_id_unique ON public.showcases USING btree (project_id)",
+        "CREATE UNIQUE INDEX showcases_slug_unique ON public.showcases USING btree (slug)"
+      ],
+      "foreignKeys": [
+        {
+          "name": "showcases_project_id_projects_id_fk",
+          "columns": [
+            "project_id"
+          ],
+          "references": {
+            "table": "projects",
+            "columns": [
+              "id"
+            ]
+          },
+          "onDelete": "CASCADE",
+          "onUpdate": "NO ACTION"
+        },
+        {
+          "name": "showcases_user_id_users_id_fk",
+          "columns": [
+            "user_id"
+          ],
+          "references": {
+            "table": "users",
+            "columns": [
+              "id"
+            ]
+          },
+          "onDelete": "CASCADE",
+          "onUpdate": "NO ACTION"
+        }
+      ]
+    },
+    {
+      "name": "story_checkpoints",
+      "columnCount": 6,
+      "columns": [
+        {
+          "name": "id",
+          "ordinal": 1,
+          "type": "uuid",
+          "notNull": true,
+          "default": "gen_random_uuid()",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "project_id",
+          "ordinal": 2,
+          "type": "uuid",
+          "notNull": true,
+          "default": null,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "name",
+          "ordinal": 3,
+          "type": "text",
+          "notNull": true,
+          "default": null,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "notes",
+          "ordinal": 4,
+          "type": "text",
+          "notNull": false,
+          "default": "''::text",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "snapshot",
+          "ordinal": 5,
+          "type": "jsonb",
+          "notNull": true,
+          "default": null,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "created_at",
+          "ordinal": 6,
+          "type": "timestamp without time zone",
+          "notNull": true,
+          "default": "now()",
+          "identity": "",
+          "generated": ""
+        }
+      ],
+      "primaryKey": [
+        "id"
+      ],
+      "uniqueIndexes": [],
+      "foreignKeys": [
+        {
+          "name": "story_checkpoints_project_id_projects_id_fk",
+          "columns": [
+            "project_id"
+          ],
+          "references": {
+            "table": "projects",
+            "columns": [
+              "id"
+            ]
+          },
+          "onDelete": "CASCADE",
+          "onUpdate": "NO ACTION"
+        }
+      ]
+    },
+    {
+      "name": "story_memories",
+      "columnCount": 9,
+      "columns": [
+        {
+          "name": "id",
+          "ordinal": 1,
+          "type": "uuid",
+          "notNull": true,
+          "default": "gen_random_uuid()",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "project_id",
+          "ordinal": 2,
+          "type": "uuid",
+          "notNull": true,
+          "default": null,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "chapter_id",
+          "ordinal": 3,
+          "type": "uuid",
+          "notNull": false,
+          "default": null,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "fact",
+          "ordinal": 4,
+          "type": "text",
+          "notNull": true,
+          "default": null,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "category",
+          "ordinal": 5,
+          "type": "character varying(30)",
+          "notNull": false,
+          "default": "'general'::character varying",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "auto_extracted",
+          "ordinal": 6,
+          "type": "boolean",
+          "notNull": false,
+          "default": "true",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "created_at",
+          "ordinal": 7,
+          "type": "timestamp without time zone",
+          "notNull": true,
+          "default": "now()",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "chapter_index",
+          "ordinal": 8,
+          "type": "integer",
+          "notNull": false,
+          "default": "0",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "structured_data",
+          "ordinal": 9,
+          "type": "jsonb",
+          "notNull": false,
+          "default": null,
+          "identity": "",
+          "generated": ""
+        }
+      ],
+      "primaryKey": [
+        "id"
+      ],
+      "uniqueIndexes": [],
+      "foreignKeys": [
+        {
+          "name": "story_memories_chapter_id_chapters_id_fk",
+          "columns": [
+            "chapter_id"
+          ],
+          "references": {
+            "table": "chapters",
+            "columns": [
+              "id"
+            ]
+          },
+          "onDelete": "SET NULL",
+          "onUpdate": "NO ACTION"
+        },
+        {
+          "name": "story_memories_project_id_projects_id_fk",
+          "columns": [
+            "project_id"
+          ],
+          "references": {
+            "table": "projects",
+            "columns": [
+              "id"
+            ]
+          },
+          "onDelete": "CASCADE",
+          "onUpdate": "NO ACTION"
+        }
+      ]
+    },
+    {
+      "name": "story_plans",
+      "columnCount": 8,
+      "columns": [
+        {
+          "name": "id",
+          "ordinal": 1,
+          "type": "uuid",
+          "notNull": true,
+          "default": "gen_random_uuid()",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "project_id",
+          "ordinal": 2,
+          "type": "uuid",
+          "notNull": true,
+          "default": null,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "kind",
+          "ordinal": 3,
+          "type": "character varying(20)",
+          "notNull": true,
+          "default": "'beat_sheet'::character varying",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "title",
+          "ordinal": 4,
+          "type": "text",
+          "notNull": true,
+          "default": "'Beat Sheet'::text",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "beats",
+          "ordinal": 5,
+          "type": "jsonb",
+          "notNull": true,
+          "default": "'[]'::jsonb",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "status",
+          "ordinal": 6,
+          "type": "character varying(20)",
+          "notNull": true,
+          "default": "'draft'::character varying",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "created_at",
+          "ordinal": 7,
+          "type": "timestamp without time zone",
+          "notNull": true,
+          "default": "now()",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "updated_at",
+          "ordinal": 8,
+          "type": "timestamp without time zone",
+          "notNull": true,
+          "default": "now()",
+          "identity": "",
+          "generated": ""
+        }
+      ],
+      "primaryKey": [
+        "id"
+      ],
+      "uniqueIndexes": [],
+      "foreignKeys": [
+        {
+          "name": "story_plans_project_id_projects_id_fk",
+          "columns": [
+            "project_id"
+          ],
+          "references": {
+            "table": "projects",
+            "columns": [
+              "id"
+            ]
+          },
+          "onDelete": "CASCADE",
+          "onUpdate": "NO ACTION"
+        }
+      ]
+    },
+    {
+      "name": "story_promises",
+      "columnCount": 11,
+      "columns": [
+        {
+          "name": "id",
+          "ordinal": 1,
+          "type": "uuid",
+          "notNull": true,
+          "default": "gen_random_uuid()",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "project_id",
+          "ordinal": 2,
+          "type": "uuid",
+          "notNull": true,
+          "default": null,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "thread_id",
+          "ordinal": 3,
+          "type": "uuid",
+          "notNull": false,
+          "default": null,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "setup",
+          "ordinal": 4,
+          "type": "text",
+          "notNull": true,
+          "default": null,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "setup_chapter_id",
+          "ordinal": 5,
+          "type": "uuid",
+          "notNull": false,
+          "default": null,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "payoff_intent",
+          "ordinal": 6,
+          "type": "text",
+          "notNull": false,
+          "default": "''::text",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "payoff_chapter_id",
+          "ordinal": 7,
+          "type": "uuid",
+          "notNull": false,
+          "default": null,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "status",
+          "ordinal": 8,
+          "type": "character varying(20)",
+          "notNull": false,
+          "default": "'open'::character varying",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "priority",
+          "ordinal": 9,
+          "type": "character varying(5)",
+          "notNull": false,
+          "default": "'B'::character varying",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "created_at",
+          "ordinal": 10,
+          "type": "timestamp without time zone",
+          "notNull": true,
+          "default": "now()",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "embedding",
+          "ordinal": 11,
+          "type": "vector(1536)",
+          "notNull": false,
+          "default": null,
+          "identity": "",
+          "generated": ""
+        }
+      ],
+      "primaryKey": [
+        "id"
+      ],
+      "uniqueIndexes": [],
+      "foreignKeys": [
+        {
+          "name": "story_promises_project_id_projects_id_fk",
+          "columns": [
+            "project_id"
+          ],
+          "references": {
+            "table": "projects",
+            "columns": [
+              "id"
+            ]
+          },
+          "onDelete": "CASCADE",
+          "onUpdate": "NO ACTION"
+        },
+        {
+          "name": "story_promises_thread_id_story_threads_id_fk",
+          "columns": [
+            "thread_id"
+          ],
+          "references": {
+            "table": "story_threads",
+            "columns": [
+              "id"
+            ]
+          },
+          "onDelete": "SET NULL",
+          "onUpdate": "NO ACTION"
+        }
+      ]
+    },
+    {
+      "name": "story_threads",
+      "columnCount": 9,
+      "columns": [
+        {
+          "name": "id",
+          "ordinal": 1,
+          "type": "uuid",
+          "notNull": true,
+          "default": "gen_random_uuid()",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "project_id",
+          "ordinal": 2,
+          "type": "uuid",
+          "notNull": true,
+          "default": null,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "name",
+          "ordinal": 3,
+          "type": "text",
+          "notNull": true,
+          "default": null,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "thread_type",
+          "ordinal": 4,
+          "type": "character varying(30)",
+          "notNull": false,
+          "default": "'subplot'::character varying",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "status",
+          "ordinal": 5,
+          "type": "character varying(20)",
+          "notNull": false,
+          "default": "'open'::character varying",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "opened_at_chapter_id",
+          "ordinal": 6,
+          "type": "uuid",
+          "notNull": false,
+          "default": null,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "resolved_at_chapter_id",
+          "ordinal": 7,
+          "type": "uuid",
+          "notNull": false,
+          "default": null,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "notes",
+          "ordinal": 8,
+          "type": "text",
+          "notNull": false,
+          "default": "''::text",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "created_at",
+          "ordinal": 9,
+          "type": "timestamp without time zone",
+          "notNull": true,
+          "default": "now()",
+          "identity": "",
+          "generated": ""
+        }
+      ],
+      "primaryKey": [
+        "id"
+      ],
+      "uniqueIndexes": [],
+      "foreignKeys": [
+        {
+          "name": "story_threads_project_id_projects_id_fk",
+          "columns": [
+            "project_id"
+          ],
+          "references": {
+            "table": "projects",
+            "columns": [
+              "id"
+            ]
+          },
+          "onDelete": "CASCADE",
+          "onUpdate": "NO ACTION"
+        }
+      ]
+    },
+    {
+      "name": "subscriptions",
+      "columnCount": 9,
+      "columns": [
+        {
+          "name": "id",
+          "ordinal": 1,
+          "type": "uuid",
+          "notNull": true,
+          "default": "gen_random_uuid()",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "user_id",
+          "ordinal": 2,
+          "type": "uuid",
+          "notNull": true,
+          "default": null,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "tier",
+          "ordinal": 5,
+          "type": "text",
+          "notNull": true,
+          "default": "'free'::text",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "status",
+          "ordinal": 6,
+          "type": "text",
+          "notNull": true,
+          "default": "'active'::text",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "current_period_end",
+          "ordinal": 7,
+          "type": "timestamp without time zone",
+          "notNull": false,
+          "default": null,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "created_at",
+          "ordinal": 8,
+          "type": "timestamp without time zone",
+          "notNull": true,
+          "default": "now()",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "updated_at",
+          "ordinal": 9,
+          "type": "timestamp without time zone",
+          "notNull": true,
+          "default": "now()",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "razorpay_subscription_id",
+          "ordinal": 10,
+          "type": "text",
+          "notNull": false,
+          "default": null,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "razorpay_payment_id",
+          "ordinal": 11,
+          "type": "text",
+          "notNull": false,
+          "default": null,
+          "identity": "",
+          "generated": ""
+        }
+      ],
+      "primaryKey": [
+        "id"
+      ],
+      "uniqueIndexes": [
+        "CREATE UNIQUE INDEX subscriptions_user_id_unique ON public.subscriptions USING btree (user_id)"
+      ],
+      "foreignKeys": [
+        {
+          "name": "subscriptions_user_id_users_id_fk",
+          "columns": [
+            "user_id"
+          ],
+          "references": {
+            "table": "users",
+            "columns": [
+              "id"
+            ]
+          },
+          "onDelete": "CASCADE",
+          "onUpdate": "NO ACTION"
+        }
+      ]
+    },
+    {
+      "name": "universe_characters",
+      "columnCount": 6,
+      "columns": [
+        {
+          "name": "id",
+          "ordinal": 1,
+          "type": "uuid",
+          "notNull": true,
+          "default": "gen_random_uuid()",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "universe_id",
+          "ordinal": 2,
+          "type": "uuid",
+          "notNull": true,
+          "default": null,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "name",
+          "ordinal": 3,
+          "type": "text",
+          "notNull": true,
+          "default": null,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "base_profile",
+          "ordinal": 4,
+          "type": "jsonb",
+          "notNull": false,
+          "default": null,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "is_alive",
+          "ordinal": 5,
+          "type": "boolean",
+          "notNull": false,
+          "default": "true",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "created_at",
+          "ordinal": 6,
+          "type": "timestamp without time zone",
+          "notNull": true,
+          "default": "now()",
+          "identity": "",
+          "generated": ""
+        }
+      ],
+      "primaryKey": [
+        "id"
+      ],
+      "uniqueIndexes": [],
+      "foreignKeys": [
+        {
+          "name": "universe_characters_universe_id_universes_id_fk",
+          "columns": [
+            "universe_id"
+          ],
+          "references": {
+            "table": "universes",
+            "columns": [
+              "id"
+            ]
+          },
+          "onDelete": "CASCADE",
+          "onUpdate": "NO ACTION"
+        }
+      ]
+    },
+    {
+      "name": "universe_events",
+      "columnCount": 8,
+      "columns": [
+        {
+          "name": "id",
+          "ordinal": 1,
+          "type": "uuid",
+          "notNull": true,
+          "default": "gen_random_uuid()",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "universe_id",
+          "ordinal": 2,
+          "type": "uuid",
+          "notNull": true,
+          "default": null,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "project_id",
+          "ordinal": 3,
+          "type": "uuid",
+          "notNull": false,
+          "default": null,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "name",
+          "ordinal": 4,
+          "type": "text",
+          "notNull": true,
+          "default": null,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "description",
+          "ordinal": 5,
+          "type": "text",
+          "notNull": false,
+          "default": "''::text",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "timeline_sort",
+          "ordinal": 6,
+          "type": "integer",
+          "notNull": true,
+          "default": null,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "is_canon",
+          "ordinal": 7,
+          "type": "boolean",
+          "notNull": false,
+          "default": "true",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "created_at",
+          "ordinal": 8,
+          "type": "timestamp without time zone",
+          "notNull": true,
+          "default": "now()",
+          "identity": "",
+          "generated": ""
+        }
+      ],
+      "primaryKey": [
+        "id"
+      ],
+      "uniqueIndexes": [],
+      "foreignKeys": [
+        {
+          "name": "universe_events_project_id_projects_id_fk",
+          "columns": [
+            "project_id"
+          ],
+          "references": {
+            "table": "projects",
+            "columns": [
+              "id"
+            ]
+          },
+          "onDelete": "SET NULL",
+          "onUpdate": "NO ACTION"
+        },
+        {
+          "name": "universe_events_universe_id_universes_id_fk",
+          "columns": [
+            "universe_id"
+          ],
+          "references": {
+            "table": "universes",
+            "columns": [
+              "id"
+            ]
+          },
+          "onDelete": "CASCADE",
+          "onUpdate": "NO ACTION"
+        }
+      ]
+    },
+    {
+      "name": "universes",
+      "columnCount": 8,
+      "columns": [
+        {
+          "name": "id",
+          "ordinal": 1,
+          "type": "uuid",
+          "notNull": true,
+          "default": "gen_random_uuid()",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "user_id",
+          "ordinal": 2,
+          "type": "uuid",
+          "notNull": true,
+          "default": null,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "name",
+          "ordinal": 3,
+          "type": "text",
+          "notNull": true,
+          "default": null,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "premise",
+          "ordinal": 4,
+          "type": "text",
+          "notNull": false,
+          "default": "''::text",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "shared_rules",
+          "ordinal": 5,
+          "type": "jsonb",
+          "notNull": false,
+          "default": "'[]'::jsonb",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "tone",
+          "ordinal": 6,
+          "type": "text",
+          "notNull": false,
+          "default": "''::text",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "created_at",
+          "ordinal": 7,
+          "type": "timestamp without time zone",
+          "notNull": true,
+          "default": "now()",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "updated_at",
+          "ordinal": 8,
+          "type": "timestamp without time zone",
+          "notNull": true,
+          "default": "now()",
+          "identity": "",
+          "generated": ""
+        }
+      ],
+      "primaryKey": [
+        "id"
+      ],
+      "uniqueIndexes": [],
+      "foreignKeys": [
+        {
+          "name": "universes_user_id_users_id_fk",
+          "columns": [
+            "user_id"
+          ],
+          "references": {
+            "table": "users",
+            "columns": [
+              "id"
+            ]
+          },
+          "onDelete": "CASCADE",
+          "onUpdate": "NO ACTION"
+        }
+      ]
+    },
+    {
+      "name": "users",
+      "columnCount": 19,
+      "columns": [
+        {
+          "name": "id",
+          "ordinal": 1,
+          "type": "uuid",
+          "notNull": true,
+          "default": "gen_random_uuid()",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "name",
+          "ordinal": 2,
+          "type": "text",
+          "notNull": false,
+          "default": null,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "email",
+          "ordinal": 3,
+          "type": "text",
+          "notNull": true,
+          "default": null,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "email_verified",
+          "ordinal": 4,
+          "type": "timestamp without time zone",
+          "notNull": false,
+          "default": null,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "image",
+          "ordinal": 5,
+          "type": "text",
+          "notNull": false,
+          "default": null,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "hashed_password",
+          "ordinal": 6,
+          "type": "text",
+          "notNull": false,
+          "default": null,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "created_at",
+          "ordinal": 7,
+          "type": "timestamp without time zone",
+          "notNull": true,
+          "default": "now()",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "updated_at",
+          "ordinal": 8,
+          "type": "timestamp without time zone",
+          "notNull": true,
+          "default": "now()",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "higgsfield_api_key",
+          "ordinal": 9,
+          "type": "text",
+          "notNull": false,
+          "default": "''::text",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "openai_api_key",
+          "ordinal": 10,
+          "type": "text",
+          "notNull": false,
+          "default": "''::text",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "image_provider_id",
+          "ordinal": 11,
+          "type": "text",
+          "notNull": false,
+          "default": "'segmind_soul'::text",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "trend_intelligence_key",
+          "ordinal": 12,
+          "type": "text",
+          "notNull": false,
+          "default": "''::text",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "higgsfield_api_secret",
+          "ordinal": 13,
+          "type": "text",
+          "notNull": false,
+          "default": "''::text",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "referral_code",
+          "ordinal": 14,
+          "type": "character varying(12)",
+          "notNull": false,
+          "default": null,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "monthly_generations",
+          "ordinal": 15,
+          "type": "real",
+          "notNull": false,
+          "default": "0",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "monthly_generations_reset_at",
+          "ordinal": 16,
+          "type": "timestamp without time zone",
+          "notNull": false,
+          "default": null,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "trial_end_at",
+          "ordinal": 17,
+          "type": "timestamp without time zone",
+          "notNull": false,
+          "default": null,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "segmind_api_key",
+          "ordinal": 18,
+          "type": "text",
+          "notNull": false,
+          "default": "''::text",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "tts_provider_id",
+          "ordinal": 19,
+          "type": "text",
+          "notNull": false,
+          "default": "'openai'::text",
+          "identity": "",
+          "generated": ""
+        }
+      ],
+      "primaryKey": [
+        "id"
+      ],
+      "uniqueIndexes": [
+        "CREATE UNIQUE INDEX users_email_unique ON public.users USING btree (email)"
+      ],
+      "foreignKeys": []
+    },
+    {
+      "name": "video_analysis_jobs",
+      "columnCount": 8,
+      "columns": [
+        {
+          "name": "id",
+          "ordinal": 1,
+          "type": "uuid",
+          "notNull": true,
+          "default": "gen_random_uuid()",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "user_id",
+          "ordinal": 2,
+          "type": "uuid",
+          "notNull": true,
+          "default": null,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "youtube_url",
+          "ordinal": 3,
+          "type": "text",
+          "notNull": true,
+          "default": null,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "status",
+          "ordinal": 4,
+          "type": "character varying(20)",
+          "notNull": false,
+          "default": "'pending'::character varying",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "result",
+          "ordinal": 5,
+          "type": "jsonb",
+          "notNull": false,
+          "default": null,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "error_message",
+          "ordinal": 6,
+          "type": "text",
+          "notNull": false,
+          "default": null,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "created_at",
+          "ordinal": 7,
+          "type": "timestamp without time zone",
+          "notNull": true,
+          "default": "now()",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "updated_at",
+          "ordinal": 8,
+          "type": "timestamp without time zone",
+          "notNull": true,
+          "default": "now()",
+          "identity": "",
+          "generated": ""
+        }
+      ],
+      "primaryKey": [
+        "id"
+      ],
+      "uniqueIndexes": [],
+      "foreignKeys": [
+        {
+          "name": "video_analysis_jobs_user_id_users_id_fk",
+          "columns": [
+            "user_id"
+          ],
+          "references": {
+            "table": "users",
+            "columns": [
+              "id"
+            ]
+          },
+          "onDelete": "CASCADE",
+          "onUpdate": "NO ACTION"
+        }
+      ]
+    },
+    {
+      "name": "work_packets",
+      "columnCount": 15,
+      "columns": [
+        {
+          "name": "id",
+          "ordinal": 1,
+          "type": "uuid",
+          "notNull": true,
+          "default": "gen_random_uuid()",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "user_id",
+          "ordinal": 2,
+          "type": "uuid",
+          "notNull": false,
+          "default": null,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "title",
+          "ordinal": 3,
+          "type": "text",
+          "notNull": true,
+          "default": null,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "creator",
+          "ordinal": 4,
+          "type": "text",
+          "notNull": false,
+          "default": "''::text",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "medium",
+          "ordinal": 5,
+          "type": "character varying(30)",
+          "notNull": true,
+          "default": null,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "genres",
+          "ordinal": 6,
+          "type": "jsonb",
+          "notNull": false,
+          "default": "'[]'::jsonb",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "craft_principles",
+          "ordinal": 7,
+          "type": "jsonb",
+          "notNull": false,
+          "default": "'[]'::jsonb",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "structural_notes",
+          "ordinal": 8,
+          "type": "text",
+          "notNull": false,
+          "default": "''::text",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "character_notes",
+          "ordinal": 9,
+          "type": "text",
+          "notNull": false,
+          "default": "''::text",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "dialogue_notes",
+          "ordinal": 10,
+          "type": "text",
+          "notNull": false,
+          "default": "''::text",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "thematic_core",
+          "ordinal": 11,
+          "type": "text",
+          "notNull": false,
+          "default": "''::text",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "is_public",
+          "ordinal": 12,
+          "type": "boolean",
+          "notNull": false,
+          "default": "false",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "created_at",
+          "ordinal": 13,
+          "type": "timestamp without time zone",
+          "notNull": true,
+          "default": "now()",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "status",
+          "ordinal": 14,
+          "type": "character varying(20)",
+          "notNull": false,
+          "default": "'seeded'::character varying",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "embedding",
+          "ordinal": 16,
+          "type": "vector(1536)",
+          "notNull": false,
+          "default": null,
+          "identity": "",
+          "generated": ""
+        }
+      ],
+      "primaryKey": [
+        "id"
+      ],
+      "uniqueIndexes": [],
+      "foreignKeys": [
+        {
+          "name": "work_packets_user_id_users_id_fk",
+          "columns": [
+            "user_id"
+          ],
+          "references": {
+            "table": "users",
+            "columns": [
+              "id"
+            ]
+          },
+          "onDelete": "CASCADE",
+          "onUpdate": "NO ACTION"
+        }
+      ]
+    },
+    {
+      "name": "work_patterns",
+      "columnCount": 11,
+      "columns": [
+        {
+          "name": "id",
+          "ordinal": 1,
+          "type": "uuid",
+          "notNull": true,
+          "default": "gen_random_uuid()",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "name",
+          "ordinal": 2,
+          "type": "text",
+          "notNull": true,
+          "default": null,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "description",
+          "ordinal": 3,
+          "type": "text",
+          "notNull": true,
+          "default": null,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "medium",
+          "ordinal": 4,
+          "type": "character varying(30)",
+          "notNull": false,
+          "default": "'cross-medium'::character varying",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "genres",
+          "ordinal": 5,
+          "type": "jsonb",
+          "notNull": false,
+          "default": "'[]'::jsonb",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "supporting_packet_ids",
+          "ordinal": 6,
+          "type": "jsonb",
+          "notNull": false,
+          "default": "'[]'::jsonb",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "generation_directive",
+          "ordinal": 7,
+          "type": "text",
+          "notNull": true,
+          "default": null,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "applicable_to",
+          "ordinal": 8,
+          "type": "jsonb",
+          "notNull": false,
+          "default": "'[]'::jsonb",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "is_public",
+          "ordinal": 9,
+          "type": "boolean",
+          "notNull": false,
+          "default": "true",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "created_at",
+          "ordinal": 10,
+          "type": "timestamp without time zone",
+          "notNull": true,
+          "default": "now()",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "embedding",
+          "ordinal": 12,
+          "type": "vector(1536)",
+          "notNull": false,
+          "default": null,
+          "identity": "",
+          "generated": ""
+        }
+      ],
+      "primaryKey": [
+        "id"
+      ],
+      "uniqueIndexes": [],
+      "foreignKeys": []
+    },
+    {
+      "name": "world_entities",
+      "columnCount": 16,
+      "columns": [
+        {
+          "name": "id",
+          "ordinal": 1,
+          "type": "uuid",
+          "notNull": true,
+          "default": "gen_random_uuid()",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "project_id",
+          "ordinal": 2,
+          "type": "uuid",
+          "notNull": true,
+          "default": null,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "kind",
+          "ordinal": 3,
+          "type": "character varying(16)",
+          "notNull": true,
+          "default": "'object'::character varying",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "name",
+          "ordinal": 4,
+          "type": "text",
+          "notNull": true,
+          "default": null,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "summary",
+          "ordinal": 5,
+          "type": "text",
+          "notNull": false,
+          "default": "''::text",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "description",
+          "ordinal": 6,
+          "type": "text",
+          "notNull": false,
+          "default": "''::text",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "properties",
+          "ordinal": 7,
+          "type": "jsonb",
+          "notNull": false,
+          "default": "'{}'::jsonb",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "linked_character_ids",
+          "ordinal": 8,
+          "type": "jsonb",
+          "notNull": false,
+          "default": "'[]'::jsonb",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "linked_location_ids",
+          "ordinal": 9,
+          "type": "jsonb",
+          "notNull": false,
+          "default": "'[]'::jsonb",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "linked_plot_thread_ids",
+          "ordinal": 10,
+          "type": "jsonb",
+          "notNull": false,
+          "default": "'[]'::jsonb",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "linked_entity_ids",
+          "ordinal": 11,
+          "type": "jsonb",
+          "notNull": false,
+          "default": "'[]'::jsonb",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "always_in_context",
+          "ordinal": 12,
+          "type": "boolean",
+          "notNull": false,
+          "default": "false",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "sort_order",
+          "ordinal": 13,
+          "type": "integer",
+          "notNull": false,
+          "default": "0",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "created_at",
+          "ordinal": 14,
+          "type": "timestamp without time zone",
+          "notNull": false,
+          "default": "now()",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "updated_at",
+          "ordinal": 15,
+          "type": "timestamp without time zone",
+          "notNull": false,
+          "default": "now()",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "embedding",
+          "ordinal": 16,
+          "type": "vector(1536)",
+          "notNull": false,
+          "default": null,
+          "identity": "",
+          "generated": ""
+        }
+      ],
+      "primaryKey": [
+        "id"
+      ],
+      "uniqueIndexes": [],
+      "foreignKeys": [
+        {
+          "name": "world_entities_project_id_projects_id_fk",
+          "columns": [
+            "project_id"
+          ],
+          "references": {
+            "table": "projects",
+            "columns": [
+              "id"
+            ]
+          },
+          "onDelete": "CASCADE",
+          "onUpdate": "NO ACTION"
+        }
+      ]
+    }
+  ],
+  "indexes": [
+    {
+      "table": "accounts",
+      "name": "accounts_pkey",
+      "def": "CREATE UNIQUE INDEX accounts_pkey ON public.accounts USING btree (id)"
+    },
+    {
+      "table": "audio_exports",
+      "name": "audio_exports_pkey",
+      "def": "CREATE UNIQUE INDEX audio_exports_pkey ON public.audio_exports USING btree (id)"
+    },
+    {
+      "table": "chapters",
+      "name": "chapters_pkey",
+      "def": "CREATE UNIQUE INDEX chapters_pkey ON public.chapters USING btree (id)"
+    },
+    {
+      "table": "character_evolution_log",
+      "name": "character_evolution_log_pkey",
+      "def": "CREATE UNIQUE INDEX character_evolution_log_pkey ON public.character_evolution_log USING btree (id)"
+    },
+    {
+      "table": "character_relationships",
+      "name": "character_relationships_pkey",
+      "def": "CREATE UNIQUE INDEX character_relationships_pkey ON public.character_relationships USING btree (id)"
+    },
+    {
+      "table": "characters",
+      "name": "characters_pkey",
+      "def": "CREATE UNIQUE INDEX characters_pkey ON public.characters USING btree (id)"
+    },
+    {
+      "table": "comic_pages",
+      "name": "comic_pages_pkey",
+      "def": "CREATE UNIQUE INDEX comic_pages_pkey ON public.comic_pages USING btree (id)"
+    },
+    {
+      "table": "comic_panels",
+      "name": "comic_panels_pkey",
+      "def": "CREATE UNIQUE INDEX comic_panels_pkey ON public.comic_panels USING btree (id)"
+    },
+    {
+      "table": "creator_bibles",
+      "name": "creator_bibles_pkey",
+      "def": "CREATE UNIQUE INDEX creator_bibles_pkey ON public.creator_bibles USING btree (id)"
+    },
+    {
+      "table": "creator_bibles",
+      "name": "creator_bibles_project_id_unique",
+      "def": "CREATE UNIQUE INDEX creator_bibles_project_id_unique ON public.creator_bibles USING btree (project_id)"
+    },
+    {
+      "table": "editor_notes",
+      "name": "editor_notes_pkey",
+      "def": "CREATE UNIQUE INDEX editor_notes_pkey ON public.editor_notes USING btree (id)"
+    },
+    {
+      "table": "email_verification_tokens",
+      "name": "email_verification_tokens_pkey",
+      "def": "CREATE UNIQUE INDEX email_verification_tokens_pkey ON public.email_verification_tokens USING btree (id)"
+    },
+    {
+      "table": "email_verification_tokens",
+      "name": "email_verification_tokens_token_unique",
+      "def": "CREATE UNIQUE INDEX email_verification_tokens_token_unique ON public.email_verification_tokens USING btree (token)"
+    },
+    {
+      "table": "generations",
+      "name": "generations_pkey",
+      "def": "CREATE UNIQUE INDEX generations_pkey ON public.generations USING btree (id)"
+    },
+    {
+      "table": "locations",
+      "name": "locations_pkey",
+      "def": "CREATE UNIQUE INDEX locations_pkey ON public.locations USING btree (id)"
+    },
+    {
+      "table": "password_reset_tokens",
+      "name": "password_reset_tokens_pkey",
+      "def": "CREATE UNIQUE INDEX password_reset_tokens_pkey ON public.password_reset_tokens USING btree (id)"
+    },
+    {
+      "table": "password_reset_tokens",
+      "name": "password_reset_tokens_token_unique",
+      "def": "CREATE UNIQUE INDEX password_reset_tokens_token_unique ON public.password_reset_tokens USING btree (token)"
+    },
+    {
+      "table": "platform_events",
+      "name": "platform_events_pkey",
+      "def": "CREATE UNIQUE INDEX platform_events_pkey ON public.platform_events USING btree (id)"
+    },
+    {
+      "table": "plot_threads",
+      "name": "plot_threads_pkey",
+      "def": "CREATE UNIQUE INDEX plot_threads_pkey ON public.plot_threads USING btree (id)"
+    },
+    {
+      "table": "production_shots",
+      "name": "production_shots_pkey",
+      "def": "CREATE UNIQUE INDEX production_shots_pkey ON public.production_shots USING btree (id)"
+    },
+    {
+      "table": "project_character_states",
+      "name": "project_character_states_pkey",
+      "def": "CREATE UNIQUE INDEX project_character_states_pkey ON public.project_character_states USING btree (id)"
+    },
+    {
+      "table": "projects",
+      "name": "projects_pkey",
+      "def": "CREATE UNIQUE INDEX projects_pkey ON public.projects USING btree (id)"
+    },
+    {
+      "table": "reader_reactions",
+      "name": "reader_reactions_pkey",
+      "def": "CREATE UNIQUE INDEX reader_reactions_pkey ON public.reader_reactions USING btree (id)"
+    },
+    {
+      "table": "reader_sessions",
+      "name": "reader_sessions_pkey",
+      "def": "CREATE UNIQUE INDEX reader_sessions_pkey ON public.reader_sessions USING btree (id)"
+    },
+    {
+      "table": "reader_sessions",
+      "name": "reader_sessions_token_unique",
+      "def": "CREATE UNIQUE INDEX reader_sessions_token_unique ON public.reader_sessions USING btree (token)"
+    },
+    {
+      "table": "reference_works",
+      "name": "reference_works_pkey",
+      "def": "CREATE UNIQUE INDEX reference_works_pkey ON public.reference_works USING btree (id)"
+    },
+    {
+      "table": "referrals",
+      "name": "referrals_pkey",
+      "def": "CREATE UNIQUE INDEX referrals_pkey ON public.referrals USING btree (id)"
+    },
+    {
+      "table": "semantic_cache",
+      "name": "semantic_cache_pkey",
+      "def": "CREATE UNIQUE INDEX semantic_cache_pkey ON public.semantic_cache USING btree (id)"
+    },
+    {
+      "table": "series_bibles",
+      "name": "series_bibles_pkey",
+      "def": "CREATE UNIQUE INDEX series_bibles_pkey ON public.series_bibles USING btree (id)"
+    },
+    {
+      "table": "sessions",
+      "name": "sessions_pkey",
+      "def": "CREATE UNIQUE INDEX sessions_pkey ON public.sessions USING btree (id)"
+    },
+    {
+      "table": "sessions",
+      "name": "sessions_session_token_unique",
+      "def": "CREATE UNIQUE INDEX sessions_session_token_unique ON public.sessions USING btree (session_token)"
+    },
+    {
+      "table": "showcases",
+      "name": "showcases_pkey",
+      "def": "CREATE UNIQUE INDEX showcases_pkey ON public.showcases USING btree (id)"
+    },
+    {
+      "table": "showcases",
+      "name": "showcases_project_id_unique",
+      "def": "CREATE UNIQUE INDEX showcases_project_id_unique ON public.showcases USING btree (project_id)"
+    },
+    {
+      "table": "showcases",
+      "name": "showcases_slug_unique",
+      "def": "CREATE UNIQUE INDEX showcases_slug_unique ON public.showcases USING btree (slug)"
+    },
+    {
+      "table": "story_checkpoints",
+      "name": "story_checkpoints_pkey",
+      "def": "CREATE UNIQUE INDEX story_checkpoints_pkey ON public.story_checkpoints USING btree (id)"
+    },
+    {
+      "table": "story_memories",
+      "name": "story_memories_pkey",
+      "def": "CREATE UNIQUE INDEX story_memories_pkey ON public.story_memories USING btree (id)"
+    },
+    {
+      "table": "story_plans",
+      "name": "story_plans_pkey",
+      "def": "CREATE UNIQUE INDEX story_plans_pkey ON public.story_plans USING btree (id)"
+    },
+    {
+      "table": "story_promises",
+      "name": "story_promises_pkey",
+      "def": "CREATE UNIQUE INDEX story_promises_pkey ON public.story_promises USING btree (id)"
+    },
+    {
+      "table": "story_threads",
+      "name": "story_threads_pkey",
+      "def": "CREATE UNIQUE INDEX story_threads_pkey ON public.story_threads USING btree (id)"
+    },
+    {
+      "table": "subscriptions",
+      "name": "subscriptions_pkey",
+      "def": "CREATE UNIQUE INDEX subscriptions_pkey ON public.subscriptions USING btree (id)"
+    },
+    {
+      "table": "subscriptions",
+      "name": "subscriptions_user_id_unique",
+      "def": "CREATE UNIQUE INDEX subscriptions_user_id_unique ON public.subscriptions USING btree (user_id)"
+    },
+    {
+      "table": "universe_characters",
+      "name": "universe_characters_pkey",
+      "def": "CREATE UNIQUE INDEX universe_characters_pkey ON public.universe_characters USING btree (id)"
+    },
+    {
+      "table": "universe_events",
+      "name": "universe_events_pkey",
+      "def": "CREATE UNIQUE INDEX universe_events_pkey ON public.universe_events USING btree (id)"
+    },
+    {
+      "table": "universes",
+      "name": "universes_pkey",
+      "def": "CREATE UNIQUE INDEX universes_pkey ON public.universes USING btree (id)"
+    },
+    {
+      "table": "users",
+      "name": "users_email_unique",
+      "def": "CREATE UNIQUE INDEX users_email_unique ON public.users USING btree (email)"
+    },
+    {
+      "table": "users",
+      "name": "users_pkey",
+      "def": "CREATE UNIQUE INDEX users_pkey ON public.users USING btree (id)"
+    },
+    {
+      "table": "video_analysis_jobs",
+      "name": "video_analysis_jobs_pkey",
+      "def": "CREATE UNIQUE INDEX video_analysis_jobs_pkey ON public.video_analysis_jobs USING btree (id)"
+    },
+    {
+      "table": "work_packets",
+      "name": "work_packets_pkey",
+      "def": "CREATE UNIQUE INDEX work_packets_pkey ON public.work_packets USING btree (id)"
+    },
+    {
+      "table": "work_patterns",
+      "name": "work_patterns_pkey",
+      "def": "CREATE UNIQUE INDEX work_patterns_pkey ON public.work_patterns USING btree (id)"
+    },
+    {
+      "table": "world_entities",
+      "name": "world_entities_pkey",
+      "def": "CREATE UNIQUE INDEX world_entities_pkey ON public.world_entities USING btree (id)"
+    }
+  ]
+}

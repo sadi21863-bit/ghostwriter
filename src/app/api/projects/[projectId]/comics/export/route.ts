@@ -1,3 +1,12 @@
+/**
+ * Phase 2 / v4 §7 — deliberately NOT migrated to a Core handler. A CBZ export
+ * is a fetch → sharp page-composition → zip → Blob pipeline whose only
+ * response is a download URL: there is no CRUD verb to extract, standardising
+ * it behind the RequestContext/handler/repository seams would just carve a
+ * bespoke execution-shaped port for one call site. It was reviewed as part of
+ * the comic-domain migration and left as the transport-coupled binary
+ * pipeline it is (see handlers/comics.ts' scope note).
+ */
 export const dynamic = 'force-dynamic';
 
 import { NextResponse } from "next/server";

@@ -13,8 +13,6 @@ export async function POST(req: NextRequest) {
     const session = await getRequiredSession();
     const rl = await checkAiRateLimit(session.user.id);
     if (rl) return rl;
-    const gate = await meterAndGate(session.user.id, "quick-start");
-    if (gate) return gate;
     const { projectId, title, format, genres } = await req.json();
 
     const owned = await db.query.projects.findFirst({
@@ -22,6 +20,8 @@ export async function POST(req: NextRequest) {
     });
     if (!owned) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
+    const gate = await meterAndGate(session.user.id, "quick-start");
+    if (gate) return gate;
     try {
         // Generate quick story skeleton
         const skeleton = await generateQuickStory(title, format, genres);

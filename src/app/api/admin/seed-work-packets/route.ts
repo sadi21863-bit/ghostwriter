@@ -4,12 +4,11 @@ import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { workPackets } from "@/db/schema";
 import { SEEDED_WORK_PACKETS } from "@/db/seeds/work-packets";
+import { requireBearer } from "@/lib/auth-secret";
 
 export async function POST(req: Request) {
-  if (!process.env.ADMIN_SECRET)
-    return new Response("Misconfigured", { status: 500 });
-  if (req.headers.get("authorization") !== `Bearer ${process.env.ADMIN_SECRET}`)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const denied = requireBearer(req.headers.get("authorization"), "ADMIN_SECRET");
+  if (denied) return denied;
 
   let inserted = 0;
   let skipped = 0;

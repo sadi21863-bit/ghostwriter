@@ -236,3 +236,112 @@ describe("POST /api/audio/generate — podcast mode (item 71)", () => {
     expect(mocks.updateSet).toHaveBeenCalledWith(expect.objectContaining({ status: "failed" }));
   }, 20000);
 });
+
+// ---------------------------------------------------------------------------
+// Two-tenant regression coverage (Sprint 0 / v4 §3.1)
+//
+// The defect: project ownership WAS verified, but the chapter was then fetched
+// with `eq(chapters.id, chapterId)` and no project scope. A caller who owned any
+// project could pair their own projectId with a victim's chapterId and have that
+// victim's prose synthesized into audio and returned — and because the speaker
+// lookup resolves against projectId too, the foreign chapter was additionally
+// narrated with the wrong project's cast.
+//
+// The fix scopes the chapter to the same verified project. These tests assert on
+// the authorization input actually used, and — more importantly — on the TTS
+// provider never being reached, since that call is where prose would leave.
+// ---------------------------------------------------------------------------
+describe("POST /api/audio/generate — chapter tenant isolation", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mocks.getRequiredSession.mockResolvedValue({ user: { id: "user-1" } });
+    mocks.checkAiRateLimit.mockResolvedValue(null);
+    mocks.getUserTier.mockResolvedValue("story_pro");
+    mocks.findFirstProjects.mockResolvedValue({ id: "p1", userId: "user-1" });
+    mocks.findFirstUsers.mockResolvedValue({ id: "user-1", openaiApiKey: "enc-openai", ttsProviderId: "openai" });
+    mocks.decrypt.mockImplementation((v: string) => v.replace("enc-", "real-"));
+    mocks.findManyCharacters.mockResolvedValue([]);
+    mocks.put.mockResolvedValue({ url: "https://blob/export-1.mp3" });
+    mocks.concatAudioBuffers.mockResolvedValue(Buffer.from("combined-audio"));
+    mocks.insertReturning.mockResolvedValue([{ id: "export-1" }]);
+  });
+
+  it("scopes the chapter lookup to the verified project, not to chapterId alone", async () => {
+    // A chapter that genuinely belongs to the caller's own project still resolves.
+    mocks.findFirstChapters.mockResolvedValue({ id: "c1", projectId: "p1", content: "my own words" });
+    const provider = makeFakeProvider("openai");
+    mocks.getTTSProvider.mockReturnValue(provider);
+
+    const { POST } = await import("../route");
+    await POST(makeRequest({ projectId: "p1", chapterId: "c1" }));
+
+// The authorization input must be a conjunction that includes the chapter's
+    // project column — a bare `eq(chapters.id, chapterId)` would omit it.
+    // Drizzle conditions are opaque builder trees, so walk them and pull out the
+    // column/value pairs. A column reference exposes `.table` (keyed by the TS
+    // field name) and `.name` (the SQL column name), so `chapters.projectId`
+    // surfaces as "projectId.project_id".
+    const parts: string[] = [];
+    const walk = (n: any): void => {
+      if (!n || typeof n !== "object") return;
+      if (Array.isArray(n)) return n.forEach(walk);
+      if (n.table) {
+        const key = Object.keys(n.table).find((k) => n.table[k] === n);
+        parts.push(`${key}.${n.name}`);
+        return;
+      }
+      if (n.constructor?.name === "StringChunk") return;
+      if (n.value !== undefined) parts.push(`val:${String(n.value)}`);
+      if (Array.isArray(n.queryChunks)) n.queryChunks.forEach(walk);
+    };
+    walk(mocks.findFirstChapters.mock.calls[0][0].where);
+
+    expect(parts).toContain("projectId.project_id");
+    expect(parts).toContain("val:p1");
+  }, 20000);
+
+  it("does not reach the TTS provider when the chapter belongs to another project", async () => {
+    // A correctly scoped lookup returns nothing for a foreign chapterId.
+    mocks.findFirstChapters.mockResolvedValue(undefined);
+    const provider = makeFakeProvider("openai");
+    mocks.getTTSProvider.mockReturnValue(provider);
+
+    const { POST } = await import("../route");
+    const res = await POST(makeRequest({ projectId: "p1", chapterId: "c-victim" }));
+
+    expect(res.status).toBe(400);
+    // The decisive assertion: no prose was sent to any provider.
+    expect(provider.generate).not.toHaveBeenCalled();
+  }, 20000);
+
+  it("never places a foreign chapter id or its content into any outbound call", async () => {
+    mocks.findFirstChapters.mockResolvedValue(undefined);
+    const provider = makeFakeProvider("openai");
+    mocks.getTTSProvider.mockReturnValue(provider);
+
+    const { POST } = await import("../route");
+    await POST(makeRequest({ projectId: "p1", chapterId: "c-victim" }));
+
+    const outbound = JSON.stringify([
+      ...provider.generate.mock.calls,
+      ...mocks.put.mock.calls,
+      ...mocks.generatePodcastScript.mock.calls,
+    ]);
+    expect(outbound).not.toContain("c-victim");
+  }, 20000);
+
+  it("404s before any chapter read when the project itself is not owned", async () => {
+    mocks.findFirstProjects.mockResolvedValue(undefined);
+    const provider = makeFakeProvider("openai");
+    mocks.getTTSProvider.mockReturnValue(provider);
+
+    const { POST } = await import("../route");
+    const res = await POST(makeRequest({ projectId: "p-victim", chapterId: "c1" }));
+
+    expect(res.status).toBe(404);
+    // Ordering matters: an unowned project must short-circuit before the chapter
+    // lookup, so no victim chapter id is even touched.
+    expect(mocks.findFirstChapters).not.toHaveBeenCalled();
+    expect(provider.generate).not.toHaveBeenCalled();
+  }, 20000);
+});

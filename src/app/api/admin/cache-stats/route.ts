@@ -2,13 +2,11 @@ export const dynamic = 'force-dynamic';
 
 import { NextResponse } from "next/server";
 import { db } from "@/db";
+import { requireBearer } from "@/lib/auth-secret";
 
 export async function GET(req: Request) {
-  if (!process.env.ADMIN_SECRET) return new Response("Misconfigured", { status: 500 });
-  const auth = req.headers.get("authorization");
-  if (auth !== `Bearer ${process.env.ADMIN_SECRET}`) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const denied = requireBearer(req.headers.get("authorization"), "ADMIN_SECRET");
+  if (denied) return denied;
 
   const entries = await db.query.semanticCache.findMany({
     columns: { cacheType: true, inputKey: true, hitCount: true, createdAt: true, lastHitAt: true },
