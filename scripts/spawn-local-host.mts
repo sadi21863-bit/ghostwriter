@@ -28,6 +28,10 @@
  *    escape),
  *  - the composed generation bundle (`makeLocalGenerationDeps`, slice 4d) —
  *    GW_LOCAL_GENERATION-gated; unset keeps POST /ai/generate at 501,
+ *  - the thin shell (PLAN-v5 step 2) at GET / + /app.js + /app.css — three
+ *    static views (Write / Bible / Settings) over the same bearer-gated data
+ *    routes, with GET/POST /settings persisting the provider picker to
+ *    `local-settings.json` beside the db (env always wins at boot),
  *  - NO provider-dependent mounts planted: `generation` (POST /ai/generate)
  *    and `generatePackage` stay 501 until an operator supplies their
  *    provider ports — real external spend is a named, separately-reviewed
@@ -38,15 +42,16 @@
  *    `local-host-admin.test.ts`).
  *
  * Run: `npx tsx scripts/spawn-local-host.mts`
- * Env: GW_LOCAL_DB, GW_LOCAL_HOST_PORT, GW_LOCAL_TIER,
+ * Env: GW_LOCAL_DB, GW_LOCAL_HOST_PORT, GW_LOCAL_TIER, GW_LOCAL_GENERATION,
+ *      GW_LOCAL_MODEL / GW_LOCAL_ENDPOINT_URL / GW_LOCAL_API_KEY (plants),
  *      GW_LOCAL_SEGMIND_API_KEY / GW_LOCAL_OPENAI_API_KEY (presence),
  *      ADMIN_SECRET (to turn the admin surface on).
  * The per-launch owner token is printed to STDERR (an operator reads it;
  * nothing writes it to disk).
  */
 
-import { mkdirSync, existsSync } from "node:fs";
-import { dirname, resolve } from "node:path";
+import { mkdirSync, existsSync, readFileSync, writeFileSync } from "node:fs";
+import { dirname, join, resolve } from "node:path";
 
 import { createLocalHostServer, defaultLocalRoutes } from "@/lib/core/local-host";
 import { LOCAL_ADMIN_ROUTES } from "@/lib/core/local-admin-registry";
@@ -102,15 +107,48 @@ async function provisionLocalOwner(handle: ReturnType<typeof createSqliteDb>): P
   return created!.id;
 }
 
-async function main() {
-  const profile = readLocalGenerationProfile();
-  const tier: SubscriptionTier = profile.tier ?? DEFAULT_TIER;
+/**
+ * PLAN-v5 step 2 — the shell's saved provider settings. A missing/malformed
+ * file is simply "no saved choice" (fail-open); env always wins at boot so a
+ * one-off override never requires editing the file.
+ */
+function readLocalSettingsFile(path: string): Record<string, unknown> {
+  try {
+    if (!existsSync(path)) return {};
+    const parsed: unknown = JSON.parse(readFileSync(path, "utf8"));
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed)
+      ? (parsed as Record<string, unknown>)
+      : {};
+  } catch {
+    console.error(`[local-host] settings file unreadable at ${path} — ignoring`);
+    return {};
+  }
+}
 
+async function main() {
   const dbLocation = resolve(
     process.env["GW_LOCAL_DB"] ?? "data/local-ghostwriter.sqlite",
   );
   const dbDir = dirname(dbLocation);
   if (!existsSync(dbDir)) mkdirSync(dbDir, { recursive: true });
+
+  // The shell's provider picker persists here; env stays the explicit override.
+  const settingsPath = join(dbDir, "local-settings.json");
+  const savedSettings = readLocalSettingsFile(settingsPath);
+  const localEnv: NodeJS.ProcessEnv = { ...process.env };
+  if (!localEnv["GW_LOCAL_GENERATION"] && typeof savedSettings["provider"] === "string") {
+    localEnv["GW_LOCAL_GENERATION"] = savedSettings["provider"];
+  }
+  if (!localEnv["GW_LOCAL_MODEL"] && typeof savedSettings["model"] === "string") {
+    localEnv["GW_LOCAL_MODEL"] = savedSettings["model"];
+  }
+  if (!localEnv["GW_LOCAL_ENDPOINT_URL"] && typeof savedSettings["endpointUrl"] === "string") {
+    localEnv["GW_LOCAL_ENDPOINT_URL"] = savedSettings["endpointUrl"];
+  }
+
+  const profile = readLocalGenerationProfile(localEnv);
+  const tier: SubscriptionTier = profile.tier ?? DEFAULT_TIER;
+
   const handle = createSqliteDb(dbLocation);
 
   const localOwnerId = await provisionLocalOwner(handle);
@@ -118,9 +156,10 @@ async function main() {
 
   // Master-plan §12 slice 4d — the composed generation bundle. Boot default OFF:
   // GW_LOCAL_GENERATION decides (auto = localhost detection; generic/anthropic =
-  // explicit operator plants via env). Unset ⇒ no bundle, POST /ai/generate 501.
+  // explicit operator plants via env); the shell's Settings file fills unset
+  // vars first (PLAN-v5 step 2), env always wins. Unset ⇒ no bundle, 501.
   const generationDeps = await makeLocalGenerationDeps({
-    db: handle.db, localOwnerId, profile, tier, env: process.env,
+    db: handle.db, localOwnerId, profile, tier, env: localEnv,
   });
 
   const routes = defaultLocalRoutes({
@@ -152,6 +191,16 @@ async function main() {
     // lists detected localhost providers + key PRESENCE booleans + the
     // routing profile's shape (values never escape).
     providersRead: makeLocalProvidersReadPort(profile),
+    // PLAN-v5 step 2 — the shell's Settings persistence (GET/POST /settings):
+    // a tiny JSON file beside the db; the shell's picker is what writes it.
+    localSettings: {
+      read: async () => readLocalSettingsFile(settingsPath),
+      write: async (patch) => {
+        const next = { ...readLocalSettingsFile(settingsPath), ...patch };
+        writeFileSync(settingsPath, JSON.stringify(next, null, 2) + "\n", "utf8");
+        return next;
+      },
+    },
     ...(generationDeps ? { generation: generationDeps } : {}),
     getTier: async () => tier,
     hooks,

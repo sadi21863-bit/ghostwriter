@@ -36,6 +36,7 @@ import {
   type GenerateChapterPorts,
 } from "./handlers/generate-chapter";
 import { dispatchLocalAdmin, type LocalAdminRoute } from "./local-admin-registry";
+import { LOCAL_SHELL_FILES } from "./local-shell";
 import {
   exportProjectSnapshot,
   importProjectSnapshot,
@@ -455,6 +456,20 @@ export async function createLocalHostServer(opts: LocalHostOptions): Promise<Loc
       // any non-admin path it tries). Two disjoint credential domains on one
       // socket, typed (`_kind: "local-admin"`) and tested both directions.
       const path = trimSlashes(httpReq.url ?? "").split("?")[0] ?? "";
+      // PLAN-v5 step 2 — the thin shell's three static assets (GET only). They
+      // are unauthenticated BY NECESSITY (a browser must load the page before
+      // it can present a token); every DATA route below stays bearer-gated.
+      if (method === "GET") {
+        const asset = LOCAL_SHELL_FILES[path];
+        if (asset) {
+          httpRes.writeHead(200, {
+            "content-type": asset.contentType,
+            "cache-control": "no-store",
+          });
+          httpRes.end(asset.body);
+          return;
+        }
+      }
       // The trimmed path carries no leading slash — the registry's own paths
       // "/admin/…" are normalized the same way inside dispatchLocalAdmin.
       if (adminRegistry && path.startsWith("admin/")) {
@@ -571,6 +586,20 @@ export type LocalGenerationDeps = Pick<
    */
   readonly meter?: LocalGenerationMeter;
 };
+
+/**
+ * PLAN-v5 step 2 — the shell's provider-picker persistence port. The host
+ * never touches the filesystem itself; a composition root supplies this over
+ * its own settings file (`local-settings.json` beside the SQLite db), so the
+ * shell can save the writer's provider choice while the boot-time composition
+ * stays the single place that reads it.
+ */
+export interface LocalSettingsPort {
+  /** The persisted settings object (shape owned by the composition root). */
+  read(): Promise<Record<string, unknown>>;
+  /** Merge + persist a validated patch; returns the full saved object. */
+  write(patch: Record<string, unknown>): Promise<Record<string, unknown>>;
+}
 
 /**
  * The default business surface: the §7 CRUD handlers over well-known paths.
@@ -694,6 +723,13 @@ export interface DefaultRouteDeps {
    * visibility port (`local-provider-routing.ts`).
    */
   readonly providersRead?: LocalProvidersReadPort;
+  /**
+   * PLAN-v5 step 2 — the thin shell's Settings persistence. The host stays
+   * fs-free: the composition root supplies a port over its own settings file
+   * (the sibling of the SQLite db); absent → GET/POST /settings answer 501
+   * like every optional cluster.
+   */
+  readonly localSettings?: LocalSettingsPort;
   /**
    * §7 wave 2 — the embedding seam behind the World Bible create routes
    * (characters/locations/world-entities). The local host has NO embedding
@@ -1101,6 +1137,13 @@ export function defaultLocalRoutes(deps: DefaultRouteDeps): readonly LocalHostRo
     ok: false,
     status: 501,
     reason: "Provider visibility is not configured for this host.",
+  });
+  // PLAN-v5 step 2 — the shell's Settings persistence; absent = 501.
+  const localSettings = deps.localSettings;
+  const noLocalSettings = (): { ok: false; status: 501; reason: string } => ({
+    ok: false,
+    status: 501,
+    reason: "Local settings are not configured for this host.",
   });
   const noComicPages = (): { ok: false; status: 501; reason: string } => ({
     ok: false,
@@ -2012,6 +2055,49 @@ export function defaultLocalRoutes(deps: DefaultRouteDeps): readonly LocalHostRo
       handle: async () => {
         if (!providersRead) return noProvidersRead();
         return providersRead.read();
+      },
+    },
+    // -------- PLAN-v5 step 2 — the thin shell's Settings persistence
+    // The shell's provider picker saves through the composition root's own
+    // settings file (the host stays fs-free). Validated here: the provider is
+    // one of the four boot modes and the strings are strings — the port only
+    // persists. 501 like every optional cluster; bearer-gated like all data.
+    {
+      method: "GET",
+      path: "/settings",
+      handle: async () => {
+        if (!localSettings) return noLocalSettings();
+        return { ok: true, settings: await localSettings.read() };
+      },
+    },
+    {
+      method: "POST",
+      path: "/settings",
+      handle: async ({ body }) => {
+        if (!localSettings) return noLocalSettings();
+        const b = (body ?? {}) as Record<string, unknown>;
+        const provider = b["provider"];
+        if (
+          provider !== undefined &&
+          !["off", "auto", "generic", "anthropic"].includes(String(provider))
+        ) {
+          return {
+            ok: false,
+            status: 400,
+            reason: "provider must be one of off|auto|generic|anthropic",
+          };
+        }
+        const patch: Record<string, unknown> = {};
+        if (provider !== undefined) patch["provider"] = provider;
+        for (const key of ["model", "endpointUrl"] as const) {
+          const value = b[key];
+          if (value === undefined) continue;
+          if (typeof value !== "string") {
+            return { ok: false, status: 400, reason: `${key} must be a string` };
+          }
+          patch[key] = value;
+        }
+        return { ok: true, settings: await localSettings.write(patch) };
       },
     },
     // -------- master-plan Phase 3 — the canonical portable project snapshot

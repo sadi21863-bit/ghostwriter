@@ -1,0 +1,191 @@
+/**
+ * PLAN-v5 step 2 — the thin shell + the Settings persistence route.
+ *
+ * Pins the two halves of the step:
+ *  - the three static assets are served at `/`, `/app.js`, `/app.css` WITHOUT
+ *    the owner bearer (a browser must load the page before it can present a
+ *    token) and carry the right content-types;
+ *  - EVERY data route stays behind the bearer, and GET/POST `/settings` are
+ *    501 until the composition root plants a settings port — then they
+ *    validate and persist through it.
+ *
+ * Own suite (never edits the big local-host pins); the established 20000ms
+ * timeout convention; no network beyond the loopback socket.
+ */
+import { afterAll, describe, expect, it } from "vitest";
+import {
+  createLocalHostServer,
+  defaultLocalRoutes,
+  type LocalHost,
+  type LocalSettingsPort,
+} from "@/lib/core/local-host";
+
+const owned: LocalHost[] = [];
+afterAll(async () => {
+  await Promise.all(owned.map((h) => h.close().catch(() => undefined)));
+});
+
+async function boot(extra: { localSettings?: LocalSettingsPort } = {}): Promise<LocalHost> {
+  const routes = defaultLocalRoutes({
+    chapterRepo: {
+      ownsProject: async () => true,
+      updateScoped: async (_p, chapterId, patch) =>
+        ({ id: chapterId, ...(patch as object) }) as never,
+      deleteScoped: async () => undefined,
+    },
+    storyBibleRepo: {
+      ownsProject: async () => true,
+      readSections: async () => ({}),
+    },
+    storyTransactionRepo: {
+      ownsProject: async () => true,
+      record: async () => undefined,
+      applyChanges: async () => undefined,
+    },
+    ...extra,
+  });
+  const host = await createLocalHostServer({ routes });
+  owned.push(host);
+  return host;
+}
+
+function bearer(host: LocalHost): Record<string, string> {
+  return { authorization: `Bearer ${host.token}` };
+}
+
+async function get(host: LocalHost, path: string, headers: Record<string, string> = {}) {
+  return fetch(`${host.origin}${path}`, { headers });
+}
+
+describe("thin shell assets (PLAN-v5 step 2)", () => {
+  it(
+    "GET / serves the shell HTML without a bearer, with the three view markers",
+    async () => {
+      const host = await boot();
+      const res = await get(host, "/");
+      expect(res.status).toBe(200);
+      expect(res.headers.get("content-type")).toContain("text/html");
+      const body = await res.text();
+      expect(body).toContain("Ghostwriter — local");
+      expect(body).toContain('data-view="write"');
+      expect(body).toContain('data-view="bible"');
+      expect(body).toContain('data-view="settings"');
+      expect(body).toContain('src="/app.js"');
+    },
+    20000,
+  );
+
+  it(
+    "GET /app.js and /app.css serve their assets with the right content-types",
+    async () => {
+      const host = await boot();
+      const js = await get(host, "/app.js");
+      expect(js.status).toBe(200);
+      expect(js.headers.get("content-type")).toContain("javascript");
+      expect(await js.text()).toContain("PLAN-v5 step 2");
+      const css = await get(host, "/app.css");
+      expect(css.status).toBe(200);
+      expect(css.headers.get("content-type")).toContain("text/css");
+      expect(await css.text()).toContain("--accent");
+    },
+    20000,
+  );
+
+  it(
+    "the DATA routes stay bearer-gated — the shell never widens the token contract",
+    async () => {
+      const host = await boot();
+      const anon = await get(host, "/projects");
+      expect(anon.status).toBe(401);
+      const authed = await get(host, "/projects", bearer(host));
+      // No projectsCoreRepo planted → the handler's 501, but AUTHENTICATED.
+      expect(authed.status).toBe(501);
+      const providersAnon = await get(host, "/providers");
+      expect(providersAnon.status).toBe(401);
+    },
+    20000,
+  );
+
+  it(
+    "an unknown static-looking path is NOT served from the shell map",
+    async () => {
+      const host = await boot();
+      const res = await get(host, "/secrets.txt");
+      expect(res.status).toBe(401); // routed as a data path, bearer first
+    },
+    20000,
+  );
+});
+
+describe("GET/POST /settings (PLAN-v5 step 2)", () => {
+  it(
+    "501 by default — the host owns no settings file without a plant",
+    async () => {
+      const host = await boot();
+      const res = await get(host, "/settings", bearer(host));
+      expect(res.status).toBe(501);
+      const body = (await res.json()) as { reason?: string };
+      expect(body.reason).toContain("not configured");
+      const post = await fetch(`${host.origin}/settings`, {
+        method: "POST",
+        headers: { ...bearer(host), "content-type": "application/json" },
+        body: JSON.stringify({ provider: "auto" }),
+      });
+      expect(post.status).toBe(501);
+    },
+    20000,
+  );
+
+  it(
+    "with a planted port: GET reads, POST validates + persists, bearer required",
+    async () => {
+      const saved: Record<string, unknown> = { provider: "off" };
+      const writes: Record<string, unknown>[] = [];
+      const localSettings: LocalSettingsPort = {
+        read: async () => ({ ...saved }),
+        write: async (patch) => {
+          writes.push(patch);
+          Object.assign(saved, patch);
+          return { ...saved };
+        },
+      };
+      const host = await boot({ localSettings });
+
+      const anon = await get(host, "/settings");
+      expect(anon.status).toBe(401);
+
+      const read = await get(host, "/settings", bearer(host));
+      expect(read.status).toBe(200);
+      expect(await read.json()).toEqual({ ok: true, settings: { provider: "off" } });
+
+      const bad = await fetch(`${host.origin}/settings`, {
+        method: "POST",
+        headers: { ...bearer(host), "content-type": "application/json" },
+        body: JSON.stringify({ provider: "nope" }),
+      });
+      expect(bad.status).toBe(400);
+
+      const badType = await fetch(`${host.origin}/settings`, {
+        method: "POST",
+        headers: { ...bearer(host), "content-type": "application/json" },
+        body: JSON.stringify({ model: 42 }),
+      });
+      expect(badType.status).toBe(400);
+
+      const ok = await fetch(`${host.origin}/settings`, {
+        method: "POST",
+        headers: { ...bearer(host), "content-type": "application/json" },
+        body: JSON.stringify({ provider: "anthropic", model: "claude-sonnet-4-5", endpointUrl: "" }),
+      });
+      expect(ok.status).toBe(200);
+      expect(await ok.json()).toEqual({
+        ok: true,
+        settings: { provider: "anthropic", model: "claude-sonnet-4-5", endpointUrl: "" },
+      });
+      expect(writes).toEqual([
+        { provider: "anthropic", model: "claude-sonnet-4-5", endpointUrl: "" },
+      ]);
+    },
+    20000,
+  );
+});
