@@ -37,6 +37,8 @@ import {
 } from "./handlers/generate-chapter";
 import { dispatchLocalAdmin, type LocalAdminRoute } from "./local-admin-registry";
 import { LOCAL_SHELL_FILES } from "./local-shell";
+import { buildEntityEditTransaction } from "@/lib/story/edit-transaction";
+import { DIFF_FIELDS } from "@/lib/ai/entity-extraction";
 import {
   exportProjectSnapshot,
   importProjectSnapshot,
@@ -1234,6 +1236,41 @@ export function defaultLocalRoutes(deps: DefaultRouteDeps): readonly LocalHostRo
           deps.storyTransactionRepo,
           deps.hooks,
         ),
+    },
+    // -------- PLAN-v5 step 4 — the accept/reject loop's PREVIEW half
+    // PURE: builds the SAME user-edit transaction the cloud form-save adapter
+    // builds (one shared builder: `buildEntityEditTransaction`), so the shell
+    // can show old→new per field and write NOTHING until the writer accepts.
+    // Accept posts the returned change list to the story-transactions route
+    // above; Reject never calls the server at all.
+    {
+      method: "POST",
+      path: "/projects/:projectId/entity-proposals",
+      handle: ({ body }) => {
+        const b = (body ?? {}) as Record<string, unknown>;
+        const key = b["entityKey"];
+        if (typeof key !== "string" || !(key in DIFF_FIELDS)) {
+          return {
+            ok: false,
+            status: 400,
+            reason: "entityKey must be one of characters|locations|plotThreads|worldEntities",
+          };
+        }
+        const entity = b["entity"];
+        const draft = b["draft"];
+        if (
+          !entity || typeof entity !== "object" || Array.isArray(entity) ||
+          !draft || typeof draft !== "object" || Array.isArray(draft)
+        ) {
+          return { ok: false, status: 400, reason: "entity and draft are required objects" };
+        }
+        const built = buildEntityEditTransaction(
+          key as Parameters<typeof buildEntityEditTransaction>[0],
+          entity as Record<string, unknown>,
+          draft as Record<string, unknown>,
+        );
+        return { ok: true, proposal: built };
+      },
     },
     {
       method: "GET",

@@ -25,7 +25,9 @@ afterAll(async () => {
   await Promise.all(owned.map((h) => h.close().catch(() => undefined)));
 });
 
-async function boot(extra: { localSettings?: LocalSettingsPort } = {}): Promise<LocalHost> {
+async function boot(
+  extra: Partial<Parameters<typeof defaultLocalRoutes>[0]> = {},
+): Promise<LocalHost> {
   const routes = defaultLocalRoutes({
     chapterRepo: {
       ownsProject: async () => true,
@@ -55,6 +57,14 @@ function bearer(host: LocalHost): Record<string, string> {
 
 async function get(host: LocalHost, path: string, headers: Record<string, string> = {}) {
   return fetch(`${host.origin}${path}`, { headers });
+}
+
+async function post(host: LocalHost, path: string, body: unknown, authed = true) {
+  return fetch(`${host.origin}${path}`, {
+    method: "POST",
+    headers: { ...(authed ? bearer(host) : {}), "content-type": "application/json" },
+    body: JSON.stringify(body),
+  });
 }
 
 describe("thin shell assets (PLAN-v5 step 2)", () => {
@@ -112,6 +122,101 @@ describe("thin shell assets (PLAN-v5 step 2)", () => {
       const host = await boot();
       const res = await get(host, "/secrets.txt");
       expect(res.status).toBe(401); // routed as a data path, bearer first
+    },
+    20000,
+  );
+});
+
+describe("POST /projects/:projectId/entity-proposals (PLAN-v5 step 4)", () => {
+  it(
+    "bearer-gated, validates entityKey, and builds the shared user-edit transaction",
+    async () => {
+      const host = await boot();
+      const anon = await post(host, "/projects/p1/entity-proposals", {}, false);
+      expect(anon.status).toBe(401);
+
+      const badKey = await post(host, "/projects/p1/entity-proposals", {
+        entityKey: "nope",
+        entity: {},
+        draft: {},
+      });
+      expect(badKey.status).toBe(400);
+
+      const res = await post(host, "/projects/p1/entity-proposals", {
+        entityKey: "characters",
+        entity: { id: "c1", name: "Mara", personality: "old", voiceId: "v1" },
+        draft: { name: "Mara", personality: "new", voiceId: "v2" },
+      });
+      expect(res.status).toBe(200);
+      const body = (await res.json()) as {
+        proposal?: { changes?: unknown[]; excluded?: Record<string, unknown> };
+      };
+      // Only the real diff, canonical-encoded, in draft-key order.
+      expect(body.proposal?.changes).toEqual([
+        {
+          entityKey: "characters",
+          entityId: "c1",
+          field: "personality",
+          oldValue: "old",
+          newValue: "new",
+        },
+      ]);
+      // Non-allowlisted fields are reported, never silently written.
+      expect(body.proposal?.excluded).toEqual({ voiceId: "v2" });
+    },
+    20000,
+  );
+
+  it(
+    "ACCEPT writes through the existing story-transactions route — one recorded transaction",
+    async () => {
+      const recorded: unknown[] = [];
+      const applied: unknown[] = [];
+      const host = await boot({
+        storyTransactionRepo: {
+          ownsProject: async () => true,
+          record: async (tx) => {
+            recorded.push(tx);
+          },
+          applyChanges: async (_projectId, tx) => {
+            applied.push(tx);
+          },
+        },
+      });
+      const res = await post(host, "/projects/p1/story-transactions", {
+        source: "user-edit",
+        changes: [
+          {
+            entityKey: "characters",
+            entityId: "c1",
+            field: "personality",
+            oldValue: "old",
+            newValue: "new",
+          },
+        ],
+      });
+      expect(res.status).toBe(200);
+      expect(recorded).toHaveLength(1);
+      expect(applied).toHaveLength(1);
+      expect((recorded[0] as { source: string }).source).toBe("user-edit");
+      const body = (await res.json()) as { transaction?: { changes?: unknown[] } };
+      expect(body.transaction?.changes).toHaveLength(1);
+    },
+    20000,
+  );
+
+  it(
+    "the shell carries the loop: propose endpoint, Accept/Reject, and no auto-save copy",
+    async () => {
+      const host = await boot();
+      const js = await (await get(host, "/app.js")).text();
+      expect(js).toContain("/entity-proposals");
+      expect(js).toContain("acceptProposal");
+      expect(js).toContain("rejectProposal");
+      const html = await (await get(host, "/")).text();
+      expect(html).toContain('id="accept-proposal"');
+      expect(html).toContain('id="reject-proposal"');
+      expect(html).toContain("nothing is saved until you accept");
     },
     20000,
   );

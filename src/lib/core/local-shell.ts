@@ -104,8 +104,17 @@ const SHELL_HTML = `<!doctype html>
           </div>
           <div id="entity-fields"></div>
           <div class="row">
-            <button type="submit">Save</button>
+            <button type="submit">Propose changes</button>
             <span id="entity-state" class="muted"></span>
+          </div>
+          <div id="proposal" class="proposal" hidden>
+            <h3>Pending changes — nothing is saved until you accept</h3>
+            <div id="proposal-rows"></div>
+            <p id="proposal-excluded" class="muted" hidden></p>
+            <div class="row">
+              <button type="button" id="accept-proposal">Accept</button>
+              <button type="button" id="reject-proposal">Reject</button>
+            </div>
           </div>
         </form>
       </section>
@@ -282,6 +291,17 @@ main { flex: 1; min-height: 0; }
 .entity-form { max-width: 640px; display: flex; flex-direction: column; gap: 4px; }
 .entity-form textarea { min-height: 90px; resize: vertical; }
 .settings-form { display: flex; flex-direction: column; }
+.proposal {
+  margin-top: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 12px 14px;
+  background: var(--panel);
+}
+.proposal h3 { margin-bottom: 8px; }
+.proposal-row { padding: 4px 0; font-size: 14px; }
+.proposal-row .old { color: var(--danger); text-decoration: line-through; }
+.proposal-row .new { color: var(--ok); }
 .info { display: flex; flex-direction: column; gap: 8px; }
 .info .card {
   background: var(--panel);
@@ -306,6 +326,7 @@ const SHELL_JS = `"use strict";
     chapterId: null,
     view: "write",
     entity: null, // { kind: "character"|"location", id }
+    proposal: null, // PLAN-v5 step 4 — the pending change set (never canon)
     settings: {},
     providerInfo: null,
     saveTimer: null,
@@ -402,6 +423,7 @@ const SHELL_JS = `"use strict";
     state.projectId = id;
     localStorage.setItem(PROJECT_KEY, id);
     state.entity = null;
+    state.proposal = null;
     return api("/projects/" + encodeURIComponent(id)).then(function (data) {
       state.graph = data.project;
       state.chapterId = state.graph.chapters && state.graph.chapters.length ? state.graph.chapters[0].id : null;
@@ -512,6 +534,7 @@ const SHELL_JS = `"use strict";
 
   function selectEntity(kind, id) {
     state.entity = { kind: kind, id: id };
+    state.proposal = null;
     renderBible();
   }
 
@@ -549,6 +572,7 @@ const SHELL_JS = `"use strict";
       label.appendChild(input);
       host.appendChild(label);
     });
+    renderProposal();
   }
 
   function newEntity(kind) {
@@ -566,29 +590,85 @@ const SHELL_JS = `"use strict";
     }).catch(function (err) { status("Create failed: " + err.message); });
   }
 
-  function saveEntity() {
+  // ── Accept / reject (PLAN-v5 step 4) ────────────────────────
+  // Nothing here writes canonical state until Accept. Propose asks the server
+  // for the exact user-edit transaction the shared builder would produce
+  // (old→new per changed field); Accept records + applies it; Reject only
+  // forgets the draft.
+  function proposeEntity() {
     var entity = selectedEntity();
     if (!entity) return;
-    var fields = state.entity.kind === "character" ? CHARACTER_FIELDS : LOCATION_FIELDS;
-    var patch = {};
+    var kind = state.entity.kind;
+    var entityKey = kind === "character" ? "characters" : "locations";
+    var fields = kind === "character" ? CHARACTER_FIELDS : LOCATION_FIELDS;
+    var draft = {};
     fields.forEach(function (f) {
       var input = document.querySelector('#entity-fields [data-key="' + f.key + '"]');
-      patch[f.key] = input ? input.value : "";
+      draft[f.key] = input ? input.value : "";
     });
-    $("entity-state").textContent = "saving…";
-    api("/projects/" + encodeURIComponent(state.projectId) + "/" + state.entity.kind + "s/" + encodeURIComponent(entity.id), {
-      method: "PATCH",
-      body: patch,
+    $("entity-state").textContent = "computing diff…";
+    api("/projects/" + encodeURIComponent(state.projectId) + "/entity-proposals", {
+      method: "POST",
+      body: { entityKey: entityKey, entity: entity, draft: draft },
+    }).then(function (data) {
+      state.proposal = data.proposal;
+      $("entity-state").textContent = "";
+      renderProposal();
+    }).catch(function (err) {
+      $("entity-state").textContent = "propose failed";
+      status("Propose failed: " + err.message);
+    });
+  }
+
+  function renderProposal() {
+    var panel = $("proposal");
+    var rows = $("proposal-rows");
+    var p = state.proposal;
+    if (!p) { panel.hidden = true; rows.innerHTML = ""; $("proposal-excluded").hidden = true; return; }
+    panel.hidden = false;
+    rows.innerHTML = "";
+    if (!p.changes.length) {
+      rows.innerHTML = '<p class="muted">No changes to propose.</p>';
+    } else {
+      p.changes.forEach(function (c) {
+        var div = document.createElement("div");
+        div.className = "proposal-row";
+        div.innerHTML = "<strong>" + esc(c.field) + "</strong>: " +
+          '<span class="old">' + esc(c.oldValue || "(empty)") + "</span> → " +
+          '<span class="new">' + esc(c.newValue || "(empty)") + "</span>";
+        rows.appendChild(div);
+      });
+    }
+    var excluded = p.excluded ? Object.keys(p.excluded) : [];
+    var ex = $("proposal-excluded");
+    ex.hidden = excluded.length === 0;
+    ex.textContent = excluded.length
+      ? excluded.length + " field(s) are outside the transaction allowlist and will not be written: " + excluded.join(", ")
+      : "";
+  }
+
+  function acceptProposal() {
+    var p = state.proposal;
+    if (!p || !p.changes.length) return;
+    $("entity-state").textContent = "accepting…";
+    api("/projects/" + encodeURIComponent(state.projectId) + "/story-transactions", {
+      method: "POST",
+      body: { source: "user-edit", changes: p.changes },
     }).then(function () {
-      $("entity-state").textContent = "saved";
+      state.proposal = null;
       return selectProject(state.projectId).then(function () {
-        state.entity = { kind: state.entity.kind, id: entity.id };
-        renderBible();
+        $("entity-state").textContent = "accepted";
       });
     }).catch(function (err) {
-      $("entity-state").textContent = "save failed";
-      status("Save failed: " + err.message);
+      $("entity-state").textContent = "accept failed";
+      status("Accept failed: " + err.message);
     });
+  }
+
+  function rejectProposal() {
+    state.proposal = null;
+    $("entity-state").textContent = "rejected — canon untouched";
+    renderEntityForm();
   }
 
   function deleteEntity() {
@@ -740,7 +820,9 @@ const SHELL_JS = `"use strict";
   });
   $("new-character").addEventListener("click", function () { newEntity("character"); });
   $("new-location").addEventListener("click", function () { newEntity("location"); });
-  $("bible-form").addEventListener("submit", function (e) { e.preventDefault(); saveEntity(); });
+  $("bible-form").addEventListener("submit", function (e) { e.preventDefault(); proposeEntity(); });
+  $("accept-proposal").addEventListener("click", acceptProposal);
+  $("reject-proposal").addEventListener("click", rejectProposal);
   $("delete-entity").addEventListener("click", deleteEntity);
   $("settings-form").addEventListener("submit", function (e) { e.preventDefault(); saveSettings(); });
 
