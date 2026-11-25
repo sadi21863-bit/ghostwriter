@@ -41,7 +41,8 @@
  *    token drives — and the two remain disjoint by construction (verified in
  *    `local-host-admin.test.ts`).
  *
- * Run: `npx tsx scripts/spawn-local-host.mts`
+ * Run: `npx tsx scripts/spawn-local-host.mts` (shell: http://127.0.0.1:4178,
+ * override with GW_LOCAL_HOST_PORT).
  * Env: GW_LOCAL_DB, GW_LOCAL_HOST_PORT, GW_LOCAL_TIER, GW_LOCAL_GENERATION,
  *      GW_LOCAL_MODEL / GW_LOCAL_ENDPOINT_URL / GW_LOCAL_API_KEY (plants),
  *      GW_LOCAL_TIMEOUT_MS (slow local hardware; raises the adapters' ceiling),
@@ -251,7 +252,10 @@ async function main() {
   });
 
   const host = await createLocalHostServer({
-    port: process.env["GW_LOCAL_HOST_PORT"] ? Number(process.env["GW_LOCAL_HOST_PORT"]) : undefined,
+    // Stable default so the shell URL is bookmarkable; override per launch.
+    port: process.env["GW_LOCAL_HOST_PORT"]
+      ? Number(process.env["GW_LOCAL_HOST_PORT"])
+      : 4178,
     routes,
     localOwnerId,
     adminRegistry: LOCAL_ADMIN_ROUTES,
