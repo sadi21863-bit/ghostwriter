@@ -50,7 +50,9 @@
 import { and, asc, desc, eq, inArray, lte, ne } from "drizzle-orm";
 
 import {
+  characters,
   generations,
+  locations,
   projectCharacterStates,
   projects,
   seriesBibles,
@@ -388,6 +390,66 @@ export function makeLocalContextBuilder(
     return lines.length > 1 ? "\n\n--- SERIES BIBLE ---\n" + lines.join("\n") : "";
   }
 
+  /**
+   * PLAN-v5 — CAST & PLACES. The World Bible is the source of truth for names,
+   * and the model cannot keep them stable unless it sees them. Bounded
+   * (alwaysInContext first, then sortOrder; 12 characters / 8 locations) and
+   * one compact line each, with an explicit introduction policy so a new named
+   * character is a deliberate writer decision, not model drift.
+   */
+  function compactField(value: unknown, max: number): string {
+    const text = String(value ?? "").replace(/\s+/g, " ").trim();
+    return text.length > max ? `${text.slice(0, max - 1)}…` : text;
+  }
+
+  async function buildLocalCastContext(projectId: string): Promise<string> {
+    const cast = await db
+      .select({
+        name: characters.name,
+        role: characters.role,
+        personality: characters.personality,
+        backstory: characters.backstory,
+        alwaysInContext: characters.alwaysInContext,
+        sortOrder: characters.sortOrder,
+      })
+      .from(characters)
+      .where(eq(characters.projectId, projectId))
+      .orderBy(desc(characters.alwaysInContext), asc(characters.sortOrder), asc(characters.name))
+      .limit(12);
+    const places = await db
+      .select({
+        name: locations.name,
+        description: locations.description,
+        alwaysInContext: locations.alwaysInContext,
+        sortOrder: locations.sortOrder,
+      })
+      .from(locations)
+      .where(eq(locations.projectId, projectId))
+      .orderBy(desc(locations.alwaysInContext), asc(locations.sortOrder), asc(locations.name))
+      .limit(8);
+    if (!cast.length && !places.length) return "";
+
+    const lines: string[] = [
+      "CAST & PLACES (canon — keep these names exact; do not rename, merge, or contradict them. Introduce a NEW named character only when the story genuinely needs one, give them a purpose, and never invent a second name for an existing person.)",
+    ];
+    for (const c of cast) {
+      const parts = [c.role ? `${c.name} — ${c.role}` : c.name];
+      const person = compactField(c.personality, 110);
+      if (person) parts.push(person);
+      const back = compactField(c.backstory, 130);
+      if (back) parts.push(back);
+      lines.push(`- ${parts.join("; ")}`);
+    }
+    if (places.length) {
+      lines.push("Places:");
+      for (const p of places) {
+        const desc = compactField(p.description, 110);
+        lines.push(`- ${p.name}${desc ? ` — ${desc}` : ""}`);
+      }
+    }
+    return "\n\n--- CAST & PLACES ---\n" + lines.join("\n");
+  }
+
   return {
     /**
      * The cloud route's buildContext, minus its cloud-only parts — the EXACT
@@ -431,6 +493,11 @@ export function makeLocalContextBuilder(
         // existence (the cloud reads it for any projectId — route line 205).
         const seriesBibleCtx = await buildLocalSeriesBibleContext(req.projectId);
         if (seriesBibleCtx) seriesUniverseCtx += seriesBibleCtx;
+
+        // PLAN-v5 — the World Bible cast/places, project-scoped and
+        // owner-proven by the project read above (a foreign project composes
+        // nothing). Rides the static block with the other server-derived canon.
+        if (proj) seriesUniverseCtx += await buildLocalCastContext(req.projectId);
       }
 
       // Series/universe context belongs in the static (cached) block —

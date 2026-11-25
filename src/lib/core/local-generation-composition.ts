@@ -144,14 +144,26 @@ export async function makeLocalGenerationDeps(
     const detected = deps.detect
       ? await deps.detect()
       : await detectLocalProviders({ timeoutMs: 750 });
-    const first = detected[0];
+    // PLAN-v5 — a chosen model disambiguates between several live localhost
+    // servers (e.g. Ollama on :11434 and the portable llamafile on :8080):
+    // when some detected provider serves GW_LOCAL_MODEL, that provider wins;
+    // otherwise the documented probe order decides.
+    const preferred = env["GW_LOCAL_MODEL"];
+    const matched =
+      preferred !== undefined
+        ? detected.find((d) => d.models.includes(preferred))
+        : undefined;
+    const first = matched ?? detected[0];
     if (!first) {
       console.warn(
         "[local-generation] no localhost provider detected — generation stays OFF",
       );
       return null;
     }
-    const endpoint = { baseUrl: first.baseUrl, model: first.models[0] ?? "default" };
+    const endpoint = {
+      baseUrl: first.baseUrl,
+      model: matched && preferred ? preferred : first.models[0] ?? "default",
+    };
     const timeoutMs = readTimeoutMs(env);
     generate = deps.makeOpenAIAdapter
       ? deps.makeOpenAIAdapter(endpoint)

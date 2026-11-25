@@ -634,4 +634,49 @@ describe("local generation composition — source purity (mirrored convention)",
     },
     20000,
   );
+
+  it(
+    "auto prefers the detected provider that SERVES GW_LOCAL_MODEL (Ollama + llamafile coexist)",
+    async () => {
+      const openAI = openAIFactoryDouble();
+      const deps = await makeLocalGenerationDeps(
+        baseDeps({
+          env: { GW_LOCAL_GENERATION: "auto", GW_LOCAL_MODEL: "qwen-coder" },
+          detect: async () => [
+            { baseUrl: "http://127.0.0.1:11434/v1", label: "Ollama", models: ["llama3.2:3b"] },
+            { baseUrl: "http://127.0.0.1:8080/v1", label: "Local server", models: ["qwen-coder"] },
+          ],
+          ...openAI,
+          ...binderDouble(),
+        }),
+      );
+      expect(deps).not.toBeNull();
+      expect(openAI.endpoints).toEqual([
+        { baseUrl: "http://127.0.0.1:8080/v1", model: "qwen-coder" },
+      ]);
+    },
+    20000,
+  );
+
+  it(
+    "auto falls back to the documented probe order when no provider serves the chosen model",
+    async () => {
+      const openAI = openAIFactoryDouble();
+      const deps = await makeLocalGenerationDeps(
+        baseDeps({
+          env: { GW_LOCAL_GENERATION: "auto", GW_LOCAL_MODEL: "not-served-anywhere" },
+          detect: async () => [
+            { baseUrl: "http://127.0.0.1:11434/v1", label: "Ollama", models: ["llama3.2:3b"] },
+            { baseUrl: "http://127.0.0.1:8080/v1", label: "Local server", models: ["qwen-coder"] },
+          ],
+          ...openAI,
+          ...binderDouble(),
+        }),
+      );
+      expect(openAI.endpoints).toEqual([
+        { baseUrl: "http://127.0.0.1:11434/v1", model: "llama3.2:3b" },
+      ]);
+    },
+    20000,
+  );
 });
