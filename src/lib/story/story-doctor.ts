@@ -214,7 +214,7 @@ export function findUnresolvedPromises(memories: readonly DoctorMemory[]): Unres
       message:
         `"${promise}" is opened` +
         (openedInChapter === null ? "" : ` in chapter ${openedInChapter + 1}`) +
-        " and is never paid off by the final chapter.",
+        " and is still open at the final chapter — decide whether that is intentional (a deliberate open thread) or an overlooked setup.",
     });
   }
   return issues;
