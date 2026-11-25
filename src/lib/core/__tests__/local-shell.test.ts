@@ -19,6 +19,7 @@ import {
   type LocalHost,
   type LocalSettingsPort,
 } from "@/lib/core/local-host";
+import type { ProjectsCoreRepository } from "@/lib/core/handlers/projects";
 
 const owned: LocalHost[] = [];
 afterAll(async () => {
@@ -217,6 +218,98 @@ describe("POST /projects/:projectId/entity-proposals (PLAN-v5 step 4)", () => {
       expect(html).toContain('id="accept-proposal"');
       expect(html).toContain('id="reject-proposal"');
       expect(html).toContain("nothing is saved until you accept");
+    },
+    20000,
+  );
+});
+
+describe("GET /projects/:projectId/story-doctor (PLAN-v5 step 5)", () => {
+  function repo(double: Partial<ProjectsCoreRepository>): ProjectsCoreRepository {
+    return {
+      ownsProject: async () => true,
+      listForUser: async () => [],
+      countForUser: async () => 0,
+      create: async () => {
+        throw new Error("unused in these pins");
+      },
+      read: async () => null,
+      updateScoped: async () => null,
+      deleteScoped: async () => undefined,
+      ...double,
+    } as unknown as ProjectsCoreRepository;
+  }
+
+  it(
+    "401 without the bearer; 404 for a project this host does not own",
+    async () => {
+      const host = await boot({ projectsCoreRepo: repo({ ownsProject: async () => false }) });
+      const anon = await get(host, "/projects/p1/story-doctor");
+      expect(anon.status).toBe(401);
+      const notOwned = await get(host, "/projects/p1/story-doctor", bearer(host));
+      expect(notOwned.status).toBe(404);
+    },
+    20000,
+  );
+
+  it(
+    "finds both planted defects from the project graph the editor reads",
+    async () => {
+      const host = await boot({
+        projectsCoreRepo: repo({
+          read: async () =>
+            ({
+              chapters: [
+                {
+                  title: "The Canal",
+                  sortOrder: 0,
+                  content: "Mara slid the brass key into the canal gate.",
+                },
+                { title: "The Lesson", sortOrder: 1, content: "Tamsin explained the lock." },
+              ],
+              storyMemories: [
+                {
+                  chapterIndex: 0,
+                  structuredData: { openPromisesCreated: ["The key must be returned"] },
+                },
+                {
+                  chapterIndex: 1,
+                  structuredData: {
+                    knowledgeShifts: [
+                      { character: "Mara", learned: "the brass key opens the canal gate" },
+                    ],
+                  },
+                },
+              ],
+            }) as never,
+        }),
+      });
+      const res = await get(host, "/projects/p1/story-doctor", bearer(host));
+      expect(res.status).toBe(200);
+      const body = (await res.json()) as {
+        ok: boolean;
+        issues: { kind: string }[];
+        checked: { chapters: number };
+      };
+      expect(body.ok).toBe(true);
+      expect(body.issues.map((i) => i.kind).sort()).toEqual([
+        "knowledge-conflict",
+        "unresolved-promise",
+      ]);
+      expect(body.checked.chapters).toBe(2);
+    },
+    20000,
+  );
+
+  it(
+    "the shell carries the Doctor action and its results panel",
+    async () => {
+      const host = await boot();
+      const js = await (await get(host, "/app.js")).text();
+      expect(js).toContain("/story-doctor");
+      expect(js).toContain("runDoctor");
+      const html = await (await get(host, "/")).text();
+      expect(html).toContain('id="run-doctor"');
+      expect(html).toContain('id="doctor-results"');
     },
     20000,
   );

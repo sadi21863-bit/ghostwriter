@@ -39,6 +39,7 @@ import { dispatchLocalAdmin, type LocalAdminRoute } from "./local-admin-registry
 import { LOCAL_SHELL_FILES } from "./local-shell";
 import { buildEntityEditTransaction } from "@/lib/story/edit-transaction";
 import { DIFF_FIELDS } from "@/lib/ai/entity-extraction";
+import { runStoryDoctor, type DoctorChapter, type DoctorMemory } from "@/lib/story/story-doctor";
 import {
   exportProjectSnapshot,
   importProjectSnapshot,
@@ -1270,6 +1271,33 @@ export function defaultLocalRoutes(deps: DefaultRouteDeps): readonly LocalHostRo
           draft as Record<string, unknown>,
         );
         return { ok: true, proposal: built };
+      },
+    },
+    // -------- PLAN-v5 step 5 — Story Doctor v1 (EXACTLY two checks)
+    // Deterministic, provider-free: knowledge conflicts (a character acting on
+    // information before the timeline says they learned it) + unresolved
+    // promises (setups never paid off by the final chapter). Reads the SAME
+    // project graph the editor reads; no LLM, no cost, no network.
+    {
+      method: "GET",
+      path: "/projects/:projectId/story-doctor",
+      handle: async ({ ctx, params }) => {
+        if (!projectsCoreRepo) return noProjects();
+        if (!mayAccessProject(ctx, params.projectId!)) {
+          return { ok: false, status: 403, reason: "Project is out of scope for this host." };
+        }
+        const owns = await projectsCoreRepo.ownsProject(params.projectId!, ctx.actor.id);
+        if (!owns) return { ok: false, status: 404, reason: "Not found" };
+        const graph = (await projectsCoreRepo.read(params.projectId!)) as unknown as {
+          chapters?: DoctorChapter[];
+          storyMemories?: DoctorMemory[];
+        } | null;
+        if (!graph) return { ok: false, status: 404, reason: "Not found" };
+        const report = runStoryDoctor({
+          chapters: graph.chapters ?? [],
+          memories: graph.storyMemories ?? [],
+        });
+        return { ok: true, ...report };
       },
     },
     {

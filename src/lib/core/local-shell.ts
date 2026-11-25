@@ -71,6 +71,11 @@ const SHELL_HTML = `<!doctype html>
             <span id="save-state" class="muted"></span>
           </div>
           <div id="chapter-tabs" class="chapter-tabs"></div>
+          <div class="row doctor-bar">
+            <button type="button" id="run-doctor" class="small">Check continuity</button>
+            <span id="doctor-state" class="muted"></span>
+          </div>
+          <div id="doctor-results" class="doctor" hidden></div>
           <textarea id="editor" spellcheck="false" placeholder="Start writing…"></textarea>
           <div class="row footer">
             <span id="word-count" class="muted"></span>
@@ -302,6 +307,27 @@ main { flex: 1; min-height: 0; }
 .proposal-row { padding: 4px 0; font-size: 14px; }
 .proposal-row .old { color: var(--danger); text-decoration: line-through; }
 .proposal-row .new { color: var(--ok); }
+.doctor-bar { justify-content: flex-start; }
+.doctor {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+  padding: 10px 14px;
+  max-height: 240px;
+  overflow-y: auto;
+}
+.doctor-issue { padding: 6px 0; border-bottom: 1px solid var(--line); }
+.doctor-issue:last-child { border-bottom: none; }
+.doctor-issue p { margin: 4px 0; font-size: 14px; }
+.doctor-issue blockquote {
+  margin: 4px 0 0;
+  padding: 4px 10px;
+  border-left: 2px solid var(--line);
+  color: var(--muted);
+  font-size: 13px;
+  font-style: italic;
+}
+.warn { color: #e0af68; }
 .info { display: flex; flex-direction: column; gap: 8px; }
 .info .card {
   background: var(--panel);
@@ -424,6 +450,10 @@ const SHELL_JS = `"use strict";
     localStorage.setItem(PROJECT_KEY, id);
     state.entity = null;
     state.proposal = null;
+    var doctorBox = $("doctor-results");
+    if (doctorBox) { doctorBox.hidden = true; doctorBox.innerHTML = ""; }
+    var doctorState = $("doctor-state");
+    if (doctorState) doctorState.textContent = "";
     return api("/projects/" + encodeURIComponent(id)).then(function (data) {
       state.graph = data.project;
       state.chapterId = state.graph.chapters && state.graph.chapters.length ? state.graph.chapters[0].id : null;
@@ -469,6 +499,37 @@ const SHELL_JS = `"use strict";
   function renderWordCount() {
     var words = ($("editor").value || "").trim().split(/\\s+/).filter(Boolean).length;
     $("word-count").textContent = words + " word" + (words === 1 ? "" : "s");
+  }
+
+  // ── Story Doctor (PLAN-v5 step 5) ───────────────────────────
+  function runDoctor() {
+    if (!state.projectId) return;
+    $("doctor-state").textContent = "checking…";
+    api("/projects/" + encodeURIComponent(state.projectId) + "/story-doctor").then(function (data) {
+      var issues = data.issues || [];
+      $("doctor-state").textContent = issues.length
+        ? (issues.length + " issue" + (issues.length === 1 ? "" : "s"))
+        : "no issues";
+      var box = $("doctor-results");
+      box.innerHTML = "";
+      box.hidden = false;
+      if (!issues.length) {
+        box.innerHTML = '<p class="muted">No continuity issues found in the two v1 checks (knowledge conflicts, unresolved promises).</p>';
+        return;
+      }
+      issues.forEach(function (issue) {
+        var div = document.createElement("div");
+        div.className = "doctor-issue";
+        var title = issue.kind === "knowledge-conflict" ? "Knowledge conflict" : "Unresolved promise";
+        div.innerHTML = '<strong class="warn">' + esc(title) + "</strong>" +
+          "<p>" + esc(issue.message) + "</p>" +
+          (issue.excerpt ? "<blockquote>" + esc(issue.excerpt) + "</blockquote>" : "");
+        box.appendChild(div);
+      });
+    }).catch(function (err) {
+      $("doctor-state").textContent = "check failed";
+      status("Doctor failed: " + err.message);
+    });
   }
 
   function scheduleSave() {
@@ -809,10 +870,10 @@ const SHELL_JS = `"use strict";
     }).catch(function (err) { status("Create failed: " + err.message); });
   });
 
-  $("editor").addEventListener("input", function () { renderWordCount(); scheduleSave(); });
-  $("editor").addEventListener("keydown", function (e) {
+  $("editor").addEventListener("input", function () { renderWordCount(); scheduleSave(); });  $("editor").addEventListener("keydown", function (e) {
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s") { e.preventDefault(); flushSave(); }
   });
+  $("run-doctor").addEventListener("click", runDoctor);
   window.addEventListener("beforeunload", function () { flushSave(); });
 
   $("bible-project").addEventListener("change", function (e) {
