@@ -52,10 +52,32 @@ import {
   getCraftDirectives,
 } from "@/lib/ai/engine";
 import type { GeneratedOutput } from "@/lib/ai/generation-service";
+import { Agent, fetch as undiciFetch } from "undici";
 import type {
   GenerateChapterInput,
   GenerateChapterPorts,
 } from "./handlers/generate-chapter";
+
+/**
+ * PLAN-v5 — slow local models on CPU-only hardware legitimately take minutes
+ * to produce a NON-STREAMING reply, so the response HEADERS only arrive after
+ * generation completes. Node's global fetch is undici under the hood and its
+ * DEFAULT headersTimeout (~300s) fires before the AbortSignal ceiling — the
+ * same documented gotcha this repo already fixed for the Segmind client
+ * (which also warns: never mix Node's built-in fetch with this package's
+ * Agent — the version mismatch throws). The default transport is therefore
+ * the package's OWN fetch + an Agent whose headers/body timeouts follow the
+ * caller's `timeoutMs`. An injected `fetchImpl` is used verbatim (tests own
+ * their transport).
+ */
+function makeTimeoutFetch(timeoutMs: number): typeof fetch {
+  const agent = new Agent({ headersTimeout: timeoutMs, bodyTimeout: timeoutMs });
+  const wrapped = (
+    input: Parameters<typeof undiciFetch>[0],
+    init?: Parameters<typeof undiciFetch>[1],
+  ) => undiciFetch(input, { ...init, dispatcher: agent });
+  return wrapped as unknown as typeof fetch;
+}
 
 export interface LocalOpenAIEndpoint {
   /**
@@ -93,8 +115,8 @@ export function makeOpenAICompatibleGenerate(
   endpoint: LocalOpenAIEndpoint,
   opts: OpenAICompatibleGenerateOptions = {},
 ): NonNullable<GenerateChapterPorts["generate"]> {
-  const doFetch = opts.fetchImpl ?? fetch;
   const timeoutMs = opts.timeoutMs ?? 300_000;
+  const doFetch = opts.fetchImpl ?? makeTimeoutFetch(timeoutMs);
   const maxTokens = opts.maxTokens ?? 8000;
   const base = endpoint.baseUrl.replace(/\/+$/, "");
   const url = joinUrl(base, "/chat/completions");

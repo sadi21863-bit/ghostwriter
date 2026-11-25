@@ -44,6 +44,7 @@
  * Run: `npx tsx scripts/spawn-local-host.mts`
  * Env: GW_LOCAL_DB, GW_LOCAL_HOST_PORT, GW_LOCAL_TIER, GW_LOCAL_GENERATION,
  *      GW_LOCAL_MODEL / GW_LOCAL_ENDPOINT_URL / GW_LOCAL_API_KEY (plants),
+ *      GW_LOCAL_TIMEOUT_MS (slow local hardware; raises the adapters' ceiling),
  *      GW_LOCAL_SEGMIND_API_KEY / GW_LOCAL_OPENAI_API_KEY (presence),
  *      ADMIN_SECRET (to turn the admin surface on).
  * The per-launch owner token is printed to STDERR (an operator reads it;

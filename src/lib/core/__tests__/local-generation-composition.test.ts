@@ -32,7 +32,7 @@ import {
   type LocalGenerationCompositionDeps,
 } from "@/lib/core/local-generation-composition";
 import type { LocalGenerationDeps } from "@/lib/core/local-host";
-import type { DetectedLocalProvider } from "@/lib/core/local-provider-adapter";
+import { detectLocalProviders, type DetectedLocalProvider } from "@/lib/core/local-provider-adapter";
 import type { GenerateChapterPorts } from "@/lib/core/handlers/generate-chapter";
 import { readLocalGenerationProfile } from "@/lib/core/local-generation-profile";
 
@@ -525,16 +525,27 @@ describe("GW_LOCAL_GENERATION decisions — the §5.6 split as composition", () 
     }
   }, 20000);
 
-  it("the default-detect path composes honestly on a server-less box: three closed localhost probes refuse fast → null + warn", async () => {
-    // NO detect injection — the REAL detectLocalProviders runs against the
-    // documented default probe list (:11434/:1234/:8080), each closed here,
-    // under a 750ms per-probe cap (the documented fast-refusal class).
+  it("the default-detect path composes honestly when nothing answers: a closed probe refuses fast → null + warn", async () => {
+    // Deterministic by PORT, not by environment: the injected detect runs the
+    // REAL detectLocalProviders against an UNUSED port with the documented
+    // sub-second ceiling — a closed port refuses fast whatever else is running
+    // on this box (a live Ollama on :11434 must not change this pin).
     const openAI = openAIFactoryDouble();
     const binder = binderDouble();
     const quiet = captureConsole();
     try {
       const deps = await makeLocalGenerationDeps(
-        baseDeps({ env: { "GW_LOCAL_GENERATION": "auto" }, ...openAI, ...binder }),
+        baseDeps({
+          env: { "GW_LOCAL_GENERATION": "auto" },
+          detect: (o) =>
+            detectLocalProviders({
+              ...o,
+              probes: [{ port: 59999, label: "unused" }],
+              timeoutMs: 300,
+            }),
+          ...openAI,
+          ...binder,
+        }),
       );
       expect(deps).toBeNull();
       expect(quiet.warnings).toEqual([

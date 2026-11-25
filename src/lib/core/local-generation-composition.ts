@@ -21,6 +21,9 @@
  *    composes NOTHING: no bundle, `POST /ai/generate` answers 501, no log
  *    noise.
  *
+ * `GW_LOCAL_TIMEOUT_MS` (PLAN-v5) raises the real adapters' per-call timeout
+ * for slow local hardware; it never touches the injected test factories.
+ *
  * Secret-egress pin (the auto lane): composing a detected localhost target
  * must not attach `GW_LOCAL_OPENAI_API_KEY` even when the profile carries its
  * PRESENCE — a detected localhost server takes credentials from nothing (the
@@ -91,6 +94,20 @@ export interface LocalGenerationCompositionDeps {
 }
 
 /**
+ * PLAN-v5 — a local model on CPU-only hardware can legitimately exceed the
+ * adapters' 300s default (the A9-9420 laptop needs minutes of prefill+decode
+ * for a scene). `GW_LOCAL_TIMEOUT_MS` raises the ceiling on the REAL adapter
+ * path only; injected factories are test seams and keep their one-argument
+ * shape. Garbage/non-positive values are ignored (the default stands).
+ */
+function readTimeoutMs(env: Readonly<Record<string, string | undefined>>): number | undefined {
+  const raw = env["GW_LOCAL_TIMEOUT_MS"];
+  if (!raw) return undefined;
+  const n = Number(raw);
+  return Number.isFinite(n) && n > 0 ? n : undefined;
+}
+
+/**
  * Compose the generation bundle from the mode decision, or compose NOTHING.
  * Returns `null` when `GW_LOCAL_GENERATION` stays undecided (boot default
  * OFF), when a mode's required env decision is missing (loudly logged), or
@@ -123,8 +140,11 @@ export async function makeLocalGenerationDeps(
       );
       return null;
     }
-    const makeOpenAI = deps.makeOpenAIAdapter ?? makeOpenAICompatibleGenerate;
-    generate = makeOpenAI({ baseUrl: first.baseUrl, model: first.models[0] ?? "default" });
+    const endpoint = { baseUrl: first.baseUrl, model: first.models[0] ?? "default" };
+    const timeoutMs = readTimeoutMs(env);
+    generate = deps.makeOpenAIAdapter
+      ? deps.makeOpenAIAdapter(endpoint)
+      : makeOpenAICompatibleGenerate(endpoint, timeoutMs === undefined ? {} : { timeoutMs });
   } else if (mode === "generic") {
     // An explicit operator plant: the endpoint URL is the decision that is
     // missing when absent; the optional key is the VALUE the operator planted
@@ -138,8 +158,11 @@ export async function makeLocalGenerationDeps(
     }
     const model = env["GW_LOCAL_MODEL"] ?? deps.profile?.models.default ?? "default";
     const apiKey = env["GW_LOCAL_API_KEY"];
-    const makeOpenAI = deps.makeOpenAIAdapter ?? makeOpenAICompatibleGenerate;
-    generate = makeOpenAI({ baseUrl, model, ...(apiKey ? { apiKey } : {}) });
+    const endpoint = { baseUrl, model, ...(apiKey ? { apiKey } : {}) };
+    const timeoutMs = readTimeoutMs(env);
+    generate = deps.makeOpenAIAdapter
+      ? deps.makeOpenAIAdapter(endpoint)
+      : makeOpenAICompatibleGenerate(endpoint, timeoutMs === undefined ? {} : { timeoutMs });
   } else if (mode === "anthropic") {
     // The dedicated adapter's key is REQUIRED by type — a composition root
     // literally cannot build this path without the operator's env decision
@@ -152,8 +175,11 @@ export async function makeLocalGenerationDeps(
       );
       return null;
     }
-    const makeAnthropic = deps.makeAnthropicAdapter ?? makeAnthropicGenerate;
-    generate = makeAnthropic({ model, apiKey });
+    const endpoint = { model, apiKey };
+    const timeoutMs = readTimeoutMs(env);
+    generate = deps.makeAnthropicAdapter
+      ? deps.makeAnthropicAdapter(endpoint)
+      : makeAnthropicGenerate(endpoint, timeoutMs === undefined ? {} : { timeoutMs });
   } else {
     // An explicit-but-unrecognized value must not silently equal OFF — the
     // operator should learn their decision was not honored.
