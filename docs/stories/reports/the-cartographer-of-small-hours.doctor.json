@@ -1,0 +1,23 @@
+{
+  "ok": true,
+  "issues": [
+    {
+      "kind": "unresolved-promise",
+      "promise": "The blank on the map must be filled",
+      "openedInChapter": 0,
+      "message": "\"The blank on the map must be filled\" is opened in chapter 1 and is never paid off by the final chapter."
+    },
+    {
+      "kind": "unresolved-promise",
+      "promise": "The pin on Elio's table must one day be explained",
+      "openedInChapter": 0,
+      "message": "\"The pin on Elio's table must one day be explained\" is opened in chapter 1 and is never paid off by the final chapter."
+    }
+  ],
+  "checked": {
+    "chapters": 8,
+    "knowledgeShifts": 1,
+    "promisesCreated": 4,
+    "promisesResolved": 2
+  }
+}

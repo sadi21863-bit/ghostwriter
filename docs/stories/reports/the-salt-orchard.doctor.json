@@ -1,0 +1,23 @@
+{
+  "ok": true,
+  "issues": [
+    {
+      "kind": "unresolved-promise",
+      "promise": "The ledger of drowned names must be read to the end",
+      "openedInChapter": 0,
+      "message": "\"The ledger of drowned names must be read to the end\" is opened in chapter 1 and is never paid off by the final chapter."
+    },
+    {
+      "kind": "unresolved-promise",
+      "promise": "Ilya's name in the ledger must one day be read aloud",
+      "openedInChapter": 0,
+      "message": "\"Ilya's name in the ledger must one day be read aloud\" is opened in chapter 1 and is never paid off by the final chapter."
+    }
+  ],
+  "checked": {
+    "chapters": 8,
+    "knowledgeShifts": 1,
+    "promisesCreated": 4,
+    "promisesResolved": 2
+  }
+}
