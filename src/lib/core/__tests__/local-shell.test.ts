@@ -310,6 +310,9 @@ describe("GET /projects/:projectId/story-doctor (PLAN-v5 step 5)", () => {
       const html = await (await get(host, "/")).text();
       expect(html).toContain('id="run-doctor"');
       expect(html).toContain('id="doctor-results"');
+      expect(html).toContain('id="generate-next"');
+      expect(html).toContain("Continue with AI");
+      expect(js).toContain("generateNext");
     },
     20000,
   );

@@ -73,7 +73,9 @@ const SHELL_HTML = `<!doctype html>
           <div id="chapter-tabs" class="chapter-tabs"></div>
           <div class="row doctor-bar">
             <button type="button" id="run-doctor" class="small">Check continuity</button>
+            <button type="button" id="generate-next" class="small">Continue with AI</button>
             <span id="doctor-state" class="muted"></span>
+            <span id="gen-state" class="muted"></span>
           </div>
           <div id="doctor-results" class="doctor" hidden></div>
           <textarea id="editor" spellcheck="false" placeholder="Start writing…"></textarea>
@@ -459,6 +461,8 @@ const SHELL_JS = `"use strict";
     if (doctorBox) { doctorBox.hidden = true; doctorBox.innerHTML = ""; }
     var doctorState = $("doctor-state");
     if (doctorState) doctorState.textContent = "";
+    var genState = $("gen-state");
+    if (genState) genState.textContent = "";
     return api("/projects/" + encodeURIComponent(id)).then(function (data) {
       state.graph = data.project;
       state.chapterId = state.graph.chapters && state.graph.chapters.length ? state.graph.chapters[0].id : null;
@@ -499,6 +503,39 @@ const SHELL_JS = `"use strict";
     $("editor").value = chapter ? chapter.content || "" : "";
     $("save-state").textContent = "";
     renderWordCount();
+  }
+
+  // ── AI drafting (PLAN-v5 — the model proposes, the writer edits) ──
+  // The chapter tail rides as dynamic context (the mount/adapters compose it
+  // into the system message); the response is inserted at the end and saved
+  // through the same autosave lane. Nothing is canonical until the writer
+  // keeps it — the text lands in the editor, not in a bible row.
+  function generateNext() {
+    if (!state.projectId || !state.chapterId) return;
+    var content = $("editor").value || "";
+    $("gen-state").textContent = "writing…";
+    api("/ai/generate", {
+      method: "POST",
+      body: {
+        projectId: state.projectId,
+        chapterId: state.chapterId,
+        mode: "write",
+        format: "prose",
+        prompt: "Continue the scene exactly where the manuscript leaves off. Write approximately 250 words of new prose only — no headings, no commentary, no summary.",
+        dynamicContext: content.slice(-4000),
+      },
+    }).then(function (data) {
+      var text = String(data.text || "").trim();
+      if (!text) { $("gen-state").textContent = "empty result"; return; }
+      var ta = $("editor");
+      ta.value = (ta.value ? ta.value.replace(/\s+$/, "") + "\n\n" : "") + text;
+      renderWordCount();
+      scheduleSave();
+      $("gen-state").textContent = "inserted (" + String(data.model || "model") + ")";
+    }).catch(function (err) {
+      $("gen-state").textContent = "generation failed";
+      status("Generation failed: " + err.message);
+    });
   }
 
   function renderWordCount() {
@@ -906,6 +943,7 @@ const SHELL_JS = `"use strict";
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s") { e.preventDefault(); flushSave(); }
   });
   $("run-doctor").addEventListener("click", runDoctor);
+  $("generate-next").addEventListener("click", generateNext);
   window.addEventListener("beforeunload", function () { flushSave(); });
 
   $("bible-project").addEventListener("change", function (e) {
