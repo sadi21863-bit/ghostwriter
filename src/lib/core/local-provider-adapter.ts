@@ -108,6 +108,13 @@ export interface OpenAICompatibleGenerateOptions {
   readonly maxTokens?: number;
   /** Omitted from the wire unless set — a server's own default is honest. */
   readonly temperature?: number;
+  /**
+   * PLAN-v5 — extra operator headers. OpenCode Go REQUIRES a stable
+   * `x-opencode-session` per conversation (and asks clients to identify
+   * themselves with their own user agent); plain localhost servers ignore
+   * unknown headers. Injected by the composition, never by a profile.
+   */
+  readonly extraHeaders?: Readonly<Record<string, string>>;
 }
 
 /** The `generate` port factory. Throws are the error TRANSLATION, not bugs. */
@@ -151,6 +158,7 @@ export function makeOpenAICompatibleGenerate(
         headers: {
           "content-type": "application/json",
           ...(endpoint.apiKey ? { authorization: `Bearer ${endpoint.apiKey}` } : {}),
+          ...(opts.extraHeaders ?? {}),
         },
         body: JSON.stringify(payload),
         signal: AbortSignal.timeout(timeoutMs),

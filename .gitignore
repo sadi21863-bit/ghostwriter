@@ -34,3 +34,7 @@ docs/migration/legacy-data.sql
 
 # Stray root-level verification logs from the migration waves (run artifacts, not source)
 /*.log
+
+# PLAN-v5 local runtime data: SQLite db, WAL/SHM, saved provider settings.
+# Machine-local state, never source-controlled.
+data/

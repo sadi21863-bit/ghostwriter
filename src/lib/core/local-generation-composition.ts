@@ -14,9 +14,12 @@
  *    field);
  *  - **anything reading a cloud/BYOK key stays an explicit operator plant
  *    via env** — `GW_LOCAL_GENERATION=generic` (optional `GW_LOCAL_API_KEY`
- *    VALUE) and `GW_LOCAL_GENERATION=anthropic` (`GW_LOCAL_API_KEY` +
- *    `GW_LOCAL_MODEL` both REQUIRED, the key VALUE riding the operator's env
- *    decision, never the profile object);
+ *    VALUE), `GW_LOCAL_GENERATION=opencode` (the Go/Console lane: key +
+ *    model required, the Go inference base by default, and the required
+ *    `x-opencode-session` header injected here) and
+ *    `GW_LOCAL_GENERATION=anthropic` (`GW_LOCAL_API_KEY` + `GW_LOCAL_MODEL`
+ *    both REQUIRED, the key VALUE riding the operator's env decision, never
+ *    the profile object);
  *  - **the boot default is OFF** — `GW_LOCAL_GENERATION` unset (or empty)
  *    composes NOTHING: no bundle, `POST /ai/generate` answers 501, no log
  *    noise.
@@ -46,6 +49,7 @@
  */
 
 import type { DrizzleSqliteDb } from "@/db/sqlite";
+import { randomUUID } from "node:crypto";
 import type { SubscriptionTier } from "@/types/subscription";
 import type { GenerateChapterPorts } from "./handlers/generate-chapter";
 import type { LocalGenerationDeps } from "./local-host";
@@ -108,6 +112,13 @@ function readTimeoutMs(env: Readonly<Record<string, string | undefined>>): numbe
 }
 
 /**
+ * PLAN-v5 — one stable OpenCode session id per host process. Go REQUIRES a
+ * stable `x-opencode-session` per conversation so routing and prompt caching
+ * are consistent; a fresh process is a fresh conversation.
+ */
+const OPENCODE_SESSION = `ses_gw_${randomUUID().replace(/-/g, "").slice(0, 16)}`;
+
+/**
  * Compose the generation bundle from the mode decision, or compose NOTHING.
  * Returns `null` when `GW_LOCAL_GENERATION` stays undecided (boot default
  * OFF), when a mode's required env decision is missing (loudly logged), or
@@ -163,6 +174,32 @@ export async function makeLocalGenerationDeps(
     generate = deps.makeOpenAIAdapter
       ? deps.makeOpenAIAdapter(endpoint)
       : makeOpenAICompatibleGenerate(endpoint, timeoutMs === undefined ? {} : { timeoutMs });
+  } else if (mode === "opencode") {
+    // OpenCode Go/Console — the operator's key against the Go inference base
+    // (Chat Completions). Go REQUIRES a stable `x-opencode-session` header and
+    // asks clients to identify themselves with their own user agent; both ride
+    // extraHeaders. The model must be named (env or the profile's default slot).
+    const apiKey = env["GW_LOCAL_API_KEY"];
+    const model = env["GW_LOCAL_MODEL"] ?? deps.profile?.models.default;
+    if (!apiKey || !model) {
+      console.error(
+        "[local-generation] GW_LOCAL_GENERATION=opencode requires GW_LOCAL_API_KEY and GW_LOCAL_MODEL — generation stays OFF",
+      );
+      return null;
+    }
+    const baseUrl = env["GW_LOCAL_ENDPOINT_URL"] ?? "https://opencode.ai/inference/go/openai/v1";
+    const endpoint = { baseUrl, model, apiKey };
+    const timeoutMs = readTimeoutMs(env);
+    const extraHeaders = {
+      "x-opencode-session": OPENCODE_SESSION,
+      "user-agent": "ghostwriter-local/1.0",
+    };
+    generate = deps.makeOpenAIAdapter
+      ? deps.makeOpenAIAdapter(endpoint)
+      : makeOpenAICompatibleGenerate(endpoint, {
+          ...(timeoutMs === undefined ? {} : { timeoutMs }),
+          extraHeaders,
+        });
   } else if (mode === "anthropic") {
     // The dedicated adapter's key is REQUIRED by type — a composition root
     // literally cannot build this path without the operator's env decision
@@ -184,7 +221,7 @@ export async function makeLocalGenerationDeps(
     // An explicit-but-unrecognized value must not silently equal OFF — the
     // operator should learn their decision was not honored.
     console.error(
-      `[local-generation] unknown GW_LOCAL_GENERATION mode "${mode}" — recognized values are "auto" | "generic" | "anthropic"; generation stays OFF`,
+      `[local-generation] unknown GW_LOCAL_GENERATION mode "${mode}" — recognized values are "auto" | "generic" | "opencode" | "anthropic"; generation stays OFF`,
     );
     return null;
   }

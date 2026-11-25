@@ -46,7 +46,8 @@
  *      GW_LOCAL_MODEL / GW_LOCAL_ENDPOINT_URL / GW_LOCAL_API_KEY (plants),
  *      GW_LOCAL_TIMEOUT_MS (slow local hardware; raises the adapters' ceiling),
  *      GW_LOCAL_SEGMIND_API_KEY / GW_LOCAL_OPENAI_API_KEY (presence),
- *      ADMIN_SECRET (to turn the admin surface on).
+ *      ADMIN_SECRET (to turn the admin surface on). `GW_LOCAL_*` keys may also
+ *      live in the gitignored `.env.local` (real env always wins).
  * The per-launch owner token is printed to STDERR (an operator reads it;
  * nothing writes it to disk).
  */
@@ -94,6 +95,7 @@ import {
 } from "@/lib/core/sqlite-story-os-repos";
 import { makeSqliteProjectSnapshotPort } from "@/lib/core/sqlite-project-snapshot";
 import { makeLocalProvidersReadPort } from "@/lib/core/local-provider-routing";
+import { makeLocalProviderModelsPort } from "@/lib/core/local-provider-models";
 import { makeLocalGenerationDeps } from "@/lib/core/local-generation-composition";
 import { users, type SubscriptionTier } from "@/db/sqlite-schema";
 import { eq } from "drizzle-orm";
@@ -126,6 +128,27 @@ function readLocalSettingsFile(path: string): Record<string, unknown> {
   }
 }
 
+/**
+ * PLAN-v5 step 3 — operator env file. The gitignored `.env.local` is the
+ * natural home for the provider KEY VALUE (the cloud app already keeps its
+ * secrets there). ONLY `GW_LOCAL_*` keys are read, real process env always
+ * wins, and nothing is ever logged or serialized.
+ */
+function readLocalEnvFile(path: string): Record<string, string> {
+  try {
+    if (!existsSync(path)) return {};
+    const out: Record<string, string> = {};
+    for (const line of readFileSync(path, "utf8").split(/\r?\n/)) {
+      const m = line.match(/^\s*(GW_LOCAL_[A-Z0-9_]+)\s*=\s*(.*?)\s*$/);
+      if (!m) continue;
+      out[m[1]!] = m[2]!.replace(/^["']|["']$/g, "");
+    }
+    return out;
+  } catch {
+    return {};
+  }
+}
+
 async function main() {
   const dbLocation = resolve(
     process.env["GW_LOCAL_DB"] ?? "data/local-ghostwriter.sqlite",
@@ -136,7 +159,10 @@ async function main() {
   // The shell's provider picker persists here; env stays the explicit override.
   const settingsPath = join(dbDir, "local-settings.json");
   const savedSettings = readLocalSettingsFile(settingsPath);
-  const localEnv: NodeJS.ProcessEnv = { ...process.env };
+  const localEnv: NodeJS.ProcessEnv = {
+    ...readLocalEnvFile(resolve(process.cwd(), ".env.local")),
+    ...process.env,
+  };
   if (!localEnv["GW_LOCAL_GENERATION"] && typeof savedSettings["provider"] === "string") {
     localEnv["GW_LOCAL_GENERATION"] = savedSettings["provider"];
   }
@@ -192,6 +218,10 @@ async function main() {
     // lists detected localhost providers + key PRESENCE booleans + the
     // routing profile's shape (values never escape).
     providersRead: makeLocalProvidersReadPort(profile),
+    // PLAN-v5 — the Settings model picker's lists: OpenCode Go's live catalogue
+    // (operator key from the merged env), Anthropic's static ids, and the
+    // detected localhost models.
+    providerModels: makeLocalProviderModelsPort({ env: localEnv }),
     // PLAN-v5 step 2 — the shell's Settings persistence (GET/POST /settings):
     // a tiny JSON file beside the db; the shell's picker is what writes it.
     localSettings: {

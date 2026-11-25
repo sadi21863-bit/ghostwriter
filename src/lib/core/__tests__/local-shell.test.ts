@@ -315,6 +315,59 @@ describe("GET /projects/:projectId/story-doctor (PLAN-v5 step 5)", () => {
   );
 });
 
+describe("GET /provider-models/:provider (PLAN-v5)", () => {
+  it(
+    "501 by default and bearer-gated like every optional cluster",
+    async () => {
+      const host = await boot();
+      const anon = await get(host, "/provider-models/opencode");
+      expect(anon.status).toBe(401);
+      const authed = await get(host, "/provider-models/opencode", bearer(host));
+      expect(authed.status).toBe(501);
+    },
+    20000,
+  );
+
+  it(
+    "with a planted port: returns the list; a provider error surfaces as 400 with its words",
+    async () => {
+      const host = await boot({
+        providerModels: {
+          list: async (provider) => {
+            if (provider === "boom") throw new Error("GW_LOCAL_API_KEY is not configured");
+            return [{ id: "deepseek-v4.1-flash", label: "DeepSeek V4.1 Flash 1017" }];
+          },
+        },
+      });
+      const ok = await get(host, "/provider-models/opencode", bearer(host));
+      expect(ok.status).toBe(200);
+      expect(await ok.json()).toEqual({
+        ok: true,
+        models: [{ id: "deepseek-v4.1-flash", label: "DeepSeek V4.1 Flash 1017" }],
+      });
+      const bad = await get(host, "/provider-models/boom", bearer(host));
+      expect(bad.status).toBe(400);
+      const body = (await bad.json()) as { reason?: string };
+      expect(body.reason).toContain("GW_LOCAL_API_KEY");
+    },
+    20000,
+  );
+
+  it(
+    "the shell carries the provider/model pickers fed by that route",
+    async () => {
+      const host = await boot();
+      const html = await (await get(host, "/")).text();
+      expect(html).toContain('id="settings-model-picker"');
+      expect(html).toContain('value="opencode"');
+      const js = await (await get(host, "/app.js")).text();
+      expect(js).toContain("/provider-models/");
+      expect(js).toContain("loadModelChoices");
+    },
+    20000,
+  );
+});
+
 describe("GET/POST /settings (PLAN-v5 step 2)", () => {
   it(
     "501 by default — the host owns no settings file without a plant",

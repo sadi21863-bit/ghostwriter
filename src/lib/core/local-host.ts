@@ -37,6 +37,7 @@ import {
 } from "./handlers/generate-chapter";
 import { dispatchLocalAdmin, type LocalAdminRoute } from "./local-admin-registry";
 import { LOCAL_SHELL_FILES } from "./local-shell";
+import type { LocalProviderModelsPort } from "./local-provider-models";
 import { buildEntityEditTransaction } from "@/lib/story/edit-transaction";
 import { DIFF_FIELDS } from "@/lib/ai/entity-extraction";
 import { runStoryDoctor, type DoctorChapter, type DoctorMemory } from "@/lib/story/story-doctor";
@@ -727,6 +728,12 @@ export interface DefaultRouteDeps {
    */
   readonly providersRead?: LocalProvidersReadPort;
   /**
+   * PLAN-v5 — the shell Settings model picker's data source: OpenCode Go's
+   * live catalogue (with the operator key), Anthropic's static ids, or the
+   * detected localhost models. Absent → GET /provider-models/:provider 501.
+   */
+  readonly providerModels?: LocalProviderModelsPort;
+  /**
    * PLAN-v5 step 2 — the thin shell's Settings persistence. The host stays
    * fs-free: the composition root supplies a port over its own settings file
    * (the sibling of the SQLite db); absent → GET/POST /settings answer 501
@@ -1147,6 +1154,13 @@ export function defaultLocalRoutes(deps: DefaultRouteDeps): readonly LocalHostRo
     ok: false,
     status: 501,
     reason: "Local settings are not configured for this host.",
+  });
+  // PLAN-v5 — model lists for the Settings picker; absent = 501.
+  const providerModels = deps.providerModels;
+  const noProviderModels = (): { ok: false; status: 501; reason: string } => ({
+    ok: false,
+    status: 501,
+    reason: "Provider model lists are not configured for this host.",
   });
   const noComicPages = (): { ok: false; status: 501; reason: string } => ({
     ok: false,
@@ -2120,6 +2134,27 @@ export function defaultLocalRoutes(deps: DefaultRouteDeps): readonly LocalHostRo
       handle: async () => {
         if (!providersRead) return noProvidersRead();
         return providersRead.read();
+      },
+    },
+    // -------- PLAN-v5 — provider model lists for the Settings picker
+    // Path params, not a query string: `dispatchLoopback` strips the query before
+    // matching. Errors surface as a 400 with the provider's own words (e.g. a
+    // missing key), never as an unhandled throw.
+    {
+      method: "GET",
+      path: "/provider-models/:provider",
+      handle: async ({ params }) => {
+        if (!providerModels) return noProviderModels();
+        try {
+          const models = await providerModels.list(params.provider!);
+          return { ok: true, models };
+        } catch (err) {
+          return {
+            ok: false,
+            status: 400,
+            reason: err instanceof Error ? err.message : String(err),
+          };
+        }
       },
     },
     // -------- PLAN-v5 step 2 — the thin shell's Settings persistence

@@ -136,13 +136,18 @@ const SHELL_HTML = `<!doctype html>
             <select id="settings-provider">
               <option value="off">Off — no generation</option>
               <option value="auto">Auto — detected localhost (Ollama / LM Studio)</option>
-              <option value="generic">Generic — OpenAI-compatible endpoint</option>
+              <option value="opencode">OpenCode Go — deepseek / kimi / glm / …</option>
               <option value="anthropic">Anthropic — Claude API key</option>
+              <option value="generic">Generic — OpenAI-compatible endpoint</option>
             </select>
           </label>
           <label class="field">
-            <span>Model</span>
-            <input id="settings-model" type="text" spellcheck="false" placeholder="e.g. llama3.2:3b or claude-sonnet-4-5">
+            <span>Available models</span>
+            <select id="settings-model-picker"><option value="">Custom…</option></select>
+          </label>
+          <label class="field">
+            <span>Model id</span>
+            <input id="settings-model" type="text" spellcheck="false" placeholder="e.g. deepseek-v4.1-flash">
           </label>
           <label class="field">
             <span>Endpoint URL (generic only)</span>
@@ -760,6 +765,7 @@ const SHELL_JS = `"use strict";
     $("settings-provider").value = state.settings.provider || "off";
     $("settings-model").value = state.settings.model || "";
     $("settings-endpoint").value = state.settings.endpointUrl || "";
+    loadModelChoices(state.settings.provider || "off");
     var info = $("settings-info");
     info.innerHTML = "";
     var p = state.providerInfo;
@@ -788,6 +794,32 @@ const SHELL_JS = `"use strict";
       "provider: <code>" + esc(routing.provider || "unset") + "</code> · models: " +
         esc([routing.models && routing.models.default, routing.models && routing.models.fast, routing.models && routing.models.quality].filter(Boolean).join(", ") || "unset"),
     ]);
+  }
+
+  function loadModelChoices(provider) {
+    var picker = $("settings-model-picker");
+    picker.innerHTML = '<option value="">Custom…</option>';
+    var route = provider === "auto" ? "localhost" : provider;
+    if (route !== "opencode" && route !== "anthropic" && route !== "localhost") return;
+    picker.disabled = true;
+    api("/provider-models/" + encodeURIComponent(route)).then(function (data) {
+      var models = data.models || [];
+      models.forEach(function (m) {
+        var opt = document.createElement("option");
+        opt.value = m.id;
+        opt.textContent = m.label ? m.label + " (" + m.id + ")" : m.id;
+        picker.appendChild(opt);
+      });
+      var current = state.settings.model || "";
+      if (current && models.some(function (m) { return m.id === current; })) picker.value = current;
+      picker.disabled = false;
+    }).catch(function (err) {
+      picker.disabled = false;
+      var opt = document.createElement("option");
+      opt.value = "";
+      opt.textContent = "unavailable: " + err.message;
+      picker.appendChild(opt);
+    });
   }
 
   function saveSettings() {
@@ -886,6 +918,12 @@ const SHELL_JS = `"use strict";
   $("reject-proposal").addEventListener("click", rejectProposal);
   $("delete-entity").addEventListener("click", deleteEntity);
   $("settings-form").addEventListener("submit", function (e) { e.preventDefault(); saveSettings(); });
+  $("settings-provider").addEventListener("change", function () {
+    loadModelChoices($("settings-provider").value);
+  });
+  $("settings-model-picker").addEventListener("change", function () {
+    if ($("settings-model-picker").value) $("settings-model").value = $("settings-model-picker").value;
+  });
 
   boot();
 })();

@@ -295,3 +295,35 @@ describe("local provider adapter — source purity (live-shell-reachability conv
     expect(source).not.toMatch(/@neondatabase\/serverless/);
   }, 20000);
 });
+
+describe("local provider adapter — operator extra headers (PLAN-v5 opencode lane)", () => {
+  it("sends extraHeaders verbatim alongside the bearer (x-opencode-session + UA)", async () => {
+    let seen: Record<string, unknown> = {};
+    const port = await startFixture((req, _body, res) => {
+      seen = {
+        session: req.headers["x-opencode-session"],
+        ua: req.headers["user-agent"],
+        auth: req.headers["authorization"],
+      };
+      void send(res, 200, {
+        choices: [{ message: { content: "ok" } }],
+        usage: { input_tokens: 1, output_tokens: 1 },
+      });
+    });
+    const generate = makeOpenAICompatibleGenerate(endpoint(port, { apiKey: "oc-key" }), {
+      extraHeaders: {
+        "x-opencode-session": "ses_gw_test",
+        "user-agent": "ghostwriter-local/1.0",
+      },
+    });
+    await generate(
+      { mode: "write", prompt: "x" },
+      { provider: "default", model: "default" },
+    );
+    expect(seen).toEqual({
+      session: "ses_gw_test",
+      ua: "ghostwriter-local/1.0",
+      auth: "Bearer oc-key",
+    });
+  }, 20000);
+});

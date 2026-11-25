@@ -578,4 +578,60 @@ describe("local generation composition — source purity (mirrored convention)",
     const suite = readFileSync(__filename, "utf-8");
     expect(suite).not.toMatch(/vi\.mock/);
   }, 20000);
+
+  it(
+    "opencode lane: requires BOTH the key and a model — absent either, OFF with the exact error",
+    async () => {
+      const openAI = openAIFactoryDouble();
+      const quiet = captureConsole();
+      try {
+        const noKey = await makeLocalGenerationDeps(
+          baseDeps({ env: { GW_LOCAL_GENERATION: "opencode" }, ...openAI, ...binderDouble() }),
+        );
+        const noModel = await makeLocalGenerationDeps(
+          baseDeps({
+            env: { GW_LOCAL_GENERATION: "opencode", GW_LOCAL_API_KEY: "oc-key" },
+            ...openAI,
+            ...binderDouble(),
+          }),
+        );
+        expect(noKey).toBeNull();
+        expect(noModel).toBeNull();
+        expect(
+          quiet.errors.filter((e) => String(e[0]).includes("GW_LOCAL_GENERATION=opencode")),
+        ).toHaveLength(2);
+        expect(openAI.endpoints).toEqual([]);
+      } finally {
+        quiet.restore();
+      }
+    },
+    20000,
+  );
+
+  it(
+    "opencode lane: composes the OpenAI-compatible adapter against the Go base with key + model",
+    async () => {
+      const openAI = openAIFactoryDouble();
+      const deps = await makeLocalGenerationDeps(
+        baseDeps({
+          env: {
+            GW_LOCAL_GENERATION: "opencode",
+            GW_LOCAL_API_KEY: "oc-key",
+            GW_LOCAL_MODEL: "deepseek-v4.1-flash",
+          },
+          ...openAI,
+          ...binderDouble(),
+        }),
+      );
+      expect(deps).not.toBeNull();
+      expect(openAI.endpoints).toEqual([
+        {
+          baseUrl: "https://opencode.ai/inference/go/openai/v1",
+          model: "deepseek-v4.1-flash",
+          apiKey: "oc-key",
+        },
+      ]);
+    },
+    20000,
+  );
 });
