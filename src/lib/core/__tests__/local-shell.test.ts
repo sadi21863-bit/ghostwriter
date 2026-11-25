@@ -13,6 +13,7 @@
  * timeout convention; no network beyond the loopback socket.
  */
 import { afterAll, describe, expect, it } from "vitest";
+import { Script } from "node:vm";
 import {
   createLocalHostServer,
   defaultLocalRoutes,
@@ -313,6 +314,59 @@ describe("GET /projects/:projectId/story-doctor (PLAN-v5 step 5)", () => {
       expect(html).toContain('id="generate-next"');
       expect(html).toContain("Continue with AI");
       expect(js).toContain("generateNext");
+    },
+    20000,
+  );
+});
+
+describe("continuity notes panel (PLAN-v5)", () => {
+  it(
+    "the Write view carries the collapsible panel with the three Doctor-input textareas",
+    async () => {
+      const host = await boot();
+      const html = await (await get(host, "/")).text();
+      expect(html).toContain('id="continuity-notes"');
+      expect(html).toContain('id="continuity-promises-opened"');
+      expect(html).toContain('id="continuity-promises-resolved"');
+      expect(html).toContain('id="continuity-knowledge-shifts"');
+      expect(html).toContain('id="save-continuity"');
+      expect(html).toContain("Continuity notes");
+      expect(html).toContain("Character: what they learned");
+      // Collapsed by default — the thin shell's pane never grows unasked.
+      expect(html).toContain('id="continuity-notes" class="proposal continuity-notes" hidden');
+    },
+    20000,
+  );
+
+  it(
+    "the served app.js is syntactically valid JavaScript (template-literal escapes survive)",
+    async () => {
+      const host = await boot();
+      const js = await (await get(host, "/app.js")).text();
+      // The asset is one TS template literal: a single-escaped \n or \s that
+      // reaches the wire as a raw newline / dropped backslash is an unterminated
+      // string that kills EVERY listener, the panel included. Compile only —
+      // the IIFE is not executed here.
+      expect(() => new Script(js)).not.toThrow();
+    },
+    20000,
+  );
+
+  it(
+    "app.js posts one memory per chapter with the structured fields the Doctor reads",
+    async () => {
+      const host = await boot();
+      const js = await (await get(host, "/app.js")).text();
+      expect(js).toContain("/story-memories");
+      expect(js).toContain("saveContinuityNotes");
+      expect(js).toContain("parseNoteLines");
+      expect(js).toContain("parseKnowledgeShiftLines");
+      expect(js).toContain("chapterIndexFor");
+      expect(js).toContain("chapterIndex");
+      expect(js).toContain("chapterId");
+      expect(js).toContain("openPromisesCreated");
+      expect(js).toContain("openPromisesResolved");
+      expect(js).toContain("knowledgeShifts");
     },
     20000,
   );

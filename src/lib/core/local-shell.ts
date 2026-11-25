@@ -77,6 +77,27 @@ const SHELL_HTML = `<!doctype html>
             <span id="doctor-state" class="muted"></span>
             <span id="gen-state" class="muted"></span>
           </div>
+          <details id="continuity-notes" class="proposal continuity-notes" hidden>
+            <summary>Continuity notes <span class="muted">— what the Story Doctor checks for this chapter</span></summary>
+            <div class="continuity-body">
+              <label class="field">
+                <span>Promises opened (one per line)</span>
+                <textarea id="continuity-promises-opened" spellcheck="false" placeholder="The brass key must be returned"></textarea>
+              </label>
+              <label class="field">
+                <span>Promises resolved (one per line)</span>
+                <textarea id="continuity-promises-resolved" spellcheck="false" placeholder="Mara returned the brass key"></textarea>
+              </label>
+              <label class="field">
+                <span>Knowledge shifts (one per line — <code>Character: what they learned</code>)</span>
+                <textarea id="continuity-knowledge-shifts" spellcheck="false" placeholder="Mara: the brass key opens the canal gate"></textarea>
+              </label>
+              <div class="row">
+                <button type="button" id="save-continuity" class="small">Save notes</button>
+                <span id="continuity-state" class="muted"></span>
+              </div>
+            </div>
+          </details>
           <div id="doctor-results" class="doctor" hidden></div>
           <textarea id="editor" spellcheck="false" placeholder="Start writing…"></textarea>
           <div class="row footer">
@@ -335,6 +356,16 @@ main { flex: 1; min-height: 0; }
   font-style: italic;
 }
 .warn { color: #e0af68; }
+.continuity-notes summary {
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--muted);
+}
+.continuity-notes summary:hover { color: var(--text); }
+.continuity-notes[open] summary { margin-bottom: 8px; }
+.continuity-notes textarea { min-height: 46px; resize: vertical; font-size: 13px; }
+.continuity-body { display: flex; flex-direction: column; }
+.continuity-body .field:last-of-type { margin-bottom: 0; }
 .info { display: flex; flex-direction: column; gap: 8px; }
 .info .card {
   background: var(--panel);
@@ -463,6 +494,10 @@ const SHELL_JS = `"use strict";
     if (doctorState) doctorState.textContent = "";
     var genState = $("gen-state");
     if (genState) genState.textContent = "";
+    // A different project means a different chapter list: never carry the old
+    // project's notes (or an open panel) across the switch.
+    resetContinuityNotes();
+    $("continuity-notes").hidden = true;
     return api("/projects/" + encodeURIComponent(id)).then(function (data) {
       state.graph = data.project;
       state.chapterId = state.graph.chapters && state.graph.chapters.length ? state.graph.chapters[0].id : null;
@@ -495,6 +530,7 @@ const SHELL_JS = `"use strict";
       b.addEventListener("click", function () {
         flushSave();
         state.chapterId = c.id;
+        resetContinuityNotes();
         renderWrite();
       });
       tabs.appendChild(b);
@@ -503,6 +539,9 @@ const SHELL_JS = `"use strict";
     $("editor").value = chapter ? chapter.content || "" : "";
     $("save-state").textContent = "";
     renderWordCount();
+    // The Doctor's inputs only exist for a selected chapter; a project with no
+    // chapters keeps the thin shell (no orphan panel).
+    $("continuity-notes").hidden = !chapter;
   }
 
   // ── AI drafting (PLAN-v5 — the model proposes, the writer edits) ──
@@ -528,7 +567,7 @@ const SHELL_JS = `"use strict";
       var text = String(data.text || "").trim();
       if (!text) { $("gen-state").textContent = "empty result"; return; }
       var ta = $("editor");
-      ta.value = (ta.value ? ta.value.replace(/\s+$/, "") + "\n\n" : "") + text;
+      ta.value = (ta.value ? ta.value.replace(/\\s+$/, "") + "\\n\\n" : "") + text;
       renderWordCount();
       scheduleSave();
       $("gen-state").textContent = "inserted (" + String(data.model || "model") + ")";
@@ -571,6 +610,93 @@ const SHELL_JS = `"use strict";
     }).catch(function (err) {
       $("doctor-state").textContent = "check failed";
       status("Doctor failed: " + err.message);
+    });
+  }
+
+  // ── Continuity notes (PLAN-v5 — the Doctor's hand-written inputs) ──
+  // A generated chapter gets a memory from the looping driver; a hand-written
+  // one had no way to say what it promised or who learned what. Save writes ONE
+  // memory for the selected chapter carrying the three structured fields the
+  // Doctor reads (knowledgeShifts / openPromisesCreated / openPromisesResolved),
+  // placed by the chapter's 0-based index — the graph route returns chapters
+  // asc(sortOrder), the exact order renderWrite paints.
+  var CONTINUITY_FIELDS = [
+    "continuity-promises-opened",
+    "continuity-promises-resolved",
+    "continuity-knowledge-shifts",
+  ];
+
+  function resetContinuityNotes() {
+    CONTINUITY_FIELDS.forEach(function (id) { $(id).value = ""; });
+    $("continuity-notes").open = false;
+    $("continuity-state").textContent = "";
+  }
+
+  // One note per line; trim + drop blanks. Losing stray whitespace is cheaper
+  // than a promise the Doctor can never string-match.
+  function parseNoteLines(text) {
+    return String(text == null ? "" : text).split(/\\r?\\n/).map(function (line) {
+      return line.trim();
+    }).filter(Boolean);
+  }
+
+  // "Character: what they learned" — split at the FIRST colon so the learned
+  // fact may itself contain colons; malformed lines are skipped, never guessed.
+  // from/to are required by the structuredData schema (the decoder drops the
+  // whole knowledgeShifts array without them), so the extractor's neutral pair
+  // is sent; the Doctor itself reads only character + learned.
+  function parseKnowledgeShiftLines(text) {
+    var shifts = [];
+    parseNoteLines(text).forEach(function (line) {
+      var at = line.indexOf(":");
+      if (at <= 0) return;
+      var character = line.slice(0, at).trim();
+      var learned = line.slice(at + 1).trim();
+      if (!character || !learned) return;
+      shifts.push({ character: character, learned: learned, from: "IGNORANT", to: "KNOWS" });
+    });
+    return shifts;
+  }
+
+  function chapterIndexFor(chapterId) {
+    var chapters = (state.graph && state.graph.chapters) || [];
+    for (var i = 0; i < chapters.length; i++) {
+      if (chapters[i].id === chapterId) return i;
+    }
+    return -1;
+  }
+
+  function saveContinuityNotes() {
+    if (!state.projectId || !state.chapterId) return;
+    var chapterIndex = chapterIndexFor(state.chapterId);
+    if (chapterIndex < 0) { $("continuity-state").textContent = "no chapter selected"; return; }
+    var created = parseNoteLines($("continuity-promises-opened").value);
+    var resolved = parseNoteLines($("continuity-promises-resolved").value);
+    var shifts = parseKnowledgeShiftLines($("continuity-knowledge-shifts").value);
+    if (!created.length && !resolved.length && !shifts.length) {
+      $("continuity-state").textContent = "nothing to save";
+      return;
+    }
+    var chapter = chapterById(state.chapterId);
+    var label = chapter && chapter.title ? chapter.title : "Chapter " + (chapterIndex + 1);
+    $("continuity-state").textContent = "saving…";
+    api("/projects/" + encodeURIComponent(state.projectId) + "/story-memories", {
+      method: "POST",
+      body: {
+        fact: "Continuity notes for " + label,
+        chapterIndex: chapterIndex,
+        chapterId: state.chapterId,
+        structuredData: {
+          openPromisesCreated: created,
+          openPromisesResolved: resolved,
+          knowledgeShifts: shifts,
+        },
+      },
+    }).then(function () {
+      $("continuity-state").textContent = "saved";
+    }).catch(function (err) {
+      $("continuity-state").textContent = "save failed";
+      status("Continuity notes failed: " + err.message);
     });
   }
 
@@ -944,6 +1070,7 @@ const SHELL_JS = `"use strict";
   });
   $("run-doctor").addEventListener("click", runDoctor);
   $("generate-next").addEventListener("click", generateNext);
+  $("save-continuity").addEventListener("click", saveContinuityNotes);
   window.addEventListener("beforeunload", function () { flushSave(); });
 
   $("bible-project").addEventListener("change", function (e) {
