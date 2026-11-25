@@ -78,6 +78,13 @@ export async function createStoryMemory(
     category?: unknown;
     /** Leniently decoded here — the null/empty guard copied verbatim. */
     structuredData?: unknown;
+    /**
+     * PLAN-v5 — the memory's place in the timeline. Story Doctor's knowledge
+     * check needs the 0-based chapter index the note was written for; without
+     * it every shift lands at chapter 0 and no earlier chapter can conflict.
+     */
+    chapterIndex?: unknown;
+    chapterId?: unknown;
   },
   repo: Pick<StoryMemoryRepository, "ownsProject" | "create">,
   hooks: PostCommitHooks = {},
@@ -97,6 +104,10 @@ export async function createStoryMemory(
     // AI-generated best-effort — drop bad sub-fields rather than reject the memory.
     structuredData: input.structuredData != null ? decodeMemoryStructuredData(input.structuredData) : null,
     autoExtracted: false,
+    ...(typeof input.chapterIndex === "number" && Number.isFinite(input.chapterIndex)
+      ? { chapterIndex: Math.max(0, Math.trunc(input.chapterIndex)) }
+      : {}),
+    ...(typeof input.chapterId === "string" && input.chapterId ? { chapterId: input.chapterId } : {}),
   });
   await hooks.onCanonicalMutation?.(input.projectId, "memory.create");
   return { ok: true, memory };

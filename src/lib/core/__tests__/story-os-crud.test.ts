@@ -371,8 +371,37 @@ describe("story-memories", () => {
     expect(h.onCanonicalMutation).toHaveBeenCalledWith("p1", "memory.create");
   });
 
-  it("create: null structuredData stays null; a valid object decodes; garbage sub-fields drop without rejecting", async () => {
-    const r = memoryRepo();
+  it(
+    "create: carries the timeline placement through to the repo; invalid placements are dropped",
+    async () => {
+      const r = memoryRepo();
+      await createStoryMemory(
+        ctx,
+        { projectId: "p1", fact: "f", chapterIndex: 3, chapterId: "c4" },
+        r,
+      );
+      expect(r.create).toHaveBeenCalledWith("p1", {
+        fact: "f",
+        category: undefined,
+        structuredData: null,
+        autoExtracted: false,
+        chapterIndex: 3,
+        chapterId: "c4",
+      });
+
+      await createStoryMemory(
+        ctx,
+        { projectId: "p1", fact: "f", chapterIndex: "3", chapterId: 4 },
+        r,
+      );
+      const fields = r.create.mock.calls[1]![1]!;
+      expect("chapterIndex" in fields).toBe(false);
+      expect("chapterId" in fields).toBe(false);
+    },
+    20000,
+  );
+
+  it("create: null structuredData stays null; a valid object decodes; garbage sub-fields drop without rejecting", async () => {    const r = memoryRepo();
 
     await createStoryMemory(ctx, { projectId: "p1", fact: "f", structuredData: null }, r);
     expect(r.create.mock.calls[0]![1]!.structuredData).toBeNull();

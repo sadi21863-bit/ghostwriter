@@ -1940,6 +1940,8 @@ export function defaultLocalRoutes(deps: DefaultRouteDeps): readonly LocalHostRo
             fact,
             category: b["category"] ?? "general",
             structuredData: b["structuredData"],
+            ...(b["chapterIndex"] !== undefined ? { chapterIndex: b["chapterIndex"] } : {}),
+            ...(b["chapterId"] !== undefined ? { chapterId: b["chapterId"] } : {}),
           },
           storyMemoryRepo,
           deps.hooks,
