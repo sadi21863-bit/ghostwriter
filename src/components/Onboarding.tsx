@@ -8,9 +8,6 @@ const FORMATS = [
   { value: "Novel",             label: "📚  Novel" },
   { value: "Screenplay",        label: "🎬  Screenplay" },
   { value: "Web Series",        label: "📺  Web Series" },
-  { value: "YouTube Long-form", label: "▶️  YouTube Channel" },
-  { value: "Podcast Episode",   label: "🎙️  Podcast" },
-  { value: "TikTok Script",     label: "📱  TikTok" },
 ];
 
 const CHALLENGES = [

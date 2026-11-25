@@ -1,11 +1,8 @@
 import { MODE_REGISTRY, type GenerationMode } from "@/lib/modes/registry";
 
-export const FORMATS = [
-  "Novel", "Screenplay", "Web Series",
-  "YouTube Long-form", "YouTube Short",
-  "TikTok Script", "TikTok Native", "Instagram Reel", "Podcast Episode",
-];
-export const CREATOR_FORMATS = ["YouTube Long-form", "YouTube Short", "TikTok Script", "TikTok Native", "Instagram Reel", "Podcast Episode"];
+export const FORMATS = ["Novel", "Screenplay", "Web Series"];
+/** PLAN-v5 cut: the creator formats were removed from the product. */
+export const CREATOR_FORMATS: string[] = [];
 export const STORY_FORMATS = ["Novel", "Screenplay", "Web Series"];
 export const isCreatorFormat = (f: string) => CREATOR_FORMATS.includes(f);
 export const isStoryFormat = (f: string) => STORY_FORMATS.includes(f);
@@ -15,7 +12,7 @@ export const isStoryFormat = (f: string) => STORY_FORMATS.includes(f);
 export const getFormatNoun = (format: string): string =>
   (({ Novel: "novel", Screenplay: "screenplay", "Web Series": "web series" } as Record<string, string>)[format] ?? "novel");
 export const getChapterLabel = (format: string): string =>
-  (({ Novel: "Chapter", Screenplay: "Scene", "Web Series": "Episode", "YouTube Long-form": "Section", "YouTube Short": "Beat", "TikTok Script": "Beat", "TikTok Native": "Beat", "Instagram Reel": "Beat", "Podcast Episode": "Segment" } as Record<string, string>)[format] ?? "Chapter");
+  (({ Novel: "Chapter", Screenplay: "Scene", "Web Series": "Episode" } as Record<string, string>)[format] ?? "Chapter");
 // User-facing label for the format picker. "Screenplay" alone tested as
 // ambiguous for discoverability (could be a TV pilot too) — the internal
 // format key is unchanged, this only affects display text.
@@ -26,8 +23,6 @@ export const FORMAT_HELPER_TEXT: Partial<Record<string, string>> = {
 };
 export const FORMAT_COLORS: Record<string, string> = {
   "Novel": "#5b4ccc", "Screenplay": "#0ea5e9", "Web Series": "#8b5cf6",
-  "YouTube Long-form": "#ef4444", "YouTube Short": "#f97316", "TikTok Script": "#ec4899",
-  "TikTok Native": "#fe2c55", "Instagram Reel": "#a855f7", "Podcast Episode": "#10b981",
 };
 
 export const GENRES = ["Fantasy", "Sci-Fi", "Horror", "Thriller", "Romance", "Drama", "Comedy", "Mystery", "Literary Fiction", "Action", "Historical", "Dystopian", "Noir", "Satire"];
@@ -46,12 +41,6 @@ export const FORMAT_CONFIG: Record<string, FormatCapabilities> = {
   "Novel":              { hasCohost: false, usesSegments: false, chapterLabel: "Chapter" },
   "Screenplay":         { hasCohost: false, usesSegments: false, chapterLabel: "Scene" },
   "Web Series":         { hasCohost: false, usesSegments: false, chapterLabel: "Episode" },
-  "YouTube Long-form":  { hasCohost: false, usesSegments: false, chapterLabel: "Section" },
-  "YouTube Short":      { hasCohost: false, usesSegments: false, chapterLabel: "Beat" },
-  "TikTok Script":      { hasCohost: false, usesSegments: false, chapterLabel: "Beat" },
-  "TikTok Native":      { hasCohost: false, usesSegments: false, chapterLabel: "Beat" },
-  "Instagram Reel":     { hasCohost: false, usesSegments: false, chapterLabel: "Beat" },
-  "Podcast Episode":    { hasCohost: true,  usesSegments: true,  chapterLabel: "Segment" },
 };
 
 export function formatHasCohost(format: string): boolean {

@@ -11,11 +11,7 @@ describe("getVisibleModes", () => {
     expect(getVisibleModes("Web Series")).toEqual(MODES);
   });
 
-  it("returns brainstorm/outline/write for Podcast Episode", () => {
-    expect(getVisibleModes("Podcast Episode")).toEqual(["brainstorm", "outline", "write"]);
-  });
-
-  it("excludes story_only modes for non-podcast creator formats", () => {
+  it("excludes story_only modes for non-story formats", () => {
     const visible = getVisibleModes("YouTube Long-form");
     for (const m of visible) {
       expect(MODE_REGISTRY[m].visibility).not.toBe("story_only");

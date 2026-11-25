@@ -25,18 +25,6 @@ describe("nextAction", () => {
     expect(action?.run.prompt).toContain("A thief discovers her mark is her sister.");
   });
 
-  it("skips the characters check for creator-format projects and goes straight to outlining", () => {
-    const action = nextAction({
-      ...base,
-      format: "YouTube Long-form",
-      controllingIdea: "A productivity channel premise.",
-      characters: [],
-      chapters: [{ id: "ch-1", title: "Chapter 1", wordCount: 0, sortOrder: 0 }],
-    });
-    expect(action?.id).toBe("structure-outline");
-    expect(action?.stage).toBe("structure");
-  });
-
   it("still requires characters for non-creator formats with the same premise", () => {
     const action = nextAction({
       ...base,
@@ -119,47 +107,6 @@ describe("nextAction", () => {
     });
     expect(action?.id).toBe("export-manuscript");
     expect(action?.run.mode).toBe("export");
-  });
-
-  it("suggests a story health review for short-form creator content well below the novel threshold", () => {
-    const action = nextAction({
-      ...base,
-      format: "TikTok Native",
-      controllingIdea: "Premise.",
-      characters: [],
-      chapters: [
-        { id: "ch-1", title: "Beat 1", wordCount: 120, sortOrder: 0 },
-      ],
-    });
-    expect(action?.id).toBe("polish-review-manuscript");
-    expect(action?.run.chapterId).toBe("ch-1");
-  });
-
-  it("suggests exporting once all creator-format beats are past the creator threshold and the review is dismissed", () => {
-    const action = nextAction({
-      ...base,
-      format: "Instagram Reel",
-      controllingIdea: "Premise.",
-      characters: [],
-      chapters: [
-        { id: "ch-1", title: "Beat 1", wordCount: 140, sortOrder: 0 },
-      ],
-      dismissedGuideIds: ["polish-review-manuscript"],
-    });
-    expect(action?.id).toBe("export-manuscript");
-  });
-
-  it("does not yet suggest review for creator-format content still below even the lower creator threshold", () => {
-    const action = nextAction({
-      ...base,
-      format: "TikTok Script",
-      controllingIdea: "Premise.",
-      characters: [],
-      chapters: [
-        { id: "ch-1", title: "Beat 1", wordCount: 40, sortOrder: 0 },
-      ],
-    });
-    expect(action?.id).toBe("keep-writing-ch-1");
   });
 
   it("returns null once the current suggestion has been dismissed and state hasn't changed", () => {
