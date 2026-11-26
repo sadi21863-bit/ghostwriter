@@ -8,8 +8,9 @@ a time through the real local host, and checks each unit before moving on:
    as dynamic context.
 3. **Revise** — one revision pass (disable with `GW_LOOP_REVISE=0`).
 4. **Guard** — reject truncated completions; compress verbatim self-repeats.
-5. **Doctor** — knowledge conflicts involving the new unit trigger up to two
-   targeted fix revisions.
+5. **Extract + Doctor** — one continuity call per unit records knowledge shifts
+   and promises opened/resolved; knowledge conflicts involving the new unit
+   trigger up to two targeted fix revisions.
 
 The loop is resumable: any unit that already has text is skipped, so a long
 book can be built across many sessions. State lives in the host's SQLite db.
@@ -67,6 +68,7 @@ no cast contract is visible rather than silent.
 | `GW_LOOP_REFRESH` | `0` | wipe the db before starting |
 | `GW_LOOP_ECHO_MAX` | `12` | repetition threshold, consecutive words |
 | `GW_LOOP_ECHO_ALLOW` | — | deliberate refrains, `phrase\|phrase` |
+| `GW_LOOP_NOTES` | `0` | extract/replace notes + run the Doctor, no writing |
 
 The host is composed in the `opencode` lane with `deepseek-v4.1-flash`; the key
 is read from `.env.local` and never printed.
@@ -94,6 +96,36 @@ Comparing against every row (not just earlier rows) matters on resume: a unit
 written in a previous pass can be echoed by an earlier index in the next one.
 `GW_LOOP_ECHO_ALLOW` masks deliberate refrains before measuring.
 
+## Continuity notes and the Doctor
+
+After a unit is written, the loop makes one extraction call and stores the
+result as the unit's `structuredData`:
+
+- `knowledgeShifts` — a short concrete fact a named character learns on the
+  page (with `from`/`to` state labels),
+- `openPromisesCreated` / `openPromisesResolved` — concrete setups and their
+  explicit or event-level payoffs,
+- `keyEvents` — 1–3 short beats.
+
+This is what the Story Doctor reads. Before this existed the loop posted only
+`keyEvents`, so the Doctor's knowledge and promise checks ran on empty arrays
+and a generated book passed clean without anything being checked.
+
+`npm run story:loop -- --notes` (or `GW_LOOP_NOTES=1`) re-extracts notes for
+finished units and replaces each unit's loop-written note, then runs the Doctor
+once and writes `<slug>.doctor.json`. It never rewrites prose. Use it to upgrade
+an existing book after extraction changes.
+
+The Doctor's knowledge-conflict evidence is a repeated **content bigram** (for
+example "brass key"), not two isolated topic words. The loose version flagged
+any earlier scene that mentioned the character plus words like "ledger" or
+"line"; the bigram version keeps the planted-defect test and removes those
+false positives. A paraphrased conflict is deliberately not guessed.
+
+An unresolved promise is a **review decision**, not an automatic defect: the
+finale may pay it off implicitly (forgiving a whole debt column), or it may be
+the one deliberate open thread. Read the Doctor's report before revising.
+
 ## Artifacts
 
 Everything lands under `%TEMP%\gw-loop`:
@@ -113,5 +145,9 @@ Everything lands under `%TEMP%\gw-loop`:
   `GW_LOOP_ECHO_ALLOW` — there is no per-unit allowlist.
 - If planning returns fewer beats than requested, missing units fall back to a
   generic beat and the run prints a warning; it does not invent a premise.
+- Extraction is an LLM call and is not perfectly stable: re-running `--notes`
+  can produce different candidate promises. The main loop extracts once, per
+  unit, right after writing. Broad payoffs (forgiving every debt at once) may
+  still be recorded as open; treat the report as a review prompt.
 - Temp harness copies (`chapter-loop*.mts`) may still exist in `%TEMP%`; this
   script is the canonical, versioned loop.

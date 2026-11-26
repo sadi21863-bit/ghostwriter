@@ -73,6 +73,7 @@ describe("numeric and flag values", () => {
     expect(config.echoMax).toBe(12);
     expect(config.revise).toBe(true);
     expect(config.refresh).toBe(false);
+    expect(config.notesOnly).toBe(false);
     expect(config.chars).toBe("");
     expect(config.structure).toBe("");
   });
@@ -86,13 +87,15 @@ describe("numeric and flag values", () => {
       GW_LOOP_ECHO_MAX: "999",
       GW_LOOP_REVISE: "yes",
       GW_LOOP_REFRESH: "maybe",
+      GW_LOOP_NOTES: "yes",
     });
-    expect(errors).toHaveLength(5);
+    expect(errors).toHaveLength(6);
     expect(errors[0]).toContain("GW_LOOP_CHAPTERS must be an integer 1..500");
     expect(errors[1]).toContain("GW_LOOP_PORT must be an integer 1024..65535");
     expect(errors[2]).toContain("GW_LOOP_ECHO_MAX must be an integer 1..200");
     expect(errors[3]).toContain("GW_LOOP_REVISE must be 1 or 0");
     expect(errors[4]).toContain("GW_LOOP_REFRESH must be 1 or 0");
+    expect(errors[5]).toContain("GW_LOOP_NOTES must be 1 or 0");
   });
 
   it("accepts the 0/1 flag form", () => {
@@ -101,10 +104,12 @@ describe("numeric and flag values", () => {
       GW_LOOP_PREMISE: "P",
       GW_LOOP_REVISE: "0",
       GW_LOOP_REFRESH: "1",
+      GW_LOOP_NOTES: "1",
     });
     expect(errors).toEqual([]);
     expect(config.revise).toBe(false);
     expect(config.refresh).toBe(true);
+    expect(config.notesOnly).toBe(true);
   });
 });
 

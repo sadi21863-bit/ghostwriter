@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   doctorTokens,
+  factBigrams,
   factTerms,
   findKnowledgeConflicts,
   findUnresolvedPromises,
@@ -106,6 +107,36 @@ describe("check 1 — knowledge conflict (acting on unlearned information)", () 
       chapters[1]!,
     ];
     expect(findKnowledgeConflicts(thin, memories)).toEqual([]);
+  });
+
+  it("does not flag shared topic words without a repeated phrase", () => {
+    // The real-world false positive: a fact about Sera inheriting the ledger,
+    // while an earlier chapter mentions Sera, the ledger, and her mother in
+    // separate clauses. Isolated terms are not evidence of acting on the fact.
+    const memories: DoctorMemory[] = [
+      {
+        chapterIndex: 1,
+        structuredData: {
+          knowledgeShifts: [
+            { character: "Sera", learned: "Sera inherited the ledger from her mother" },
+          ],
+        },
+      },
+    ];
+    const prose: DoctorChapter[] = [
+      {
+        title: "The Rain Debt",
+        sortOrder: 0,
+        content:
+          "Sera set the ledger on the table, then touched the ring her mother had worn.",
+      },
+      {
+        title: "The Clerk's Hand",
+        sortOrder: 1,
+        content: "Sera inherited the ledger from her mother, and said so plainly.",
+      },
+    ];
+    expect(findKnowledgeConflicts(prose, memories)).toEqual([]);
   });
 });
 
@@ -230,5 +261,16 @@ describe("token helpers", () => {
       "gate",
     ]);
     expect(factTerms("")).toEqual([]);
+  });
+
+  it("builds ordered content bigrams for phrase evidence", () => {
+    expect(factBigrams("the brass key opens the canal gate")).toEqual([
+      "brass key",
+      "key opens",
+      "opens canal",
+      "canal gate",
+    ]);
+    expect(factBigrams("The ledger")).toEqual([]);
+    expect(factBigrams("")).toEqual([]);
   });
 });

@@ -44,12 +44,19 @@ import {
   worstRepeat,
 } from "@/lib/story/loop-guards";
 import { readLoopConfig, type LoopEngineFormat } from "@/lib/story/loop-config";
+import {
+  openPromisesFrom,
+  parseContinuityNotes,
+  type ContinuityMemory,
+  type ExtractedContinuity,
+} from "@/lib/story/continuity-extract";
 
 const USAGE = `story-loop — write a book one unit at a time through the local host
 
 Usage:
   npx tsx scripts/story-loop.mts            run (resumes written units)
   npx tsx scripts/story-loop.mts --check    validate env and print config
+  npx tsx scripts/story-loop.mts --notes    re-extract notes + Doctor only
   npx tsx scripts/story-loop.mts --help     this text
 
 Required:
@@ -68,6 +75,7 @@ Optional:
   GW_LOOP_REFRESH    1 | 0, wipe the db first           (default 0)
   GW_LOOP_ECHO_MAX   repetition threshold in words      (default 12)
   GW_LOOP_ECHO_ALLOW deliberate refrains, "phrase|phrase"
+  GW_LOOP_NOTES      1 | 0, extract continuity notes only (default 0)
 `;
 
 const OUT = resolve(process.env["TEMP"] ?? ".", "gw-loop");
@@ -188,6 +196,7 @@ async function main(): Promise<void> {
           port: config.port,
           revise: config.revise,
           refresh: config.refresh,
+          notesOnly: config.notesOnly,
           echoMax: config.echoMax,
           echoAllow: config.echoAllow.length,
           chars: config.chars.length > 0,
@@ -223,7 +232,10 @@ async function main(): Promise<void> {
     refresh: REFRESH,
     echoMax: ECHO_MAX,
     echoAllow: ECHO_ALLOW,
+    notesOnly,
   } = config;
+
+  const NOTES_ONLY = notesOnly || argv.includes("--notes");
 
   const UNIT = UNIT_FOR(ENGINE_FORMAT);
   const UNIT_PLURAL = UNIT_PLURAL_FOR(ENGINE_FORMAT);
@@ -314,6 +326,75 @@ async function main(): Promise<void> {
     return data;
   };
 
+  /**
+   * One cheap extraction call per unit. The loop used to post only keyEvents,
+   * which left the Doctor's knowledge and promise checks with nothing to read;
+   * the extraction feeds structuredData so the checks actually run.
+   */
+  async function extractContinuity(
+    pid: string,
+    chapterId: string,
+    chapterIndex: number,
+    beat: string,
+    content: string,
+  ): Promise<ExtractedContinuity | null> {
+    const data = (await api(`/projects/${encodeURIComponent(pid)}/story-memories`, "GET")) as {
+      memories?: ContinuityMemory[];
+    };
+    const open = openPromisesFrom(data.memories ?? []);
+    const result = (await api("/ai/generate", "POST", {
+      projectId: pid,
+      chapterId,
+      mode: "outline",
+      format: "prose",
+      dynamicContext: "",
+      prompt: [
+        `You are the continuity clerk for the ${FORMAT} "${TITLE}".`,
+        `Unit ${chapterIndex + 1}${beat ? ` \u2014 ${beat}` : ""} has just been written.`,
+        open.length
+          ? `Open promises from earlier units (unpaid):\n${open.map((p, n) => `${n + 1}. ${p}`).join("\n")}`
+          : "There are no open promises from earlier units.",
+        `Text:\n---\n${content}\n---`,
+        `Return ONLY a JSON object with these four arrays:`,
+        `{"knowledgeShifts":[{"character":"...","learned":"...","from":"...","to":"..."}],"openPromisesCreated":["..."],"openPromisesResolved":["..."],"keyEvents":["..."]}`,
+        `Rules: capture only what this unit establishes on the page.`,
+        `- knowledgeShifts: a fact a named character learns IN THIS UNIT, shown on the page. "learned" is one short concrete clause (at most 18 words), never a plot summary or backstory they already knew. from/to are one-word states (e.g. IGNORANT/KNOWS, DENIES/ACCEPTS).`,
+        `- openPromisesCreated: only a concrete setup the prose makes explicit — a debt, a threat, a stated intention, an object that must be returned. Do not list questions, themes, or inferences. At most 20 words each.`,
+        `- openPromisesResolved: only when this unit pays off an earlier promise. That includes an explicit payoff and an event that makes the promise impossible to remain open (for example, forgiving an entire column). Copy that promise's text VERBATIM from the numbered list above so the matcher can close it. Do not invent a payoff.`,
+        `- keyEvents: 1-3 short lines.`,
+        `0-2 knowledgeShifts, 0-2 created promises, 0-2 resolved promises. No commentary, no prose outside the JSON.`,
+      ].join("\n\n"),
+    })) as { text?: unknown };
+    return parseContinuityNotes(String(result.text ?? ""));
+  }
+
+  /** Replace this unit's loop-written note; a null extraction falls back. */
+  async function replaceContinuityNote(
+    pid: string,
+    chapterId: string,
+    chapterIndex: number,
+    beat: string,
+    extracted: ExtractedContinuity | null,
+  ): Promise<void> {
+    const data = (await api(`/projects/${encodeURIComponent(pid)}/story-memories`, "GET")) as {
+      memories?: ContinuityMemory[];
+    };
+    const stale = (data.memories ?? []).filter(
+      (m) => m.chapterId === chapterId && String(m.fact ?? "") === beat,
+    );
+    for (const memory of stale) {
+      await api(`/projects/${encodeURIComponent(pid)}/story-memories`, "DELETE", {
+        memoryId: memory.id,
+      });
+    }
+    await api(`/projects/${encodeURIComponent(pid)}/story-memories`, "POST", {
+      fact: beat,
+      chapterIndex,
+      chapterId,
+      structuredData: extracted ?? { keyEvents: [beat] },
+    });
+  }
+
   // -- resume or create the project ------------------------------------------
   for (let attempt = 1; attempt <= 20; attempt++) {
     try {
@@ -384,7 +465,7 @@ async function main(): Promise<void> {
     beats = readFileSync(outlinePath, "utf8").split(/\r?\n/).map(cleanBeat).filter(Boolean);
     console.error(`[loop] plan loaded (${beats.length} beats)`);
   }
-  while (beats.length < CHAPTERS) {
+  while (!NOTES_ONLY && beats.length < CHAPTERS) {
     const from = beats.length + 1;
     const want = Math.min(10, CHAPTERS - beats.length);
     const planned = (await api("/ai/generate", "POST", {
@@ -420,7 +501,7 @@ async function main(): Promise<void> {
     writeFileSync(outlinePath, beats.map((b, i) => `${i + 1}. ${b}`).join("\n"), "utf8");
     console.error(`[loop] planned through ${UNIT} ${beats.length}`);
   }
-  if (beats.length < CHAPTERS) {
+  if (!NOTES_ONLY && beats.length < CHAPTERS) {
     console.error(
       `[loop] WARNING: plan has ${beats.length} beats for ${CHAPTERS} ${UNIT_PLURAL}; ` +
         `missing units get a generic beat`,
@@ -436,6 +517,50 @@ async function main(): Promise<void> {
     );
   };
   log(`# ${TITLE} \u2014 ${FORMAT}\n\nPremise: ${PREMISE}\n`);
+
+  if (NOTES_ONLY) {
+    console.error(`[loop] notes-only pass: ${rows.length} ${UNIT_PLURAL}`);
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i]!;
+      const content = String(row.content ?? "").trim();
+      if (!content) {
+        console.error(`[loop] notes ${i + 1}: empty, skipping`);
+        continue;
+      }
+      const beat = beats[i] ?? row.title;
+      console.error(`[loop] notes ${i + 1}: extracting`);
+      let extracted: ExtractedContinuity | null = null;
+      try {
+        extracted = await extractContinuity(projectId, row.id, i, beat, content);
+      } catch (e) {
+        console.error(
+          `[loop] notes ${i + 1}: extraction failed: ` +
+            (e instanceof Error ? e.message.slice(0, 140) : String(e)),
+        );
+      }
+      await replaceContinuityNote(projectId, row.id, i, beat, extracted);
+      log(
+        `- notes ${UNIT} ${i + 1}: ` +
+          (extracted
+            ? `${extracted.knowledgeShifts.length} shifts, ${extracted.openPromisesCreated.length} opened, ${extracted.openPromisesResolved.length} resolved`
+            : "fallback keyEvents"),
+      );
+    }
+    const doctor = (await api(
+      `/projects/${encodeURIComponent(projectId)}/story-doctor`,
+      "GET",
+    )) as {
+      issues?: { kind?: string; message?: string }[];
+      checked?: Record<string, unknown>;
+    };
+    const issues = doctor.issues ?? [];
+    console.error(`[loop] notes-only Doctor: ${issues.length} issue(s)`);
+    for (const issue of issues) {
+      console.error(`[loop] - ${issue.kind}: ${issue.message}`);
+    }
+    writeFileSync(resolve(OUT, `${SLUG}.doctor.json`), JSON.stringify(doctor, null, 2), "utf8");
+    return;
+  }
 
   const priorLine = (i: number): string => {
     const c = rows[i]?.content ?? "";
@@ -602,11 +727,18 @@ async function main(): Promise<void> {
     );
     row.content = content;
 
-    await api(`/projects/${encodeURIComponent(projectId)}/story-memories`, "POST", {
-      fact: beat,
-      chapterIndex: i,
-      structuredData: { keyEvents: [beat] },
-    });
+    // Continuity extraction feeds the Doctor's structured checks. A failed or
+    // empty extraction falls back to the key-event note; it never fails the run.
+    let extracted: ExtractedContinuity | null = null;
+    try {
+      extracted = await extractContinuity(projectId, row.id, i, beat, content);
+    } catch (e) {
+      console.error(
+        `[loop] ${UNIT} ${i + 1}: continuity extraction failed: ` +
+          (e instanceof Error ? e.message.slice(0, 140) : String(e)),
+      );
+    }
+    await replaceContinuityNote(projectId, row.id, i, beat, extracted);
 
     // DOCTOR: act on knowledge conflicts that involve this unit.
     for (let attempt = 0; attempt < 2; attempt++) {

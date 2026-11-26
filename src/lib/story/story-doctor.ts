@@ -102,8 +102,37 @@ export function doctorTokens(text: string): string[] {
 }
 
 /**
+ * Ordered content tokens (length >= 3, stopwords removed) for phrase evidence.
+ * Different from `doctorTokens`: short but meaningful words like "key" must
+ * survive so a real repeated phrase is not split apart.
+ */
+function phraseTokens(text: string): string[] {
+  return String(text ?? "")
+    .toLowerCase()
+    .split(/[^a-z0-9']+/i)
+    .map((t) => t.replace(/^'+|'+$/g, ""))
+    .filter((t) => t.length >= 3 && !STOPWORDS.has(t));
+}
+
+/**
+ * Adjacent content-word pairs from a learned fact, in order. A fact that a
+ * character acts on usually leaves a distinctive phrase ("brass key"), while
+ * unrelated scenes share only isolated words ("ledger", a name). Bigrams are
+ * the evidence unit; a paraphrased fact is deliberately not guessed.
+ */
+export function factBigrams(learned: string): string[] {
+  const tokens = phraseTokens(learned);
+  const pairs: string[] = [];
+  for (let i = 0; i + 1 < tokens.length; i++) {
+    pairs.push(`${tokens[i]} ${tokens[i + 1]}`);
+  }
+  return [...new Set(pairs)].slice(0, 10);
+}
+
+/**
  * The distinctive terms of a learned fact: up to six tokens, longest first
- * (longer tokens are less ambiguous), de-duplicated, lowercase.
+ * (longer tokens are less ambiguous), de-duplicated, lowercase. Used for the
+ * excerpt and as the fallback when a fact has no content bigram.
  */
 export function factTerms(learned: string): string[] {
   const uniq = [...new Set(doctorTokens(learned))];
@@ -151,16 +180,24 @@ export function findKnowledgeConflicts(
       if (!shift?.character || !shift?.learned) continue;
       const terms = factTerms(shift.learned);
       if (terms.length === 0) continue;
+      const bigrams = factBigrams(shift.learned);
       const learnedAt = memory.chapterIndex;
 
       for (const { chapter, index } of ordered) {
         if (index >= learnedAt) break; // only chapters BEFORE the learning
         const nameOk = containsName(lower(chapter.content), shift.character);
         if (!nameOk) continue;
-        const hits = terms.filter((t) => lower(chapter.content).includes(t));
-        // Require real evidence: at least two distinct fact terms, or the one
-        // available term when the fact is a single distinctive word.
-        const enough = terms.length >= 2 ? hits.length >= 2 : hits.length >= 1;
+        const content = lower(chapter.content);
+        const hits = terms.filter((t) => content.includes(t));
+        const phrases = bigrams.filter((b) => content.includes(b));
+        // Evidence is a repeated content phrase. A fact without a phrase (a
+        // single distinctive word) falls back to the old token rule.
+        const enough =
+          bigrams.length > 0
+            ? phrases.length >= 1
+            : terms.length >= 2
+              ? hits.length >= 2
+              : hits.length >= 1;
         if (!enough) continue;
 
         const dedupeKey = `${shift.character}|${lower(shift.learned)}|${index}`;
@@ -173,7 +210,7 @@ export function findKnowledgeConflicts(
           learnedAtChapter: learnedAt,
           chapterIndex: index,
           chapterTitle: chapter.title || `Chapter ${index + 1}`,
-          excerpt: excerptAround(chapter.content, hits),
+          excerpt: excerptAround(chapter.content, phrases.length ? phrases : hits),
           message:
             `${shift.character} acts on "${shift.learned}" in "${chapter.title || `Chapter ${index + 1}`}" ` +
             `(chapter ${index + 1}), but the timeline records learning it in chapter ${learnedAt + 1}.`,

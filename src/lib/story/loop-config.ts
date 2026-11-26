@@ -29,6 +29,7 @@ export interface LoopConfig {
   readonly refresh: boolean;
   readonly echoMax: number;
   readonly echoAllow: readonly string[];
+  readonly notesOnly: boolean;
 }
 
 export interface LoopConfigResult {
@@ -110,6 +111,7 @@ export function readLoopConfig(env: Env, outDir: string): LoopConfigResult {
   const echoMax = readInt(env, "GW_LOOP_ECHO_MAX", 12, 1, 200, errors);
   const revise = readFlag(env, "GW_LOOP_REVISE", true, errors);
   const refresh = readFlag(env, "GW_LOOP_REFRESH", false, errors);
+  const notesOnly = readFlag(env, "GW_LOOP_NOTES", false, errors);
 
   const dbName = envValue(env, "GW_LOOP_DB") || "loop.sqlite";
   const echoAllow = (envValue(env, "GW_LOOP_ECHO_ALLOW") || "")
@@ -132,6 +134,7 @@ export function readLoopConfig(env: Env, outDir: string): LoopConfigResult {
       refresh,
       echoMax,
       echoAllow,
+      notesOnly,
     },
     errors,
   };
