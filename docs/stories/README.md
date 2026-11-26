@@ -18,6 +18,8 @@ per unit.
 | [Last Train to Alentejo](./last-train-to-alentejo.md) | 3,643 | 5 | linear | noir romance | clean |
 | [The Ward](./the-ward.md) | 5,381 | 5 | linear | horror mystery | clean |
 | [Signal Fires](./signal-fires.md) | 4,952 | 5 | linear | sci-fi thriller | clean |
+| [The Quiet Room](./the-quiet-room.md) | 4,498 | 5 | linear | quiet sci-fi + horror | clean |
+| [Low Tide Message](./low-tide-message.md) | 6,459 | 5 | linear | sci-fi + coming-of-age mystery | clean |
 
 ## What each story tested
 
@@ -59,6 +61,23 @@ per unit.
 - **Signal Fires** — Web Series, sci-fi thriller; tested a ticking-clock ensemble,
   procedural radio detail, and escalating act breaks. 5/5 cold opens, 15 act labels (all
   three acts in every episode), every episode ends on a cliffhanger line; Doctor clean.
+- **The Quiet Room** — third Screenplay, quiet sci-fi + horror; tested sound-design-led
+  dread (a silence booth that records last words) and a three-hander where the client
+  knows the rules. 5/5 scenes open on an `INT.`/`EXT.` slug line (8 slug lines total —
+  scene 1 moves reception → control room → booth), 157 character cues, no chapter or
+  scene labels, no `BEAT:` leakage; the booth's rule ("a tape is played only in the
+  absence of the living it names") is planted in scene 2 and paid off in scene 5.
+  Doctor clean on the first pass; the repair script changed nothing.
+- **Low Tide Message** — third Web Series, sci-fi + coming-of-age mystery; tested a
+  cold-open hook, a fair-play rule (every text is 31 hours ahead of the tide it
+  describes), and a mother-daughter secret. 5/5 cold opens, 15 act labels (all three
+  acts in every episode), every episode ends on a turn; no chapter/episode labels or
+  `BEAT:` leakage, though episode 1 alone carries a literal `CLIFFHANGER` label. Two
+  guard catches during the run (one truncated revision kept the complete draft, one
+  truncated write retried) — the truncation guards worked. Real defect the Doctor
+  missed: the finale re-runs the previous episode's slip beat almost verbatim (~120
+  words) before its new ending, a continuation-anchor echo the knowledge-conflict
+  check does not detect; left as generated and recorded here.
 
 ## Known weaknesses found by this matrix (and the fixes)
 
