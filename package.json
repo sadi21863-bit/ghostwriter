@@ -15,6 +15,7 @@
     "db:legacy-verify:static": "node scripts/verify-legacy-backup.mjs",
     "eval:context-policy": "tsx scripts/eval-context-policy.mts",
     "local:host": "tsx scripts/spawn-local-host.mts",
+    "story:loop": "tsx scripts/story-loop.mts",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
