@@ -20,6 +20,7 @@ continuity notes posted per unit.
 | [Signal Fires](./signal-fires.md) | 4,952 | 5 | linear | sci-fi thriller | clean |
 | [The Quiet Room](./the-quiet-room.md) | 4,498 | 5 | linear | quiet sci-fi + horror | clean |
 | [Low Tide Message](./low-tide-message.md) | 6,086 | 5 | linear | sci-fi + coming-of-age mystery | clean |
+| [The Lantern Ledger](./the-lantern-ledger.md) | 4,221 | 4 | linear | literary noir + quiet fantasy | 6 unresolved-promise (review) |
 
 ## What each story tested
 
@@ -86,6 +87,19 @@ continuity notes posted per unit.
   exists nowhere in episodes 1–4; the final run passed the real premise and cast, so
   episode 5 introduces no new cast.
 
+- **The Lantern Ledger** — first run of the versioned `scripts/story-loop.mts`:
+  a 4-chapter validation novel, literary noir + quiet fantasy. Exercised the
+  fail-fast config, hyphen-safe titles, the repetition guard (worst pair 6
+  consecutive words), and the new continuity extraction: the loop now posts
+  knowledge shifts and promise arrays, so the Doctor's checks actually run on
+  generated prose. It flagged 6 unresolved-promise review items and 0
+  knowledge conflicts after the evidence matcher moved from loose tokens to
+  adjacent content-word bigrams (the loose version had produced four false
+  positives from words like "ledger" and character names). Five of the six
+  flagged threads are paid off implicitly in the finale (the whole debt column
+  is forgiven, including "a girl's voice" for Neve); Tobin Ash's whereabouts is
+  the deliberate minor open thread.
+
 ## Known weaknesses found by this matrix (and the fixes)
 
 | Weakness | Fix in the loop/app |
@@ -99,5 +113,6 @@ continuity notes posted per unit.
 | Unresolved promises reported as defects | reworded as a review decision (deliberate open thread vs. overlooked setup) |
 | A truncated revision silently replaced a complete unit (The Ward) | write / revise / doctor-fix now require terminal punctuation; the three truncated endings were repaired by targeted continuation |
 | A unit re-ran an earlier unit's passage almost verbatim (Low Tide Message finale, 54 consecutive words) | after each write/revise, measure the longest common word run against every earlier unit; at ≥ 12 words make one compression pass (accept only if the rewrite drops under 12 and ends on terminal punctuation); the finale was rewritten and now shares ≤ 5 |
+| Generated chapters had only key-event memories, so the Doctor's two checks were vacuous | the loop now extracts `knowledgeShifts` / `openPromisesCreated` / `openPromisesResolved` per unit and posts them as `structuredData`; the Doctor's conflict evidence moved from loose topic words to adjacent content-word bigrams, removing four false positives on the validation run |
 
 Doctor reports for the runs that recorded them are under `reports/`.

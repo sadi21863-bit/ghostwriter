@@ -1,0 +1,47 @@
+{
+  "ok": true,
+  "issues": [
+    {
+      "kind": "unresolved-promise",
+      "promise": "Ivo must learn to read his own handwriting and count the forty names owed back against him before the book balances.",
+      "openedInChapter": 0,
+      "message": "\"Ivo must learn to read his own handwriting and count the forty names owed back against him before the book balances.\" is opened in chapter 1 and is still open at the final chapter — decide whether that is intentional (a deliberate open thread) or an overlooked setup."
+    },
+    {
+      "kind": "unresolved-promise",
+      "promise": "Ivo has not yet found the words to tell Tobin Ash's wife where her husband is.",
+      "openedInChapter": 0,
+      "message": "\"Ivo has not yet found the words to tell Tobin Ash's wife where her husband is.\" is opened in chapter 1 and is still open at the final chapter — decide whether that is intentional (a deliberate open thread) or an overlooked setup."
+    },
+    {
+      "kind": "unresolved-promise",
+      "promise": "Ivo's line is last; at his death the remainder falls to Neve Tully, the name just above.",
+      "openedInChapter": 1,
+      "message": "\"Ivo's line is last; at his death the remainder falls to Neve Tully, the name just above.\" is opened in chapter 2 and is still open at the final chapter — decide whether that is intentional (a deliberate open thread) or an overlooked setup."
+    },
+    {
+      "kind": "unresolved-promise",
+      "promise": "Ivo said \"Take it back\"—he must undo the debt now standing against Neve Tully, aged nine.",
+      "openedInChapter": 1,
+      "message": "\"Ivo said \"Take it back\"—he must undo the debt now standing against Neve Tully, aged nine.\" is opened in chapter 2 and is still open at the final chapter — decide whether that is intentional (a deliberate open thread) or an overlooked setup."
+    },
+    {
+      "kind": "unresolved-promise",
+      "promise": "Ivo must be in the room when Pell dies, or the book will take the nearest name instead.",
+      "openedInChapter": 2,
+      "message": "\"Ivo must be in the room when Pell dies, or the book will take the nearest name instead.\" is opened in chapter 3 and is still open at the final chapter — decide whether that is intentional (a deliberate open thread) or an overlooked setup."
+    },
+    {
+      "kind": "unresolved-promise",
+      "promise": "Pell's debt must be collected at midnight, which buys the Quill line only one year.",
+      "openedInChapter": 2,
+      "message": "\"Pell's debt must be collected at midnight, which buys the Quill line only one year.\" is opened in chapter 3 and is still open at the final chapter — decide whether that is intentional (a deliberate open thread) or an overlooked setup."
+    }
+  ],
+  "checked": {
+    "chapters": 4,
+    "knowledgeShifts": 6,
+    "promisesCreated": 6,
+    "promisesResolved": 1
+  }
+}
