@@ -179,12 +179,14 @@ export function cleanBeat(line: string): string {
 }
 
 /**
- * The unit title is the first segment before an em/en/hyphen separator,
- * trimmed; `fallback` when the beat has no usable prefix.
+ * The unit title is the first segment before an em/en dash (spaced or not) or
+ * a spaced hyphen. A hyphen inside a word is preserved:
+ * "The Half-Light — beat" -> "The Half-Light", "The Lamp - beat" -> "The Lamp".
+ * `fallback` when the beat has no usable prefix.
  */
 export function splitUnitTitle(beat: string, fallback: string): string {
   const first = String(beat ?? "")
-    .split(/\u2014|\u2013|-/)[0]
+    .split(/\s*\u2014\s*|\s*\u2013\s*|\s+-\s+/)[0]
     ?.trim();
   return first || fallback;
 }

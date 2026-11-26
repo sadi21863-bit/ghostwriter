@@ -215,4 +215,14 @@ describe("splitUnitTitle", () => {
     expect(splitUnitTitle("   ", "Chapter 1")).toBe("Chapter 1");
     expect(splitUnitTitle("", "Scene 2")).toBe("Scene 2");
   });
+
+  it("preserves hyphens inside a title", () => {
+    expect(splitUnitTitle("The Half-Light — Rhea lights it", "Chapter 1")).toBe(
+      "The Half-Light",
+    );
+    expect(splitUnitTitle("The Half-Light", "Chapter 1")).toBe("The Half-Light");
+    expect(splitUnitTitle("A Two-Part Debt - Rhea pays it", "Chapter 1")).toBe(
+      "A Two-Part Debt",
+    );
+  });
 });
