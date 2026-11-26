@@ -98,7 +98,12 @@ describe("thin shell assets (PLAN-v5 step 2)", () => {
       const css = await get(host, "/app.css");
       expect(css.status).toBe(200);
       expect(css.headers.get("content-type")).toContain("text/css");
-      expect(await css.text()).toContain("--accent");
+      const cssBody = await css.text();
+      expect(cssBody).toContain("--accent");
+      // Class rules (.gate/.view/.proposal/.doctor) set display and would beat
+      // the `hidden` attribute's UA rule — the gate would keep covering the app
+      // after auth and all three views would stack. The global rule is load-bearing.
+      expect(cssBody).toMatch(/\[hidden\]\s*\{\s*display:\s*none\s*!important;?\s*\}/);
     },
     20000,
   );

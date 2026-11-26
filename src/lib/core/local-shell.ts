@@ -239,6 +239,9 @@ input, select, textarea {
   width: 100%;
 }
 input:focus, select:focus, textarea:focus { outline: none; border-color: var(--accent); }
+/* Class rules below set display; without this the hidden attribute loses to
+   them and the token gate keeps covering the app after auth. */
+[hidden] { display: none !important; }
 .muted { color: var(--muted); font-size: 13px; }
 .error { color: var(--danger); font-size: 13px; }
 .gate {
