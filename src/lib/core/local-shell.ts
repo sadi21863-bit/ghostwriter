@@ -394,6 +394,11 @@ const SHELL_JS = `"use strict";
     settings: {},
     providerInfo: null,
     saveTimer: null,
+    // PLAN-v5 continuity notes — the selected project's memory cache plus the
+    // guard that cancels a prefill the writer already moved on from.
+    memories: null,
+    memoriesProjectId: null,
+    continuitySeq: 0,
   };
 
   function $(id) { return document.getElementById(id); }
@@ -542,6 +547,9 @@ const SHELL_JS = `"use strict";
     // The Doctor's inputs only exist for a selected chapter; a project with no
     // chapters keeps the thin shell (no orphan panel).
     $("continuity-notes").hidden = !chapter;
+    // continuity-load — prefill from this chapter's saved notes. Fired after
+    // the panel is painted and never awaited: the editor is usable first.
+    if (chapter) loadContinuityNotes();
   }
 
   // ── AI drafting (PLAN-v5 — the model proposes, the writer edits) ──
@@ -620,6 +628,12 @@ const SHELL_JS = `"use strict";
   // Doctor reads (knowledgeShifts / openPromisesCreated / openPromisesResolved),
   // placed by the chapter's 0-based index — the graph route returns chapters
   // asc(sortOrder), the exact order renderWrite paints.
+  //
+  // Memories are append-only on the wire, so this panel is a REPLACE, not a
+  // stream: load-back prefills from the chapter's note and save deletes the old
+  // one before creating the new one (delete-then-create), so repeated saves
+  // never stack duplicate promises for the Doctor to read twice.
+  var CONTINUITY_FACT_PREFIX = "Continuity notes for ";
   var CONTINUITY_FIELDS = [
     "continuity-promises-opened",
     "continuity-promises-resolved",
@@ -628,8 +642,85 @@ const SHELL_JS = `"use strict";
 
   function resetContinuityNotes() {
     CONTINUITY_FIELDS.forEach(function (id) { $(id).value = ""; });
+    // Any prefill still in flight belongs to the chapter we just left.
+    state.continuitySeq += 1;
     $("continuity-notes").open = false;
     $("continuity-state").textContent = "";
+  }
+
+  function continuityFieldsBlank() {
+    return CONTINUITY_FIELDS.every(function (id) { return !$(id).value.trim(); });
+  }
+
+  // continuity-load — one cache per selected project. The force flag is for
+  // save, where a stale list could hide a memory that must be deleted first.
+  function loadProjectMemories(force) {
+    if (!state.projectId) return Promise.resolve([]);
+    var projectId = state.projectId;
+    if (!force && state.memoriesProjectId === projectId) {
+      return Promise.resolve(state.memories || []);
+    }
+    return api("/projects/" + encodeURIComponent(projectId) + "/story-memories").then(function (data) {
+      var memories = (data && data.memories) || [];
+      // A project switch mid-fetch must not clobber the new project's cache.
+      if (state.projectId === projectId) {
+        state.memoriesProjectId = projectId;
+        state.memories = memories;
+      }
+      return memories;
+    });
+  }
+
+  // chapterId is the note's identity — a renamed chapter keeps its notes; a
+  // recreated one (new id) starts blank. The title inside the fact label is
+  // never matched, so renaming a chapter cannot orphan its notes. The GET is
+  // newest-first, so [0] is the freshest note when old builds left duplicates.
+  function continuityNotesFor(memories, chapterId) {
+    if (!chapterId) return [];
+    return (memories || []).filter(function (m) {
+      return m && m.id && m.chapterId === chapterId &&
+        String(m.fact || "").indexOf(CONTINUITY_FACT_PREFIX) === 0;
+    });
+  }
+
+  // The inverse of parseKnowledgeShiftLines: one "Character: learned" per line.
+  function knowledgeShiftLine(shift) {
+    if (!shift) return "";
+    var character = String(shift.character == null ? "" : shift.character).trim();
+    var learned = String(shift.learned == null ? "" : shift.learned).trim();
+    return character && learned ? character + ": " + learned : "";
+  }
+
+  function fillContinuityNotes(memory) {
+    var data = (memory && memory.structuredData) || {};
+    var created = Array.isArray(data.openPromisesCreated) ? data.openPromisesCreated : [];
+    var resolved = Array.isArray(data.openPromisesResolved) ? data.openPromisesResolved : [];
+    var shifts = Array.isArray(data.knowledgeShifts) ? data.knowledgeShifts : [];
+    $("continuity-promises-opened").value = created.join("\\n");
+    $("continuity-promises-resolved").value = resolved.join("\\n");
+    $("continuity-knowledge-shifts").value = shifts.map(knowledgeShiftLine).filter(Boolean).join("\\n");
+  }
+
+  function loadContinuityNotes() {
+    var projectId = state.projectId;
+    var chapterId = state.chapterId;
+    if (!projectId || !chapterId) return;
+    var seq = (state.continuitySeq += 1);
+    // Never awaited: the editor is usable before the notes land, and a fetch
+    // that fails (501, bad token, network) leaves the panel blank instead of
+    // blocking writing. Fail quiet is deliberate — no error surface for a
+    // convenience prefill.
+    loadProjectMemories(false).then(function (memories) {
+      // A chapter/project switch, a newer render, or the writer having started
+      // to type all invalidate this answer: prefill never overwrites words.
+      if (seq !== state.continuitySeq) return;
+      if (state.projectId !== projectId || state.chapterId !== chapterId) return;
+      if (!continuityFieldsBlank()) return;
+      var note = continuityNotesFor(memories, chapterId)[0];
+      if (note) fillContinuityNotes(note);
+    }).catch(function () {
+      // fail quiet — an unreachable fetch must not surface as an error
+    });
   }
 
   // One note per line; trim + drop blanks. Losing stray whitespace is cheaper
@@ -666,9 +757,29 @@ const SHELL_JS = `"use strict";
     return -1;
   }
 
+  // Delete-then-create: a memory has no update verb, so this chapter's old note
+  // — plus any duplicate old builds stacked — goes before the new one arrives.
+  // A failed delete fails the save: creating anyway would re-introduce exactly
+  // the duplicate this replaces.
+  function deleteContinuityNotes(projectId, chapterId) {
+    return loadProjectMemories(true).then(function (memories) {
+      return continuityNotesFor(memories, chapterId).reduce(function (chain, memory) {
+        return chain.then(function () {
+          return api("/projects/" + encodeURIComponent(projectId) + "/story-memories", {
+            method: "DELETE",
+            body: { memoryId: memory.id },
+          });
+        });
+      }, Promise.resolve());
+    });
+  }
+
   function saveContinuityNotes() {
     if (!state.projectId || !state.chapterId) return;
-    var chapterIndex = chapterIndexFor(state.chapterId);
+    // Capture the target now: a chapter switch mid-save must not retarget it.
+    var projectId = state.projectId;
+    var chapterId = state.chapterId;
+    var chapterIndex = chapterIndexFor(chapterId);
     if (chapterIndex < 0) { $("continuity-state").textContent = "no chapter selected"; return; }
     var created = parseNoteLines($("continuity-promises-opened").value);
     var resolved = parseNoteLines($("continuity-promises-resolved").value);
@@ -677,22 +788,29 @@ const SHELL_JS = `"use strict";
       $("continuity-state").textContent = "nothing to save";
       return;
     }
-    var chapter = chapterById(state.chapterId);
+    var chapter = chapterById(chapterId);
     var label = chapter && chapter.title ? chapter.title : "Chapter " + (chapterIndex + 1);
+    // This save supersedes any prefill still in flight for the old note.
+    state.continuitySeq += 1;
     $("continuity-state").textContent = "saving…";
-    api("/projects/" + encodeURIComponent(state.projectId) + "/story-memories", {
-      method: "POST",
-      body: {
-        fact: "Continuity notes for " + label,
-        chapterIndex: chapterIndex,
-        chapterId: state.chapterId,
-        structuredData: {
-          openPromisesCreated: created,
-          openPromisesResolved: resolved,
-          knowledgeShifts: shifts,
+    deleteContinuityNotes(projectId, chapterId).then(function () {
+      return api("/projects/" + encodeURIComponent(projectId) + "/story-memories", {
+        method: "POST",
+        body: {
+          fact: CONTINUITY_FACT_PREFIX + label,
+          chapterIndex: chapterIndex,
+          chapterId: chapterId,
+          structuredData: {
+            openPromisesCreated: created,
+            openPromisesResolved: resolved,
+            knowledgeShifts: shifts,
+          },
         },
-      },
+      });
     }).then(function () {
+      // The cache predates the memory just written — the next load refetches.
+      state.memories = null;
+      state.memoriesProjectId = null;
       $("continuity-state").textContent = "saved";
     }).catch(function (err) {
       $("continuity-state").textContent = "save failed";

@@ -370,6 +370,59 @@ describe("continuity notes panel (PLAN-v5)", () => {
     },
     20000,
   );
+
+  it(
+    "app.js loads a chapter's saved notes back into the three textareas (non-blocking, fail-quiet)",
+    async () => {
+      const host = await boot();
+      const js = await (await get(host, "/app.js")).text();
+      expect(js).toContain("function loadContinuityNotes");
+      expect(js).toContain("loadProjectMemories(false)");
+      expect(js).toContain("continuityNotesFor");
+      // Chapter identity is chapterId + the notes fact prefix — never the
+      // renamable title (the panel's label drifts, the id does not).
+      expect(js).toContain('"Continuity notes for "');
+      expect(js).toContain("m.chapterId === chapterId");
+      expect(js).toContain("indexOf(CONTINUITY_FACT_PREFIX) === 0");
+      // structuredData -> one entry per line; shifts render "Character: learned".
+      expect(js).toContain("data.openPromisesCreated");
+      expect(js).toContain("data.openPromisesResolved");
+      expect(js).toContain("data.knowledgeShifts");
+      expect(js).toContain('character + ": " + learned');
+      expect(js).toContain('created.join("\\n")');
+      // The prefill runs from renderWrite, after the panel is unhidden, and a
+      // stale answer or a writer's first keystroke wins over the prefill.
+      expect(js).toContain('$("continuity-notes").hidden = !chapter;');
+      expect(js.indexOf('$("continuity-notes").hidden = !chapter;')).toBeLessThan(
+        js.indexOf("loadContinuityNotes();"),
+      );
+      expect(js).toContain("seq !== state.continuitySeq");
+      expect(js).toContain("if (!continuityFieldsBlank()) return;");
+    },
+    20000,
+  );
+
+  it(
+    "app.js dedupes on save: delete the chapter's notes memory, then create the new one",
+    async () => {
+      const host = await boot();
+      const js = await (await get(host, "/app.js")).text();
+      expect(js).toContain("function deleteContinuityNotes");
+      expect(js).toContain("loadProjectMemories(true)");
+      expect(js).toContain('method: "DELETE"');
+      expect(js).toContain("memoryId: memory.id");
+      expect(js).toContain("deleteContinuityNotes(projectId, chapterId).then");
+      expect(js).toContain("fact: CONTINUITY_FACT_PREFIX + label");
+      // Order is the contract: the delete chain resolves before the create POST.
+      expect(js.indexOf("memoryId: memory.id")).toBeLessThan(
+        js.indexOf("fact: CONTINUITY_FACT_PREFIX + label"),
+      );
+      // The empty-save refusal stays, and the cache is invalidated post-save.
+      expect(js).toContain("nothing to save");
+      expect(js).toContain("state.memories = null;");
+    },
+    20000,
+  );
 });
 
 describe("GET /provider-models/:provider (PLAN-v5)", () => {
