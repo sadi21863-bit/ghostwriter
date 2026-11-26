@@ -1,9 +1,9 @@
 # Generated stories
 
 All stories in this folder were written through the Ghostwriter local host
-(OpenCode Go / `deepseek-v4.1-flash`) by the plan → write → revise → Story Doctor
-loop, one unit (chapter, scene, or episode) at a time, with continuity notes posted
-per unit.
+(OpenCode Go / `deepseek-v4.1-flash`) by the plan → write → revise → repetition
+guard → Story Doctor loop, one unit (chapter, scene, or episode) at a time, with
+continuity notes posted per unit.
 
 | Story | Words | Units | Structure | Genres | Doctor at generation |
 |---|---|---|---|---|---|
@@ -19,7 +19,7 @@ per unit.
 | [The Ward](./the-ward.md) | 5,381 | 5 | linear | horror mystery | clean |
 | [Signal Fires](./signal-fires.md) | 4,952 | 5 | linear | sci-fi thriller | clean |
 | [The Quiet Room](./the-quiet-room.md) | 4,498 | 5 | linear | quiet sci-fi + horror | clean |
-| [Low Tide Message](./low-tide-message.md) | 6,459 | 5 | linear | sci-fi + coming-of-age mystery | clean |
+| [Low Tide Message](./low-tide-message.md) | 6,086 | 5 | linear | sci-fi + coming-of-age mystery | clean |
 
 ## What each story tested
 
@@ -74,10 +74,17 @@ per unit.
   acts in every episode), every episode ends on a turn; no chapter/episode labels or
   `BEAT:` leakage, though episode 1 alone carries a literal `CLIFFHANGER` label. Two
   guard catches during the run (one truncated revision kept the complete draft, one
-  truncated write retried) — the truncation guards worked. Real defect the Doctor
-  missed: the finale re-runs the previous episode's slip beat almost verbatim (~120
-  words) before its new ending, a continuation-anchor echo the knowledge-conflict
-  check does not detect; left as generated and recorded here.
+  truncated write retried) — the truncation guards worked. The Doctor came back clean,
+  but the finale re-ran the previous episode's slip beat almost verbatim: 54
+  consecutive words, measured after the fact. Neither Doctor check can see
+  self-repetition (knowledge conflicts and promise payoffs are different questions),
+  so this needed a new check. Episode 5 was rewritten with the loop's repetition guard
+  active and the story's own premise and cast passed in: it is 1,082 words, shares at
+  most 5 consecutive words with episode 4, and ends on a new reveal (the 1998 chart
+  page has been missing from the folder since before the storm). The first rewrite
+  attempt inherited the loop's default lighthouse premise and imported a ferryman who
+  exists nowhere in episodes 1–4; the final run passed the real premise and cast, so
+  episode 5 introduces no new cast.
 
 ## Known weaknesses found by this matrix (and the fixes)
 
@@ -91,5 +98,6 @@ per unit.
 | Every knowledge shift landed at chapter 0 | memory `chapterIndex`/`chapterId` passthrough fixed (app) |
 | Unresolved promises reported as defects | reworded as a review decision (deliberate open thread vs. overlooked setup) |
 | A truncated revision silently replaced a complete unit (The Ward) | write / revise / doctor-fix now require terminal punctuation; the three truncated endings were repaired by targeted continuation |
+| A unit re-ran an earlier unit's passage almost verbatim (Low Tide Message finale, 54 consecutive words) | after each write/revise, measure the longest common word run against every earlier unit; at ≥ 12 words make one compression pass (accept only if the rewrite drops under 12 and ends on terminal punctuation); the finale was rewritten and now shares ≤ 5 |
 
 Doctor reports for the runs that recorded them are under `reports/`.

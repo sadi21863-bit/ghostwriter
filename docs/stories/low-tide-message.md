@@ -1,6 +1,6 @@
 # Low Tide Message
 
-_Web Series · linear · genres: sci-fi + coming-of-age mystery · 6459 words_
+_Web Series · linear · genres: sci-fi + coming-of-age mystery · 6086 words_
 
 ## 1. Dead Battery
 
@@ -510,173 +510,121 @@ A.
 
 COLD OPEN
 
-The tide is out so far the harbour looks like a bathtub someone pulled the plug on. Mud flats shine where water was an hour ago. Boats sit on their keels in channels too narrow for them, and the whole town smells of rot and salt and old rope.
+Five past six and the harbour office door is propped open with a brick. Ana is rolling charts.
 
-Jo stands at the edge of the ferry slip with the cracked phone in her fist and her boots sinking.
+Not the new ones. The drawer ones, the 1998 drawer, the ones with tea rings and pencil notes in the margin, and she slides them into a cardboard tube one at a time the way you'd load something.
 
-Behind her, the harbour office window is dark. In front of her, across the flats, the decommissioned slip runs out into nothing, its pilings furred with barnacle, a single cleat worn silver by thirty years of hands that aren't there anymore.
+Rennie Ivo stands in the doorway with his hands in his pockets. He sees Jo on the ramp and doesn't say good morning.
 
-The phone buzzes.
+"Your mother's donating the lot," he says. "County archive. Van's here at seven."
 
-*Sunday 06:14. Ana. The office. Now.*
+Ana doesn't turn around. "Jo. The short tube, on the shelf, behind you."
 
-She doesn't move. Above the town, on the noticeboard outside the co-op, a sheet of paper flaps: HARBOUR CLOSURE — BRING FORWARD. The date has been changed by hand, in marker, from September to the twenty-eighth. That's four days.
+Under Jo's jacket there is a folder. In her back pocket there is a cracked phone that has been dark since the ferry slip, since *put her on*, and she could set it on the light table right now, this second, and be a person who told the truth before seven o'clock.
 
-Four days until the town stops being a town.
+"Which shelf," she says.
 
-The phone buzzes again. Same sender. Same name.
+The phone goes off against her spine. One buzz. The tide buzz.
 
-*She's already there. Go.*
+"Found it," Jo says, and she's down the ramp with the tube in her hand and her boots not quite hitting the boards.
 
 ACT ONE
 
-The office door is unlocked, which it never is. Inside, the marker smell is so strong it's a taste. Ana is at the chart table with her back to the door, and she has been drawing for a long time — there are three ruined tide charts crumpled on the floor, and one in front of her, and on it the black ink has gone in a shape Jo has seen before.
+The claw machine goes up onto the flatbed on a pallet, still full of plush, and Sasha rides with it because the ratchet strap is her responsibility now.
 
-A name. Not a date. A name, boxed in, boxed over, boxed over again until the paper has gone soft.
+"The sign says October," Jo says.
 
-"Office is closed," Ana says, without turning.
+"The sign's a liar." Sasha hooks a thumb at the relocation notice zip-tied to the rail. Somebody's been at it with a marker. Nine days out, crossed through. *SUNDAY 18:00* written in above. "They moved the ferry. Mum's already got the keys to the new place and there's no floor in the kitchen."
 
-"You changed the date." Jo stays in the doorway. "On the board. That's not your job."
+"That's a week."
 
-"Nothing's my job in four days." Ana caps the marker. Sets it down parallel to the chart's edge. It's the same careful way she does everything, and it makes Jo want to break something. "What do you want, Jo."
+"That's today." Sasha thumps the machine. "This goes to scrap. All of it. Rennie's got the cash box and I'm supposed to walk it over before the van, but I've got a pallet and one strap and a driver who wants to be in Bellhaven by nine."
 
-"You drew over a name on a chart in 1998." Jo steps in. The floorboards give. "And a phone's been texting me about it."
+Jo takes the tin before Sasha finishes the sentence. "I'll walk it."
 
-Ana turns around.
+Sasha looks at her. Holds the look a beat too long, the way she does.
 
-Her face does a thing Jo has never seen it do. Not surprise. Recognition — the wrong kind, the kind you get when the bill finally arrives and you've been expecting it for eleven years.
+"You've been strange since the storm," Sasha says.
 
-"Where did you get that."
+"I've been working."
 
-"Beach. After the storm." Jo holds it up. "It's cracked. It shouldn't work. It works."
-
-"Give it to me."
-
-"No."
-
-"Jo."
-
-"No." Jo's voice comes out wrong — too loud, then too quiet. "You've been lying to me since the day I could talk. I'm not giving you the one thing that's been telling me the truth."
-
-Ana stands very still. Then she says, quietly, "You don't know what it's telling you."
-
-"Then tell me."
-
-The clock over the door ticks. Outside, a gull hits the gutter and scatters.
-
-"Her name was Maren," Ana says. "She had a boat. She left in it." A breath. "She's not coming back. That's the whole story, and you don't get to make it a bigger one."
-
-"That's not the whole story."
-
-"It's the one I'm giving you." Ana picks up the marker again. "Now give me the phone, or get out of my office."
-
-Jo gets out of her office.
+"Nobody works that much in an arcade with no lights on." Sasha pulls the strap and it clicks. "Whatever it is. If you need to be somewhere before six, be there. Don't do the thing where you get left behind being polite."
 
 ACT TWO
 
-The pier at seven in the morning has a quality of light that makes everything look abandoned on purpose. Jo sits on the rail above the arcade with her legs through the bars and reads back through every message from the beginning.
+Rennie's office is half in boxes. The register goes back to 1961 and Rennie is putting it in a crate marked with a laundry marker, spine down, like he doesn't want to look at it.
 
-*Who is this,* she sent. And the phone said: *Not you.*
+"Cash box," Jo says. She sets it on the desk. "Sasha's on the flatbed."
 
-And then: *You're the one who found it.*
+"Tell her she's owed for two Sundays."
 
-And then: *I've been writing to her for eleven years.*
+"Rennie. Who's Maren?"
 
-And then, this morning, first light, before any of it: *Sunday 06:31. Jo. Put her on.*
+The marker stops. He caps it, uncaps it, and puts it down, and the whole office is the noise of the tide under the floor.
 
-She types. Her thumbs are shaking and she hates that.
+"Where'd you get that name," he says.
 
-*she won't take it. she says it's nothing. she says the name is maren and she left in a boat and that's all.*
+"Off a page."
 
-The reply is slower this time. She watches the little dots move, stop, move again. Somewhere below, a man hoses down the fish tables and the water runs off the end of the pier in a white sheet.
+"There's no Maren on my register." He says it to the crate. "There's a Maren on a slip log, and the slip logs are county property as of seven o'clock, and I've had one conversation about that this week I didn't enjoy." He looks up. "Your mother came in Thursday. Wanted the '98 slips. Then she asked me to lose them, which is a thing you can ask a man my age, and the answer's no."
 
-*Maren is my mother. I'm the baby she left with. I'm thirty-one. I live two towns over and I've never met you.*
+Jo's thumb finds the corner of the folder through her jacket.
 
-Jo's hands go cold.
+"Was there a child," she says.
 
-*The phone was hers. She threw it in the water the night she left. It comes back. It keeps coming back. Eleven years and it keeps washing up where someone will find it.*
+Rennie sets the register down carefully, both hands, the way you'd set down something you were about to drop. "There's a ferry at six," he says. "Be on it or don't."
 
-*Someone who can take it to Ana.*
+At the door she says, "What did she ask you? Before the logs."
 
-Jo looks up. The harbour is emptying of water. Boats leaning, ropes slack, the whole town tilting.
+He's quiet for a while.
 
-*Why not you?* she types. *Why not just walk in.*
-
-*Because she won't open the door for me.*
-
-*She'll open it for you.*
+"Whether a letter without a stamp could still come back," Rennie says.
 
 ACT THREE
 
-The farewell is the same night as the closure, because of course it is, and it's held in the arcade because the arcade is the only building big enough. Jo works the counter. Her mother stands by the door with the harbour master, nodding at things, and every four minutes Jo catches her looking at the phone in Jo's apron pocket.
+The slip at low water is mud and old iron and a chain the size of an arm. The tide is off the bottom step and going, and the channel out past the bar is the colour of a wet road.
 
-At nine, the power to the machines is cut and the town stands around under the dead lights with paper cups and says goodbye to itself.
+Jo sits down on the step and takes out the folder and the phone. The folder's pages are dry now in the way that paper is dry after a storm — brown at the edges, still soft in the middle.
 
-Ana finds her at the claw machine.
+She writes, and her thumbs are not steady.
 
-"Four days was fast," Jo says. "Who asked for it fast?"
+*she's here. she won't come to the phone. ask me whatever you were going to ask her.*
 
-Ana doesn't answer that. Her eyes are on Jo's pocket. "Give it here."
+Three dots. Gone. Three dots.
 
-"I texted her back."
+Then:
 
-Ana's hand stops halfway to the pocket.
+*She wrote to me once.*
 
-"She's thirty-one," Jo says. "She lives two towns over. She's been writing to you for eleven years and you changed the date on the closure board the day she found out how to reach you."
+*One letter. One line on the back.*
 
-Ana's mouth opens. Closes to a line.
+Then a photo. Photograph of a photograph — an envelope on a kitchen table, addressed in a hand Jo has watched lean over a light table her entire life, the loops in the *r* and the flat top on the *a*, and the stamp is a scallop shell, and Jo's chest goes tight in a way that has nothing to do with the cold.
 
-"You moved our leaving up," Jo says. "You moved our whole life up by six weeks rather than open a door."
+She scrolls. There's another one under it.
 
-"You don't understand what happened."
+She doesn't hear the truck. She hears the door, then the boots on the boards, and she has time to put the phone face-down on her knee and no time at all to move the folder.
 
-"I understand what you're doing." Jo takes the phone out. Slaps it into Ana's palm. Holds on to it for one more second. "She's not Maren. She's the baby."
+Ana stands at the top of the ramp with the chart tube under her arm, in her coat, and she's out of breath, which Jo has never once seen.
 
-The look on Ana's face goes through her like a hook.
+"Is it her," Ana says.
 
-Ana's thumb finds the glass. She stands there a long time, and the town talks around them, and then she types something short, and something short, and then she takes a breath and starts to type the long one — the one Jo can see her reading back over, line by line, wiping at her eye with her wrist.
+Jo turns the phone around.
 
-Jo turns to go. Ana's other hand catches her sleeve.
+Ana comes down four steps and stops, and whatever her face does is not surprise. It is the face of someone confirming an arithmetic.
 
-The message lands on Jo's phone a second before Ana's does.
+"The date," Ana says. "On the back. Read it to me."
 
-*Sunday 06:29. Ana. She's in the office. She's read the page.*
+Jo scrolls back up. There's a line on the back of the envelope, small, in that flat-topped hand. *Don't write again until you're thirty-one.*
 
-Jo's thumb is on the glass. She writes, for the first time since the storm: *who is this*
+"Says don't write until she's thirty-one."
 
-The reply is immediate, and it is not for her.
+Ana nods, once, and her eyes go past Jo to the channel.
 
-*Not you.*
+"That's today," she says.
 
-Outside, the wind has backed. Jo walks the ramp down to the slip with her boots filling and hauls the dinghy out, and she doesn't go home. She sits on the bottom step of the ferry slip with the folder open on her knees and does the thing she's been circling for days.
+Behind the photo, in the second image, there's a page. Jo has been looking at it for a full minute without seeing it: the corner of a chart, torn along a fold, a tea ring in the margin, and a date inked out.
 
-*she's not here. she left in her boat. you want me to tell her something, tell me.*
+She opens the folder. The 1998 page isn't in it.
 
-Then, in order, three messages, as if someone has been holding them:
-
-*You're the one who found it.*
-
-*I've been writing to her for eleven years.*
-
-*Sunday 06:31. Jo. Put her on.*
-
-The folder slides off her knees into the weed. She gets one boot on it before the wind takes the loose pages and she's on her hands in the green water grabbing, the last one going under, and she comes up with a fistful of wet paper and her breath tearing.
-
-At the top of the thread — above the gate, above the tide stairs, above every text she's read and not understood — there is a name.
-
-Not hers.
-
-And her mother's handwriting on the wet page in her fist, bleeding.
-
-*SHE KNOWS WHERE I AM. DON'T LET HER COME.*
-
-Jo reads it twice. Then she looks up the ramp, at the harbour office with its one lit window, and starts walking back up.
-
-Halfway, her phone buzzes, and it isn't M. It's Ana, and it's a single line:
-
-*Where are you. Bring it back. There's something on this one you need to see.*
-
-Jo looks at the time on the cracked screen.
-
-Sunday 06:32.
+It hasn't been in it since before the storm.
 
