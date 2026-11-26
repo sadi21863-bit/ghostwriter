@@ -174,7 +174,7 @@ function captureConsole() {
 // ---------------------------------------------------------------------------
 
 describe("GW_LOCAL_GENERATION decisions — the §5.6 split as composition", () => {
-  it("unset or empty env composes NOTHING — null, and no logging noise", async () => {
+  it("unset, empty, or explicit off composes NOTHING — null, and no logging noise", async () => {
     const binder = binderDouble();
     const openAI = openAIFactoryDouble();
     const quiet = captureConsole();
@@ -187,6 +187,12 @@ describe("GW_LOCAL_GENERATION decisions — the §5.6 split as composition", () 
         baseDeps({ env: { "GW_LOCAL_GENERATION": "" }, ...openAI, ...binder }),
       );
       expect(empty).toBeNull();
+      // The shell's Settings "Off" writes provider=off; a restart must treat
+      // that as the same deliberate boot default, not as an unknown mode.
+      const off = await makeLocalGenerationDeps(
+        baseDeps({ env: { "GW_LOCAL_GENERATION": "off" }, ...openAI, ...binder }),
+      );
+      expect(off).toBeNull();
       // Boot default OFF is silent: no decision was made, so nothing logs.
       expect(quiet.errors).toEqual([]);
       expect(quiet.warnings).toEqual([]);

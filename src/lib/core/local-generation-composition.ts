@@ -132,7 +132,9 @@ export async function makeLocalGenerationDeps(
 ): Promise<LocalGenerationDeps | null> {
   const env = deps.env ?? process.env;
   const mode = env["GW_LOCAL_GENERATION"];
-  if (!mode) return null; // boot default OFF — unset or "", no logging noise
+  // Boot default OFF — unset, empty, or the shell's explicit "off" setting.
+  // These are deliberate silences, not unknown modes.
+  if (!mode || mode === "off") return null;
 
   let generate: NonNullable<GenerateChapterPorts["generate"]>;
 
