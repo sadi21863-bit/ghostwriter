@@ -18,6 +18,8 @@ tests stayed green.
 | Continuity dedupe | re-saving replaces the note instead of stacking duplicates |
 | Continuity load-back | chapter switch clears the panel, returning prefills the saved lines |
 | Doctor | unresolved promises render the "decide whether that is intentional" review wording |
+| Bible accept | propose → diff → Accept writes the field through the transaction path |
+| Bible reject | Reject leaves the canonical row unchanged |
 | Settings picker | selecting `opencode` populates the model list and fills the model id |
 | Browser health | no `pageerror` and no unexpected console error |
 
@@ -25,6 +27,10 @@ tests stayed green.
 and the host boots with generation OFF. The runner therefore proves **UI
 wiring**, not model quality, and cannot spend tokens. A missed stub fails
 closed (the host would answer 501) instead of reaching a provider.
+
+The runner generates a random owner token in-process and passes it as
+`GW_LOCAL_TOKEN`, so it never parses credentials out of a log. Normal hosts
+still mint a fresh per-launch token when that variable is unset.
 
 ## Run it
 
@@ -60,9 +66,8 @@ pin was green throughout — this class of bug is only visible by executing the 
 
 - Chromium only (the installed Playwright browser); no Firefox/WebKit pass.
 - Stubbed generation and model lists: wiring coverage, not provider behavior.
-- The Bible propose → diff → accept/reject path and entity delete are not yet
-  driven here; the acceptance transaction has route tests, but not a browser
-  pass.
+- The entity **create** action is direct (the shell has no create proposal), so
+  the reject check covers a field edit on an existing row, not create/delete.
 - The runner seeds a second chapter directly through `node:sqlite` because the
   loopback host exposes no chapter-create route.
 - Timing relies on the shell's own state text (`saved`, `inserted`, `saving…`)

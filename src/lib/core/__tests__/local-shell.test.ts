@@ -548,8 +548,26 @@ describe("GET/POST /settings (PLAN-v5 step 2)", () => {
         ok: true,
         settings: { provider: "anthropic", model: "claude-sonnet-4-5", endpointUrl: "" },
       });
+
+      // The shell's default lane must be savable; a validator that omitted
+      // opencode 400'd the Settings form while the picker looked healthy.
+      const opencode = await fetch(`${host.origin}/settings`, {
+        method: "POST",
+        headers: { ...bearer(host), "content-type": "application/json" },
+        body: JSON.stringify({ provider: "opencode", model: "deepseek-v4.1-flash" }),
+      });
+      expect(opencode.status).toBe(200);
+      expect(await opencode.json()).toEqual({
+        ok: true,
+        settings: {
+          provider: "opencode",
+          model: "deepseek-v4.1-flash",
+          endpointUrl: "",
+        },
+      });
       expect(writes).toEqual([
         { provider: "anthropic", model: "claude-sonnet-4-5", endpointUrl: "" },
+        { provider: "opencode", model: "deepseek-v4.1-flash" },
       ]);
     },
     20000,

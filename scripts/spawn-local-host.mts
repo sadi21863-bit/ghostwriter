@@ -26,8 +26,13 @@
  *    — GET /providers goes LIVE with detected localhost providers + key
  *    PRESENCE booleans + the routing profile's shoebox shape (values never
  *    escape),
- *  - the composed generation bundle (`makeLocalGenerationDeps`, slice 4d) —
+ *  - the composed generation bundle (`makeLocalGenerationDeps`, slice 4d) -
  *    GW_LOCAL_GENERATION-gated; unset keeps POST /ai/generate at 501,
+ *
+ *  - a fixed owner token for scripted demos/tests (`GW_LOCAL_TOKEN`, min 32
+ *    chars) - unset mints a fresh per-launch token as before. The token still
+ *    prints to stderr; this only removes the copy/paste step for a visible
+ *    demo. Never put a provider key in GW_LOCAL_TOKEN.
  *  - the thin shell (PLAN-v5 step 2) at GET / + /app.js + /app.css — three
  *    static views (Write / Bible / Settings) over the same bearer-gated data
  *    routes, with GET/POST /settings persisting the provider picker to
@@ -45,6 +50,7 @@
  * override with GW_LOCAL_HOST_PORT).
  * Env: GW_LOCAL_DB, GW_LOCAL_HOST_PORT, GW_LOCAL_TIER, GW_LOCAL_GENERATION,
  *      GW_LOCAL_MODEL / GW_LOCAL_ENDPOINT_URL / GW_LOCAL_API_KEY (plants),
+ *      GW_LOCAL_TOKEN (fixed owner token for demos; unset = per launch),
  *      GW_LOCAL_TIMEOUT_MS (slow local hardware; raises the adapters' ceiling),
  *      GW_LOCAL_SEGMIND_API_KEY / GW_LOCAL_OPENAI_API_KEY (presence),
  *      ADMIN_SECRET (to turn the admin surface on). `GW_LOCAL_*` keys may also
@@ -176,6 +182,9 @@ async function main() {
 
   const profile = readLocalGenerationProfile(localEnv);
   const tier: SubscriptionTier = profile.tier ?? DEFAULT_TIER;
+  // Optional fixed owner token for scripted demos/tests (see header). Unset =
+  // the host mints a fresh per-launch token.
+  const fixedToken = (process.env["GW_LOCAL_TOKEN"] ?? "").trim();
 
   const handle = createSqliteDb(dbLocation);
 
@@ -259,6 +268,9 @@ async function main() {
     routes,
     localOwnerId,
     adminRegistry: LOCAL_ADMIN_ROUTES,
+    // Scripted demo/test affordance. Unset (the normal case) mints a fresh
+    // per-launch token; a supplied one must still pass the host's 32-char floor.
+    ...(fixedToken ? { token: fixedToken } : {}),
   });
 
   console.error(`[local-host] spawned                  : ${host.origin}`);

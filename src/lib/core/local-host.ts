@@ -2181,12 +2181,12 @@ export function defaultLocalRoutes(deps: DefaultRouteDeps): readonly LocalHostRo
         const provider = b["provider"];
         if (
           provider !== undefined &&
-          !["off", "auto", "generic", "anthropic"].includes(String(provider))
+          !["off", "auto", "opencode", "anthropic", "generic"].includes(String(provider))
         ) {
           return {
             ok: false,
             status: 400,
-            reason: "provider must be one of off|auto|generic|anthropic",
+            reason: "provider must be one of off|auto|opencode|anthropic|generic",
           };
         }
         const patch: Record<string, unknown> = {};

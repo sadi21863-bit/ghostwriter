@@ -22,8 +22,9 @@
  */
 import assert from "node:assert/strict";
 import { execFile, spawn } from "node:child_process";
+import { randomBytes } from "node:crypto";
 import { DatabaseSync } from "node:sqlite";
-import { closeSync, existsSync, mkdirSync, openSync, readFileSync, writeFileSync } from "node:fs";
+import { closeSync, mkdirSync, openSync, writeFileSync } from "node:fs";
 import { createServer } from "node:net";
 import { resolve } from "node:path";
 import { chromium } from "@playwright/test";
@@ -79,10 +80,14 @@ async function main() {
   mkdirSync(RUN_DIR, { recursive: true });
   const port = await freePort();
   const base = `http://127.0.0.1:${port}`;
+  // A fixed token keeps this run deterministic; it is generated here, never
+  // printed, and dies with the host. Normal hosts still mint per launch.
+  const token = randomBytes(24).toString("hex");
   const env = {
     ...process.env,
     GW_LOCAL_DB: DB,
     GW_LOCAL_HOST_PORT: String(port),
+    GW_LOCAL_TOKEN: token,
     // Generation stays OFF: every model call in this run is a browser stub.
     GW_LOCAL_GENERATION: "",
   };
@@ -97,18 +102,6 @@ async function main() {
   closeSync(outFd);
   closeSync(errFd);
 
-  let token = "";
-  for (let waited = 0; waited < 120_000; waited += 500) {
-    await sleep(500);
-    if (existsSync(ERR_LOG)) {
-      const m = readFileSync(ERR_LOG, "utf8").match(/owner token \(per launch\) : (\S+)/);
-      if (m) {
-        token = m[1];
-        break;
-      }
-    }
-  }
-  assert.ok(token, `host boot timeout; see ${ERR_LOG}`);
   const headers = { "content-type": "application/json", authorization: `Bearer ${token}` };
   const api = async (path, method = "GET", body) => {
     const res = await fetch(base + path, {
@@ -371,6 +364,62 @@ async function main() {
       null,
       { timeout: 20_000 },
     );
+  });
+
+  await step("bible: propose → accept applies the edit as a transaction", async () => {
+    await page.click('.tab[data-view="bible"]');
+    await page.waitForSelector("#view-bible:not([hidden])", { timeout: 10_000 });
+    const name = `E2E Character ${Date.now()}`;
+    page.once("dialog", (d) => d.accept(name));
+    await page.click("#new-character");
+    await page.waitForFunction(
+      (want) =>
+        document.querySelector('#entity-fields [data-key="name"]')?.value === want,
+      name,
+      { timeout: 20_000 },
+    );
+    await page.fill('#entity-fields [data-key="role"]', "Lighthouse keeper");
+    await page.fill('#entity-fields [data-key="personality"]', "Patient, exacting.");
+    await page.click('#bible-form button[type="submit"]');
+    await page.waitForSelector("#proposal:not([hidden])", { timeout: 20_000 });
+    const diff = await page.locator("#proposal-rows").innerText();
+    assert.match(diff, /role/i);
+    assert.match(diff, /Lighthouse keeper/);
+    await page.click("#accept-proposal");
+    await page.waitForFunction(
+      (want) =>
+        Array.from(document.querySelectorAll("#character-list li")).some((li) =>
+          li.textContent?.includes(want),
+        ),
+      name,
+      { timeout: 20_000 },
+    );
+    const g = await api(`/projects/${projectId}`);
+    const character = (g.project.characters ?? []).find((c) => c.name === name);
+    assert.ok(character, "accepted character missing");
+    assert.equal(character.role, "Lighthouse keeper");
+  });
+
+  await step("bible: reject keeps the canonical entry untouched", async () => {
+    const name = `E2E Location ${Date.now()}`;
+    page.once("dialog", (d) => d.accept(name));
+    await page.click("#new-location");
+    await page.waitForFunction(
+      (want) =>
+        document.querySelector('#entity-fields [data-key="name"]')?.value === want,
+      name,
+      { timeout: 20_000 },
+    );
+    await page.fill('#entity-fields [data-key="description"]', "Never saved.");
+    await page.click('#bible-form button[type="submit"]');
+    await page.waitForSelector("#proposal:not([hidden])", { timeout: 20_000 });
+    assert.match(await page.locator("#proposal-rows").innerText(), /Never saved/);
+    await page.click("#reject-proposal");
+    await page.waitForSelector("#proposal", { state: "hidden", timeout: 10_000 });
+    const g = await api(`/projects/${projectId}`);
+    const location = (g.project.locations ?? []).find((l) => l.name === name);
+    assert.ok(location, "rejected location should still exist (create is direct)");
+    assert.equal(location.description ?? "", "");
   });
 
   await step("browser: no page errors or unexpected console errors", async () => {
