@@ -5,6 +5,10 @@ All stories in this folder were written through the Ghostwriter local host
 guard → Story Doctor loop, one unit (chapter, scene, or episode) at a time, with
 continuity notes posted per unit.
 
+**14 stories · 101,678 words.** The loop is documented in
+[../story-loop.md](../story-loop.md); the local lane and its verification in
+[../local-first.md](../local-first.md).
+
 | Story | Words | Units | Structure | Genres | Doctor at generation |
 |---|---|---|---|---|---|
 | [The Salt Orchard](./the-salt-orchard.md) | 8,052 | 8 | linear | literary fantasy | 2× unresolved-promise |

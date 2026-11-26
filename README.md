@@ -34,6 +34,24 @@ On top of that continuity engine sit two product surfaces:
 
 ---
 
+## Local-first writing lane
+
+The same business handlers also run entirely on your machine: a loopback-only
+host over SQLite, a thin **Write / Bible / Settings** shell, the Story Doctor,
+and a resumable chapter-by-chapter story loop. Provider lanes are OpenCode Go
+(default), Anthropic, a generic OpenAI-compatible endpoint, or a detected
+localhost server. Nothing is metered and no cloud database is touched.
+
+```powershell
+npm run local:host     # starts 127.0.0.1:4178 and prints the owner token
+npm run story:loop     # resumable book loop through the local host
+```
+
+Setup, environment, security posture, verification, and limits:
+[docs/local-first.md](docs/local-first.md).
+
+---
+
 ## Quick Start
 
 ```powershell
@@ -150,6 +168,8 @@ When absent, rate limiting is **fail-open** — the app works, just unmetered. A
 | `npm run test:watch` | Vitest in watch mode |
 | `npm run db:push` | Push Drizzle schema to Neon |
 | `npm run db:studio` | Drizzle Studio — visual DB browser |
+| `npm run local:host` | Loopback writing host over SQLite (prints URL + owner token) |
+| `npm run story:loop` | Resumable chapter-by-chapter story loop through the local host |
 
 ---
 
@@ -255,6 +275,9 @@ See the [docs/](docs/) folder for deep-dives:
 | File | Covers |
 |---|---|
 | [docs/architecture.md](docs/architecture.md) | Full request lifecycle, data flow, how all layers connect |
+| [docs/local-first.md](docs/local-first.md) | Local-first lane: loopback host, SQLite, providers, story loop, verification |
+| [docs/story-loop.md](docs/story-loop.md) | Story loop env, guards, continuity extraction, notes-only pass |
+| [docs/local-shell-e2e.md](docs/local-shell-e2e.md) | Real-browser E2E for the local shell |
 | [docs/ai-engine.md](docs/ai-engine.md) | MODELS constants, all 26 modes, prompt caching, context assembly |
 | [docs/database.md](docs/database.md) | All 37 tables, relationships, schema decisions |
 | [docs/auth-and-security.md](docs/auth-and-security.md) | Auth flow, rate limiting, ownership checks, encryption |

@@ -222,3 +222,21 @@ Both fixes are uncommitted pending review, per standing project convention (see 
 - **Razorpay live-checkout browser step (§9d)** — only remaining unverified piece of the subscription flow. Requires a real browser completing the Razorpay Checkout overlay (test card/UPI); not automatable from this environment. All server-side code paths (create, webhooks, tier flips, cancellation-via-webhook) are verified.
 - Rate-limit exhaustion (§10) not tested live — config confirmed only.
 - Full sweep of all 23 library modes not performed (sample-per-tier scope); no mode-specific issues are expected given brainstorm/write/emotional/composition all passed across both gate types.
+
+---
+
+## Local-first lane (2026-11-26)
+
+The loopback/SQLite lane has its own executable checks, independent of this
+historical smoke run:
+
+| Command | Result |
+|---|---|
+| `node scripts/verify-local-shell-e2e.mjs` | **12/12** browser checks on a fresh temp DB (twice) |
+| `npx vitest run src/lib/core/__tests__/local-shell.test.ts` | **20/20** |
+| `npx vitest run src/lib/story` | **96/96** |
+| `npx tsc --noEmit` | exit 0 |
+
+The browser runner stubs `/ai/generate` and `/provider-models`, so it verifies
+UI wiring without spending tokens. Coverage and limits:
+[local-first.md](./local-first.md) and [local-shell-e2e.md](./local-shell-e2e.md).

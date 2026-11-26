@@ -1,7 +1,9 @@
 # The story loop
 
 `scripts/story-loop.mts` writes a book one unit (chapter, scene, or episode) at
-a time through the real local host, and checks each unit before moving on:
+a time through the real local host, and checks each unit before moving on.
+The local lane itself (host, shell, providers) is documented in
+[local-first.md](./local-first.md).
 
 1. **Plan** — outline calls in chunks of 10, appended to an outline file.
 2. **Write** — one `/ai/generate` call per unit, with the previous unit's tail

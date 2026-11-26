@@ -1,7 +1,8 @@
 # Local shell browser E2E
 
 `scripts/verify-local-shell-e2e.mjs` boots the real loopback host on a fresh
-temp SQLite db and drives the thin shell in headless Chromium. It exists because
+temp SQLite db and drives the thin shell in headless Chromium. The local lane
+itself is documented in [local-first.md](./local-first.md). It exists because
 a `vm.Script` compile pin proves the served `app.js` parses, but not that any
 listener actually runs — and a real parse bug once shipped while asset-string
 tests stayed green.

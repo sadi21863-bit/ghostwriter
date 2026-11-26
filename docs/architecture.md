@@ -427,6 +427,48 @@ Shipped in two phases: Phase 1 (2026-06-30, commit `656ebc6`) built the Studio r
 
 ---
 
+## Local-first lane (loopback host + SQLite)
+
+The same business handlers (`src/lib/core/handlers/`) run in a second composition:
+no Next.js server, no Neon, no metering.
+
+```
+Thin shell (static HTML/CSS/JS)  →  127.0.0.1:<port>  →  local-host route registry
+                                                          │
+                                                          ├─ SQLite twins (sqlite-* repos)
+                                                          └─ provider adapter → OpenCode Go
+                                                                                / Anthropic
+                                                                                / localhost
+```
+
+- `createLocalHostServer` (`src/lib/core/local-host.ts`) binds loopback only,
+  mints a per-launch owner bearer, serves the three shell assets unauthenticated,
+  and gates every data route with the token. Optional clusters (`generation`,
+  `generatePackage`, `providersRead`, `portability`, `portSettings`) are
+  `501`-by-default until a composition root plants them — the cloud spend paths
+  are never implicit.
+- `scripts/spawn-local-host.mts` is the composition root (`npm run local:host`):
+  it opens the SQLite file, provisions the one local owner row, wires every
+  adapter, and composes the generation bundle from `GW_LOCAL_GENERATION`
+  (`off`/`auto`/`opencode`/`generic`/`anthropic`). Provider keys are read from
+  env only and never returned or logged.
+- `src/lib/core/local-shell.ts` is a deliberately thin writer UI: Write
+  (autosave + Continue with AI), Bible (propose → diff → accept/reject), and
+  Settings (provider + live model picker). The Story Doctor's two checks read
+  the structured continuity notes the shell or the loop writes.
+- `scripts/story-loop.mts` drives a resumable book run over the same host:
+  plan in chunks, write/revise per unit, reject truncated output, compress
+  verbatim repetition, extract `knowledgeShifts`/promises, then run the Doctor.
+  Guards live in `src/lib/story/loop-guards.ts`; config fails closed in
+  `src/lib/story/loop-config.ts`.
+
+Verification is an executed browser run (`scripts/verify-local-shell-e2e.mjs`,
+12 checks, model calls stubbed) plus the unit suites. Full operational detail:
+[local-first.md](./local-first.md), [story-loop.md](./story-loop.md),
+[local-shell-e2e.md](./local-shell-e2e.md).
+
+---
+
 ## Data Flow Diagram (simplified)
 
 ```
